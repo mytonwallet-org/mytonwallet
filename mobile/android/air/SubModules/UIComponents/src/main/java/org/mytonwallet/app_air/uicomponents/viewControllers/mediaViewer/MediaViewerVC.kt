@@ -91,7 +91,8 @@ class MediaViewerVC(
         val image: View,
         val topCornerRadius: Float,
         val aspectRatio: Float?,
-        val visibleRows: IntRange
+        val visibleRows: IntRange,
+        val bottomCornerRadius: Float = 0f
     )
 
     private class Place(val frame: RectF, val visibleTop: Float, val visibleBottom: Float)
@@ -521,7 +522,7 @@ class MediaViewerVC(
         animate(0f, 1f) { fraction ->
             background.alpha = fraction
             chrome.alpha = fraction
-            placeFlyer(place, target, fraction, source.topCornerRadius)
+            placeFlyer(place, target, fraction, source)
         }.onEnd {
             centerPage.alpha = 1f
             flyer.isVisible = false
@@ -557,7 +558,7 @@ class MediaViewerVC(
         animate(1f, 0f) { fraction ->
             background.alpha = startAlpha * fraction
             chrome.alpha = startChromeAlpha * fraction
-            placeFlyer(place, start, fraction, source.topCornerRadius)
+            placeFlyer(place, start, fraction, source)
         }.onEnd { dismiss() }
     }
 
@@ -576,7 +577,7 @@ class MediaViewerVC(
         flyer.isVisible = true
     }
 
-    private fun placeFlyer(place: Place, target: RectF, fraction: Float, cornerRadius: Float) {
+    private fun placeFlyer(place: Place, target: RectF, fraction: Float, origin: Source) {
         val source = place.frame
         val left = lerp(source.left, target.left, fraction)
         val top = lerp(source.top, target.top, fraction)
@@ -593,8 +594,10 @@ class MediaViewerVC(
             (visibleBottom - top).roundToInt().coerceAtMost((bottom - top).roundToInt())
         )
         flyer.clipBounds = flyerClip
-        val radius = cornerRadius * (1f - fraction)
-        flyer.hierarchy.roundingParams = RoundingParams.fromCornersRadii(radius, radius, 0f, 0f)
+        val topRadius = origin.topCornerRadius * (1f - fraction)
+        val bottomRadius = origin.bottomCornerRadius * (1f - fraction)
+        flyer.hierarchy.roundingParams =
+            RoundingParams.fromCornersRadii(topRadius, topRadius, bottomRadius, bottomRadius)
     }
 
     private fun layoutFlyer() {

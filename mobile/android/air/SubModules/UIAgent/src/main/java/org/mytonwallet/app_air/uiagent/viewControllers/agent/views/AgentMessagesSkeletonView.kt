@@ -187,33 +187,27 @@ internal class AgentMessagesSkeletonView(
         invalidate()
     }
 
-    // Tall and short cards in turn from the bottom up, inset as the feed's cards are
+    // Tall and short cards in turn from the bottom up, each the Agent's bubble with its tail and inset as the feed's
+    // cards are
     private fun buildCards(width: Int, height: Int) {
-        val radius = CARD_RADIUS.dp
+        val cardWidth =
+            width - paddingLeft - paddingRight - CARD_LEADING_INSET.dp - CARD_TRAILING_INSET.dp
         var bottom = height.toFloat()
         var index = 0
-        while (bottom > 0f) {
-            val top = bottom - CARD_HEIGHTS[index % CARD_HEIGHTS.size].dp
-            placeholders.add(
-                Placeholder(
-                    RectF(
-                        paddingLeft + CARD_INSET.dp,
-                        top,
-                        width - paddingRight - CARD_INSET.dp,
-                        bottom
-                    ),
-                    false
-                )
-            )
-            shapes.addRoundRect(
-                paddingLeft + CARD_INSET.dp,
-                top,
-                width - paddingRight - CARD_INSET.dp,
-                bottom,
-                radius,
-                radius,
-                Path.Direction.CW
-            )
+        while (bottom > 0f && cardWidth > 0) {
+            val cardHeight = CARD_HEIGHTS[index % CARD_HEIGHTS.size].dp
+            val top = bottom - cardHeight
+            val left = if (LocaleController.isRTL) {
+                (width - paddingRight - CARD_LEADING_INSET.dp - cardWidth).toFloat()
+            } else {
+                (paddingLeft + CARD_LEADING_INSET.dp).toFloat()
+            }
+            val drawable = AgentBubbleDrawable(isOutgoing = false)
+            drawable.setBounds(0, 0, cardWidth, cardHeight)
+            val outline = drawable.buildOutlinePath()
+            outline.offset(left, top)
+            shapes.addPath(outline)
+            placeholders.add(Placeholder(RectF(left, top, left + cardWidth, bottom), false))
             bottom = top - CARD_GAP.dp
             index++
         }
@@ -221,8 +215,9 @@ internal class AgentMessagesSkeletonView(
     }
 
     private companion object {
-        const val CARD_RADIUS = 21f
-        const val CARD_INSET = 16f
+        // As the feed's cards: the tail's side, and the other
+        const val CARD_LEADING_INSET = 10
+        const val CARD_TRAILING_INSET = 16
         const val CARD_GAP = 14
         val CARD_HEIGHTS = intArrayOf(380, 204)
         const val NANOS_PER_MS = 1_000_000f

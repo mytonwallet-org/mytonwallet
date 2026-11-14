@@ -148,6 +148,47 @@ describe('a question asked under the chat list', () => {
     expect(mockMeasureCallbacks).toHaveLength(0);
   });
 
+  it('keeps the flight\'s time to the chat\'s transition, waiting at the field until it starts', () => {
+    const screenAnimation = buildScreenAnimation(SCREEN_TRANSITION_DURATION, true);
+    screenAnimations = [screenAnimation];
+    document.body.appendChild(chatScreen);
+    startOpeningTextFlight(input, QUESTION);
+    const layer = document.body.querySelector<HTMLElement>('.openingQuestionLayer')!;
+
+    runFrame(0);
+    const flight = layer.querySelector<HTMLElement>('.flight')!;
+    const background = flight.querySelector<HTMLElement>('.flightBubble')!;
+    // A busy frame passes before the chat starts coming in, the flight standing at the field meanwhile
+    runFrame(16);
+    runFrame(116);
+    expect(background.style.transform).toBe('translate(20px, 750px)');
+
+    Object.assign(screenAnimation, { pending: false });
+    runFrame(132);
+    runFrame(16 + SCREEN_TRANSITION_DURATION);
+    expect(flight.isConnected).toBe(true);
+
+    // It lands as the chat arrives
+    runFrame(132 + SCREEN_TRANSITION_DURATION);
+    expect(layer.isConnected).toBe(false);
+    expect(bubble.style.opacity).toBe('');
+  });
+
+  it('starts the flight after waiting for a chat\'s transition as long as it may', () => {
+    screenAnimations = [buildScreenAnimation(SCREEN_TRANSITION_DURATION, true)];
+    document.body.appendChild(chatScreen);
+    startOpeningTextFlight(input, QUESTION);
+    const layer = document.body.querySelector<HTMLElement>('.openingQuestionLayer')!;
+
+    runFrame(0);
+    runFrame(16);
+    runFrame(516);
+    runFrame(516 + SENT_QUESTION_FLIGHT_DURATION * 0.75);
+    expect(layer.isConnected).toBe(true);
+    runFrame(516 + SENT_QUESTION_FLIGHT_DURATION);
+    expect(layer.isConnected).toBe(false);
+  });
+
   it('flies over Telegram\'s own time where no screen moves', () => {
     document.body.appendChild(chatScreen);
     startOpeningTextFlight(input, QUESTION);
@@ -170,6 +211,41 @@ describe('a question asked under the chat list', () => {
     runFrame(1001);
     expect(layer.isConnected).toBe(false);
     expect(mockMeasureCallbacks).toHaveLength(0);
+  });
+
+  it('flies into a question the chat shows at the end of the wait, however long its layout then takes to read', () => {
+    startOpeningTextFlight(input, QUESTION);
+    const layer = document.body.querySelector<HTMLElement>('.openingQuestionLayer')!;
+    runFrame(0);
+
+    // The chat shows the question just in time, and its layout takes a slow frame to read
+    document.body.appendChild(chatScreen);
+    const getBubbleRect = bubble.getBoundingClientRect.bind(bubble);
+    bubble.getBoundingClientRect = () => {
+      now += 50;
+      return getBubbleRect();
+    };
+    runFrame(990);
+
+    expect(layer.querySelector('.flight')).not.toBeNull();
+  });
+
+  it('looks for the chat that opens in the document only until it finds it', () => {
+    text.textContent = '';
+    document.body.appendChild(chatScreen);
+    const querySelectorAll = jest.spyOn(document, 'querySelectorAll');
+    startOpeningTextFlight(input, QUESTION);
+    const layer = document.body.querySelector<HTMLElement>('.openingQuestionLayer')!;
+
+    // The chat shows its question a few frames after it comes in
+    runFrame(0);
+    runFrame(16);
+    text.textContent = QUESTION;
+    runFrame(32);
+
+    expect(layer.querySelector('.flight')).not.toBeNull();
+    expect(querySelectorAll.mock.calls.filter(([selector]) => selector === '[data-agent-conversation]'))
+      .toHaveLength(1);
   });
 
   it('turns a tapped suggestion into the first bubble, its pill becoming the bubble', () => {
@@ -221,10 +297,11 @@ describe('a question asked under the chat list', () => {
   }
 });
 
-// The animation of a screen coming in, at its start
-function buildScreenAnimation(duration: number) {
+// The animation of a screen coming in, at its start, or before it while `isPending`
+function buildScreenAnimation(duration: number, isPending = false) {
   return {
-    currentTime: 0,
+    currentTime: isPending ? undefined : 0,
+    pending: isPending,
     effect: { getComputedTiming: () => ({ endTime: duration }) },
   } as unknown as Animation;
 }

@@ -11,11 +11,16 @@ final class AgentRegenerateTests: XCTestCase {
     func testMessageMenuItemsFollowRoleStreamingAndActionAvailability() {
         _ = WalletResourcesBundle.bundle.load()
         var invoked: [String] = []
-        func actions(_ message: AgentMessage, canRegenerate: Bool, canReportProblem: Bool) -> [ContextMenuAction] {
+        func actions(
+            _ message: AgentMessage,
+            canEdit: Bool = true,
+            canRegenerate: Bool,
+            canReportProblem: Bool
+        ) -> [ContextMenuAction] {
             AgentMessageMenuItems.makeItems(
                 for: message,
                 copyText: "Visible copy text",
-                canEdit: true,
+                canEdit: canEdit,
                 canRegenerate: canRegenerate,
                 canReportProblem: canReportProblem,
                 edit: { invoked.append("edit") },
@@ -31,6 +36,8 @@ final class AgentRegenerateTests: XCTestCase {
         let questionActions = actions(question, canRegenerate: true, canReportProblem: true)
         XCTAssertEqual(questionActions.map(\.title), [lang("Copy"), lang("Edit")])
         questionActions[1].handler?()
+        // A question that waits for the answer, or one a wallet switch failed, has nothing stored to edit
+        XCTAssertEqual(actions(question, canEdit: false, canRegenerate: true, canReportProblem: true).map(\.title), [lang("Copy")])
         let answerActions = actions(answer, canRegenerate: true, canReportProblem: true)
         XCTAssertEqual(answerActions.map(\.title), [lang("Copy"), lang("Regenerate"), lang("Report a Problem")])
         answerActions[1].handler?()

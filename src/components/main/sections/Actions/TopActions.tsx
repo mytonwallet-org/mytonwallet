@@ -23,6 +23,7 @@ import {
 import { ACCENT_COLORS } from '../../../../util/accentColor/constants';
 import buildClassName from '../../../../util/buildClassName';
 import { getIsSupportedChain } from '../../../../util/chain';
+import getTestId from '../../../../util/getTestId';
 import { vibrate } from '../../../../util/haptics';
 import { getIsActiveStakingState, getIsNewStakeAllowed, getStakingStateStatus } from '../../../../util/staking';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../../../util/swipeController';
@@ -50,12 +51,14 @@ interface ActionButtonProps {
   tgsUrl: string;
   previewUrl: string;
   accentColor?: string;
+  testId?: string;
   onClick: NoneToVoidFunction;
 }
 
 interface OwnProps {
   /** Not taken from the global state, so a screen fading out keeps its own actions */
   tokenSlug?: string;
+  isActive?: boolean;
   className?: string;
 }
 
@@ -77,6 +80,7 @@ interface StateProps {
 }
 
 function TopActions({
+  tokenSlug,
   isViewMode,
   hasAddresses,
   isSwapDisabled,
@@ -91,6 +95,7 @@ function TopActions({
   theme,
   accentColorIndex,
   className,
+  isActive,
 }: OwnProps & StateProps) {
   const {
     startTransfer,
@@ -161,12 +166,20 @@ function TopActions({
     startTransfer();
   });
 
+  // Home shares its action ids with the portrait header, a token screen has its own
+  function getActionTestId(homeId?: string, tokenId?: string) {
+    const id = tokenSlug ? tokenId : homeId;
+
+    return isActive && id ? getTestId(id) : undefined;
+  }
+
   const depositButton = (
     <ActionButton
       label={lang('Fund')}
       tgsUrl={stickerPaths.iconAdd}
       previewUrl={stickerPaths.preview.iconAdd}
       accentColor={accentColor}
+      testId={getActionTestId('header_action_fund', 'token_receive')}
       onClick={handleDepositClick}
     />
   );
@@ -190,6 +203,7 @@ function TopActions({
           tgsUrl={stickerPaths.iconBuy}
           previewUrl={stickerPaths.preview.iconBuy}
           accentColor={accentColor}
+          testId={getActionTestId(undefined, 'token_buy')}
           onClick={handleBuyClick}
         />
       )}
@@ -199,6 +213,7 @@ function TopActions({
         tgsUrl={stickerPaths.iconSend}
         previewUrl={stickerPaths.preview.iconSend}
         accentColor={accentColor}
+        testId={getActionTestId('header_action_send')}
         onClick={handleSendClick}
       />
       {!isSwapDisabled && (
@@ -207,6 +222,7 @@ function TopActions({
           tgsUrl={stickerPaths.iconSwap}
           previewUrl={stickerPaths.preview.iconSwap}
           accentColor={accentColor}
+          testId={getActionTestId('header_action_swap')}
           onClick={handleTradeClick}
         />
       )}
@@ -217,6 +233,7 @@ function TopActions({
           tgsUrl={stickerPaths[stakingStatus !== 'inactive' ? 'iconEarnPurple' : 'iconEarn']}
           previewUrl={stickerPaths.preview[stakingStatus !== 'inactive' ? 'iconEarnPurple' : 'iconEarn']}
           accentColor={stakingStatus === 'inactive' ? accentColor : undefined}
+          testId={getActionTestId('header_action_earn')}
           onClick={handleEarnClick}
         />
       )}
@@ -285,7 +302,7 @@ export default memo(
 );
 
 function ActionButtonInternal({
-  label, className, tgsUrl, previewUrl, accentColor, onClick,
+  label, className, tgsUrl, previewUrl, accentColor, testId, onClick,
 }: ActionButtonProps) {
   const [isAnimating, play, stop] = useFlag();
 
@@ -300,6 +317,7 @@ function ActionButtonInternal({
     <Button
       isSimple
       className={buildClassName(styles.button, className)}
+      testId={testId}
       onClick={handleClick}
       onMouseEnter={!IS_TOUCH_ENV ? play : undefined}
     >

@@ -22,6 +22,7 @@ import {
   selectMycoin,
   selectSwapTokens,
 } from '../../../../global/selectors';
+import { getIsAccountContentTransitionActive } from '../../../../util/accountContentTransition';
 import buildClassName from '../../../../util/buildClassName';
 import buildStyle from '../../../../util/buildStyle';
 import { toDecimal } from '../../../../util/decimals';
@@ -203,7 +204,9 @@ function Assets({
     allTokensWithStaked ? buildCollectionByKey(allTokensWithStaked, 'slug') : undefined
   ), [allTokensWithStaked]);
 
-  const shouldUseAnimations = Boolean(isActive && allTokensWithStaked);
+  // The outgoing account already fades over this list. A second row-by-row fade
+  // would expose an empty list underneath, producing a dip during the crossfade.
+  const shouldUseAnimations = Boolean(isActive && allTokensWithStaked && !getIsAccountContentTransitionActive());
 
   // Size the container to the rendered window (viewportIndex already includes the vesting row),
   // not the full token list. Avoids a ~8000rem spacer for wallets with thousands of tokens that

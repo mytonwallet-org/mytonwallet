@@ -1,6 +1,18 @@
 export const COLOR_COUNT = 2;
 export const QUALITY = 1;
 
+export const ACCENT_CSS_VARIABLES = [
+  '--color-accent',
+  '--color-accent-10o',
+  '--agent-link-decoration',
+  '--color-accent-button-background',
+  '--color-accent-button-background-hover',
+  '--color-accent-button-text',
+  '--color-accent-button-text-hover',
+] as const;
+
+export type AccentCssVariable = (typeof ACCENT_CSS_VARIABLES)[number];
+
 export const ACCENT_COLORS = {
   light: [
     '#31AFC7', '#35C759', '#FF9500', '#FF2C55',

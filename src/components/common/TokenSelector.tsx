@@ -25,11 +25,13 @@ import {
   selectPopularTokens,
   selectSwapTokens,
 } from '../../global/selectors';
+import { getAssetAmountPrecision } from '../../util/assetPrecision';
 import buildClassName from '../../util/buildClassName';
 import { calculateTokenPrice } from '../../util/calculatePrice';
 import { getChainConfig, getStablecoinSlugs } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
+import getTestId from '../../util/getTestId';
 import { getChainFromAddress } from '../../util/isValidAddress';
 import { disableSwipeToClose, enableSwipeToClose } from '../../util/modalSwipeManager';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
@@ -374,6 +376,7 @@ function TokenSelector({
           <input
             ref={searchInputRef}
             name="token-search-modal"
+            data-testid={isActive ? getTestId('token_picker_search') : undefined}
             className={styles.tokenSelectInput}
             onChange={(e) => setSearchValue(e.target.value)}
             placeholder={lang(isTradeMode ? 'Search' : 'Name or Address...')}
@@ -423,6 +426,7 @@ function TokenSelector({
         descriptionText={descriptionText}
         token={currentToken}
         valueText={valueText}
+        testId={isActive ? getTestId('token_selector_row') : undefined}
         onSelect={handleTokenClick}
       />
     );
@@ -653,6 +657,7 @@ function Token({
   withChainIcon,
   descriptionText,
   valueText,
+  testId,
   onSelect,
 }: {
   token: TokenType;
@@ -662,6 +667,7 @@ function Token({
   withChainIcon: boolean;
   descriptionText?: string;
   valueText: TeactNode;
+  testId?: string;
   onSelect: (token: TokenType) => void;
 }) {
   const lang = useLang();
@@ -676,6 +682,7 @@ function Token({
         isTradeMode && styles.tokenContainerTrade,
         !isAvailable && styles.tokenContainerDisabled,
       )}
+      data-testid={testId}
       onClick={handleClick}
     >
       <div className={styles.tokenLogoContainer}>
@@ -719,7 +726,11 @@ function Token({
             !isAvailable && styles.tokenTextDisabled,
           )}
         >
-          {formatCurrency(toDecimal(token.amount, token?.decimals), token.symbol)}
+          {formatCurrency(
+            toDecimal(token.amount, token?.decimals),
+            token.symbol,
+            getAssetAmountPrecision(token),
+          )}
         </SensitiveData>
         <SensitiveData
           isActive={isSensitiveDataHidden}

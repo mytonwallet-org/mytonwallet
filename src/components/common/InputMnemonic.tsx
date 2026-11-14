@@ -19,6 +19,7 @@ import styles from './InputMnemonic.module.scss';
 
 type OwnProps = {
   id?: string;
+  testId?: string;
   nextId?: string;
   labelText?: string;
   className?: string;
@@ -33,7 +34,7 @@ const SUGGESTION_WORDS_COUNT = 5;
 let wordlistPromise: Promise<string[] | undefined> | undefined;
 
 function InputMnemonic({
-  id, nextId, labelText, className, value = '', inputArg, onInput, onEnter,
+  id, testId, nextId, labelText, className, value = '', inputArg, onInput, onEnter,
 }: OwnProps) {
   const lang = useLang();
   const wrapperRef = useRef<HTMLDivElement>();
@@ -209,6 +210,7 @@ function InputMnemonic({
       <label className={styles.label} htmlFor={id}>{labelText}</label>
       <input
         id={id}
+        data-testid={testId}
         className={buildClassName(
           styles.input,
           value !== '' && styles.touched,

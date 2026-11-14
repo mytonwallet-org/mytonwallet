@@ -21,6 +21,7 @@ export type TabWithProperties<T extends number = number> = {
   icon?: string;
   title: string;
   className?: string;
+  testId?: string;
   menuItems?: DropdownItem[];
   menuClassName?: string;
   menuPositionX?: 'left' | 'right';
@@ -83,6 +84,7 @@ function TabList({
           title={tab.title}
           isActive={i === activeTab}
           className={tab?.className}
+          testId={tab.testId}
           menuItems={tab?.menuItems}
           menuClassName={tab?.menuClassName}
           menuPositionX={tab?.menuPositionX}

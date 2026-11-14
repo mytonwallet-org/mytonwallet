@@ -1,6 +1,7 @@
 import type { AgentClientTrace } from './developmentTelemetry';
 import type {
   AgentAvailabilityResponseV2,
+  AgentHintPoolResponseV2,
   AgentProblemReportCapabilityV1,
   AgentUserQuotaResponseV2,
 } from './protocol/types';
@@ -11,11 +12,13 @@ import { logDebugError } from '../../util/logs';
 import {
   decodeAgentV2Availability,
   decodeAgentV2FeatureCapabilities,
+  decodeAgentV2HintPool,
   decodeAgentV2Hints,
   decodeAgentV2UserQuota,
 } from './protocol/transportContracts';
 
 const FEATURE_CAPABILITIES_CACHE_MS = 5 * 60_000;
+const HINT_POOL_CACHE_MS = 10 * 60_000;
 const UTC_DAY_MS = 24 * 60 * 60_000;
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
@@ -31,6 +34,8 @@ export class AgentV2RuntimeProbes {
   private readonly lifecycleController = new AbortController();
   private featureCapabilitiesExpiresAt = 0;
   private featureCapabilitiesPromise?: Promise<void>;
+  private hintPool?: { response: AgentHintPoolResponseV2; expiresAt: number };
+  private hintPoolPromise?: Promise<AgentHintPoolResponseV2>;
   private problemReportStatus: AgentProblemReportCapabilityV1['status'] = 'disabled';
   private hasAvailability = false;
   private availabilityPromise?: Promise<void>;
@@ -46,6 +51,8 @@ export class AgentV2RuntimeProbes {
     this.lifecycleController.abort();
     this.featureCapabilitiesExpiresAt = 0;
     this.featureCapabilitiesPromise = undefined;
+    this.hintPool = undefined;
+    this.hintPoolPromise = undefined;
     this.problemReportStatus = 'disabled';
     this.clearAvailability();
     this.clearUserQuota();
@@ -77,6 +84,28 @@ export class AgentV2RuntimeProbes {
         )),
       };
     }
+  }
+
+  // A loaded pool is kept for `HINT_POOL_CACHE_MS`; a failed load is not kept
+  async getHintPool(): Promise<AgentHintPoolResponseV2> {
+    this.assertActive();
+    if (this.hintPool && this.now() < this.hintPool.expiresAt) return this.hintPool.response;
+    if (!this.hintPoolPromise) {
+      const pending = this.getJson(`${this.dependencies.baseUrl}/hints/pool`, decodeAgentV2HintPool)
+        .then((response) => {
+          if (!this.lifecycleController.signal.aborted) {
+            this.hintPool = { response, expiresAt: this.now() + HINT_POOL_CACHE_MS };
+          }
+          return response;
+        })
+        .finally(() => {
+          if (this.hintPoolPromise === pending) this.hintPoolPromise = undefined;
+        });
+      this.hintPoolPromise = pending;
+    }
+    const response = await this.hintPoolPromise;
+    this.assertActive();
+    return response;
   }
 
   private async probeFeatureCapabilities(trace?: AgentClientTrace) {

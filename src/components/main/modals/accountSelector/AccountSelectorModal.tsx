@@ -8,6 +8,7 @@ import type { Account, AccountSettings, GlobalState } from '../../../../global/t
 import { AccountSelectorState } from '../../../../global/types';
 import { SettingsState } from '../../../../global/types';
 
+import { SHOULD_RENDER_TEST_IDS } from '../../../../config';
 import {
   selectCurrentAccountId,
   selectEnclaveToken,
@@ -20,6 +21,7 @@ import {
 import buildClassName from '../../../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../../../util/captureEvents';
 import { getChainsSupportingLedger } from '../../../../util/chain';
+import getTestId from '../../../../util/getTestId';
 import { vibrate } from '../../../../util/haptics';
 import { disableSwipeToClose, enableSwipeToClose } from '../../../../util/modalSwipeManager';
 import { IS_LEDGER_SUPPORTED, IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
@@ -82,6 +84,12 @@ interface AccountSelectorOpenProps {
 type StateProps = AccountSelectorOpenProps
   | ({ isOpen: false } & Partial<Omit<AccountSelectorOpenProps, 'isOpen'>>);
 
+const TAB_TEST_IDS: Partial<Record<AccountTab, string>> = {
+  [AccountTab.All]: 'wallets_tab_all',
+  [AccountTab.My]: 'wallets_tab_my',
+  [AccountTab.View]: 'wallets_tab_view',
+};
+
 function AccountSelectorModal({
   isOpen,
   currentAccountId = '',
@@ -143,6 +151,15 @@ function AccountSelectorModal({
   ), [accountWalletVersions]);
 
   const tabs = useMemo(() => buildTabs(isTestnet ?? false, lang), [isTestnet, lang]);
+  // A slide on its way out keeps its tabs, so only the active slide's tabs carry test ids
+  const tabsWithTestIds = useMemo(() => {
+    if (!SHOULD_RENDER_TEST_IDS) return tabs;
+
+    return tabs.map((tab) => {
+      const testId = TAB_TEST_IDS[tab.id];
+      return testId ? { ...tab, testId: getTestId(testId) } : tab;
+    });
+  }, [tabs]);
   const currentTabIndex = useMemo(() => getCurrentTabIndex(tabs, activeTab), [activeTab, tabs]);
   const selectedTab = tabs[currentTabIndex]?.id ?? DEFAULT_TAB;
   const filteredAccounts = useFilteredAccounts(orderedAccounts, selectedTab);
@@ -440,7 +457,7 @@ function AccountSelectorModal({
     setRenderingKey(AccountSelectorState.AddAccountPassword);
   });
 
-  function renderHeader(renderingState: AccountSelectorState) {
+  function renderHeader(renderingState: AccountSelectorState, isActive: boolean) {
     const isInactiveTabs = renderingKey === AccountSelectorState.Reorder;
 
     return (
@@ -450,13 +467,14 @@ function AccountSelectorModal({
           totalBalance={totalBalance}
           renderingState={renderingState}
           isSensitiveDataHidden={isSensitiveDataHidden}
+          isActive={isActive}
           onViewModeChange={handleViewModeChange}
           onReorderClick={handleReorderClick}
         />
 
         <div className={styles.tabsContainer}>
           <TabList
-            tabs={tabs}
+            tabs={isActive ? tabsWithTestIds : tabs}
             activeTab={currentTabIndex}
             className={buildClassName(styles.tabs, isInactiveTabs && styles.inactive)}
             onSwitchTab={handleSwitchTab}
@@ -466,12 +484,13 @@ function AccountSelectorModal({
     );
   }
 
-  function renderFooter(renderingState: AccountSelectorState, selectedTab: AccountTab) {
+  function renderFooter(renderingState: AccountSelectorState, selectedTab: AccountTab, isActive: boolean) {
     return (
       <AccountSelectorFooter
         tab={selectedTab}
         renderingState={renderingState}
         withBorder={!noButtonsSeparator}
+        isActive={isActive}
         onAddWallet={handleAddWalletClick}
         onReorderDone={handleReorderDoneClick}
       />
@@ -501,25 +520,25 @@ function AccountSelectorModal({
       case AccountSelectorState.Cards:
         return (
           <>
-            {renderHeader(AccountSelectorState.Cards)}
+            {renderHeader(AccountSelectorState.Cards, isActive)}
             <AccountsGridView {...commonAccountsViewProps} />
-            {renderFooter(AccountSelectorState.Cards, selectedTab)}
+            {renderFooter(AccountSelectorState.Cards, selectedTab, isActive)}
           </>
         );
 
       case AccountSelectorState.List:
         return (
           <>
-            {renderHeader(AccountSelectorState.List)}
+            {renderHeader(AccountSelectorState.List, isActive)}
             <AccountsListView {...commonAccountsViewProps} />
-            {renderFooter(AccountSelectorState.List, selectedTab)}
+            {renderFooter(AccountSelectorState.List, selectedTab, isActive)}
           </>
         );
 
       case AccountSelectorState.Reorder:
         return (
           <>
-            {renderHeader(AccountSelectorState.Reorder)}
+            {renderHeader(AccountSelectorState.Reorder, isActive)}
             <AccountsListView
               {...commonAccountsViewProps}
               isReorder
@@ -527,7 +546,7 @@ function AccountSelectorModal({
               onDrag={handleDrag}
               onDragEnd={handleDragEnd}
             />
-            {renderFooter(AccountSelectorState.Reorder, selectedTab)}
+            {renderFooter(AccountSelectorState.Reorder, selectedTab, isActive)}
           </>
         );
 

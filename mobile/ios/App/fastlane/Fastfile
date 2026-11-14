@@ -153,12 +153,18 @@ def read_distribution_handoff
   return version, build_number, handoff['changelog']
 end
 
-# The distributing lane never opens the project and never signs anything, so the signing setup
-# below is not merely unnecessary for it - it cannot run at all on the Linux runner it lives on.
-# after_all and error need no such test: restore_files restores what it read, and that lane read
+$ipa_handoff_path = env_value('IOS_IPA_HANDOFF', '../testflight-upload.ipa')
+
+def upload_from_linux?
+  ENV['IOS_UPLOAD_ON_LINUX'] == 'true'
+end
+
+# The Linux lanes never open the project and never sign anything, so the signing setup
+# below is not merely unnecessary for them - it cannot run at all on the Linux runner they live on.
+# after_all and error need no such test: restore_files restores what it read, and those lanes read
 # nothing.
 def builds_an_archive?(lane)
-  lane.to_sym != :distribute
+  !%i[distribute upload_ipa].include?(lane.to_sym)
 end
 
 def archive_xcargs
@@ -390,11 +396,16 @@ platform :ios do
     # idling this split exists to remove. So the notes are not passed here at all, and nothing
     # before this point may leave FL_CHANGELOG in the lane context either - the action picks that
     # up on its own and it would restore the wait without appearing in these arguments.
-    upload_to_testflight(
-      app_identifier: $app_identifier,
-      skip_waiting_for_build_processing: true,
-      distribute_external: false,
-    )
+    if upload_from_linux?
+      FileUtils.cp(lane_context[SharedValues::IPA_OUTPUT_PATH], $ipa_handoff_path)
+      UI.success("Left #{$ipa_handoff_path} for the distribution job to upload")
+    else
+      upload_to_testflight(
+        app_identifier: $app_identifier,
+        skip_waiting_for_build_processing: true,
+        distribute_external: false,
+      )
+    end
 
     changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
 
@@ -403,6 +414,23 @@ platform :ios do
     # TestFlight tester sees. Applies to every build; RC builds lead with the RC label.
     base_notes = lane_context[SharedValues::FL_CHANGELOG] || ""
     write_distribution_handoff(version, build_number, "#{meta_line}\n\n#{base_notes}")
+  end
+
+  desc "Upload the ipa the beta lane left behind, from the Linux distribution job"
+  lane :upload_ipa do
+    require_relative 'build_upload'
+
+    version, build_number, _changelog = read_distribution_handoff
+    app = Spaceship::ConnectAPI::App.find($app_identifier)
+    UI.user_error!("Could not find App Store Connect app: #{$app_identifier}") if app.nil?
+
+    # The token from before_all lives twenty minutes, and uploading plus waiting for Apple can outlast it.
+    api_token = Spaceship::ConnectAPI.token
+    result = AppStoreBuildUpload.upload(
+      ipa_path: $ipa_handoff_path, app_id: app.id, version: version, build_number: build_number,
+      token: -> { api_token.refresh!; api_token.text },
+    )
+    UI.success("Upload of #{version} (#{build_number}) ended in #{result}")
   end
 
   desc "Set the notes on the build the beta lane uploaded and submit it to the external beta"

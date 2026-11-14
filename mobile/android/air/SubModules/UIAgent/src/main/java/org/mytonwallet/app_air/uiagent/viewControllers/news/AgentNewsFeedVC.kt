@@ -1,7 +1,11 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.news
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
+import android.os.Build
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +18,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
+import androidx.core.view.setMargins
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -22,13 +27,14 @@ import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import java.util.Date
 import java.util.TimeZone
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uiagent.R
@@ -46,30 +52,34 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHeaderHandoffS
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNavigation
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsFlightSource
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsPostContent
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentRecyclerAnimationScrollHelper
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSession
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVM
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.DIGEST_HEADLINE_SEPARATOR
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentChatBackgroundColor
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentHeaderBottom
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AGENT_DAY_CAPSULE_MARGIN
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentDateHeaderCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentMessageTextCache
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsPostCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentUnreadDividerCell
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.formatAgentChatTime
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.isAgentPicturePinchStart
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_HISTORY_LOAD_THRESHOLD
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBottomFadeView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBulletin
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentChatTitleView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentLoadErrorView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentMessagesSkeletonView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentPreDrawBinding
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentScrollToBottomButton
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSkeletonReveal
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadDateFormatting
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -84,6 +94,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClearSegmentedControl
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -91,7 +104,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsDigestHeadline
@@ -99,11 +114,12 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsFeedView
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationSettings
 
 /**
- * The News feed, as a chat with the news: cards and daily digests in the order they came, a day
- * line before each day and "New" before the first unseen card, opening at that line or at the
+ * The News feed, as a chat with all news or daily digests in the order they came, a day line
+ * before each day and "New" before the first unseen news card in the all view, opening there or at the
  * latest card, or at [requestedDigestId] once it comes. The bell in the header opens the digest
  * and notifications sheet. [findThread] finds a discussion's chat among those the chat list has
  * loaded.
@@ -113,9 +129,11 @@ class AgentNewsFeedVC(
     context: Context,
     private val initialEventId: Int? = null,
     private val findThread: (String) -> AgentV2ThreadSummary? = { null },
-    // The first page the list's News row has loaded, shown at once
+    // The first page the list's News row has loaded, shown at once: its news, and its digests while
+    // they follow the current digest hour and time zone
     private val initialItems: List<AgentV2NewsFeedItem> = emptyList(),
-    requestedDigestId: String? = null
+    requestedDigestId: String? = null,
+    private val initialDigests: List<AgentV2NewsFeedDigest> = emptyList()
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WalletCore.EventObserver,
@@ -150,9 +168,25 @@ class AgentNewsFeedVC(
 
     private data class Anchor(val id: String, val offset: Int)
 
+    /** Where a view's rows stood as the feed switched away from it: at their end, or at a card */
+    private sealed interface ViewPosition {
+        data object End : ViewPosition
+        data class At(val anchor: Anchor) : ViewPosition
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val model = AgentNewsFeedModel(scope, requestedDigestId = requestedDigestId)
+    private val model = AgentNewsFeedModel(
+        scope,
+        requestedDigestId = requestedDigestId,
+        initialView = AgentNewsNotificationSettings.shared.newsView
+    )
     val requestedDigestId: String? get() = model.requestedDigestId
+    val newsView: AgentNewsFeedView get() = model.view
+
+    fun setView(view: AgentNewsFeedView) {
+        scope.launch { AgentNewsNotificationSettings.shared.setNewsView(view) }
+    }
+
     private var rows = emptyList<Row>()
         set(value) {
             field = value
@@ -162,10 +196,19 @@ class AgentNewsFeedVC(
     // The position of the day line each row comes under, or -1
     private var dayRowPositions = IntArray(0)
     private var hasInitialScroll = false
+
+    // Where the other view's rows stood, kept while the feed is open, so a switch back returns there
+    private val viewPositions = mutableMapOf<AgentNewsFeedView, ViewPosition>()
+
+    // The view whose rows the list shows
+    private var shownView: AgentNewsFeedView? = null
+
+    // The view the feed last started its rows for, which a reset of that same view starts again
+    private var resetView = model.view
     private var isVisible = false
     private val chatGate = AgentNewsChatGate()
     private var discussionSession: AgentVM? = null
-    private var flightSourceCell: WeakReference<AgentNewsPostCell>? = null
+    private var flightSourceCell: WeakReference<AgentNewsFlightSource>? = null
     private var wasLoadingMore = false
     private var isUserScrolling = false
     private var animateFromIndex = -1
@@ -188,6 +231,7 @@ class AgentNewsFeedVC(
                 when (newState) {
                     RecyclerView.SCROLL_STATE_DRAGGING -> {
                         isUserScrolling = true
+                        isPinnedDigestFollowingScroll = true
                         // The user's own scroll is never taken over by the scroll to the requested digest
                         model.stopSeekingRequestedDigest()
                         loadMoreNearTop()
@@ -203,20 +247,22 @@ class AgentNewsFeedVC(
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 updateBlurViews(recyclerView)
                 if (isUserScrolling && dy < 0) loadMoreNearTop()
+                if (isPinnedDigestFollowingScroll) updatePinnedDigestForScrollPosition()
             }
         })
     }
-    private val latestScroll = AgentRecyclerAnimationScrollHelper(recyclerView)
+
+    // Telegram's jump to a row away from the screen, for the latest news and for a pinned digest
+    private val jumpScroll = AgentRecyclerAnimationScrollHelper(recyclerView)
 
     private var hasStoppedScroll = false
     private val scrollStopper = object : RecyclerView.SimpleOnItemTouchListener() {
         override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-            if (e.actionMasked == MotionEvent.ACTION_DOWN) hasStoppedScroll = latestScroll.stop()
+            if (e.actionMasked == MotionEvent.ACTION_DOWN) hasStoppedScroll = jumpScroll.stop()
             return false
         }
     }
     private var isPopupVisible = false
-    private val chatTitleView by lazy { AgentChatTitleView(context) }
     private val loadErrorView = AgentLoadErrorView(context).apply {
         onRetry = { model.refresh() }
     }
@@ -236,6 +282,57 @@ class AgentNewsFeedVC(
         setOnClickListener { scrollToLatest() }
     }
     private var scrollButtonGlass: WGlassView? = null
+
+    // The digests as Telegram's pinned messages, under the header: the feed's digests, the oldest first, the one the
+    // bar shows, and whether the bar follows the scroll, which it stops doing while a tap on it takes the feed there
+    private val pinnedDigestBar = AgentNewsPinnedDigestBar(context).apply {
+        id = View.generateViewId()
+        isGone = true
+        setOnClickListener { goToPinnedDigest() }
+    }
+    private var pinnedDigestGlass: WGlassView? = null
+
+    // "All News | Digests" in the header, in the title's place: the root header's tabs on their glass capsule, sized by
+    // their titles, the thumb at the shown view's index or on its way there. The bar centers [viewSwitchHost] as its
+    // title, which holds the switch with room for its glass halo around it.
+    private val viewSwitch = WClearSegmentedControl(
+        context,
+        horizontalPaddingDp = VIEW_SWITCH_INSET,
+        thumbHeightDp = VIEW_SWITCH_THUMB_HEIGHT,
+        showActiveTabArrow = false,
+        itemHorizontalPaddingDp = VIEW_SWITCH_TAB_PADDING,
+        minItemHorizontalPaddingDp = VIEW_SWITCH_TAB_PADDING,
+        itemSpacingDp = 0
+    ).apply {
+        setBackgroundColor(Color.TRANSPARENT, VIEW_SWITCH_HEIGHT.dp / 2f, clipToBounds = true)
+    }
+    private val viewSwitchHost = FrameLayout(context).apply {
+        addView(
+            viewSwitch,
+            FrameLayout.LayoutParams(WRAP_CONTENT, VIEW_SWITCH_HEIGHT.dp, Gravity.CENTER).apply {
+                setMargins(WGlassView.GLASS_PADDING_DP.dp)
+            }
+        )
+    }
+    private var viewSwitchGlass: WGlassView? = null
+    private var viewSwitchIndex = NEWS_VIEWS.indexOf(newsView)
+    private var viewSwitchPosition = viewSwitchIndex.toFloat()
+    private var viewSwitchAnimator: ValueAnimator? = null
+    private val viewSwitchDelegate = object : WClearSegmentedControl.Delegate {
+        override fun onIndexChanged(to: Int, animated: Boolean) {
+            selectViewSwitchIndex(to, isAnimated = animated)
+            setView(NEWS_VIEWS[to])
+        }
+
+        override fun onItemMoved(from: Int, to: Int) = Unit
+
+        override fun enterReorderingMode() = Unit
+    }
+    private var pinnedDigests = emptyList<AgentV2NewsFeedDigest>()
+    private var pinnedDigestRows = IntArray(0)
+    private var pinnedDigestIndex: Int? = null
+    private var isPinnedDigestFollowingScroll = true
+    private var dummyDigestCell: AgentNewsDigestCell? = null
     private val digestSettingsButton = WImageButton(context).apply {
         setPaddingDp(8)
         setImageDrawable(context.getDrawableCompat(R.drawable.ic_agent_bell))
@@ -272,13 +369,33 @@ class AgentNewsFeedVC(
     override fun setupViews() {
         super.setupViews()
         setupNavBar(true)
-        chatTitleView.setTitle(LocaleController.getString("News"), null)
         setNavTitle(LocaleController.getString("News"), animated = false)
         navigationBar?.addTrailingView(
             digestSettingsButton,
             ConstraintLayout.LayoutParams(SETTINGS_BUTTON_SIZE.dp, SETTINGS_BUTTON_SIZE.dp)
         )
-        navigationBar?.setCenteredTitleView(chatTitleView, false)
+        navigationBar?.setCenteredTitleView(viewSwitchHost, false)
+        viewSwitch.setItems(
+            NEWS_VIEWS.map { feedView ->
+                WClearSegmentedControl.Item(
+                    LocaleController.getString(
+                        if (feedView == AgentNewsFeedView.Digests) {
+                            "\$agent_news_view_digests"
+                        } else {
+                            "\$agent_news_view_all"
+                        }
+                    ),
+                    onRemove = null,
+                    onClick = null
+                )
+            },
+            viewSwitchIndex,
+            viewSwitchDelegate
+        )
+        // The thumb takes its frame from the segments laid out, which it has none of before the first layout
+        viewSwitch.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            moveViewSwitchThumb(viewSwitchPosition)
+        }
         view.addView(contentContainer, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         contentContainer.apply {
             clipChildren = false
@@ -290,6 +407,13 @@ class AgentNewsFeedVC(
             addView(bottomGradientView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
             addView(loadErrorView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
             addView(
+                pinnedDigestBar,
+                ConstraintLayout.LayoutParams(
+                    MATCH_CONSTRAINT,
+                    AgentNewsPinnedDigestBar.HEIGHT.dp
+                )
+            )
+            addView(
                 scrollButton,
                 ConstraintLayout.LayoutParams(
                     AgentScrollToBottomButton.SIZE.dp,
@@ -297,6 +421,8 @@ class AgentNewsFeedVC(
                 )
             )
             setConstraints {
+                toStart(pinnedDigestBar, AgentNewsPinnedDigestBar.SIDE_INSET.toFloat())
+                toEnd(pinnedDigestBar, AgentNewsPinnedDigestBar.SIDE_INSET.toFloat())
                 allEdges(recyclerView)
                 toStart(floatingDay)
                 toEnd(floatingDay)
@@ -318,37 +444,67 @@ class AgentNewsFeedVC(
             GlassProviders.composer(WColor.SearchFieldBackground),
             recyclerView
         )
+        pinnedDigestGlass = WGlassView.attachTo(
+            pinnedDigestBar,
+            AgentNewsPinnedDigestBar.CORNER_RADIUS.dp.toFloat(),
+            GlassProviders.composer(WColor.SearchFieldBackground),
+            recyclerView
+        )
+        viewSwitchGlass = WGlassView.attachTo(
+            viewSwitch,
+            VIEW_SWITCH_HEIGHT.dp / 2f,
+            GlassProviders.pill(WColor.Background),
+            recyclerView
+        )
         scrollButtonBinding = AgentPreDrawBinding(recyclerView, scrollButtonUpdater)
         floatingDay.setupBlurWith(recyclerView)
         floatingDayBinding = AgentPreDrawBinding(recyclerView, floatingDayUpdater)
         recyclerView.addOnItemTouchListener(scrollStopper)
         model.onChange = ::updateFeed
         model.onReset = {
+            val leftView = shownView?.takeIf { it != model.view }
+            if (resetView == model.view) {
+                // The view's own rows start again
+                viewPositions.remove(model.view)
+            } else if (leftView != null && hasInitialScroll && rows.isNotEmpty()) {
+                viewPositions[leftView] = if (isNearBottom()) {
+                    ViewPosition.End
+                } else {
+                    visibleAnchor()?.let { ViewPosition.At(it) } ?: ViewPosition.End
+                }
+            }
+            resetView = model.view
             hasInitialScroll = false
             wasLoadingMore = false
+            isPinnedDigestFollowingScroll = true
         }
         WalletCore.registerObserver(this)
-        observeDigestHour()
-        model.seed(initialItems)
+        observeNewsSettings()
+        model.seed(initialItems, initialDigests)
         updateFeed()
         updateTheme()
         insetsUpdated()
     }
 
     override val headerHandoffContent: List<View>
-        get() = listOf(chatTitleView, digestSettingsButton)
+        get() = listOf(viewSwitchHost, digestSettingsButton)
 
     /**
-     * A new digest hour, set in the bell's sheet or anywhere else, brings that hour's digests; a hidden feed takes them
-     * as it shows again, when it refreshes
+     * The local view choice selects its own feed; a new digest time brings that time's digests when the feed is visible
      */
-    private fun observeDigestHour() {
+    private fun observeNewsSettings() {
         scope.launch {
-            AgentNewsNotificationSettings.shared.state
-                .map { it.digestHour }
+            val settings = AgentNewsNotificationSettings.shared
+            settings.state
+                .map { makeAgentNewsFeedSettingsKey(settings.newsView, it) }
                 .distinctUntilChanged()
-                .drop(1)
-                .collect { if (isVisible) model.refresh() }
+                .collect { (view, _, _) ->
+                    if (view != model.view) {
+                        model.setView(view, shouldDeferRefresh = !isVisible)
+                    } else if (isVisible) {
+                        model.refresh()
+                    }
+                }
         }
     }
 
@@ -360,25 +516,27 @@ class AgentNewsFeedVC(
         restoreFlightSource()
         // Coming back from a discussion, its card may now continue it
         rvAdapter.updateVisibleCells()
+        model.setView(AgentNewsNotificationSettings.shared.newsView, shouldDeferRefresh = true)
         model.refresh()
     }
 
     override fun viewWillDisappear() {
         AgentHeaderHandoff.begin(this)
         isVisible = false
-        latestScroll.finish()
+        jumpScroll.finish()
         model.cancel()
         super.viewWillDisappear()
     }
 
     override fun onDestroy() {
         WalletCore.unregisterObserver(this)
-        latestScroll.finish()
+        jumpScroll.finish()
         scrollButtonBinding?.release()
         scrollButtonBinding = null
         floatingDayBinding?.release()
         floatingDayBinding = null
         floatingDay.animate().cancel()
+        viewSwitchAnimator?.cancel()
         releaseDiscussion()
         copyBulletin.dismiss()
         scope.cancel()
@@ -420,11 +578,27 @@ class AgentNewsFeedVC(
         }
         val startIndex = photos.indexOfFirst { it.eventId == item.eventId }
         if (startIndex < 0) return
-        val items = photos.map { agentNewsMediaViewerItem(window, it.imageUrl!!, it.toNewsPost()) }
+        val items = photos.map {
+            agentNewsMediaViewerItem(window, it.imageUrl!!, it.toNewsPost(model.locale))
+        }
         MediaViewerVC.present(window, items, startIndex) { index ->
             val eventId = photos[index].eventId
             val position = rows.indexOfFirst { it is Row.News && it.item.eventId == eventId }
             (layoutManager.findViewByPosition(position) as? AgentNewsPostCell)?.makePhotoSource()
+        }
+    }
+
+    private fun openDigestPictures(
+        digest: AgentV2NewsFeedDigest,
+        pictures: AgentNewsDigestPictures
+    ) {
+        val window = window ?: return
+        val date = parseAgentV2Timestamp(digest.deliveredAt)
+        val items = pictures.headlines.map { agentNewsDigestMediaViewerItem(window, it, date) }
+        MediaViewerVC.present(window, items, pictures.index) { index ->
+            val position = rows.indexOfFirst { it is Row.Digest && it.digest.id == digest.id }
+            (layoutManager.findViewByPosition(position) as? AgentNewsDigestCell)
+                ?.makePictureSource(pictures.headlines[index])
         }
     }
 
@@ -455,8 +629,7 @@ class AgentNewsFeedVC(
                     icon = null,
                     threadId = null,
                     onThreadCreated = { thread ->
-                        retainDiscussion(thread)
-                        model.markDiscussion(eventId, thread)
+                        learnDiscussion(thread) { model.markDiscussion(eventId, it) }
                     },
                     onThreadMissing = ::forgetDiscussion
                 )
@@ -465,8 +638,21 @@ class AgentNewsFeedVC(
             is AgentNewsChatTarget.Discussion ->
                 navigation.push(AgentVC(context, target.thread))
 
+            // A digest's discussion the user hasn't written in starts with the digest's post, which
+            // its card flies into
             is AgentNewsChatTarget.Digest ->
-                AgentNavigation.openDigestChat(context, navigation, target.id)
+                AgentNavigation.openDigestChat(
+                    context,
+                    navigation,
+                    target.id,
+                    target.preview,
+                    discussionNaming = target.discussionNaming,
+                    shouldDeferCreation = target.shouldDeferCreation,
+                    onThreadCreated = { thread ->
+                        learnDiscussion(thread) { model.markDiscussion(target.id, it) }
+                    },
+                    onThreadMissing = ::forgetDiscussion
+                ) { chat -> prepareFlight(findDigestRow(target.id), chat) }
         }
         return true
     }
@@ -485,8 +671,7 @@ class AgentNewsFeedVC(
             item.discussion?.icon,
             item.discussion?.threadId,
             onThreadCreated = { thread ->
-                retainDiscussion(thread)
-                model.markDiscussion(item.eventId, thread)
+                learnDiscussion(thread) { model.markDiscussion(item.eventId, it) }
             },
             onThreadMissing = ::forgetDiscussion,
             excerpt = MarkdownParser.parse(
@@ -499,17 +684,26 @@ class AgentNewsFeedVC(
             publishedAt = item.deliveredAt,
             body = item.body,
             sources = item.sources,
-            beforePush = { chat -> prepareFlight(item, chat) }
+            discussionNaming = item.discussionNaming,
+            shouldDeferCreation = item.discussion == null,
+            beforePush = { chat ->
+                // A discussion the user hasn't written in yet starts with the news as the Agent's post, also when its
+                // thread was made on an earlier visit; the card flies into that place
+                if (!isDiscussionStarted(item)) prepareFlight(findNewsRow(item.eventId), chat)
+            }
         )
         return true
     }
 
-    // A discussion the user hasn't written in yet starts with the news as the Agent's post, also when its thread was
-    // made on an earlier visit; the card flies into that place
-    private fun prepareFlight(item: AgentV2NewsFeedItem, chat: AgentVC) {
-        if (isDiscussionStarted(item)) return
-        val position = rows.indexOfFirst { it is Row.News && it.item.eventId == item.eventId }
-        val cell = layoutManager.findViewByPosition(position) as? AgentNewsPostCell ?: return
+    private fun findNewsRow(eventId: Int): Int =
+        rows.indexOfFirst { it is Row.News && it.item.eventId == eventId }
+
+    private fun findDigestRow(id: String): Int =
+        rows.indexOfFirst { it is Row.Digest && it.digest.id == id }
+
+    /** Flies the card at [position] into the post of [chat] */
+    private fun prepareFlight(position: Int, chat: AgentVC) {
+        val cell = layoutManager.findViewByPosition(position) as? AgentNewsFlightSource ?: return
         val root = view.rootView as? ViewGroup ?: return
         val (snapshot, frame) = cell.makeFlightSnapshot() ?: return
         val headerBottom = IntArray(2).also(view::getLocationInWindow)[1] + agentHeaderBottom()
@@ -525,6 +719,16 @@ class AgentNewsFeedVC(
     private fun restoreFlightSource() {
         flightSourceCell?.get()?.setFlightSourceHidden(false)
         flightSourceCell = null
+    }
+
+    // A discussion's first message can create its thread after the chat and the feed are gone
+    private fun learnDiscussion(
+        thread: AgentV2ThreadSummary,
+        markDiscussion: (AgentV2ThreadSummary) -> Unit
+    ) {
+        if (isDestroyed) return
+        retainDiscussion(thread)
+        markDiscussion(thread)
     }
 
     private fun retainDiscussion(thread: AgentV2ThreadSummary) {
@@ -566,17 +770,33 @@ class AgentNewsFeedVC(
         bottomGradientView.isGone = !AgentBottomFadeView.isShown(window?.isWideLayout == true)
         bottomGradientView.updateTheme()
         loadErrorView.updateTheme()
-        chatTitleView.updateTheme()
         skeleton.updateTheme()
         scrollButton.updateTheme()
         scrollButtonGlass?.updateTheme()
+        pinnedDigestBar.updateTheme()
+        pinnedDigestGlass?.updateTheme()
+        viewSwitch.paintColor = WColor.Tint.color.colorWithAlpha(31)
+        viewSwitch.primaryTextColorOverride = WColor.Tint.color
+        viewSwitch.updateTheme()
+        viewSwitch.secondaryTextColor = WColor.SecondaryText.color
+        viewSwitchGlass?.updateTheme()
         floatingDay.updateTheme()
         rvAdapter.updateTheme()
     }
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        val top = agentHeaderBottom() + AGENT_LIST_TOP_INSET.dp
+        // The rows go under the bar while it shows, as a chat's under Telegram's pinned message, and the pinned day's
+        // capsule stands as far under the bar as Telegram's floating date under its panel: the list's own inset and
+        // the capsule's margin above it are part of that distance
+        val pinnedDigestInset = if (pinnedDigestBar.isGone) {
+            0
+        } else {
+            val barBottom = AgentNewsPinnedDigestBar.TOP_SPACING + AgentNewsPinnedDigestBar.HEIGHT
+            val capsuleTop = barBottom + AgentNewsPinnedDigestBar.DAY_CAPSULE_SPACING
+            (capsuleTop - AGENT_LIST_TOP_INSET).dp - AGENT_DAY_CAPSULE_MARGIN.dp.roundToInt()
+        }
+        val top = agentHeaderBottom() + AGENT_LIST_TOP_INSET.dp + pinnedDigestInset
         val bottom = bottomEdge()
         val start = additionalTabletPadding + systemBarStartInset
         contentContainer.updateLayoutParams<ViewGroup.MarginLayoutParams> {
@@ -597,6 +817,7 @@ class AgentNewsFeedVC(
             height = bottom + (AGENT_COMPOSER_FIELD_TOP + AGENT_BOTTOM_FADE_EXTRA).dp
         }
         contentContainer.setConstraints {
+            toTopPx(pinnedDigestBar, agentHeaderBottom() + AgentNewsPinnedDigestBar.TOP_SPACING.dp)
             toTopPx(floatingDay, top)
             toBottomPx(skeleton, bottom + AGENT_MESSAGE_BOTTOM_GAP.dp)
             toBottomPx(
@@ -615,6 +836,51 @@ class AgentNewsFeedVC(
     private fun bottomEdge(): Int = navigationController?.getSystemBars()?.bottom ?: 0
 
     private fun updateFeed() {
+        selectViewSwitchIndex(NEWS_VIEWS.indexOf(newsView), isAnimated = isVisible)
+        val isSwitchingView = shownView != null && shownView != newsView
+        shownView = newsView
+        // The bar's space comes or goes before the rows keep their place, so they stay where they are on screen. On
+        // a view switch the bar comes with the rows rather than fading in after them.
+        setPinnedDigestBarShown(
+            newsView == AgentNewsFeedView.All &&
+                model.entries.any { it is AgentNewsFeedEntry.Digest },
+            isInstant = isSwitchingView
+        )
+        applyRows()
+        updatePinnedDigests()
+    }
+
+    private fun selectViewSwitchIndex(index: Int, isAnimated: Boolean) {
+        if (index == viewSwitchIndex) return
+        viewSwitchIndex = index
+        viewSwitchAnimator?.cancel()
+        viewSwitchAnimator = null
+        if (!isAnimated || !WGlobalStorage.getAreAnimationsActive()) {
+            moveViewSwitchThumb(index.toFloat())
+            return
+        }
+        // The control moves its thumb only as its owner tells it, as a pager's scroll does for header tabs
+        viewSwitchAnimator = ValueAnimator.ofFloat(viewSwitchPosition, index.toFloat()).apply {
+            duration = AnimationConstants.VERY_QUICK_ANIMATION
+            interpolator = WInterpolator.emphasized
+            addUpdateListener { moveViewSwitchThumb(it.animatedValue as Float) }
+            start()
+        }
+    }
+
+    private fun moveViewSwitchThumb(position: Float) {
+        viewSwitchPosition = position
+        viewSwitch.updateThumbPosition(
+            viewSwitchIndex,
+            offset = position,
+            targetIndex = viewSwitchIndex,
+            force = true,
+            isAnimatingToPosition = position != viewSwitchIndex.toFloat(),
+            animateScroll = false
+        )
+    }
+
+    private fun applyRows() {
         val finishedPagination = wasLoadingMore
         wasLoadingMore = model.isLoadingMore
         updateSkeleton()
@@ -623,13 +889,21 @@ class AgentNewsFeedVC(
             loadErrorView.setError(agentNewsErrorText(error))
         } else {
             loadErrorView.setMessage(
-                LocaleController.getString("\$agent_news_empty").takeIf { model.isEmpty }
+                LocaleController.getString(
+                    if (newsView ==
+                        AgentNewsFeedView.Digests
+                    ) {
+                        "\$agent_news_digests_empty"
+                    } else {
+                        "\$agent_news_empty"
+                    }
+                ).takeIf { model.isEmpty }
             )
         }
         val newRows = buildRows()
         val requestedDigestIndex = findRequestedDigestRow(newRows)
         if (newRows == rows && hasInitialScroll && requestedDigestIndex < 0) return
-        latestScroll.finish()
+        jumpScroll.finish()
         val anchor = visibleAnchor()
         val stickToBottom = hasInitialScroll && !finishedPagination && isNearBottom()
         if (requestedDigestIndex < 0 && stickToBottom && appendLatest(newRows)) return
@@ -651,11 +925,19 @@ class AgentNewsFeedVC(
             recyclerView.doOnNextLayout {
                 if (rows.isNotEmpty()) hasInitialScroll = true
             }
+            // A view switched back to returns where it was, and otherwise opens as the feed does
+            val position = viewPositions.remove(newsView)
+            val anchor = (position as? ViewPosition.At)?.anchor
+            val anchorIndex = anchor?.let { rows.indexOfFirst { row -> row.id == it.id } } ?: -1
             val initialNewsIndex = rows.indexOfFirst {
                 it is Row.News && it.item.eventId == initialEventId
             }
             val unreadIndex = rows.indexOf(Row.Unread)
-            if (initialNewsIndex >= 0) {
+            if (anchor != null && anchorIndex >= 0) {
+                layoutManager.scrollToPositionWithOffset(anchorIndex, anchor.offset)
+            } else if (position == ViewPosition.End) {
+                scrollToBottom()
+            } else if (initialNewsIndex >= 0) {
                 layoutManager.scrollToPositionWithOffset(initialNewsIndex, 0)
             } else if (unreadIndex >= 0) {
                 layoutManager.scrollToPositionWithOffset(unreadIndex, 0)
@@ -669,6 +951,182 @@ class AgentNewsFeedVC(
             restore(anchor)
         }
     }
+
+    /**
+     * The bar shows once the feed has a digest and goes with the last one. It keeps the digest it shows as pages load,
+     * and otherwise shows the one above the rows on screen.
+     */
+    private fun updatePinnedDigests() {
+        val previousId = pinnedDigestIndex?.let { pinnedDigests.getOrNull(it)?.id }
+        pinnedDigests = if (newsView == AgentNewsFeedView.All) {
+            model.entries.mapNotNull { (it as? AgentNewsFeedEntry.Digest)?.digest }
+        } else {
+            emptyList()
+        }
+        pinnedDigestRows = pinnedDigests.map { digest ->
+            rows.indexOfFirst { it is Row.Digest && it.digest.id == digest.id }
+        }.toIntArray()
+        if (pinnedDigests.isEmpty()) {
+            pinnedDigestIndex = null
+            setPinnedDigestBarShown(false)
+            return
+        }
+        val index = previousId?.let { id -> pinnedDigests.indexOfFirst { it.id == id } }
+            ?.takeIf { it >= 0 } ?: getPinnedDigestIndexForScrollPosition()
+        showPinnedDigest(index, transition = null)
+        setPinnedDigestBarShown(true)
+        // Rows put in where the feed opens lay out there on the next layout, before they are drawn: the bar takes the
+        // digest above them then, rather than the one above the rows they replace
+        if (!hasInitialScroll && previousId == null) {
+            recyclerView.doOnNextLayout {
+                if (pinnedDigestIndex == null || pinnedDigests.isEmpty()) return@doOnNextLayout
+                showPinnedDigest(getPinnedDigestIndexForScrollPosition(), transition = null)
+            }
+        }
+    }
+
+    private fun updatePinnedDigestForScrollPosition() {
+        val current = pinnedDigestIndex ?: return
+        val index = getPinnedDigestIndexForScrollPosition()
+        if (index == current) return
+        // The rows the feed opens at are laid out for the first time: the bar shows their digest at once
+        showPinnedDigest(
+            index,
+            when {
+                !hasInitialScroll -> null
+                index < current -> AgentNewsPinnedDigestBar.Transition.OLDER
+                else -> AgentNewsPinnedDigestBar.Transition.NEWER
+            }
+        )
+    }
+
+    /**
+     * The newest digest above the rows on screen, as Telegram shows the pinned message above them, or the newest of
+     * all when none is above
+     */
+    private fun getPinnedDigestIndexForScrollPosition(): Int {
+        val lastIndex = pinnedDigests.lastIndex
+        val first = layoutManager.findFirstVisibleItemPosition()
+        if (first == RecyclerView.NO_POSITION) return lastIndex
+        val topRow = (first..layoutManager.findLastVisibleItemPosition()).firstOrNull { position ->
+            (layoutManager.findViewByPosition(position)?.bottom ?: 0) > recyclerView.paddingTop
+        } ?: return lastIndex
+        val index = pinnedDigestRows.indexOfLast { it in 0 until topRow }
+        return if (index >= 0) index else lastIndex
+    }
+
+    private fun showPinnedDigest(index: Int, transition: AgentNewsPinnedDigestBar.Transition?) {
+        pinnedDigestIndex = index
+        val digest = pinnedDigests[index]
+        pinnedDigestBar.setContent(
+            AgentNewsPinnedDigestBar.Content(
+                // The digest's day, as "November 10"
+                title = AgentThreadDateFormatting.formatDayText(
+                    parseAgentV2Timestamp(digest.deliveredAt) ?: Date(0),
+                    Date(),
+                    LocaleController.activeLanguage.langCode
+                ),
+                text = digest.top.joinToString(DIGEST_HEADLINE_SEPARATOR) { it.headline },
+                index = index,
+                count = pinnedDigests.size
+            ),
+            transition
+        )
+    }
+
+    private fun setPinnedDigestBarShown(isShown: Boolean, isInstant: Boolean = false) {
+        if (pinnedDigestBar.isGone != isShown) return
+        pinnedDigestBar.isGone = !isShown
+        insetsUpdated()
+        if (!isShown || isInstant || !isVisible || !WGlobalStorage.getAreAnimationsActive()) return
+        pinnedDigestBar.alpha = 0f
+        pinnedDigestBar.animate().alpha(1f).setDuration(PINNED_DIGEST_FADE_MS).start()
+    }
+
+    /**
+     * Goes to the digest the bar shows, as a tap on Telegram's pinned message does in `scrollToMessageId`, and the bar
+     * moves on to the one before it, and from the oldest back to the newest. A digest laid out scrolls to its place;
+     * another lays out there at once, the rows on screen sliding out as its rows slide in.
+     */
+    private fun goToPinnedDigest() {
+        val index = pinnedDigestIndex ?: return
+        val row = pinnedDigestRows.getOrNull(index)?.takeIf { it >= 0 } ?: return
+        model.stopSeekingRequestedDigest()
+        isPinnedDigestFollowingScroll = false
+        recyclerView.stopScroll()
+        jumpScroll.finish()
+        val isSystemMotionOn = !DEBUG_MODE ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            ValueAnimator.areAnimatorsEnabled()
+        val canAnimate = WGlobalStorage.getAreAnimationsActive() && isSystemMotionOn
+        val boxStart = recyclerView.paddingTop
+        val boxEnd = recyclerView.height - recyclerView.paddingBottom
+        val view = layoutManager.findViewByPosition(row)
+        if (view != null) {
+            val targetTop = getPinnedDigestTop(view.height, boxStart, boxEnd)
+            val scrollY = min(view.top - targetTop, getScrollDownLimit())
+            if (scrollY != 0 && canAnimate) {
+                recyclerView.smoothScrollBy(0, scrollY)
+            } else if (scrollY != 0) {
+                recyclerView.scrollBy(0, scrollY)
+            }
+        } else {
+            val height = measureDigestHeight(pinnedDigests[index])
+            val offset = getPinnedDigestTop(height, boxStart, boxEnd) - boxStart
+            val jump = { layoutManager.scrollToPositionWithOffset(row, offset) }
+            val first = layoutManager.findFirstVisibleItemPosition()
+            when {
+                !canAnimate || first == RecyclerView.NO_POSITION -> jump()
+                row < first -> jumpScroll.scrollUp(jump)
+                else -> jumpScroll.scrollDown(jump)
+            }
+        }
+        val previous = if (index == 0) pinnedDigests.lastIndex else index - 1
+        showPinnedDigest(
+            previous,
+            if (previous < index) {
+                AgentNewsPinnedDigestBar.Transition.OLDER
+            } else {
+                AgentNewsPinnedDigestBar.Transition.NEWER
+            }
+        )
+    }
+
+    /** How far the list scrolls down before its last row's bottom meets the visible part's, or more when it is away */
+    private fun getScrollDownLimit(): Int {
+        val last = layoutManager.findViewByPosition(rows.lastIndex) ?: return Int.MAX_VALUE
+        return max(0, last.bottom - (recyclerView.height - recyclerView.paddingBottom))
+    }
+
+    /** The height of a digest's card that is not laid out, measured as Telegram measures a message on its dummy cell */
+    private fun measureDigestHeight(digest: AgentV2NewsFeedDigest): Int {
+        val cell = dummyDigestCell ?: AgentNewsDigestCell(context).also { dummyDigestCell = it }
+        cell.configure(makeDigestCardContent(digest))
+        cell.measure(
+            View.MeasureSpec.makeMeasureSpec(recyclerView.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        return cell.measuredHeight
+    }
+
+    private fun makeDigestCardContent(digest: AgentV2NewsFeedDigest): AgentNewsDigestCardContent {
+        // Only the time, under its day's capsule, as the news cards show theirs
+        val time = parseAgentV2Timestamp(digest.deliveredAt)
+            ?.let { formatAgentChatTime(context, it) }
+            .orEmpty()
+        return AgentNewsDigestCardContent(
+            digest,
+            time,
+            isInDigestsView = newsView == AgentNewsFeedView.Digests
+        )
+    }
+
+    /**
+     * Where Telegram puts a message its pinned panel goes to: in the middle of the list's visible part when it fits
+     * there, otherwise with its top at the part's top
+     */
+    private fun getPinnedDigestTop(height: Int, boxStart: Int, boxEnd: Int): Int =
+        boxStart + ((boxEnd - boxStart - height) / 2).coerceAtLeast(0)
 
     /** The row of the digest the feed was opened for while the feed seeks it, or -1 */
     private fun findRequestedDigestRow(rows: List<Row>): Int {
@@ -745,7 +1203,10 @@ class AgentNewsFeedVC(
                     add(Row.News(entry.item))
                 }
 
-                is AgentNewsFeedEntry.Digest -> add(Row.Digest(entry.digest))
+                is AgentNewsFeedEntry.Digest -> {
+                    if (entry.digest.id == model.unreadDigestId) add(Row.Unread)
+                    add(Row.Digest(entry.digest))
+                }
             }
         }
         if (entries.isNotEmpty()) {
@@ -916,11 +1377,16 @@ class AgentNewsFeedVC(
         model.stopSeekingRequestedDigest()
         if (rows.isEmpty()) return
         recyclerView.stopScroll()
-        latestScroll.scrollDown { layoutManager.scrollToPosition(rows.lastIndex) }
+        // A jump to a pinned digest still sliding ends where it is, so the jump to the end isn't dropped
+        jumpScroll.finish()
+        // The bar follows the list again, and shows the digest of the end as the jump lays the end out, before the
+        // rows slide there, as Telegram's panel does
+        isPinnedDigestFollowingScroll = true
+        jumpScroll.scrollDown { layoutManager.scrollToPosition(rows.lastIndex) }
     }
 
     private fun imageHeightChanged() {
-        latestScroll.finish()
+        jumpScroll.finish()
         val anchor = visibleAnchor()
         val stickToBottom = isNearBottom()
         recyclerView.post { if (stickToBottom) scrollToBottom() else restore(anchor) }
@@ -928,7 +1394,7 @@ class AgentNewsFeedVC(
 
     private fun onPopupVisibilityChanged(visible: Boolean) {
         isPopupVisible = visible
-        if (visible) latestScroll.finish()
+        if (visible) jumpScroll.finish()
         recyclerView.suppressLayout(visible)
         updateScrollButton(isAnimated = true)
     }
@@ -985,7 +1451,7 @@ class AgentNewsFeedVC(
                 configure(
                     row.id,
                     parseAgentV2Timestamp(item.deliveredAt) ?: Date(0),
-                    item.toNewsPost(),
+                    item.toNewsPost(model.locale),
                     rv.width,
                     animate
                 )
@@ -1002,11 +1468,13 @@ class AgentNewsFeedVC(
 
             is Row.Digest -> (cellHolder.cell as AgentNewsDigestCell).apply {
                 val digest = row.digest
-                val time = parseAgentV2Timestamp(digest.deliveredAt)
-                    ?.let { AgentNewsTextBlock.formatPostTime(context, it) }
-                    .orEmpty()
-                configure(AgentNewsDigestCardContent(digest, time))
+                configure(makeDigestCardContent(digest))
+                onCopied = ::showCopyBulletin
+                onPopupVisibilityChanged = ::onPopupVisibilityChanged
+                menuRows = ::getMenuRows
+                canOpenMenuOnTap = { !hasStoppedScroll }
                 onHeadlineClick = ::openDigestHeadline
+                onPictureClick = { openDigestPictures(digest, it) }
                 discussStrip.onClick = { openDigestDiscussion(digest) }
             }
 
@@ -1048,10 +1516,20 @@ class AgentNewsFeedVC(
 
         // The bar keeps trailing views 8 dp in; a chat's menu button stands 4 dp nearer the edge
         const val SETTINGS_BUTTON_SHIFT = 4f
+
+        const val PINNED_DIGEST_FADE_MS = 200L
+
+        val NEWS_VIEWS = listOf(AgentNewsFeedView.All, AgentNewsFeedView.Digests)
+
+        // As the root header's tabs in `PhoneTabsVC`
+        const val VIEW_SWITCH_HEIGHT = 44
+        const val VIEW_SWITCH_THUMB_HEIGHT = 36f
+        const val VIEW_SWITCH_INSET = 4f
+        const val VIEW_SWITCH_TAB_PADDING = 20
     }
 }
 
-private fun AgentV2NewsFeedItem.toNewsPost() = AgentNewsPostContent(
+internal fun AgentV2NewsFeedItem.toNewsPost(locale: String?) = AgentNewsPostContent(
     AgentV2ThreadNewsCard(
         eventId = eventId,
         headline = headline,
@@ -1059,5 +1537,6 @@ private fun AgentV2NewsFeedItem.toNewsPost() = AgentNewsPostContent(
         publishedAt = deliveredAt,
         body = body,
         sources = sources
-    )
+    ),
+    locale
 )

@@ -156,7 +156,7 @@ class FuturesPositionCell(context: Context, private val onTap: (MApiPerpsNativeP
         bottomRightLabel.setMaskCols(MASK_MIN_COLS + 1 + amountCols % (MASK_COLS_RANGE - 2))
         val image = position.image
         if (image != null) {
-            iconView.set(Content.ofUrl(image))
+            iconView.set(Content.ofUrl(image, position.asset?.isRwaStock == true))
         } else {
             iconView.clear()
         }

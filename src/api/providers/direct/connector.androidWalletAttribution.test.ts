@@ -322,3 +322,19 @@ it('refines a first claim made while Play failed once Play answers', async () =>
     channel: '', platform: 'android', attributionKind: 'direct', sourceOutcome: 'organic', playInstalledAt,
   }, claimOptions);
 });
+
+it('carries the installation id on source and technical claims', async () => {
+  const installationId = '00000000-0000-4000-8000-000000000001';
+  answerTechnical({ source, technicalKind: 'direct', sourceOutcome: 'organic', playInstalledAt, installationId });
+  const connector = createDirectApiConnector();
+  connector.initApi(jest.fn(), { isAndroidApp: true });
+  await settle();
+  expect(mockPost).toHaveBeenCalledTimes(2);
+  expect(mockPost).toHaveBeenCalledWith('/attribution/claim', {
+    ...source, platform: 'android', installationId,
+  }, claimOptions);
+  expect(mockPost).toHaveBeenCalledWith('/attribution/claim', {
+    channel: '', platform: 'android', attributionKind: 'direct', sourceOutcome: 'organic',
+    playInstalledAt, installationId,
+  }, claimOptions);
+});

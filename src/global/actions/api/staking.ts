@@ -36,7 +36,7 @@ import {
   selectCurrentAccountStakingBanners,
   selectIsHardwareAccount,
 } from '../../selectors';
-import { switchAccount } from './auth';
+import { getIsAccountSwitchCurrent, switchAccount } from './auth';
 
 const MODAL_CLOSING_DELAY = 50;
 
@@ -48,7 +48,8 @@ addActionHandler('switchStakingAccount', async (global, actions, { accountId, mo
 
   const prevTokenSlug = selectAccountStakingState(global, currentAccountId).tokenSlug;
 
-  await switchAccount(global, accountId);
+  const switchId = await switchAccount(global, accountId);
+  if (!getIsAccountSwitchCurrent(switchId)) return;
 
   // `switchAccount` keeps `currentStaking`, so clear it before restarting the flow on the new account
   global = getGlobal();
@@ -364,10 +365,11 @@ addActionHandler('fetchStakingHistory', async (global) => {
 });
 
 addActionHandler('openAnyAccountStakingInfo', async (global, actions, { accountId, network, stakingId }) => {
-  await Promise.all([
+  const [, switchId] = await Promise.all([
     closeAllOverlays(),
     switchAccount(global, accountId, network),
   ]);
+  if (!getIsAccountSwitchCurrent(switchId)) return;
 
   actions.changeCurrentStaking({ stakingId });
   actions.openStakingInfo();

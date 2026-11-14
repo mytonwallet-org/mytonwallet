@@ -7,6 +7,7 @@ import type { IAnchorPosition } from '../../global/types';
 import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from '../ui/Dropdown';
 
+import { getIsAgentV2SupportActive } from '../../global/agentV2/uiCapabilities';
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
 import { stopEvent } from '../../util/domEvents';
@@ -100,7 +101,7 @@ function AgentThreadListItem({
   // a discussion's latest message while it is the thread's only one.
   const previewImageUrl = previewText && thread.messageCount <= 1 ? thread.news?.imageUrl : undefined;
   // A chat that support has carries its label before the preview, bright while an operator is in it
-  const isWithSupport = support?.state === 'waiting' || support?.state === 'operator';
+  const isWithSupport = getIsAgentV2SupportActive({ support });
   // A row under a day header has the time of day only; a pinned row names its day as well
   const time = thread.isPinned
     ? formatAgentListTime(lang, thread.lastActivityAt)
@@ -284,7 +285,7 @@ function AgentThreadListItem({
                         <span
                           className={buildClassName(
                             supportStyles.label,
-                            support.state === 'operator' ? supportStyles.labelActive : supportStyles.labelMuted,
+                            support!.state === 'operator' ? supportStyles.labelActive : supportStyles.labelMuted,
                           )}
                         >
                           <AgentSupportIcon className={supportStyles.labelIcon} />

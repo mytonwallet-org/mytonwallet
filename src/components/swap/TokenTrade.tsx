@@ -94,6 +94,7 @@ function TokenTrade({
     currentCexPrivacyPolicyUrl,
     currentCexAmlKycPolicyUrl,
     swapHint,
+    swapQuoteHint,
     estimateDebugSummary,
   },
   tokens,
@@ -301,7 +302,10 @@ function TokenTrade({
     canSubmitCard = !cardErrorText && (isBuy || (!cardMax.isLoading && !isCardMaxPending));
   }
   const canSubmit = tokenAmountBigint > 0n && (isCardMode ? canSubmitCard : canSubmitSwap);
-  const hint = !isCardMode && errorType !== undefined ? swapHint : undefined;
+  const quoteHint = !isEstimating
+    && (swapQuoteHint?.type === 'betterRate' || swapQuoteHint?.type === 'betterRateMinimum')
+    ? swapQuoteHint : undefined;
+  const hint = !isCardMode ? (errorType !== undefined ? swapHint : undefined) ?? quoteHint : undefined;
   const isPriceImpactWarningShown = !isCardMode && !isCrosschain && isPriceImpactError;
 
   const handleSubmit = useLastCallback((e: React.FormEvent | React.UIEvent) => {
@@ -547,7 +551,8 @@ function TokenTrade({
               {renderUnitChip()}
               {renderAmountField()}
             </div>
-            {hint ? (
+            {(!hint || hint.type === 'betterRate' || hint.type === 'betterRateMinimum') && renderFee()}
+            {hint && (
               <SwapHint
                 hint={hint}
                 tokens={tokens}
@@ -556,7 +561,7 @@ function TokenTrade({
                 className={styles.hint}
                 onIntermediateClick={handleIntermediateHintClick}
               />
-            ) : renderFee()}
+            )}
             {isPriceImpactWarningShown && renderPriceImpactWarning()}
           </div>
         </div>

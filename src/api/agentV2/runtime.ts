@@ -2,7 +2,6 @@ import type { Storage } from '../storages/types';
 import type {
   AgentAnswerFeedbackV2,
   AgentMessageEndEvent,
-  AgentNewsFeedLocaleV2,
   AgentRunCancelResponseV2,
   AgentRunRequestWireV2,
   AgentThreadCreateRequestV2,
@@ -18,12 +17,14 @@ import type {
   AgentV2ActionPresentation,
   AgentV2ClientUpdate,
   AgentV2Hints,
+  AgentV2HintWalletState,
   AgentV2HostContextSnapshot,
   AgentV2NewsFeedRequest,
   AgentV2ProblemReport,
   AgentV2ResolvedAction,
   AgentV2RunCommand,
   AgentV2RunResult,
+  AgentV2StarterHints,
   AgentV2ThreadHydration,
   AgentV2ThreadUpdate,
   AgentV2Transcription,
@@ -36,6 +37,7 @@ import {
   raceWithAbortSignal,
   throwIfAborted,
 } from '../../util/abortSignal';
+import { getAgentNewsFeedLocale } from '../../util/agent/agentNewsFeedLocale';
 import { logDebug, logDebugError } from '../../util/logs';
 import { decodeAgentV2WalletSnapshotAck } from './protocol/decoders/coreRun';
 import { uuid } from './protocol/decoders/readers';
@@ -55,6 +57,7 @@ import {
   decodeAgentV2ThreadUpdate,
   decodeAgentV2Transcription,
 } from './protocol/transportContracts';
+import { getAgentV2ActionAvailability } from './actionAvailability';
 import { AgentV2ActionResolver } from './actionResolver';
 import {
   AgentClientTrace,
@@ -79,6 +82,7 @@ import {
 import { buildAgentV2RunOrigin } from './runCommand';
 import { AgentV2RuntimeProbes } from './runtimeProbes';
 import { DEFAULT_SECRET_PHRASE_PLACEHOLDER, getSecretPhraseWordList, removeSecretPhrases } from './secretPhrase';
+import { selectAgentV2StarterHints } from './starterHints';
 import { AgentV2StreamMessage } from './streamMessage';
 import {
   beginThreadListCacheRequest,
@@ -96,7 +100,7 @@ import {
 import { getIsAgentV2ThreadStarted } from './threadStarted';
 import { type AgentV2ToolExecutionContext, type AgentV2ToolExecutor, AgentV2ToolRunner } from './toolRunner';
 import { isWalletSelectionChange } from './walletAuthority';
-import { AgentV2WalletSession } from './walletSession';
+import { AgentV2WalletSession, readAgentV2HostContext } from './walletSession';
 import { AgentV2WalletSnapshotSync } from './walletSnapshotSync';
 
 export type { AgentV2ToolExecutionContext, AgentV2ToolExecutor } from './toolRunner';
@@ -158,6 +162,10 @@ interface FailedRunRequest {
   request: AgentRunRequestWireV2;
   userMessageId?: string;
   timer: ReturnType<typeof setTimeout>;
+  /** The account active when the run was asked, the only one it goes again for */
+  accountId?: string;
+  /** The wallet context the request was built with, which a retry builds afresh once it has changed */
+  walletContextGeneration: number;
 }
 
 export interface AgentV2RuntimeDependencies {
@@ -316,15 +324,18 @@ export class AgentV2Runtime {
     }
 
     const { hasAuthorityChanged, hasWalletContextChanged } = walletSessionUpdate;
+    const nextHost = this.walletSession.snapshot().host;
     if (hasWalletContextChanged) {
       this.walletContextGeneration += 1;
     }
+    // A run a limit held goes again only for the account it was asked for: once another account is active, it is
+    // dropped for good, even if the first comes back. The same account published again keeps it.
+    if (previousHost?.activeAccountId !== nextHost?.activeAccountId) this.clearFailedRunRequests();
     if (hasAuthorityChanged) {
       this.authorityGeneration += 1;
-      const isSelectionChange = isWalletSelectionChange(previousHost, this.walletSession.snapshot().host);
+      const isSelectionChange = isWalletSelectionChange(previousHost, nextHost);
       if (!isSelectionChange) this.runGeneration += 1;
       const runIds = isSelectionChange ? [] : this.cancelAllLocally();
-      this.clearFailedRunRequests();
       this.toolExecutor.clear?.();
       this.emitUpdate({
         kind: 'walletAuthorityChanged',
@@ -357,6 +368,27 @@ export class AgentV2Runtime {
   getHints(langCode?: string): Promise<AgentV2Hints> {
     this.assertActive();
     return this.probes.getHints(langCode);
+  }
+
+  async getStarterHints(
+    walletState?: AgentV2HintWalletState | null,
+    host?: AgentV2HostContextSnapshot | null,
+  ): Promise<AgentV2StarterHints> {
+    this.assertActive();
+    // The actions belong to the account whose `walletState` the host passed. A native host publishes its context
+    // only while a chat is open, so it passes the context with the call, which leaves the published one as it is.
+    // `null`, which a native bridge sends, says the host has no context now: the one a chat published earlier may
+    // describe another account.
+    const passedHost = host ? readAgentV2HostContext(host) : undefined;
+    const { walletSupportedActions } = getAgentV2ActionAvailability(
+      host === undefined ? this.walletSession.snapshot().host : passedHost,
+    );
+    const { catalogVersion, items } = await this.probes.getHintPool();
+    this.assertActive();
+    return {
+      catalogVersion,
+      items: selectAgentV2StarterHints(items, walletSupportedActions, walletState ?? undefined),
+    };
   }
 
   async getAvailability() {
@@ -459,14 +491,18 @@ export class AgentV2Runtime {
    * reference or the thread's id, nothing about the wallet or the user's messages. The messages of any other thread
    * need the consent.
    */
-  async getNewsFeed({ lang, cursor, digestHour, timeZone }: AgentV2NewsFeedRequest) {
+  async getNewsFeed({
+    lang, view, cursor, digestHour, digestMinute, timeZone,
+  }: AgentV2NewsFeedRequest) {
     this.assertActive();
-    const params = new URLSearchParams({ locale: getNewsFeedLocale(lang) });
+    const params = new URLSearchParams({ locale: getAgentNewsFeedLocale(lang) });
     if (cursor) params.set('cursor', cursor);
     if (digestHour !== undefined && timeZone !== undefined) {
       params.set('digestHour', String(digestHour));
+      if (digestMinute) params.set('digestMinute', String(digestMinute));
       params.set('timeZone', timeZone);
     }
+    if (view === 'digests') params.set('view', view);
     const { locale, items, nextCursor, digests } = await this.getJson(
       `${this.dependencies.baseUrl}/news-feed?${params}`,
       decodeAgentV2NewsFeed,
@@ -704,7 +740,7 @@ export class AgentV2Runtime {
       const clearGeneration = this.getClearGeneration(threadId);
       inputMessageId = getRunInputMessageId(failed.request);
       this.clearFailedRunRequest(threadId);
-      if (failed.expiresAt <= this.now()) return undefined;
+      if (failed.expiresAt <= this.now() || failed.accountId !== this.getActiveAccountId()) return undefined;
       const trace = this.timingSink ? new AgentClientTrace(newClientTraceId(), this.timingSink) : undefined;
       end = trace?.start('client_request');
       await raceWithAbortSignal(this.probes.ensureFeatureCapabilities(trace), preparation.controller.signal);
@@ -718,7 +754,7 @@ export class AgentV2Runtime {
       }
       this.finishRunPreparation(preparation);
       const result = await this.executeRun(
-        failed.request, authorityGeneration, trace, failed.userMessageId, stoppedThread,
+        this.rebindFailedRunRequest(failed), authorityGeneration, trace, failed.userMessageId, stoppedThread,
       );
       end?.(result.state === 'completed' ? 'success' : result.state === 'cancelled' ? 'cancelled' : 'error');
       return result;
@@ -795,6 +831,27 @@ export class AgentV2Runtime {
     }
   }
 
+  /**
+   * The request a retry sends: the same one while the wallet context stays as it was, and otherwise the same question
+   * bound to the wallet context as it is now, as after the same account's authority was published again
+   */
+  private rebindFailedRunRequest({ request, walletContextGeneration }: FailedRunRequest): AgentRunRequestWireV2 {
+    if (walletContextGeneration === this.walletContextGeneration) return request;
+    const { walletSnapshotRef, ...unboundRequest } = request;
+    const built = this.walletSession.buildContext();
+    return {
+      ...unboundRequest,
+      context: built.context,
+      capabilities: built.capabilities,
+      walletContext: built.walletContext,
+      ...this.snapshots.forRun(),
+    };
+  }
+
+  private getActiveAccountId() {
+    return this.walletSession.snapshot().host?.activeAccountId;
+  }
+
   private findFailedRunRequest(clientRunId: string) {
     return [...this.failedRunRequestByThreadId.values()]
       .find(({ request }) => request.clientRunId === clientRunId);
@@ -857,7 +914,8 @@ export class AgentV2Runtime {
           state: 'cancelled',
         };
       }
-      if (state.binding.lastSequence === 0 && this.isAuthorityGenerationCurrent(state.authorityGeneration)) {
+      if (state.binding.lastSequence === 0 && state.request.entryPoint?.kind !== 'supportRequest'
+        && this.isAuthorityGenerationCurrent(state.authorityGeneration)) {
         const retryExpiresAt = failedRunRequestExpiresAt(error, this.now());
         if (retryExpiresAt !== undefined) {
           this.retainFailedRunRequest(state.request, retryExpiresAt, state.userMessageId);
@@ -1230,6 +1288,7 @@ export class AgentV2Runtime {
         );
       }
       state.threadId = event.threadId;
+      if (state.request.entryPoint?.kind === 'supportRequest') this.clearFailedRunRequest(event.threadId);
       if (state.request.input.kind !== 'append') this.invalidateThread(event.threadId);
     }
     const threadId = state.threadId ?? state.request.threadId;
@@ -1599,10 +1658,13 @@ export class AgentV2Runtime {
   ) {
     const threadId = request.threadId;
     this.clearFailedRunRequest(threadId);
+    const accountId = this.getActiveAccountId();
     const failedRunRequest: FailedRunRequest = {
       request,
       expiresAt,
       ...(userMessageId ? { userMessageId } : {}),
+      ...(accountId ? { accountId } : {}),
+      walletContextGeneration: this.walletContextGeneration,
       timer: setTimeout(() => {
         if (this.failedRunRequestByThreadId.get(threadId) === failedRunRequest) {
           this.failedRunRequestByThreadId.delete(threadId);
@@ -1917,10 +1979,6 @@ class UnsupportedToolExecutor implements AgentV2ToolExecutor {
 // A recovery phrase never leaves the device, whichever app sent the text
 function hideSecretPhrases(text: string) {
   return removeSecretPhrases(text, getSecretPhraseWordList(), DEFAULT_SECRET_PHRASE_PLACEHOLDER);
-}
-
-function getNewsFeedLocale(lang: string): AgentNewsFeedLocaleV2 {
-  return lang.startsWith('ru') ? 'ru' : 'en';
 }
 
 function toolResultSessionBinding(call: AgentToolCall) {

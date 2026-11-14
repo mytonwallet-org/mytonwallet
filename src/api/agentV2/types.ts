@@ -5,6 +5,8 @@ import type {
   AgentApiChain,
   AgentCapabilities,
   AgentEntryPoint,
+  AgentHintPoolItemV2,
+  AgentHintPoolResponseV2,
   AgentHintsResponseV2,
   AgentNewsFeedRequestV2,
   AgentPersistedMessageV2,
@@ -152,6 +154,8 @@ type AgentV2RunCommandBase = {
   /** Private, non-wire staging instruction captured when this run is started. */
 };
 
+export type AgentV2SupportRequestSource = Extract<AgentEntryPoint, { kind: 'supportRequest' }>['source'];
+
 type AgentV2RunCommandWithoutOrigin = {
   entryPoint?: never;
   followupOf?: never;
@@ -211,9 +215,12 @@ export interface AgentV2RunResult {
 /** A problem report on the conversation, or on one of its messages when `messageId` names it */
 export type AgentV2ProblemReport = Pick<AgentProblemReportRequestV2, 'comment' | 'messageId'>;
 
-/** A news feed page in the app language; `digestHour` and `timeZone` are sent only when both are given */
+/**
+ * A news feed page in the app language. `digestHour` and `timeZone` are sent only when both are given, and with them a
+ * `digestMinute` other than 0, which the server takes as 0 when absent.
+ */
 export type AgentV2NewsFeedRequest = { lang: string }
-  & Pick<AgentNewsFeedRequestV2, 'cursor' | 'digestHour' | 'timeZone'>;
+  & Pick<AgentNewsFeedRequestV2, 'view' | 'cursor' | 'digestHour' | 'digestMinute' | 'timeZone'>;
 
 export type AgentV2ThreadUpdate = Omit<AgentThreadUpdateRequestV2, 'protocolVersion'> & (
   Required<Pick<AgentThreadUpdateRequestV2, 'title'>>
@@ -308,7 +315,8 @@ export type AgentV2AvailabilityState =
 export type AgentV2RateLimitState = {
   kind: 'rateLimit';
   resetAt: number;
-  clientRunId: string;
+  /** The run the limit held back, which Retry sends again; none once it can no longer go */
+  clientRunId?: string;
 };
 
 export type AgentV2ComposerStatus =
@@ -440,6 +448,15 @@ export interface AgentV2IncompatibleHistoryMessage {
 export type AgentV2HydratedMessage = AgentPersistedMessageV2;
 
 export type AgentV2Hints = AgentHintsResponseV2;
+
+export type AgentV2HintWalletState = NonNullable<AgentHintPoolItemV2['walletState']>;
+
+export type AgentV2StarterHint = Pick<AgentHintPoolItemV2, 'id' | 'group'>;
+
+export interface AgentV2StarterHints {
+  catalogVersion: AgentHintPoolResponseV2['catalogVersion'];
+  items: AgentV2StarterHint[];
+}
 
 export type ApiUpdateAgentV2 = {
   type: 'agentV2';

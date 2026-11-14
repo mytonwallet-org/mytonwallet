@@ -1,6 +1,7 @@
 import Kingfisher
 import SwiftUI
 import UIComponents
+import WalletContext
 import WalletCore
 
 // MARK: - Dapp Folders Grid
@@ -153,6 +154,10 @@ extension DappFolderView {
                 }
             }
             .onTap(isPressedBinding: $isHighlighted, action: onTap)
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(lang("More"))
+            .accessibilityIdentifier("explore_category_more")
         }
 
         @ViewBuilder private func siteImage(urlString: String?) -> some View {

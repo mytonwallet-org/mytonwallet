@@ -3,6 +3,7 @@ import React, { memo, useRef, useState } from '../../lib/teact/teact';
 import type { DropdownItem } from './Dropdown';
 
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -95,7 +96,7 @@ function IFrameBrowserHeader({
         isMenuOpen && 'is-menu-open',
       )}
     >
-      <div className={buildClassName(modalStyles.title, styles.title)}>
+      <div className={buildClassName(modalStyles.title, styles.title)} data-testid={getTestId('browser_title')}>
         {shouldShowDropdown ? (
           <Dropdown<string>
             items={dropdownItems}
@@ -130,6 +131,7 @@ function IFrameBrowserHeader({
         isSimple
         className={modalStyles.menuButton}
         ariaLabel={lang('Menu')}
+        testId={getTestId('browser_more')}
         onClick={handleMenuButtonClick}
       >
         <i className={buildClassName(modalStyles.menuIcon, 'icon-menu-dots')} aria-hidden />

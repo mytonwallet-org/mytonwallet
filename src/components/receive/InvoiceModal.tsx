@@ -17,6 +17,7 @@ import {
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 import { fromDecimal } from '../../util/decimals';
+import getTestId from '../../util/getTestId';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { getChainBySlug } from '../../util/tokens';
 
@@ -135,6 +136,7 @@ function InvoiceModal({
                 id="amount"
                 value={amountValue}
                 labelText={lang('Amount')}
+                testId={isActive ? getTestId('invoice_amount_input') : undefined}
                 onChange={setAmountValue}
               >
                 <SelectTokenButton
@@ -149,6 +151,7 @@ function InvoiceModal({
                   label={lang('Comment')}
                   placeholder={lang('Optional')}
                   wrapperClassName={styles.invoiceComment}
+                  testId={isActive ? getTestId('invoice_comment_input') : undefined}
                   onInput={setComment}
                 />
               )}
@@ -161,6 +164,7 @@ function InvoiceModal({
                 noExplorer
                 copyNotification={lang('Invoice Link Copied')}
                 className={styles.invoiceLinkField}
+                testId={isActive ? getTestId('invoice_link') : undefined}
               />
             </div>
           </>

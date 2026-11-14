@@ -172,7 +172,8 @@ enum ReceiveItem: Hashable {
         switch self {
         case .buyWithCard: "receive_buy_card"
         case .buyWithCrypto: "receive_buy_crypto"
-        case .address, .depositLink: nil
+        case .depositLink: "receive_deposit_link"
+        case .address: nil
         }
     }
 }

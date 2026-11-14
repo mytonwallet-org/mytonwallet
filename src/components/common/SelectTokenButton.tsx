@@ -18,11 +18,12 @@ interface OwnProps {
   token?: ApiToken;
   noChainIcon?: boolean;
   className?: string;
+  testId?: string;
   onClick: NoneToVoidFunction;
 }
 
 function SelectTokenButton({
-  token, className, noChainIcon, onClick,
+  token, className, noChainIcon, testId, onClick,
 }: OwnProps) {
   const { transitionRef } = useSelectorWidth(token);
   const buttonTransitionKeyRef = useRef(0);
@@ -44,6 +45,8 @@ function SelectTokenButton({
         ref={transitionRef}
         name="fade"
         activeKey={buttonTransitionKeyRef.current}
+        // Old slides stay mounted, so the id goes on the single container instead of each button
+        testId={testId}
         className={buildClassName(styles.wrapper, className)}
         slideClassName={styles.slide}
       >

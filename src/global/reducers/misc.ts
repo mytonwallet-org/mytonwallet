@@ -510,6 +510,15 @@ export function updateCurrentAccountId(global: GlobalState, accountId: string): 
   };
 }
 
+export function updateShownCardAccountId(global: GlobalState, accountId?: string): GlobalState {
+  if (global.shownCardAccountId === accountId) return global;
+
+  return {
+    ...global,
+    shownCardAccountId: accountId,
+  };
+}
+
 function doesAccountExist(global: GlobalState, accountId: string) {
   return !!selectAccountOrAuthAccount(global, accountId);
 }

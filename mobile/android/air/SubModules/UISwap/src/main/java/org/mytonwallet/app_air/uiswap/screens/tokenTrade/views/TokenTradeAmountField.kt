@@ -60,6 +60,10 @@ class TokenTradeAmountField(context: Context) :
         org.mytonwallet.app_air.icons.R.drawable.ic_clear_24_circle
     )?.mutate()
 
+    private val resetIcon = context.getDrawableCompat(
+        org.mytonwallet.app_air.icons.R.drawable.ic_perps_edit_reset
+    )?.mutate()
+
     private val clearButton = ImageView(context).apply {
         setImageDrawable(
             LayerDrawable(
@@ -76,8 +80,20 @@ class TokenTradeAmountField(context: Context) :
         setPadding(inset, inset, inset, inset)
         contentDescription = LocaleController.getString("Clear")
         visibility = GONE
-        setOnClickListener { editText.clear() }
+        setOnClickListener { onReset?.invoke() ?: editText.clear() }
     }
+
+    /** Replaces the clear button with one that restores the current amount. */
+    var onReset: (() -> Unit)? = null
+        set(value) {
+            field = value
+            editText.isResetMode = value != null
+            clearButton.setImageDrawable(resetIcon)
+            clearButton.scaleType = ImageView.ScaleType.CENTER
+            clearButton.setPadding(0, 0, 0, 0)
+            clearButton.contentDescription = LocaleController.getString("Reset to Current Amount")
+            updateTheme()
+        }
 
     init {
         id = generateViewId()
@@ -86,7 +102,9 @@ class TokenTradeAmountField(context: Context) :
         addView(clearButton, LayoutParams(44.dp, 44.dp, Gravity.END or Gravity.TOP))
         editText.onFrame = { layoutClearButton() }
         editText.onEdit = { input ->
-            clearButton.visibility = if (input.text.isEmpty()) GONE else VISIBLE
+            if (onReset == null) {
+                clearButton.visibility = if (input.text.isEmpty()) GONE else VISIBLE
+            }
             onChange?.invoke(input)
         }
         updateTheme()
@@ -98,10 +116,20 @@ class TokenTradeAmountField(context: Context) :
         prefix: String,
         suffix: String,
         hasAmount: Boolean,
-        switchesUnit: Boolean = false
+        switchesUnit: Boolean = false,
+        isResettable: Boolean = false
     ) {
-        editText.configure(input, decimals, prefix, suffix, hasAmount, switchesUnit)
-        clearButton.visibility = if (input.text.isEmpty()) GONE else VISIBLE
+        val isButtonVisible = if (onReset != null) isResettable else input.text.isNotEmpty()
+        editText.configure(
+            input,
+            decimals,
+            prefix,
+            suffix,
+            hasAmount,
+            switchesUnit,
+            isResettable
+        )
+        clearButton.visibility = if (isButtonVisible) VISIBLE else GONE
     }
 
     fun insert(text: String) = editText.insert(text)
@@ -119,7 +147,8 @@ class TokenTradeAmountField(context: Context) :
 
     override fun updateTheme() {
         clearCircle?.setTint(WColor.SecondaryText.color)
-        clearButton.alpha = 0.6f
+        resetIcon?.setTint(WColor.SecondaryText.color)
+        clearButton.alpha = if (onReset != null) 0.45f else 0.6f
         editText.updateTheme()
     }
 
@@ -133,6 +162,8 @@ class TokenTradeAmountField(context: Context) :
         private var prefix = ""
         private var suffix = ""
         private var hasAmount = false
+        var isResetMode = false
+        private var isResettable = false
         private var scale = 1f
         private var numberWidth = 0f
         private var isApplyingText = false
@@ -262,14 +293,16 @@ class TokenTradeAmountField(context: Context) :
             prefix: String,
             suffix: String,
             hasAmount: Boolean,
-            switchesUnit: Boolean
+            switchesUnit: Boolean,
+            isResettable: Boolean
         ) {
             this.decimals = decimals
             if (amountInput == input && this.prefix == prefix && this.suffix == suffix &&
-                this.hasAmount == hasAmount
+                this.hasAmount == hasAmount && this.isResettable == isResettable
             ) {
                 return
             }
+            this.isResettable = isResettable
             val changedInput = amountInput != input
             val animatesSwitch =
                 switchesUnit && isLaidOut && WGlobalStorage.getAreAnimationsActive()
@@ -421,7 +454,8 @@ class TokenTradeAmountField(context: Context) :
             formattedSize = width to height
             val number = amountInput.text
             val visibleNumber = number.ifEmpty { "0" }
-            val clearReserved = if (number.isEmpty()) 0 else 52.dp
+            val isButtonShown = if (isResetMode) isResettable else number.isNotEmpty()
+            val clearReserved = if (isButtonShown) 52.dp else 0
             val available = max(1f, width - clearReserved - 4f.dp)
 
             fun fullWidth(scale: Float): Float = measureNumber(visibleNumber, scale) +

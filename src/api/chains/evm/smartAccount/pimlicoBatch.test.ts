@@ -13,7 +13,9 @@ import {
   type UserOperationV07Data,
 } from './userOperation';
 
-const CHAIN_ID = 8453n;
+const CHAIN_ID = 8453n; // base
+/** Base paymaster debit tolerance: 0.1 USDC (6 decimals). */
+const BASE_DEBIT_TOLERANCE = 100_000n;
 
 const BASE_USER_OPERATION: UserOperationV07Data = {
   sender: '0xFad818EBe50790749d530E9743045a5740796100',
@@ -169,28 +171,28 @@ function bindEstimate(paymasterData: string, maxTokenCost: bigint) {
 }
 
 describe('isPimlicoUserOperationBound', () => {
-  it('accepts an ERC-20 sponsorship when both the debit and the quote stay within half a USDC', () => {
-    expect(bindEstimate(encodeErc20PaymasterData({ allowAllBundlers: true }), 500_000n)).toBe(true);
+  it('accepts an ERC-20 sponsorship when both the debit and the quote stay within the Base debit tolerance', () => {
+    expect(bindEstimate(encodeErc20PaymasterData({ allowAllBundlers: true }), BASE_DEBIT_TOLERANCE)).toBe(true);
   });
 
-  it('rejects a quote above half a USDC even when the paymaster debit is smaller', () => {
-    expect(bindEstimate(encodeErc20PaymasterData(), 500_001n)).toBe(false);
+  it('rejects a quote above the Base debit tolerance even when the paymaster debit is smaller', () => {
+    expect(bindEstimate(encodeErc20PaymasterData(), BASE_DEBIT_TOLERANCE + 1n)).toBe(false);
   });
 
   it('rejects a sponsorship that charges another token', () => {
     expect(bindEstimate(encodeErc20PaymasterData({ token: OTHER_TOKEN }), 5n)).toBe(false);
   });
 
-  it('rejects a sponsorship whose exchange rate costs more than half a USDC', () => {
+  it('rejects a sponsorship whose exchange rate costs more than the Base debit tolerance', () => {
     expect(bindEstimate(encodeErc20PaymasterData({ exchangeRate: 100_002n * 10n ** 18n }), 5n)).toBe(false);
   });
 
-  it('rejects a constant fee above half a USDC', () => {
-    expect(bindEstimate(encodeErc20PaymasterData({ constantFee: 500_001n }), 5n)).toBe(false);
+  it('rejects a constant fee above the Base debit tolerance', () => {
+    expect(bindEstimate(encodeErc20PaymasterData({ constantFee: BASE_DEBIT_TOLERANCE + 1n }), 5n)).toBe(false);
   });
 
-  it('rejects a pre-fund above half a USDC', () => {
-    expect(bindEstimate(encodeErc20PaymasterData({ preFund: 500_006n }), 5n)).toBe(false);
+  it('rejects a pre-fund above the Base debit tolerance', () => {
+    expect(bindEstimate(encodeErc20PaymasterData({ preFund: BASE_DEBIT_TOLERANCE + 6n }), 5n)).toBe(false);
   });
 
   it('rejects verifying mode and a paymaster other than the singleton', () => {

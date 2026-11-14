@@ -512,6 +512,31 @@ final class RootSearchRestorationTests: XCTestCase {
         XCTAssertEqual(circle.transform, .identity)
     }
 
+    /// Asking the Agent from search switches to the Agent tab and pushes the new chat at once: the bar's fold is still
+    /// springing once the chat's composer has taken the field's place, and its late frames leave the search circle away
+    /// instead of over the composer
+    func testFoldFramesUnderAChatLeaveTheSearchCircleAway() {
+        let host = AgentBarHost()
+        let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
+        toolbar.frame = CGRect(x: 16, y: 780, width: 358, height: AgentListBottomBar.height)
+        host.agentBarHostView.addSubview(toolbar)
+        let controller = RootAgentBarController(host: host, searchToolbar: toolbar, containerView: host.agentBarHostView)
+        let bar = AgentListBottomBar()
+        controller.install(bar)
+        controller.setMorphProgress(1)
+        let chat = AgentBarHandoffChat(isComposerOnKeyboard: false)
+        host.navigation.setViewControllers([host.navigation.viewControllers[0], chat], animated: false)
+        controller.updateForNavigation(showing: chat, isShowingRoot: false, in: host.navigation)
+        let circle = toolbar.searchButtonPresentationSourceView
+        let awayOffset = -(toolbar.frame.minX + AgentListBottomBar.height)
+        XCTAssertLessThan(circle.transform.tx, awayOffset, "The push sends the circle away")
+
+        for progress: CGFloat in [0.6, 0.95, 1.04, 1] {
+            bar.onMorphFrame?(progress)
+            XCTAssertLessThan(circle.transform.tx, awayOffset, "A fold frame at \(progress) keeps the circle away")
+        }
+    }
+
     /// A touch on the Agent list's microphone moves nothing until it is a tap or a hold; a hold then sends the search
     /// circle away as any question does
     func testSearchCircleStaysPutUntilTheMicrophoneTouchIsATapOrAHold() async throws {
@@ -1496,7 +1521,7 @@ private final class RootAgentListClient: AgentThreadListClient, AgentNewsFeedCli
 
     func cachedThreads() async -> [ApiAgentV2ThreadListItem]? { nil }
 
-    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
+    func getNewsFeed(lang: String, cursor: String?, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView = .all) async throws -> ApiAgentV2NewsFeedPage {
         .init(locale: lang, items: [])
     }
 

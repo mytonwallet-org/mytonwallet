@@ -83,6 +83,7 @@ class TokenChartCell(
     private var onAnalyze: (() -> Unit)?,
     private var onHeightChange: ((isExpanding: Boolean, height: Int) -> Unit)?,
     title: String = LocaleController.getString("Price"),
+    isExpandedByDefault: Boolean = false,
     // Stable resource id for UI automation, set before containerView is anchored to the cell's id
     viewId: Int? = null
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
@@ -125,7 +126,7 @@ class TokenChartCell(
                 }
             }
         }
-    private var isExpanded = WGlobalStorage.getIsTokenChartExpanded()
+    private var isExpanded = WGlobalStorage.getIsTokenChartExpanded(isExpandedByDefault)
     private var isChangingPeriod = false
         set(value) {
             field = value

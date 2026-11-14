@@ -13,7 +13,7 @@ final class SettingsNavigationTitleTests: XCTestCase {
         withDependencies { $0.context = .live } operation: { super.invokeTest() }
     }
 
-    func testTitleWidthSurvivesReturningFromAppearanceWithoutScrolling() async throws {
+    func testTitleWidthSurvivesAppearanceTransitionsWithoutScrolling() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let settings = SettingsVC()
         let navigation = WNavigationController(rootViewController: settings)
@@ -31,7 +31,7 @@ final class SettingsNavigationTitleTests: XCTestCase {
         let title = try XCTUnwrap(findTitleLabel(in: header))
         collection.contentInset.bottom += 500
 
-        for scrollOffset: CGFloat in [80, 200] {
+        for scrollOffset: CGFloat in [0, 80, 200] {
             collection.contentOffset.y = scrollOffset - collection.adjustedContentInset.top
             settings.scrollViewDidScroll(collection)
             window.layoutIfNeeded()
@@ -40,12 +40,29 @@ final class SettingsNavigationTitleTests: XCTestCase {
 
             let appearance = AppearanceSettingsVC()
             navigation.pushViewController(appearance, animated: true)
-            try await waitForNavigation(navigation, on: appearance)
+            try await waitForNavigation(navigation, on: appearance) {
+                XCTAssertEqual(title.bounds.width, expectedWidth, accuracy: 0.5,
+                               "Pushing Appearance must preserve the title width throughout the transition")
+            }
             navigation.popViewController(animated: true)
-            try await waitForNavigation(navigation, on: settings)
+            try await waitForNavigation(navigation, on: settings) {
+                XCTAssertEqual(title.bounds.width, expectedWidth, accuracy: 0.5,
+                               "Popping Appearance must preserve the title width throughout the transition")
+            }
 
             XCTAssertEqual(title.bounds.width, expectedWidth, accuracy: 0.5,
                            "Returning from Appearance must restore the title width before another scroll")
+
+            let transition = try XCTUnwrap(navigation.beginInteractivePush(AppearanceSettingsVC()))
+            try await Task.sleep(for: .milliseconds(100))
+            transition.update(0.4)
+            try await Task.sleep(for: .milliseconds(100))
+            XCTAssertEqual(title.bounds.width, expectedWidth, accuracy: 0.5)
+            transition.cancel()
+            try await waitForNavigation(navigation, on: settings) {
+                XCTAssertEqual(title.bounds.width, expectedWidth, accuracy: 0.5,
+                               "Cancelling navigation must preserve the title width")
+            }
         }
 
         collection.contentOffset.y = header.layoutGeometry.fullScrollRange - collection.adjustedContentInset.top
@@ -59,7 +76,8 @@ final class SettingsNavigationTitleTests: XCTestCase {
         // A navigation transition can restore the title view's position without changing its size
         titleView.transform = CGAffineTransform(translationX: window.bounds.width, y: 0)
         settings.beginAppearanceTransition(true, animated: true)
-        XCTAssertLessThan(title.bounds.width, expectedWidth)
+        XCTAssertEqual(title.bounds.width, expectedWidth, accuracy: 0.5,
+                       "A temporary navigation position must not shrink the title during its appearance")
         titleView.transform = .identity
         settings.endAppearanceTransition()
 
@@ -68,9 +86,14 @@ final class SettingsNavigationTitleTests: XCTestCase {
                        "The settled navigation position must replace the transition's temporary title width")
     }
 
-    private func waitForNavigation(_ navigation: UINavigationController, on controller: UIViewController) async throws {
+    private func waitForNavigation(
+        _ navigation: UINavigationController,
+        on controller: UIViewController,
+        checkTransition: (() -> Void)? = nil
+    ) async throws {
         try await Task.sleep(for: .milliseconds(50))
         for _ in 0..<200 {
+            checkTransition?()
             if navigation.topViewController === controller, navigation.transitionCoordinator == nil,
                controller.viewIfLoaded?.window != nil { return }
             try await Task.sleep(for: .milliseconds(20))

@@ -1,6 +1,5 @@
 import type {
   AgentAnswerFeedbackV2,
-  AgentHintsResponseV2,
   AgentPersistedActionV2,
   AgentPublicFollowUpV2,
   AgentRunActivityEvent,
@@ -14,19 +13,24 @@ import type {
   AgentV2ActionPresentation,
   AgentV2AvailabilityState,
   AgentV2RateLimitState,
+  AgentV2StarterHints,
 } from '../../../api/agentV2/types';
-import type { AgentHint, AgentMessage } from '../../../global/types';
+import type { AgentMessage } from '../../../global/types';
 import type { AgentRunActivityType } from '../AgentRunActivity';
 
+import { getIsAgentV2SupportActive, getIsAgentV2SupportEntryVisible } from '../../../global/agentV2/uiCapabilities';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import memoize from '../../../util/memoize';
+import { selectAgentV2ComposerStatus } from '../../agentV2/agentComposerStatus';
+
+export type AgentV2HeldLimitState = Pick<AgentV2MessagesState, 'quotaRetry' | 'userRateLimit' | 'admissionFailure'>;
 
 type AgentV2RunWithOperation = {
   operationId?: number;
   operationKind?: AgentV2RunOperationKind;
 };
 
-type AgentV2RunOperationKind = 'command' | 'admissionRetry';
+export type AgentV2RunOperationKind = 'command' | 'admissionRetry' | 'supportRequest';
 
 export type AgentV2RunState =
   | { phase: 'idle' }
@@ -70,13 +74,14 @@ export interface AgentV2MessagesState {
   isConsentAccepted?: boolean;
   thread?: AgentThreadSummaryV2;
   messages: AgentMessage[];
-  hints?: AgentHint[];
-  hintsResponse?: AgentHintsResponseV2;
-  hintsLangCode?: AgentHint['langCode'];
+  /** The starter hints picked as the empty chat came on screen, for its showing `starterHintsShowingId` */
+  starterHints?: AgentV2StarterHints;
+  starterHintsShowingId?: number;
   error?: {
     text: string;
     timestamp: number;
     cause?: AgentV2MessageError;
+    optimisticMessageId?: number;
     isHistoryFailure?: boolean;
   };
   admissionFailure?: {
@@ -113,7 +118,23 @@ export interface AgentV2MessagesState {
    */
   stoppedAnswers?: AgentV2StoppedAnswer[];
   run: AgentV2RunState;
+  /**
+   * Questions sent while an answer is being produced. They show at the end of the chat at once, after whatever the
+   * answer adds, and go one at a time, in order, once the chat is free.
+   */
+  queuedMessages: AgentMessage[];
+  /**
+   * Questions that waited for an answer under a wallet the user switched from, with their failure, whose Retry queues
+   * them again. They show at the end of the chat, as the queue does, before the questions queued since. A later
+   * question that goes leaves them where they are, without Retry, as on Android.
+   */
+  failedQueue?: AgentV2FailedQueue;
   threadMutation: AgentV2ThreadMutationState;
+}
+
+export interface AgentV2FailedQueue {
+  messages: AgentMessage[];
+  failure: AgentMessage;
 }
 
 interface AgentV2StoppedAnswer {
@@ -121,12 +142,6 @@ interface AgentV2StoppedAnswer {
   sourceId: string;
   /** The message before it, after which it goes again when the server leaves it out */
   previousSourceId?: string;
-}
-
-interface HydrationHints {
-  hints: AgentHint[];
-  response: AgentHintsResponseV2;
-  langCode: AgentHint['langCode'];
 }
 
 export type AgentV2MessagesStateAction =
@@ -140,7 +155,6 @@ export type AgentV2MessagesStateAction =
     entries: AgentV2NormalizedMessageEntry[];
     nextCursor?: string;
     shouldPreserveLiveContent: boolean;
-    hints?: HydrationHints;
   }
   | { kind: 'hydrationFailed' }
   | { kind: 'cachedHistoryApplied'; thread: AgentThreadSummaryV2; entries: AgentV2NormalizedMessageEntry[] }
@@ -152,7 +166,7 @@ export type AgentV2MessagesStateAction =
     /** Every message the refresh read, in the server's history order */
     sourceIds: string[];
   }
-  | { kind: 'hintsLoaded'; hints: HydrationHints }
+  | { kind: 'hintsLoaded'; starterHints: AgentV2StarterHints; showingId: number }
   | { kind: 'optimisticMessageAdded'; message: AgentMessage }
   | { kind: 'messageSourceBound'; messageId: number; sourceId: string }
   | { kind: 'messageSourceReserved'; messageId: number; sourceId: string }
@@ -194,6 +208,7 @@ export type AgentV2MessagesStateAction =
   | {
     kind: 'runConnectionFailed';
     operationId: number;
+    optimisticMessageId?: number;
     error: NonNullable<AgentV2MessagesState['error']>;
   }
   | {
@@ -248,6 +263,17 @@ export type AgentV2MessagesStateAction =
       timestamp: number;
     }
     | { kind: 'runCancelled'; clientRunId: string }
+    | { kind: 'messageQueued'; message: AgentMessage }
+    /** The queued questions fail, as they were asked for an account that is no longer the active one */
+    | { kind: 'queuedMessagesFailed'; failure: AgentMessage }
+    | { kind: 'queuedMessagesRetried' }
+    /** The queued and failed questions go to another chat of the same thread, which sends them or shows them failed */
+    | { kind: 'queuedMessagesTaken' }
+    /** The chat takes over the queued and failed questions its thread's chat left */
+    | { kind: 'leftQueueRestored'; queuedMessages: AgentMessage[]; failedQueue?: AgentV2FailedQueue }
+    | { kind: 'heldLimitRestored'; limit: AgentV2HeldLimitState; message?: AgentMessage }
+    /** Another account is active, for which a run a limit held does not go again */
+    | { kind: 'activeAccountChanged' }
     /** `messageId` is the answer the stopped run has started */
     | { kind: 'runStopped'; messageId?: number }
     | { kind: 'runSettled'; operationId: number }
@@ -276,15 +302,18 @@ export const INITIAL_AGENT_V2_MESSAGES_STATE: AgentV2MessagesState = {
   isLoadingOlderMessages: false,
   sourceIdByMessageId: {},
   run: { phase: 'idle' },
+  queuedMessages: [],
   threadMutation: { phase: 'idle' },
   availability: { state: 'available' },
 };
 
-/** A chat's history as it was last shown, which the chat shows at once when it opens again, as on iOS */
+/**
+ * A chat's history as it was last shown, which the chat shows at once when it opens again, as on iOS. Its starter
+ * hints stay out: an empty chat picks them anew each time it opens.
+ */
 export type AgentV2CachedChat = Pick<
   AgentV2MessagesState,
-  'messages' | 'sourceIdByMessageId' | 'nextCursor' | 'loadedOperatorMessageAt' | 'hints' | 'hintsResponse'
-  | 'hintsLangCode' | 'stoppedAnswers'
+  'messages' | 'sourceIdByMessageId' | 'nextCursor' | 'loadedOperatorMessageAt' | 'stoppedAnswers'
 > & { thread: AgentThreadSummaryV2 };
 
 /**
@@ -309,9 +338,6 @@ export function selectAgentV2CachedChat(state: AgentV2MessagesState): AgentV2Cac
     sourceIdByMessageId,
     nextCursor: state.nextCursor,
     loadedOperatorMessageAt: state.loadedOperatorMessageAt,
-    hints: state.hints,
-    hintsResponse: state.hintsResponse,
-    hintsLangCode: state.hintsLangCode,
     stoppedAnswers: state.stoppedAnswers,
   };
 }
@@ -403,9 +429,6 @@ export function reduceAgentV2MessagesState(
         nextCursor: action.nextCursor,
         isLoadingOlderMessages: false,
         historyPageRequest: undefined,
-        hints: action.hints?.hints ?? state.hints,
-        hintsResponse: action.hints?.response ?? state.hintsResponse,
-        hintsLangCode: action.hints?.langCode ?? state.hintsLangCode,
         isLoading: false,
         isOpeningHistory: false,
         hasHydratedHistory: true,
@@ -447,14 +470,57 @@ export function reduceAgentV2MessagesState(
     case 'latestMessagesReceived':
       return mergeLatestMessages(state, action);
     case 'hintsLoaded':
+      return { ...state, starterHints: action.starterHints, starterHintsShowingId: action.showingId };
+    case 'optimisticMessageAdded': {
+      const settled = settleFailedQueue(state);
+      return {
+        ...settled,
+        messages: [...settled.messages, action.message],
+        // A queued question that goes leaves the queue for its place in the chat, which is the same
+        queuedMessages: state.queuedMessages.some(({ id }) => id === action.message.id)
+          ? state.queuedMessages.filter(({ id }) => id !== action.message.id)
+          : state.queuedMessages,
+      };
+    }
+    case 'messageQueued':
+      return { ...state, queuedMessages: [...state.queuedMessages, action.message] };
+    case 'queuedMessagesFailed':
+      return state.queuedMessages.length ? {
+        ...state,
+        queuedMessages: [],
+        // Questions an earlier switch failed stay failed with them, under the latest failure
+        failedQueue: {
+          messages: [...(state.failedQueue?.messages ?? []), ...state.queuedMessages],
+          failure: action.failure,
+        },
+      } : state;
+    case 'queuedMessagesRetried':
+      return state.failedQueue ? {
+        ...state,
+        queuedMessages: [...state.failedQueue.messages, ...state.queuedMessages],
+        failedQueue: undefined,
+      } : state;
+    case 'queuedMessagesTaken':
+      return state.queuedMessages.length || state.failedQueue
+        ? { ...state, queuedMessages: [], failedQueue: undefined }
+        : state;
+    case 'leftQueueRestored':
       return {
         ...state,
-        hints: action.hints.hints,
-        hintsResponse: action.hints.response,
-        hintsLangCode: action.hints.langCode,
+        queuedMessages: [...state.queuedMessages, ...action.queuedMessages],
+        failedQueue: action.failedQueue ? {
+          messages: [...(state.failedQueue?.messages ?? []), ...action.failedQueue.messages],
+          failure: action.failedQueue.failure,
+        } : state.failedQueue,
       };
-    case 'optimisticMessageAdded':
-      return { ...state, messages: [...state.messages, action.message] };
+    case 'activeAccountChanged':
+      return dropHeldLimitRun(state);
+    case 'heldLimitRestored':
+      return {
+        ...state,
+        ...action.limit,
+        messages: action.message ? [...state.messages, action.message] : state.messages,
+      };
     case 'messageSourceBound':
       return state.messages.some(({ id }) => id === action.messageId)
         ? bindMessageSource(state, action.messageId, action.sourceId)
@@ -504,6 +570,8 @@ export function reduceAgentV2MessagesState(
       const clearing: AgentV2MessagesState = {
         ...state,
         messages: [],
+        queuedMessages: [],
+        failedQueue: undefined,
         sourceIdByMessageId: {},
         stoppedAnswers: undefined,
         nextCursor: undefined,
@@ -556,46 +624,83 @@ export function reduceAgentV2MessagesState(
         isOpeningHistory: false,
         run: { phase: 'idle' },
       };
-    case 'runConnectionFailed':
-      return selectIsAgentV2RunOperationCurrent(state, action.operationId)
-        ? {
-          ...state,
-          error: action.error,
-          isLoading: false,
-          run: { phase: 'idle' },
-        }
-        : state;
-    case 'runRequested':
+    case 'runConnectionFailed': {
+      if (!selectIsAgentV2RunOperationCurrent(state, action.operationId)) return state;
+      const shouldPreserveAdmissionFailure = selectIsAgentV2AdmissionFailureHeld(state);
       return {
         ...state,
-        messages: action.operationKind === 'command' && selectRetryOptimisticMessageId(state) !== undefined
-          ? state.messages.filter(({ id }) => id !== selectRetryOptimisticMessageId(state))
-          : state.messages,
+        error: action.optimisticMessageId === undefined ? action.error
+          : (shouldPreserveAdmissionFailure ? { ...action.error, optimisticMessageId: action.optimisticMessageId }
+            : undefined),
+        ...(action.optimisticMessageId !== undefined && !shouldPreserveAdmissionFailure ? {
+          admissionFailure: {
+            error: action.error.cause!,
+            optimisticMessageId: action.optimisticMessageId,
+            timestamp: action.error.timestamp,
+          },
+        } : {}),
+        isLoading: false,
+        run: { phase: 'idle' },
+      };
+    }
+    case 'runRequested': {
+      // A new question takes the place of a failed one that wasn't asked again
+      const isCommand = action.operationKind === 'command';
+      const isSupportRequest = action.operationKind === 'supportRequest';
+      const heldRun = selectAgentV2HeldLimitRun(state);
+      const supersededMessageId = isCommand ? heldRun?.optimisticMessageId : undefined;
+      const canReplaceAdmissionFailure = action.operationKind !== 'admissionRetry'
+        || !state.admissionFailure?.clientRunId;
+      const failedSupportId = state.error?.optimisticMessageId;
+      const failedId = isCommand ? selectRetryOptimisticMessageId(state)
+        : (canReplaceAdmissionFailure ? state.admissionFailure?.optimisticMessageId : undefined);
+      const isHeldMessage = isSupportRequest && failedId !== undefined && heldRun?.optimisticMessageId === failedId;
+      const settled = isCommand || isSupportRequest ? settleFailedQueue(state) : state;
+      return {
+        ...settled,
+        messages: supersededMessageId !== undefined || failedSupportId !== undefined
+          || (failedId !== undefined && !isHeldMessage)
+          ? settled.messages.filter(({ id }) => (
+            id !== supersededMessageId && id !== failedSupportId && (id !== failedId || isHeldMessage)
+          ))
+          : settled.messages,
         run: {
           phase: 'admitting',
           operationId: action.operationId,
           operationKind: action.operationKind,
           activity: ANALYZING_REQUEST_ACTIVITY,
         },
-        admissionFailure: undefined,
+        admissionFailure: isSupportRequest && selectIsAgentV2AdmissionFailureHeld(state)
+          ? state.admissionFailure : undefined,
         error: undefined,
       };
-    case 'runStarted':
+    }
+    case 'runStarted': {
+      const operationBinding = getRunOperationBinding(state.run);
+      const isSupportRequest = operationBinding.operationKind === 'supportRequest';
+      const heldMessageId = isSupportRequest ? selectAgentV2HeldLimitRun(state)?.optimisticMessageId : undefined;
+      const heldMessage = heldMessageId !== undefined
+        ? state.messages.find(({ id }) => id === heldMessageId) : undefined;
       return {
         ...state,
+        messages: heldMessageId !== undefined
+          ? state.messages.filter(({ id }) => id !== heldMessageId) : state.messages,
+        queuedMessages: heldMessage ? [heldMessage, ...state.queuedMessages] : state.queuedMessages,
+        admissionFailure: isSupportRequest ? undefined : state.admissionFailure,
         thread: state.thread?.id === action.threadId
           ? { ...state.thread, revision: action.threadRevision }
           : state.thread,
-        ...(state.run.phase !== 'admitting' || state.run.operationKind !== 'admissionRetry'
+        ...((state.run.phase !== 'admitting' || state.run.operationKind !== 'admissionRetry')
           ? { userRateLimit: undefined, quotaRetry: undefined }
           : {}),
         run: {
           phase: 'streaming',
-          ...getRunOperationBinding(state.run),
+          ...operationBinding,
           clientRunId: action.clientRunId,
           activity: selectAgentV2Activity(state) ?? ANALYZING_REQUEST_ACTIVITY,
         },
       };
+    }
     case 'toolActivityChanged':
       return withRun(state, updateRunActivityCurrent(state.run, action.clientRunId, action.activity));
     case 'runActivityChanged':
@@ -661,6 +766,7 @@ export function reduceAgentV2MessagesState(
           sourceIdByMessageId: {},
           stoppedAnswers: undefined,
           admissionFailure: undefined,
+          failedQueue: undefined,
         } : {}),
         threadMutation: reconcileThreadMutation(state.threadMutation, action.thread, false),
       };
@@ -694,7 +800,6 @@ export function reduceAgentV2MessagesState(
     case 'walletContextChanged':
       return {
         ...state,
-        ...(action.kind === 'walletAuthorityChanged' ? { admissionFailure: undefined } : {}),
         messages: action.kind === 'walletContextChanged'
           || !action.threadId
           || state.thread?.id === action.threadId
@@ -731,6 +836,48 @@ export function selectIsAgentV2RunActive(state: AgentV2MessagesState) {
   return state.run.phase !== 'idle';
 }
 
+export function selectCanRequestAgentV2Support(
+  state: AgentV2MessagesState, now = Date.now(), canCreateThread = false,
+) {
+  return state.isConsentAccepted === true && Boolean(state.thread || canCreateThread)
+    && getIsAgentV2SupportEntryVisible(state.thread)
+    && !selectIsAgentV2SendDisabled(state, false)
+    && !(state.userRateLimit && state.userRateLimit.resetAt > now)
+    && !selectIsAgentV2RunActive(state);
+}
+
+export function selectAgentV2ComposerStatusForState(state: AgentV2MessagesState, now = Date.now()) {
+  const hasActiveSupport = getIsAgentV2SupportActive(state.thread);
+  return selectAgentV2ComposerStatus(
+    hasActiveSupport ? undefined : state.availability,
+    hasActiveSupport ? undefined : state.userQuota,
+    state.quotaRetry,
+    state.userRateLimit,
+    now,
+  );
+}
+
+/**
+ * The run a limit held back, which Retry sends again once the limit has reset, as do the questions queued behind it
+ * before they go
+ */
+export function selectAgentV2HeldLimitRunId(state: AgentV2MessagesState) {
+  return selectAgentV2HeldLimitRun(state)?.clientRunId;
+}
+
+export function selectIsAgentV2AdmissionFailureHeld(state: AgentV2MessagesState) {
+  return state.admissionFailure !== undefined && selectAgentV2HeldLimitRun(state) === state.admissionFailure;
+}
+
+function selectAgentV2HeldLimitRun(state: AgentV2MessagesState) {
+  const heldRun = state.quotaRetry?.clientRunId !== undefined ? state.quotaRetry
+    : (state.userRateLimit?.clientRunId !== undefined ? state.userRateLimit : undefined);
+  const { admissionFailure } = state;
+  if (admissionFailure?.error.code === 'agent_capacity_exhausted' && admissionFailure.clientRunId !== undefined
+    && (!heldRun || heldRun.clientRunId === admissionFailure.clientRunId)) return admissionFailure;
+  return heldRun;
+}
+
 function selectRetryOptimisticMessageId(state: AgentV2MessagesState) {
   return state.admissionFailure?.optimisticMessageId
     ?? state.quotaRetry?.optimisticMessageId
@@ -741,15 +888,29 @@ function selectIsAgentV2RunOperationCurrent(state: AgentV2MessagesState, operati
   return getRunOperationId(state.run) === operationId;
 }
 
-// The field stays open over a cached history while it loads again, as on iOS
+/**
+ * Suggestions, edits and answering again wait for a free chat: no answer being produced and no question queued. The
+ * field stays open over a cached history while it loads again, as on iOS.
+ */
 export function selectIsAgentV2InputDisabled(state: AgentV2MessagesState, isLimitBlocking: boolean) {
+  return selectIsAgentV2SendDisabled(state, isLimitBlocking)
+    || selectIsAgentV2RunActive(state)
+    || state.queuedMessages.length > 0;
+}
+
+/** A question can't be sent, nor queued behind the answer being produced */
+export function selectIsAgentV2SendDisabled(state: AgentV2MessagesState, isLimitBlocking: boolean) {
   return (state.isLoading && !state.isOpeningHistory && !state.isShowingCachedHistory)
     || Boolean((state.thread?.news || state.thread?.digest) && !state.hasHydratedHistory
       && !(state.isLoading && state.isOpeningHistory))
-    || selectIsAgentV2RunActive(state)
     || state.threadMutation.phase === 'clearing'
     || state.isHistoryCached
     || isLimitBlocking;
+}
+
+/** A question sent now waits for the answer being produced, or for those queued before it */
+export function selectIsAgentV2SendQueued(state: AgentV2MessagesState) {
+  return selectIsAgentV2RunActive(state) || state.queuedMessages.length > 0;
 }
 
 function selectIsAgentV2ThreadMutationCurrent(state: AgentV2MessagesState, operationId: number) {
@@ -1061,14 +1222,35 @@ function failRun(
   action: Extract<AgentV2MessagesStateAction, { kind: 'runFailed' }>,
 ): AgentV2MessagesState {
   let nextState = terminalizeStreamingMessages(state, action.messageId);
+  const isSupportRequest = !action.hasRunId && getRunOperationBinding(state.run).operationKind === 'supportRequest';
   const cause: AgentV2MessageError = {
     code: action.code,
-    retryable: action.retryable,
+    retryable: action.retryable && !isSupportRequest,
     ...(action.resetAtIso ? { resetAt: action.resetAtIso } : {}),
   };
   const admissionFailure = !action.hasRunId && action.messageId === undefined
     ? buildAdmissionFailure(action, cause)
     : undefined;
+  if (isSupportRequest) {
+    const heldAdmissionFailure = selectIsAgentV2AdmissionFailureHeld(state) ? state.admissionFailure : undefined;
+    return {
+      ...nextState,
+      admissionFailure: heldAdmissionFailure ?? admissionFailure,
+      ...(action.code === 'rate_limited' && action.resetAt ? {
+        userRateLimit: {
+          ...state.userRateLimit,
+          kind: 'rateLimit',
+          resetAt: Math.max(state.userRateLimit?.resetAt ?? 0, action.resetAt),
+        },
+      } : {}),
+      error: heldAdmissionFailure ? {
+        text: action.errorText, timestamp: action.timestamp, cause,
+        optimisticMessageId: action.optimisticMessageId,
+      } : undefined,
+      isLoading: false,
+      run: { phase: 'idle' },
+    };
+  }
   if (action.messageId !== undefined) {
     nextState = updateMessage(nextState, action.messageId, (message) => ({
       ...message,
@@ -1140,7 +1322,7 @@ function buildAdmissionFailure(
 ): NonNullable<AgentV2MessagesState['admissionFailure']> {
   return {
     error,
-    ...(action.retryable ? { clientRunId: action.clientRunId } : {}),
+    ...(error.retryable ? { clientRunId: action.clientRunId } : {}),
     ...(action.optimisticMessageId !== undefined
       ? { optimisticMessageId: action.optimisticMessageId }
       : {}),
@@ -1163,6 +1345,40 @@ function cancelRun(state: AgentV2MessagesState, clientRunId: string): AgentV2Mes
         clientRunId,
       },
   };
+}
+
+// A later question that goes leaves the questions a wallet switch failed where they are, with their failure, without
+// Retry, as on Android
+function settleFailedQueue(state: AgentV2MessagesState): AgentV2MessagesState {
+  const { failedQueue } = state;
+  if (!failedQueue) return state;
+  return {
+    ...state,
+    messages: [...state.messages, ...failedQueue.messages, failedQueue.failure],
+    failedQueue: undefined,
+  };
+}
+
+/**
+ * A run a limit held, as one that failed before the server took it, goes again only for the account it was asked for,
+ * so once another account is active its failure and its limit stay without Retry
+ */
+function dropHeldLimitRun(state: AgentV2MessagesState): AgentV2MessagesState {
+  const { admissionFailure, quotaRetry, userRateLimit } = state;
+  let nextState = state;
+  if (admissionFailure?.clientRunId) {
+    const { clientRunId, ...failure } = admissionFailure;
+    nextState = { ...nextState, admissionFailure: failure };
+  }
+  if (quotaRetry?.clientRunId) {
+    const { clientRunId, ...retry } = quotaRetry;
+    nextState = { ...nextState, quotaRetry: retry };
+  }
+  if (userRateLimit?.clientRunId) {
+    const { clientRunId, ...limit } = userRateLimit;
+    nextState = { ...nextState, userRateLimit: limit };
+  }
+  return nextState;
 }
 
 // A stopped answer keeps what it has shown, without the suggestions that follow a finished answer. One that has shown

@@ -3,6 +3,7 @@
 $modalHeight: 36.5rem;
 
 .modalDialog {
+  overflow: hidden;
   height: $modalHeight;
 
   @supports (height: var(--safe-area-bottom)) {

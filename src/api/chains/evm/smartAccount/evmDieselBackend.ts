@@ -39,12 +39,14 @@ export function estimateEvmGaslessBatch(
   network: ApiNetwork,
   address: string,
   calls: EvmMetaTransaction[],
+  gasToken: string,
   eip7702Auth?: PimlicoEip7702Auth,
 ): Promise<EvmGaslessEstimateResult> {
   return callBackendPost('/diesel/evm/estimate', {
     chain,
     network,
     address,
+    gasToken,
     calls: serializeEvmMetaTransactions(calls),
     eip7702Auth,
   });

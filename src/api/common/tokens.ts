@@ -11,6 +11,7 @@ import {
 import { CURRENCIES } from '../../config';
 import { raceWithAbortSignal } from '../../util/abortSignal';
 import { areDeepEqual } from '../../util/areDeepEqual';
+import { pricePrecisionFromUsdPrice } from '../../util/assetPrecision';
 import { getChainConfig, getSupportedChains, getTokenInfo } from '../../util/chain';
 import { isUsableRate } from '../../util/currencyRates';
 import { HOUR, SECOND } from '../../util/dateFormat';
@@ -235,12 +236,19 @@ export async function fetchBackendTokens(
     }
 
     const hasMatchingVersion = catalog.version === catalogVersion;
-    return catalog.assets.map((token) => ({
-      ...token,
-      priceUsd: hasMatchingVersion ? prices[token.slug]?.[0] : undefined,
-      // A missing change keeps the cached value, or becomes zero for a newly discovered token
-      percentChange24h: hasMatchingVersion ? prices[token.slug]?.[1] ?? undefined : undefined,
-    }));
+    return catalog.assets.map((token) => {
+      const priceUsd = hasMatchingVersion ? prices[token.slug]?.[0] : undefined;
+      return {
+        ...token,
+        priceUsd,
+        // A missing change keeps the cached value, or becomes zero for a newly discovered token
+        percentChange24h: hasMatchingVersion ? prices[token.slug]?.[1] ?? undefined : undefined,
+        // Catalog may omit precision; derive only then so an explicit backend value is kept
+        ...(priceUsd !== undefined && token.precision === undefined && {
+          precision: pricePrecisionFromUsdPrice(priceUsd),
+        }),
+      };
+    });
   } catch (err) {
     if (err instanceof ApiServerError && err.statusCode === 404) {
       legacyAssetsUntil = Date.now() + LEGACY_ASSETS_RETRY_DELAY;

@@ -114,7 +114,14 @@ class FuturesEditPositionView(
             onChange()
         }
     }
-    val amountField = TokenTradeAmountField(context)
+    val amountField = TokenTradeAmountField(context).apply {
+        if (model.isEditing) {
+            onReset = {
+                model.resetToCurrent()
+                onChange()
+            }
+        }
+    }
     private val currentLabel = WLabel(context).apply {
         setStyle(17f, WFont.Medium)
         setSingleLine()
@@ -503,7 +510,8 @@ class FuturesEditPositionView(
             decimals = model.inputDecimals,
             prefix = if (model.isCoinAmount) "" else "$",
             suffix = if (model.isCoinAmount) " ${model.symbol}" else "",
-            hasAmount = model.input.text.isNotEmpty()
+            hasAmount = model.input.text.isNotEmpty(),
+            isResettable = model.isChanged
         )
 
         val currentMargin = model.currentMarginText

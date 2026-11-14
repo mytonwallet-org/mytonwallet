@@ -22,7 +22,7 @@ const FOLLOWUP_GROW_EASING = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
 const FOLLOWUP_CLOSE_EASING = 'ease-in-out';
 // The widths of the placeholders that stand in for suggestions still loading, in rem
 const FOLLOWUP_PLACEHOLDER_WIDTHS = [14.375, 16.875, 12.5];
-const FOLLOWUP_MORPH_DURATION = 300;
+const FOLLOWUP_RESIZE_DURATION = 300;
 // A suggestion's text and arrow appear over the end of its pill's resize, as iOS uncovers them from 0.14 s of 0.36 s
 const FOLLOWUP_CONTENT_FADE_DELAY = 120;
 const FOLLOWUP_CONTENT_FADE_DURATION = 180;
@@ -124,7 +124,7 @@ function AgentMessageControls({
         }) => {
           const delay = shouldMorphTogether ? 0 : index * FOLLOWUP_APPEAR_INTERVAL;
           const timing: KeyframeAnimationOptions = {
-            duration: FOLLOWUP_MORPH_DURATION, delay, easing: FOLLOWUP_GROW_EASING, fill: 'backwards',
+            duration: FOLLOWUP_RESIZE_DURATION, delay, easing: FOLLOWUP_GROW_EASING, fill: 'backwards',
           };
           // The text keeps the lines it ends up with while the pill around it changes its size
           label?.animate([{ minWidth: `${labelWidth}px` }, { minWidth: `${labelWidth}px` }], timing);

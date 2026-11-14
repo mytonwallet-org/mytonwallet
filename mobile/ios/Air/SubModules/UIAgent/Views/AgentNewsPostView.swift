@@ -5,55 +5,88 @@ import WalletContext
 import WalletCore
 
 /// A news post as the Agent shows it, in the News feed and at the top of the news' discussion alike: the Agent's
-/// tailed bubble with the picture, the headline, the body, the line of its sources and the time in its trailing
-/// corner. The discussion heads it with "News"; the feed ends it with its Discuss strip, and the discussion hangs its
-/// follow-ups under it.
+/// tailed bubble with the picture, the headline, the body and the time in its trailing corner. The
+/// discussion heads it with "News"; the feed ends it with its Discuss strip, and the discussion hangs its follow-ups
+/// under it.
 final class AgentNewsPostView: UIView {
     struct Content: Equatable {
         let accessibilityIdentifier: String
+        /// The news item's, which its share link carries; a digest has none
+        let eventId: Int?
         /// The line above the post in its discussion
         let header: String
         let headline: String
         let body: String?
         let imageURL: URL?
         let sourceURL: String?
-        let sourceLine: AgentNewsSourceLine?
+        /// What the menu's Sources lists
+        let sources: [Source]
         let time: String
+        /// A digest's top headlines, which the post lists as the digest's card does, and the line of the news it leaves out
+        var digestHeadlines: [ApiAgentV2DigestHeadline] = []
+        var digestRemainder: String?
+        /// When the digest came, as the media viewer dates its headlines' pictures
+        var digestDate = Date.distantPast
+
+        struct Source: Equatable {
+            let name: String
+            let url: String
+        }
 
         /// The post at the top of a news discussion, dated unless it is today's
         init(news: ApiAgentV2ThreadNewsCard) {
             accessibilityIdentifier = "AgentNewsPost-\(news.eventId)"
+            eventId = news.eventId
             header = lang("News")
             headline = news.headline
             body = news.body?.nilIfEmpty ?? news.excerpt?.nilIfEmpty
             imageURL = news.imageUrl.flatMap(URL.init(string:))
             sourceURL = news.sources?.first?.url
-            sourceLine = AgentNewsSourceLine(sources: news.sources ?? [], legacySource: news.source)
+            sources = Self.makeSources(news.sources)
             time = AgentNewsMetaView.formatDiscussionTime(for: news.publishedAt)
         }
 
         /// A news item of the feed, where the day line above it gives its date
         init(item: ApiAgentV2NewsFeedItem, time: String) {
             accessibilityIdentifier = "AgentNewsPost-\(item.eventId)"
+            eventId = item.eventId
             header = lang("News")
             headline = item.headline
             body = item.body.nilIfEmpty
             imageURL = item.imageUrl.flatMap(URL.init(string:))
             sourceURL = item.sources.first?.url
-            sourceLine = AgentNewsSourceLine(sources: item.sources)
+            sources = Self.makeSources(item.sources)
             self.time = time
         }
 
-        /// The post at the top of a digest discussion: the digest's time in its header and its headlines in a line
+        /// The post at the top of a digest discussion, headed by "News" as a news item's: its headlines listed as on its
+        /// card
         init(digest: ApiAgentV2ThreadDigestCard) {
             accessibilityIdentifier = "AgentDigestPost-\(digest.id)"
-            header = L10n.agentDigestPostHeader(time: AgentNewsFeedCardCell.timeText(for: digest.windowEnd))
+            eventId = nil
+            header = lang("News")
             headline = lang("$agent_digest_title")
-            body = digest.top.map(\.headline).joined(separator: " · ").nilIfEmpty
+            body = nil
+            digestHeadlines = digest.top
+            let remainder = digest.total - digest.top.count
+            digestRemainder = remainder > 0 ? L10n.agentDigestMore(count: remainder) : nil
+            digestDate = AgentV2DateParser.date(digest.windowEnd)
             imageURL = nil
             sourceURL = nil
-            sourceLine = nil
+            sources = []
             time = AgentNewsMetaView.formatDiscussionTime(for: digest.windowEnd)
+        }
+
+        /// The sources the app can open, in the API's order, each once, by its name or its site without "www."
+        static func makeSources(_ sources: [ApiAgentV2NewsFeedItem.Source]?) -> [Source] {
+            var names = Set<String>()
+            return (sources ?? []).compactMap { source in
+                guard let url = AgentTextLinks.newsSourceURL(source.url) else { return nil }
+                let host = url.host.map { $0.lowercased().hasPrefix("www.") ? String($0.dropFirst(4)) : $0 }
+                guard let name = source.name?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? host?.nilIfEmpty,
+                      names.insert(name.lowercased()).inserted else { return nil }
+                return Source(name: name, url: source.url)
+            }
         }
 
         var canOpenSource: Bool {
@@ -61,7 +94,24 @@ final class AgentNewsPostView: UIView {
         }
 
         var copyText: String {
-            AgentTextLinks.newsCopyText(headline: headline, body: body, sourceURL: sourceURL)
+            AgentTextLinks.newsCopyText(headline: headline, body: body ?? digestText, sourceURL: sourceURL)
+        }
+
+        /// What Share gives the share sheet: the headline and the news' short link in `locale`, the feed's language it
+        /// was shown in, or the app language's when it is unknown. A digest has no Share.
+        func makeShareItems(locale: String?) -> [Any]? {
+            guard let eventId else { return nil }
+            let lang = AgentNewsFeedModel.getLocale(langCode: locale ?? LocalizationSupport.shared.langCode)
+            return [headline, ExplorerHelper.makeAgentNewsShareUrl(eventId: eventId, lang: lang)]
+        }
+
+        /// The digest's headlines one per line
+        var digestText: String? {
+            Self.makeDigestText(digestHeadlines)
+        }
+
+        static func makeDigestText(_ headlines: [ApiAgentV2DigestHeadline]) -> String? {
+            headlines.map { "• \($0.headline)" }.joined(separator: "\n").nilIfEmpty
         }
     }
 
@@ -70,8 +120,11 @@ final class AgentNewsPostView: UIView {
         static let textInsets = NSDirectionalEdgeInsets(top: 14, leading: 16, bottom: AgentNewsMetaView.bottomInset, trailing: 16)
         static let headerInsets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 8, trailing: 16)
         static let footerSpacing: CGFloat = 8
-        static let sourceLineSpacing: CGFloat = 4
         static let imageAspectRatio: CGFloat = 9 / 16
+        /// Between a digest's title and its first headline's row
+        static let digestHeadlinesSpacing: CGFloat = 2
+        /// Over the headline when "News" stands right above it, with no picture between them
+        static let textTopUnderHeader: CGFloat = 0
     }
 
     /// The width the text leaves in a bubble `width` wide
@@ -81,10 +134,11 @@ final class AgentNewsPostView: UIView {
 
     var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)?
     var onPreferredHeightChanged: (() -> Void)?
-    /// Opens a source's link, the first source's for the post's Open Source
-    var openSourceAction: ((String) -> Void)?
+    var openSourceAction: (() -> Void)?
     /// A tap on the loaded picture, with the view that shows it
     var onPictureTap: ((UIImageView) -> Void)?
+    /// A tap on a digest's headline, with its news item's event ID
+    var onDigestHeadlineTap: ((Int) -> Void)?
 
     let bubbleView = AgentBubbleBackgroundView()
     let imageView = WImageView()
@@ -106,7 +160,7 @@ final class AgentNewsPostView: UIView {
     private let bodyLabel = UILabel()
     /// The body when it holds a table or code, which stand apart from the text as they do in an answer
     private let bodyRichView = AgentRichMessageView()
-    private let sourceLineLabel = AgentNewsSourceLineLabel()
+    private let digestHeadlinesView = AgentNewsDigestHeadlinesView()
     private var bodyBlocks: [AgentMessageBlock]?
     private var bodyRichWidth: CGFloat = 0
     private weak var footerView: UIView?
@@ -119,17 +173,23 @@ final class AgentNewsPostView: UIView {
             self?.bubbleView.makePreviewPath(in: attachmentRect) ?? CGPath(rect: attachmentRect, transform: nil)
         }),
         pressAnimation: .default(transformMode: .sublayerTransform),
-        // As on Telegram's comments button, a long press on the footer keeps to it and leaves the menu closed
+        // As on Telegram's comments button, a press on the footer or on a digest's headline keeps to it: the bubble
+        // doesn't shrink under it and its menu stays closed
         activationHitTestProvider: { [weak self] sourceView, point in
-            guard let footer = self?.footerView, !footer.isHidden else { return true }
+            guard let self else { return true }
+            let headlines = self.digestHeadlinesView
+            if !headlines.isHidden,
+               headlines.hitTest(headlines.convert(point, from: sourceView), with: nil) is UIControl {
+                return false
+            }
+            guard let footer = self.footerView, !footer.isHidden else { return true }
             return !footer.bounds.contains(footer.convert(point, from: sourceView))
         }
     ) { [weak self] _ in
         self?.contextMenuConfigurationProvider?()
     }
     private lazy var openSourceAccessibilityAction = UIAccessibilityCustomAction(name: lang("$agent_news_open_source")) { [weak self] _ in
-        guard let self, let url = self.content?.sourceURL else { return false }
-        self.openSourceAction?(url)
+        self?.openSourceAction?()
         return true
     }
     private lazy var moreActionsAccessibilityAction = UIAccessibilityCustomAction(name: lang("More actions")) { [weak self] _ in
@@ -156,20 +216,23 @@ final class AgentNewsPostView: UIView {
         headerLabel.text = content.header
         headlineLabel.text = content.headline
         renderBody()
+        digestHeadlinesView.configure(
+            headlines: content.digestHeadlines,
+            remainder: content.digestRemainder,
+            date: content.digestDate
+        )
+        digestHeadlinesView.isHidden = content.digestHeadlines.isEmpty
         // The headline stands as far from the body as paragraphs a blank line apart do
         textStack.setCustomSpacing(
-            content.body == nil ? Metrics.footerSpacing : AgentMessageTextRenderer.blankLineGap,
+            content.body != nil ? AgentMessageTextRenderer.blankLineGap
+                : content.digestHeadlines.isEmpty ? Metrics.footerSpacing : Metrics.digestHeadlinesSpacing,
             after: headlineLabel
         )
-        sourceLineLabel.configure(with: content.sourceLine)
         metaView.configure(time: content.time)
 
         updateAccessibilityLabel()
         contentStack.accessibilityIdentifier = content.accessibilityIdentifier
-        contentStack.accessibilityCustomActions = [
-            content.canOpenSource ? openSourceAccessibilityAction : nil,
-            moreActionsAccessibilityAction,
-        ].compactMap { $0 } + makeSourceAccessibilityActions(for: content.sourceLine)
+        updateAccessibilityActions()
 
         let url = content.imageURL
         guard imageURL != url else { return }
@@ -187,7 +250,6 @@ final class AgentNewsPostView: UIView {
         headlineLabel.text = nil
         bodyLabel.attributedText = nil
         clearRichBody()
-        sourceLineLabel.configure(with: nil)
         metaView.reset()
         imageURL = nil
         imageView.alpha = 1
@@ -200,6 +262,9 @@ final class AgentNewsPostView: UIView {
         onPreferredHeightChanged = nil
         openSourceAction = nil
         onPictureTap = nil
+        onDigestHeadlineTap = nil
+        digestHeadlinesView.prepareForReuse()
+        digestHeadlinesView.isHidden = true
         alpha = 1
     }
 
@@ -229,12 +294,13 @@ final class AgentNewsPostView: UIView {
     func updateTextMaxWidth(forBubbleWidth width: CGFloat) {
         let textWidth = Self.getTextWidth(inBubbleWidth: width)
         guard textWidth > 0 else { return }
-        for label in [headlineLabel, bodyLabel, sourceLineLabel] where abs(label.preferredMaxLayoutWidth - textWidth) > 0.25 {
+        for label in [headlineLabel, bodyLabel] where abs(label.preferredMaxLayoutWidth - textWidth) > 0.25 {
             label.preferredMaxLayoutWidth = textWidth
         }
         if let bodyBlocks, abs(bodyRichWidth - textWidth) > 0.25 {
             configureRichBody(bodyBlocks, width: textWidth)
         }
+        digestHeadlinesView.updateTextMaxWidth(textWidth)
     }
 
     /// The bubble's body without its tail and its frame in the window, for a picture of the post that flies elsewhere
@@ -260,6 +326,7 @@ final class AgentNewsPostView: UIView {
     private func setHeaderVisible(_ isVisible: Bool) {
         isHeaderVisible = isVisible
         headerContainer.isHidden = !isVisible
+        updateTextTopInset()
         // A picture at the top of the bubble keeps a point of it above, and its top corners follow the bubble's
         imageTopConstraint.constant = isVisible ? 0 : AgentNewsImageMetrics.inset
         let cornerRadius = isVisible ? 0 : AgentNewsImageMetrics.topCornerRadius
@@ -274,25 +341,42 @@ final class AgentNewsPostView: UIView {
             isHeaderVisible ? content.header : nil,
             content.headline,
             bodyBlocks == nil ? bodyLabel.attributedText?.string : bodyRichView.displayText,
-            content.sourceLine?.text,
+            content.digestHeadlines.map(\.headline).joined(separator: ", "),
+            content.digestRemainder,
             content.time,
         ].compactMap { $0?.nilIfEmpty }.joined(separator: ", ")
     }
 
-    /// An action named after each source the line links, opening it as a tap on its name does
-    private func makeSourceAccessibilityActions(for line: AgentNewsSourceLine?) -> [UIAccessibilityCustomAction] {
-        guard let line else { return [] }
-        return line.links.map { link in
-            UIAccessibilityCustomAction(name: (line.text as NSString).substring(with: link.range)) { [weak self] _ in
-                self?.openSourceAction?(link.url)
+    private func updateAccessibilityActions() {
+        guard let content else { return }
+        contentStack.accessibilityCustomActions = [
+            content.canOpenSource ? openSourceAccessibilityAction : nil,
+            moreActionsAccessibilityAction,
+        ].compactMap { $0 } + makeDigestHeadlineAccessibilityActions(for: content.digestHeadlines)
+    }
+
+    /// An action named after each of a digest's headlines, opening its news item as a tap on its row does, then one
+    /// opening its picture once the picture has loaded
+    private func makeDigestHeadlineAccessibilityActions(for headlines: [ApiAgentV2DigestHeadline]) -> [UIAccessibilityCustomAction] {
+        headlines.flatMap { headline in
+            let open = UIAccessibilityCustomAction(name: headline.headline) { [weak self] _ in
+                self?.onDigestHeadlineTap?(headline.eventId)
                 return true
             }
+            return [open] + [digestHeadlinesView.makePictureAccessibilityAction(eventId: headline.eventId)].compactMap { $0 }
         }
     }
 
+    /// The headline stands close under "News" when no picture comes between them
+    private func updateTextTopInset() {
+        let top = isHeaderVisible && imageContainer.isHidden ? Metrics.textTopUnderHeader : Metrics.textInsets.top
+        guard textStack.directionalLayoutMargins.top != top else { return }
+        textStack.directionalLayoutMargins.top = top
+    }
     private func setImageHidden(_ isHidden: Bool) {
         imageView.isHidden = isHidden
         imageContainer.isHidden = isHidden
+        updateTextTopInset()
     }
 
     /// Parses the body once for every post that shows it, as a chat lays out each answer once
@@ -453,11 +537,14 @@ final class AgentNewsPostView: UIView {
         // height would stretch it
         footerRow.heightAnchor.constraint(equalToConstant: 0).withPriority(.defaultLow).isActive = true
         bodyRichView.isHidden = true
-        sourceLineLabel.onLinkTap = { [weak self] url in self?.openSourceAction?(url) }
-        for view in [headlineLabel, bodyLabel, bodyRichView, sourceLineLabel, footerRow] { textStack.addArrangedSubview(view) }
+        digestHeadlinesView.isHidden = true
+        digestHeadlinesView.headlineAction = { [weak self] eventId in self?.onDigestHeadlineTap?(eventId) }
+        digestHeadlinesView.onPicturesChanged = { [weak self] in self?.updateAccessibilityActions() }
+        for view in [headlineLabel, bodyLabel, bodyRichView, digestHeadlinesView, footerRow] {
+            textStack.addArrangedSubview(view)
+        }
         textStack.axis = .vertical
         textStack.spacing = Metrics.footerSpacing
-        textStack.setCustomSpacing(Metrics.sourceLineSpacing, after: sourceLineLabel)
         textStack.isLayoutMarginsRelativeArrangement = true
         textStack.insetsLayoutMarginsFromSafeArea = false
         textStack.directionalLayoutMargins = Metrics.textInsets

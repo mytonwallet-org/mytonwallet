@@ -134,9 +134,12 @@ object WGlobalStorage {
     private const val ASSETS_AND_ACTIVITY = "settings.byAccountId"
     private const val LANG_CODE = "settings.langCode"
     private const val AGENT_NEWS_READ_THROUGH = "settings.agentNewsReadThrough"
+    private const val AGENT_NEWS_DIGESTS_READ_THROUGH = "settings.agentNewsDigestsReadThrough"
     private const val AGENT_THREAD_READ_STATE = "settings.agentThreadReadState"
     private const val AGENT_LIKED_TOAST_SHOWN = "settings.agentLikedToastShown"
     private const val AGENT_DISLIKED_TOAST_SHOWN = "settings.agentDislikedToastShown"
+    private const val AGENT_SUPPORT_LIKED_TOAST_SHOWN = "settings.agentSupportLikedToastShown"
+    private const val AGENT_SUPPORT_DISLIKED_TOAST_SHOWN = "settings.agentSupportDislikedToastShown"
     private const val LANG_SOURCE = "settings.langSource"
     const val LANG_SOURCE_USER = "user"
     private const val PRICE_HISTORY = "tokenPriceHistory.bySlug"
@@ -728,6 +731,17 @@ object WGlobalStorage {
         )
     }
 
+    fun getAgentNewsDigestsReadThrough(): String? =
+        globalStorageProvider.getString(AGENT_NEWS_DIGESTS_READ_THROUGH)
+
+    fun setAgentNewsDigestsReadThrough(value: String) {
+        globalStorageProvider.set(
+            AGENT_NEWS_DIGESTS_READ_THROUGH,
+            value,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun getAgentThreadReadState(): String? =
         globalStorageProvider.getString(AGENT_THREAD_READ_STATE)
 
@@ -739,20 +753,24 @@ object WGlobalStorage {
         )
     }
 
-    /** Whether the toast after the first like of an Agent answer, or with [isLike] false its first dislike, showed */
-    fun getIsAgentFeedbackToastShown(isLike: Boolean): Boolean =
-        globalStorageProvider.getBool(agentFeedbackToastKey(isLike)) == true
+    /** Whether the first like or dislike toast showed for an agent answer or, with [isOperator], a support reply */
+    fun getIsAgentFeedbackToastShown(isLike: Boolean, isOperator: Boolean = false): Boolean =
+        globalStorageProvider.getBool(agentFeedbackToastKey(isLike, isOperator)) == true
 
-    fun setAgentFeedbackToastShown(isLike: Boolean) {
+    fun setAgentFeedbackToastShown(isLike: Boolean, isOperator: Boolean = false) {
         globalStorageProvider.set(
-            agentFeedbackToastKey(isLike),
+            agentFeedbackToastKey(isLike, isOperator),
             true,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
 
-    private fun agentFeedbackToastKey(isLike: Boolean): String =
-        if (isLike) AGENT_LIKED_TOAST_SHOWN else AGENT_DISLIKED_TOAST_SHOWN
+    private fun agentFeedbackToastKey(isLike: Boolean, isOperator: Boolean): String =
+        if (isOperator) {
+            if (isLike) AGENT_SUPPORT_LIKED_TOAST_SHOWN else AGENT_SUPPORT_DISLIKED_TOAST_SHOWN
+        } else {
+            if (isLike) AGENT_LIKED_TOAST_SHOWN else AGENT_DISLIKED_TOAST_SHOWN
+        }
 
     fun setBaseCurrency(baseCurrency: String) {
         globalStorageProvider.setEmptyObject(
@@ -898,8 +916,8 @@ object WGlobalStorage {
         )
     }
 
-    fun getIsTokenChartExpanded(): Boolean =
-        globalStorageProvider.getBool(IS_TOKEN_CHART_EXPANDED) ?: false
+    fun getIsTokenChartExpanded(default: Boolean = false): Boolean =
+        globalStorageProvider.getBool(IS_TOKEN_CHART_EXPANDED) ?: default
 
     fun setIsTokenChartExpanded(isExpanded: Boolean) {
         globalStorageProvider.set(
@@ -909,8 +927,8 @@ object WGlobalStorage {
         )
     }
 
-    fun getIsTokenInfoExpanded(): Boolean =
-        globalStorageProvider.getBool(IS_TOKEN_INFO_EXPANDED) ?: true
+    fun getIsTokenInfoExpanded(default: Boolean = true): Boolean =
+        globalStorageProvider.getBool(IS_TOKEN_INFO_EXPANDED) ?: default
 
     fun setIsTokenInfoExpanded(isExpanded: Boolean) {
         globalStorageProvider.set(

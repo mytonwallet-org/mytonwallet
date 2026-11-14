@@ -27,6 +27,8 @@ interface OwnProps<T extends TokenWithId> {
   theme?: 'purple';
   isInMode?: boolean;
   isDisabled?: boolean;
+  testId?: string;
+  itemTestId?: string;
   /** `id` is the token slug, unless an `id` property is specified explicitly in the `allTokens` items */
   onChange?: (id: string, token: T) => void;
 }
@@ -40,6 +42,8 @@ function TokenDropdown<T extends TokenWithId>({
   theme,
   isInMode,
   isDisabled,
+  testId,
+  itemTestId,
   onChange,
 }: OwnProps<T>) {
   const lang = useLang();
@@ -57,8 +61,11 @@ function TokenDropdown<T extends TokenWithId>({
   );
 
   const items = useMemo(
-    () => allTokens.map((token) => tokenToDropdownItem(token, withChainIcon)),
-    [allTokens, withChainIcon],
+    () => allTokens.map((token) => {
+      const item = tokenToDropdownItem(token, withChainIcon);
+      return itemTestId ? { ...item, testId: itemTestId } : item;
+    }),
+    [allTokens, withChainIcon, itemTestId],
   );
 
   const tokenById = useMemo(
@@ -93,6 +100,7 @@ function TokenDropdown<T extends TokenWithId>({
       menuClassName={theme && styles[theme]}
       arrow="expand"
       disabled={isDisabled}
+      testId={testId}
       onChange={handleChange}
     />
   );

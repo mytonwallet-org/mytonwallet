@@ -78,7 +78,7 @@ class FuturesActivityVC(context: Context, private val activity: MApiPerpsFill) :
 
     private val headerView = FuturesActivityHeaderView(
         context,
-        activity.image,
+        activity.asset,
         activity.resolvedSide,
         activity.badgeText,
         activity.headerAmount,

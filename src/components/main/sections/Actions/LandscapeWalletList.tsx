@@ -12,6 +12,7 @@ import {
   selectOrderedAccounts,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import getTestId from '../../../../util/getTestId';
 import { handleWalletMenuItemClick, WALLET_CONTEXT_MENU_ITEMS } from './helpers/walletMenu';
 
 import useLang from '../../../../hooks/useLang';
@@ -127,6 +128,7 @@ function LandscapeWalletList({
                 isSensitiveDataHidden={isSensitiveDataHidden}
                 className={buildClassName(styles.item, isMenuOpen && styles.itemActive)}
                 avatarClassName={styles.itemAvatar}
+                testId={getTestId('wallet_switcher_account')}
                 onClick={handleSwitchAccount}
                 onMouseDown={menuProps.onMouseDown}
                 onContextMenu={menuProps.onContextMenu}
@@ -139,6 +141,7 @@ function LandscapeWalletList({
           <Button
             isText
             className={buildClassName(styles.item, styles.itemButton)}
+            testId={getTestId('wallet_switcher_manage')}
             onClick={openAccountSelector}
           >
             <i className={buildClassName(styles.itemIcon, 'icon-more-alt')} aria-hidden />
@@ -148,6 +151,7 @@ function LandscapeWalletList({
         <Button
           isText
           className={buildClassName(styles.item, styles.itemButton)}
+          testId={getTestId('wallet_switcher_add')}
           onClick={handleAddWalletClick}
         >
           <i className={buildClassName(styles.itemIcon, 'icon-plus')} aria-hidden />
@@ -191,5 +195,4 @@ export default memo(withGlobal(
       isSensitiveDataHidden,
     };
   },
-  (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
 )(LandscapeWalletList));

@@ -1,3 +1,4 @@
+import { ARBITRUM_USDC_MAINNET } from '../../../config';
 import { getEvmProvider } from './util/client';
 import depositFixture from '../../../../tests/fixtures/perpsDeposit.json';
 import { PERPS_CCTP_EXTENSION_ADDRESS } from '../../common/perps';
@@ -76,7 +77,7 @@ test('a submitted deposit reports its transaction hash', async () => {
     { to: PERPS_CCTP_EXTENSION_ADDRESS, value: 0n, data: '0x' },
   ])).toEqual({ txHash: '0xdeposit' });
   expect(submitBatchUserOp).toHaveBeenCalledWith(
-    'arbitrum', 'mainnet', WALLET, '0x01', expect.any(Array), { needsGasless: false },
+    'arbitrum', 'mainnet', WALLET, '0x01', expect.any(Array), undefined,
   );
 });
 
@@ -90,6 +91,11 @@ test('a deposit without enough ETH for its userOp is submitted gasless', async (
   ]);
 
   expect(submitBatchUserOp).toHaveBeenCalledWith(
-    'arbitrum', 'mainnet', WALLET, '0x01', expect.any(Array), { needsGasless: true },
+    'arbitrum',
+    'mainnet',
+    WALLET,
+    '0x01',
+    expect.any(Array),
+    { needsGasless: true, gasToken: ARBITRUM_USDC_MAINNET.tokenAddress },
   );
 });

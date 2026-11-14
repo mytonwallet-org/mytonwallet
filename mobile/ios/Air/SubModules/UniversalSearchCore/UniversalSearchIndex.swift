@@ -9,9 +9,20 @@ public struct UniversalSearchIndex: Hashable, Sendable {
 
     /// Builds the index, reusing normalization from a previous index for every document whose
     /// searchable fields are unchanged. Signal-only updates — balances, prices, interaction
-    /// counters — therefore rebuild without re-normalizing any text.
+    /// counters — therefore rebuild without re-normalizing any text. When every document keeps its
+    /// position and fields, the lookups keyed by position are reused as well.
     public init(documents: [SearchDocument] = [], reusing previous: UniversalSearchIndex? = nil) {
         self.documents = documents
+        if let previous,
+           previous.entries.count == documents.count,
+           zip(previous.entries, documents).allSatisfy({ $0.document.id == $1.id && $0.document.fields == $1.fields }) {
+            self.entries = zip(previous.entries, documents).map {
+                IndexedSearchDocument(document: $1, reusingPreparationOf: $0)
+            }
+            self.entryIndicesByGram = previous.entryIndicesByGram
+            self.entryIndicesByExactIdentifier = previous.entryIndicesByExactIdentifier
+            return
+        }
         if let previous {
             var previousByID = [SearchEntityID: IndexedSearchDocument](
                 minimumCapacity: previous.entries.count

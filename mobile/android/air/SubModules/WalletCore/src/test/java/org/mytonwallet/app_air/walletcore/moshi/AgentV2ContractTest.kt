@@ -24,9 +24,11 @@ import org.junit.Test
 import org.mytonwallet.app_air.walletcore.api.readAgentV2Cache
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Availability
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedPage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedRequest
@@ -34,6 +36,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ProblemReportResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunActivityEvent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestRequest
@@ -53,6 +56,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.parseBridgeResult
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsFeedView
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationMode
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationOutcome
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationSettings
@@ -227,9 +231,16 @@ class AgentV2ContractTest {
     fun serializesDigestSchedulingCreationAndPushSettingsForTheSdk() {
         val argumentMoshi = MoshiBuilder.build()
         assertEquals(
-            """[{"lang":"en","cursor":"older","digestHour":21,"timeZone":"Europe/Moscow"}]""",
+            """[{"lang":"en","cursor":"older","digestHour":21,"digestMinute":45,"timeZone":"Europe/Moscow"}]""",
             ApiMethod.AgentV2.GetNewsFeed(
-                AgentV2NewsFeedRequest("en", "older", 21, "Europe/Moscow"),
+                AgentV2NewsFeedRequest("en", "older", 21, 45, "Europe/Moscow"),
+                argumentMoshi
+            ).arguments
+        )
+        assertEquals(
+            """[{"lang":"en","cursor":"older","digestHour":21,"digestMinute":0,"timeZone":"Europe/Moscow","view":"digests"}]""",
+            ApiMethod.AgentV2.GetNewsFeed(
+                AgentV2NewsFeedRequest("en", "older", 21, 0, "Europe/Moscow", "digests"),
                 argumentMoshi
             ).arguments
         )
@@ -248,6 +259,7 @@ class AgentV2ContractTest {
                 "push-token",
                 "ru",
                 21,
+                45,
                 "Europe/Moscow"
             ),
             argumentMoshi
@@ -255,7 +267,7 @@ class AgentV2ContractTest {
         assertEquals("setNewsNotifications", method.name)
         assertEquals(
             """[{"mode":"digest","userToken":"push-token","langCode":"ru","digestHour":21,""" +
-                """"timeZone":"Europe/Moscow","platform":"android"}]""",
+                """"digestMinute":45,"timeZone":"Europe/Moscow","platform":"android"}]""",
             method.arguments
         )
     }
@@ -268,17 +280,44 @@ class AgentV2ContractTest {
         val page = pageAdapter.fromJson(
             """{"locale":"ru","items":[],"digests":[{
                 "id":"$digestId","deliveredAt":"2026-11-08T18:00:00.000Z","total":7,
-                "top":[{"eventId":42,"headline":"Headline"}],
-                "discussion":{"threadId":"digest-thread","icon":"📰"}
+                "top":[{"eventId":42,"headline":"Headline"},
+                    {"eventId":43,"headline":"Pictured","imageUrl":"https://example.com/43.jpg"},
+                    {"eventId":44,"headline":"Null picture","imageUrl":null}],
+                "discussion":{"threadId":"digest-thread","icon":"📰"},
+                "discussionNaming":{"title":"Daily discussion","icon":"📰","followups":["Explain the digest"],"future":true}
             }]}"""
         )!!
         val digest = page.digests!!.single()
         assertEquals(digestId, digest.id)
         assertEquals("2026-11-08T18:00:00.000Z", digest.deliveredAt)
         assertEquals(7, digest.total)
-        assertEquals(42, digest.top.single().eventId)
-        assertEquals("Headline", digest.top.single().headline)
+        assertEquals(listOf(42, 43, 44), digest.top.map { it.eventId })
+        assertEquals("Headline", digest.top.first().headline)
+        assertEquals(
+            listOf(null, "https://example.com/43.jpg", null),
+            digest.top.map {
+                it.imageUrl
+            }
+        )
         assertEquals(AgentV2NewsFeedItem.Discussion("digest-thread", "📰"), digest.discussion)
+        assertEquals(
+            AgentV2NewsFeedItem.DiscussionNaming(
+                "Daily discussion",
+                "📰",
+                listOf("Explain the digest")
+            ),
+            digest.discussionNaming
+        )
+        val digestAdapter = moshi.adapter(AgentV2NewsFeedDigest::class.java)
+        val withoutNaming =
+            """{"id":"$digestId","deliveredAt":"2026-11-08T18:00:00.000Z","total":0,"top":[]}"""
+        assertNull(digestAdapter.fromJson(withoutNaming)!!.discussionNaming)
+        assertEquals(
+            AgentV2NewsFeedItem.DiscussionNaming("Daily discussion", null, listOf("Question")),
+            digestAdapter.fromJson(
+                """{"id":"$digestId","deliveredAt":"2026-11-08T18:00:00.000Z","total":0,"top":[],"discussionNaming":{"title":"Daily discussion","followups":["Question"]}}"""
+            )!!.discussionNaming
+        )
         assertNull(
             moshi.adapter(
                 AgentV2ThreadSummary::class.java
@@ -287,7 +326,9 @@ class AgentV2ContractTest {
         val hydration = moshi.adapter(AgentV2ThreadHydration::class.java).fromJson(
             """{"thread":{"id":"digest-thread","revision":1,"messageCount":1,"digest":{
                 "id":"$digestId","windowEnd":"2026-11-08T18:00:00.000Z","total":7,
-                "top":[{"eventId":42,"headline":"Headline"}]
+                "top":[{"eventId":42,"headline":"Headline"},
+                    {"eventId":43,"headline":"Pictured","imageUrl":"https://example.com/43.jpg"},
+                    {"eventId":44,"headline":"Null picture","imageUrl":null}]
             }},"messages":[{"id":"post","threadId":"digest-thread","role":"assistant","status":"complete",
                 "createdAt":"2026-11-08T18:00:00.000Z",
                 "newsPost":true,"content":{"kind":"markdown","text":"Daily digest"}
@@ -384,7 +425,7 @@ class AgentV2ContractTest {
             token = "next-token"
             language = "ru"
             zone = "Europe/Moscow"
-            settings.setDigestHour(18)
+            settings.setDigestTime(18, 0)
             assertEquals(AgentNewsNotificationOutcome.Ok, settings.reapplyIfNeeded())
             assertEquals(offCount, calls.size)
         }
@@ -409,7 +450,7 @@ class AgentV2ContractTest {
         }
         try {
             withTimeout(1_000) {
-                assertEquals(AgentNewsNotificationOutcome.Ok, settings.setDigestHour(18))
+                assertEquals(AgentNewsNotificationOutcome.Ok, settings.setDigestTime(18, 0))
                 assertEquals(AgentNewsNotificationOutcome.Ok, settings.reset())
                 assertEquals(AgentNewsNotificationOutcome.Ok, settings.reapplyIfNeeded())
             }
@@ -506,6 +547,74 @@ class AgentV2ContractTest {
     }
 
     @Test
+    fun newsViewPersistsBesideDigestHourAndFallsBackToAll() = runBlocking {
+        var stored: String? = null
+        fun restore() = AgentNewsNotificationSettings(read = { stored }, write = { stored = it })
+        val settings = restore()
+        assertEquals(AgentNewsFeedView.All, settings.newsView)
+        val changes = mutableListOf<AgentNewsNotificationState>()
+        val observer = launch(start = CoroutineStart.UNDISPATCHED) {
+            settings.state.take(2).toList(changes)
+        }
+        settings.setNewsView(AgentNewsFeedView.Digests)
+        observer.join()
+        assertEquals("digests", changes.last().newsView)
+        settings.setDigestTime(9, 0)
+        assertEquals(AgentNewsFeedView.Digests, restore().newsView)
+        assertEquals(9, restore().digestHour)
+        stored = stored!!.replace("digests", "unknown")
+        assertEquals(AgentNewsFeedView.All, restore().newsView)
+        stored = stored!!.replace("\"unknown\"", "null")
+        assertEquals(AgentNewsFeedView.All, restore().newsView)
+        val restored = restore()
+        restored.setNewsView(AgentNewsFeedView.All)
+        assertEquals("all", restored.state.value.newsView)
+        assertEquals(AgentNewsFeedView.All, restore().newsView)
+    }
+
+    @Test
+    fun newsViewChangesAndPersistsWhileReapplicationWaitsForNetwork() = runBlocking {
+        var stored: String? = null
+        var zone = "Etc/UTC"
+        val gate = CompletableDeferred<Unit>()
+        val settings = AgentNewsNotificationSettings(
+            read = { stored },
+            write = { stored = it },
+            ensurePushToken = { "token" },
+            getToken = { "token" },
+            language = { "en" },
+            timeZone = { zone },
+            apply = {
+                if (it.timeZone != "Etc/UTC") gate.await()
+                true
+            }
+        )
+        settings.setMode(AgentNewsNotificationMode.Digest)
+        zone = "Europe/Moscow"
+        val reapplying = async(start = CoroutineStart.UNDISPATCHED) {
+            settings.reapplyIfNeeded()
+        }
+        try {
+            assertTrue(reapplying.isActive)
+            withTimeout(1_000) { settings.setNewsView(AgentNewsFeedView.Digests) }
+            assertEquals("digests", settings.state.value.newsView)
+            assertEquals(
+                AgentNewsFeedView.Digests,
+                AgentNewsNotificationSettings(read = { stored }, write = {}).newsView
+            )
+            gate.complete(Unit)
+            assertEquals(AgentNewsNotificationOutcome.Ok, reapplying.await())
+            assertEquals("digests", settings.state.value.newsView)
+            assertEquals(
+                AgentNewsFeedView.Digests,
+                AgentNewsNotificationSettings(read = { stored }, write = {}).newsView
+            )
+        } finally {
+            reapplying.cancelAndJoin()
+        }
+    }
+
+    @Test
     fun newsNotificationHourAndChangedDeviceContextReapplyAndResetTurnsPushesOff() = runBlocking {
         var stored: String? = null
         var token = "first-token"
@@ -528,22 +637,29 @@ class AgentV2ContractTest {
             }
         )
         val settings = restore()
-        settings.setDigestHour(19)
+        settings.setDigestTime(19, 0)
         assertTrue(calls.isEmpty())
         settings.setMode(AgentNewsNotificationMode.News)
-        settings.setDigestHour(20)
+        settings.setDigestTime(20, 0)
         assertEquals(1, calls.size)
         settings.setMode(AgentNewsNotificationMode.Digest)
-        settings.setDigestHour(21)
+        settings.setDigestTime(21, 0)
         assertEquals(3, calls.size)
         assertEquals(21, calls.last().digestHour)
+        assertEquals(0, calls.last().digestMinute)
+        settings.setDigestTime(21, 45)
+        assertEquals(4, calls.size)
+        assertEquals(21, calls.last().digestHour)
+        assertEquals(45, calls.last().digestMinute)
         shouldSucceed = false
-        assertEquals(AgentNewsNotificationOutcome.Failed, settings.setDigestHour(22))
+        assertEquals(AgentNewsNotificationOutcome.Failed, settings.setDigestTime(22, 15))
         assertEquals(22, restore().digestHour)
+        assertEquals(15, restore().digestMinute)
         shouldSucceed = true
         val restored = restore()
         restored.reapplyIfNeeded()
         assertEquals(22, calls.last().digestHour)
+        assertEquals(15, calls.last().digestMinute)
         val unchangedCount = calls.size
         restore().reapplyIfNeeded()
         assertEquals(unchangedCount, calls.size)
@@ -572,6 +688,32 @@ class AgentV2ContractTest {
     }
 
     @Test
+    fun newsNotificationSettingsStoredWithoutMinuteKeepTheirChoiceOnTheHourWithoutReapplying() =
+        runBlocking {
+            val stored = """{"state":{"mode":"Digest","digestHour":9,"newsView":"digests"},""" +
+                """"lastApplied":{"mode":"digest","userToken":"token","langCode":"en",""" +
+                """"digestHour":9,"timeZone":"Europe/Moscow","platform":"android"}}"""
+            val calls = mutableListOf<ApiMethod.Notifications.SetNewsNotifications.Props>()
+            val settings = AgentNewsNotificationSettings(
+                read = { stored },
+                write = {},
+                getToken = { "token" },
+                language = { "en" },
+                timeZone = { "Europe/Moscow" },
+                apply = {
+                    calls += it
+                    true
+                }
+            )
+            assertEquals(AgentNewsNotificationMode.Digest, settings.mode)
+            assertEquals(9, settings.digestHour)
+            assertEquals(0, settings.digestMinute)
+            assertEquals(AgentNewsFeedView.Digests, settings.newsView)
+            assertEquals(AgentNewsNotificationOutcome.Ok, settings.reapplyIfNeeded())
+            assertTrue(calls.isEmpty())
+        }
+
+    @Test
     fun decodesNewsFeedWithoutProtocolVersionAndIgnoresUnknownFields() {
         val resultAdapter = moshi.adapter<AgentV2MutationResult<AgentV2NewsFeedPage>>(
             ApiMethod.AgentV2.GetNewsFeed("ru").type
@@ -589,6 +731,7 @@ class AgentV2ContractTest {
                     "imageUrl":"https://example.com/news.jpg",
                     "sources":[{"name":"Source","url":"https://example.com/news","future":true}],
                     "discussion":{"threadId":"thread","icon":"🪙","future":true},
+                    "discussionNaming":{"title":"Market discussion","icon":"🪙","followups":["Explain this news"],"future":true},
                     "future":{"field":true}
                   },
                   {
@@ -618,7 +761,12 @@ class AgentV2ContractTest {
                         sources = listOf(
                             AgentV2NewsFeedItem.Source("Source", "https://example.com/news")
                         ),
-                        discussion = AgentV2NewsFeedItem.Discussion("thread", "🪙")
+                        discussion = AgentV2NewsFeedItem.Discussion("thread", "🪙"),
+                        discussionNaming = AgentV2NewsFeedItem.DiscussionNaming(
+                            "Market discussion",
+                            "🪙",
+                            listOf("Explain this news")
+                        )
                     ),
                     AgentV2NewsFeedItem(
                         41,
@@ -640,6 +788,45 @@ class AgentV2ContractTest {
         assertFalse(unavailable.ok)
         assertEquals("news_unavailable", unavailable.error?.code)
         assertEquals(true, unavailable.error?.retryable)
+
+        val withoutIcon = moshi.adapter(AgentV2NewsFeedItem::class.java).fromJson(
+            """{"eventId":42,"deliveredAt":"2026-10-20T12:00:00Z","headline":"News","body":"Body","sources":[],"discussionNaming":{"title":"News","followups":["Q"]}}"""
+        )!!
+        assertEquals(
+            AgentV2NewsFeedItem.DiscussionNaming("News", null, listOf("Q")),
+            withoutIcon.discussionNaming
+        )
+    }
+
+    @Test
+    fun discardsMalformedDiscussionNamingWithoutLosingTheFeedEntry() {
+        val itemAdapter = moshi.adapter(AgentV2NewsFeedItem::class.java)
+        val digestAdapter = moshi.adapter(AgentV2NewsFeedDigest::class.java)
+        val expected =
+            AgentV2NewsFeedItem(42, "2026-10-20T12:00:00Z", "News", "Body", sources = emptyList())
+        val expectedDigest =
+            AgentV2NewsFeedDigest("digest", "2026-10-20T12:00:00Z", emptyList(), 0)
+        for (naming in listOf(
+            "null",
+            "false",
+            """{"title":"News"}""",
+            """{"title":42,"followups":[]}""",
+            """{"title":"News","icon":42,"followups":[]}""",
+            """{"title":"News","followups":[42]}"""
+        )) {
+            assertEquals(
+                expected,
+                itemAdapter.fromJson(
+                    """{"eventId":42,"deliveredAt":"2026-10-20T12:00:00Z","headline":"News","body":"Body","sources":[],"discussionNaming":$naming}"""
+                )
+            )
+            assertEquals(
+                expectedDigest,
+                digestAdapter.fromJson(
+                    """{"id":"digest","deliveredAt":"2026-10-20T12:00:00Z","total":0,"top":[],"discussionNaming":$naming}"""
+                )
+            )
+        }
     }
 
     @Test
@@ -1242,6 +1429,44 @@ class AgentV2ContractTest {
                 retryable = true,
                 messageId = "m",
                 resetAt = 1_761_436_800_000
+            ),
+            failure.update
+        )
+    }
+
+    @Test
+    fun describesSupportRequestsAndDecodesTheirDailyLimit() {
+        assertEquals(
+            listOf("starterHint", "header", "menu").map {
+                AgentV2EntryPoint(kind = "supportRequest", source = it)
+            },
+            AgentV2SupportRequestSource.entries.map(AgentV2EntryPoint::supportRequest)
+        )
+        assertTrue(
+            AgentV2EntryPoint.isSupportRequest(
+                AgentV2EntryPoint.supportRequest(AgentV2SupportRequestSource.HEADER)
+            )
+        )
+        assertFalse(AgentV2EntryPoint.isSupportRequest(AgentV2EntryPoint()))
+        assertFalse(AgentV2EntryPoint.isSupportRequest(null))
+
+        val failure = adapter.fromJson(
+            """
+            {
+              "type":"agentV2",
+              "update":{
+                "kind":"runFailed","clientRunId":"c","threadId":"t",
+                "code":"support_escalation_rate_limited","retryable":false
+              }
+            }
+            """.trimIndent()
+        ) as ApiUpdate.ApiUpdateAgentV2
+        assertEquals(
+            AgentV2Update.RunFailed(
+                "c",
+                threadId = "t",
+                code = "support_escalation_rate_limited",
+                retryable = false
             ),
             failure.update
         )

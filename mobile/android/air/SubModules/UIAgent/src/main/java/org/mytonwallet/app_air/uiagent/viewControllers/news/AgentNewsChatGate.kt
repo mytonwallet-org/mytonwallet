@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uiagent.viewControllers.news
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsDigestHeadline
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
 /** A chat the feed opens over itself, so Back returns to the feed */
@@ -16,8 +17,16 @@ internal sealed interface AgentNewsChatTarget {
     /** A digest's discussion the user has written in, which opens as it is */
     data class Discussion(val thread: AgentV2ThreadSummary) : AgentNewsChatTarget
 
-    /** A visit to a digest's discussion, which starts it or finds the one it has */
-    data class Digest(val id: String) : AgentNewsChatTarget
+    /**
+     * A visit to a digest's discussion, which starts it or finds the one it has, showing the digest's post from the
+     * feed's copy of it until its thread comes
+     */
+    data class Digest(
+        val id: String,
+        val preview: AgentV2ThreadDigestCard? = null,
+        val discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
+        val shouldDeferCreation: Boolean = false
+    ) : AgentNewsChatTarget
 }
 
 /** A digest's headline opens its news item's discussion, as the item's card does when the feed has the item */
@@ -37,7 +46,12 @@ internal fun resolveAgentDigestDiscussionTarget(
     findStartedThread: (String) -> AgentV2ThreadSummary?
 ): AgentNewsChatTarget = digest.discussion?.threadId?.let(findStartedThread)
     ?.let(AgentNewsChatTarget::Discussion)
-    ?: AgentNewsChatTarget.Digest(digest.id)
+    ?: AgentNewsChatTarget.Digest(
+        digest.id,
+        AgentV2ThreadDigestCard(digest.id, digest.deliveredAt, digest.total, digest.top),
+        digest.discussionNaming,
+        shouldDeferCreation = digest.discussion == null
+    )
 
 /**
  * One chat opens from the feed at a time: taps while one opens do nothing until the feed shows again, and an opening

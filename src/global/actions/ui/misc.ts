@@ -785,19 +785,35 @@ addActionHandler('closeAgent', (global) => {
   return { ...global, isAgentOpen: undefined };
 });
 
-// The first like and the first dislike chosen on this install tell what they do, each once
-addActionHandler('showAgentFeedbackToast', (global, actions, { feedback, animatedIcon }) => {
-  if (global.settings.shownAgentFeedbackToasts?.[feedback]) return;
+addActionHandler('openAgentNewsDiscussion', (global, actions, { eventId }) => {
+  setGlobal({ ...global, agentNewsDiscussionRequest: { eventId } });
+  actions.switchToAgent();
+});
+
+// A request stored after the consumed one waits for its own turn
+addActionHandler('clearAgentNewsDiscussionRequest', (global, actions, { request }) => {
+  if (global.agentNewsDiscussionRequest !== request) return undefined;
+
+  return { ...global, agentNewsDiscussionRequest: undefined };
+});
+
+// The first like and dislike on this install explain themselves once each for agent and operator replies
+addActionHandler('showAgentFeedbackToast', (global, actions, { feedback, animatedIcon, isOperator = false }) => {
+  const setting = isOperator ? 'shownAgentSupportFeedbackToasts' : 'shownAgentFeedbackToasts';
+  if (global.settings[setting]?.[feedback]) return;
 
   setGlobal({
     ...global,
     settings: {
       ...global.settings,
-      shownAgentFeedbackToasts: { ...global.settings.shownAgentFeedbackToasts, [feedback]: true },
+      [setting]: { ...global.settings[setting], [feedback]: true },
     },
   });
+  const translationKey = isOperator
+    ? (feedback === 'like' ? '$agent_feedback_support_liked_toast' : '$agent_feedback_support_disliked_toast')
+    : (feedback === 'like' ? '$agent_feedback_liked_toast' : '$agent_feedback_disliked_toast');
   actions.showToast({
-    message: getTranslation(feedback === 'like' ? '$agent_feedback_liked_toast' : '$agent_feedback_disliked_toast'),
+    message: getTranslation(translationKey),
     animatedIcon,
   });
 });

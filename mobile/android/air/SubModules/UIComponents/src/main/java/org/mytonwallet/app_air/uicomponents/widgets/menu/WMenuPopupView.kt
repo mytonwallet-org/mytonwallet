@@ -119,6 +119,9 @@ class WMenuPopupView(
         startDrag(itemViews.indexOf(itemView))
     }
 
+    /** Where a menu taller than it shows opens scrolled to, its selected choice in its middle, until it is laid out */
+    private var pendingScrollY: Int? = null
+
     private fun makeExpandingHeaderItem(item: WMenuPopup.Item): WMenuPopup.Item {
         val config = item.config as? Config.Item ?: return item.copy()
         return item.copy(
@@ -490,6 +493,7 @@ class WMenuPopupView(
     ) {
         presentFromTop = fromTop
         isAnimating = true
+        pendingScrollY = calculateSelectedItemScrollY()
         measureChildren(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
         finalTranslationY = (parent as? ViewGroup)?.translationY ?: 0f
         post {
@@ -545,12 +549,23 @@ class WMenuPopupView(
             }
     }
 
+    /** Centers a selected choice the menu's height leaves out of sight; null when it has none or shows it */
+    private fun calculateSelectedItemScrollY(): Int? {
+        val index = items.indexOfFirst { (it.config as? Config.SelectableItem)?.isSelected == true }
+        if (index < 0 || itemYPositions[index] + itemHeights[index] <= finalHeight) return null
+        val maxScrollY = (contentHeight - finalHeight).coerceAtLeast(0)
+        val centeredScrollY = itemYPositions[index] - (finalHeight - itemHeights[index]) / 2
+        return centeredScrollY.coerceIn(0, maxScrollY)
+    }
+
     private fun onUpdate() {
         val additionalYOffset = if (presentFromTop) 0 else finalHeight - currentFrameHeight
         if (isAnimating) {
+            // The items come in from the menu's edge as it opens, wherever it is scrolled to
+            val scrollY = pendingScrollY ?: scrollView.scrollY
             for (i in itemViews.indices) {
                 val itemView = itemViews[i]
-                val itemTop = itemYPositions[i]
+                val itemTop = itemYPositions[i] - scrollY
 
                 alpha = (currentHeight * 4f / finalHeight).coerceIn(0f, 1f)
 
@@ -738,7 +753,9 @@ class WMenuPopupView(
                 child.layout(0, itemY, measuredWidth, itemY + itemHeights[i])
             }
         }
-        if (scrollView.scrollY != scrollOffset) scrollView.scrollTo(0, scrollOffset)
+        val scrollY = pendingScrollY ?: scrollOffset
+        pendingScrollY = null
+        if (scrollView.scrollY != scrollY) scrollView.scrollTo(0, scrollY)
     }
 }
 

@@ -13,6 +13,7 @@ import {
 } from '../../../global/selectors';
 import { getAccountTitle } from '../../../util/account';
 import buildClassName from '../../../util/buildClassName';
+import getTestId from '../../../util/getTestId';
 import isViewAccount from '../../../util/isViewAccount';
 
 import useLang from '../../../hooks/useLang';
@@ -224,10 +225,10 @@ function LogOutModal({
       {isLogOutFromAllAccounts && recoveryRequiredAccounts.length > 0 && renderRecoveryRequiredForAccountsWarning()}
 
       <div className={modalStyles.buttons}>
-        <Button className={modalStyles.button} onClick={handleClose}>
+        <Button className={modalStyles.button} onClick={handleClose} testId={getTestId('dialog_secondary')}>
           {lang('Cancel')}
         </Button>
-        <Button isDestructive onClick={handleLogOut} className={modalStyles.button}>
+        <Button isDestructive onClick={handleLogOut} className={modalStyles.button} testId={getTestId('dialog_action')}>
           {lang('Exit')}
         </Button>
       </div>

@@ -21,6 +21,7 @@ type OwnProps = {
   menuClassName?: string;
   menuPositionX?: 'left' | 'right';
   className?: string;
+  testId?: string;
   onClick: (arg: number) => void;
   clickArg: number;
   onMenuItemClick?: (value: string) => void;
@@ -35,6 +36,7 @@ function Tab({
   menuClassName,
   menuPositionX,
   className,
+  testId,
   onClick,
   clickArg,
   onMenuItemClick,
@@ -80,6 +82,7 @@ function Tab({
   return (
     <div
       className={buildClassName(styles.Tab, isActive && styles.Tab_active, className, hasMenu && styles.interactive)}
+      data-testid={testId}
       onClick={handleClick}
     >
       <span className={styles.content} ref={contentRef}>

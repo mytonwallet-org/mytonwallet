@@ -43,7 +43,7 @@ import {
   selectIsHardwareAccount,
   selectToken,
 } from '../../selectors';
-import { switchAccount } from './auth';
+import { getIsAccountSwitchCurrent, switchAccount } from './auth';
 
 // The token and NFT fee checks share `isLoading`, so only the newest check may clear it
 let activeFeeRequestId = 0;
@@ -67,7 +67,8 @@ addActionHandler('switchTransferAccount', async (global, actions, { accountId })
     isMemoRequired,
   } = global.currentTransfer;
 
-  await switchAccount(global, accountId);
+  const switchId = await switchAccount(global, accountId);
+  if (!getIsAccountSwitchCurrent(switchId)) return;
 
   global = getGlobal();
   setGlobal(updateCurrentTransfer(global, {

@@ -12,6 +12,7 @@ interface OwnProps {
   label: TeactNode;
   description?: string;
   className?: string;
+  testId?: string;
   isLoading?: boolean;
   onClick: NoneToVoidFunction;
 }
@@ -21,11 +22,18 @@ function ListItem({
   label,
   description,
   className,
+  testId,
   isLoading,
   onClick,
 }: OwnProps) {
   return (
-    <button type="button" className={buildClassName(styles.root, className)} onClick={onClick} disabled={isLoading}>
+    <button
+      type="button"
+      className={buildClassName(styles.root, className)}
+      data-testid={testId}
+      onClick={onClick}
+      disabled={isLoading}
+    >
       <i className={buildClassName(styles.icon, `icon-${icon}`)} aria-hidden />
       <span className={styles.label}>
         {label}

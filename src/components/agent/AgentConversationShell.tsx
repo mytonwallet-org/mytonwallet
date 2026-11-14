@@ -5,11 +5,12 @@ import React, {
 import { addExtraClass, removeExtraClass, setExtraStyles } from '../../lib/teact/teact-dom';
 import { getGlobal } from '../../global';
 
+import type { AgentV2SupportRequestSource } from '../../api/agentV2/types';
 import type { AgentHint, AgentMessage, AnimationLevel } from '../../global/types';
 import type { FollowupSource } from '../agentV2/agentFollowupMorph';
 import type { AgentHintsFrame } from './AgentHints';
 import type { AgentMessagesSkeletonLayout } from './AgentMessagesSkeleton';
-import type { MotionRect } from './helpers/agentMotion';
+import type { BezierCurve, MotionRect } from './helpers/agentMotion';
 import type { SentTextPicture } from './helpers/sentQuestionFlight';
 import type { SnapEffectKind } from './helpers/snapEffect';
 import type { TextRevealPresentation, TextRevealPresentations } from './hooks/textRevealPresentation';
@@ -38,10 +39,18 @@ import {
   measureFollowupMorph,
   rippleFollowupsAway,
 } from '../agentV2/agentFollowupMorph';
-import { getTelegramProgress, interpolateRect } from './helpers/agentMotion';
+import {
+  getBezierProgress,
+  getBorderRadii,
+  getLayerRect,
+  getTelegramProgress,
+  interpolateRect,
+  TELEGRAM_EASING,
+} from './helpers/agentMotion';
 import buildMessageIds, { DATE_ITEM_ID_PREFIX, UNREAD_ITEM_ID_PREFIX } from './helpers/buildMessageIds';
 import buildMessageTurnIds from './helpers/buildMessageTurnIds';
 import { getReturnKeyAction, insertLineBreak } from './helpers/composerReturnKey';
+import focusAtEnd from './helpers/focusAtEnd';
 import { planHistoryReveal } from './helpers/historyReveal';
 import {
   createSentTextPicture,
@@ -55,6 +64,7 @@ import {
 
 import useDerivedState from '../../hooks/useDerivedState';
 import useFlag from '../../hooks/useFlag';
+import useForceUpdate from '../../hooks/useForceUpdate';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import { useHotkeys } from '../../hooks/useHotkeys';
 import useInfiniteScroll from '../../hooks/useInfiniteScroll';
@@ -90,7 +100,7 @@ import bubbleStyles from './MessageBubble.module.scss';
 const PRELOAD_BACKWARD_SLICE = 30;
 const CONTINUOUS_HISTORY_MAX_VIEWPORT_SIZE = 60;
 const SCROLL_FLICKER_THRESHOLD = 10;
-// The scroll-to-latest button shows once the latest message ends this far below the visible bottom, as on mobile
+// The scroll-to-latest button shows once the last row ends this far below the visible bottom, as on mobile
 const SCROLL_BOTTOM_THRESHOLD = 60;
 const LIVE_TAIL_REQUEST_TIMEOUT = 1000;
 // A day's line stuck at the top fades away once the news feed has rested this long, as in Telegram Web A
@@ -109,7 +119,18 @@ const DISSOLVE_GAP_CLOSE_DURATION = 400;
 const INPUT_HEADER_CLEARANCE = 120;
 // It can always grow as tall as this, as on iOS and Android
 const INPUT_MIN_MAX_HEIGHT = 132;
-const HISTORY_MORPH_EASING = 'cubic-bezier(0.38, 0.7, 0.125, 1)';
+// The questions that wait under the answer being produced move to their places on Telegram's list curve, for as long
+// as iOS's `AgentVCLayout.dissolvedGapCloseDuration`, as iOS moves them
+const ROW_MOVE_CURVE: BezierCurve = {
+  x1: 0.23, y1: 1, x2: 0.32, y2: 1,
+};
+const ROW_MOVE_DURATION = 800;
+const ROW_MOVE_EASING = `cubic-bezier(${ROW_MOVE_CURVE.x1}, ${ROW_MOVE_CURVE.y1}, `
+  + `${ROW_MOVE_CURVE.x2}, ${ROW_MOVE_CURVE.y2})`;
+// A smaller move of a row in a frame is its own entrance or the layout's rounding rather than a jump
+const ROW_MOVE_MIN_SHIFT = 1;
+const LIVE_TAIL_RESERVE_ATTRIBUTE = 'data-agent-live-tail-reserve';
+const LIVE_TAIL_SPACE_ATTRIBUTE = 'data-agent-live-tail-space';
 // iOS's `AgentSkeletonReveal` changes the fill and fades the contents with the system's ease-in-out
 const HISTORY_FADE_EASING = 'ease-in-out';
 const HISTORY_FADE_DURATION = 220;
@@ -118,6 +139,8 @@ const HISTORY_BUBBLE_CONTENT_FADE_DELAY = 140;
 // The frames the grown stand-ins hold their bubbles' rectangles for before the bubbles take over
 const HISTORY_HANDOVER_FRAMES = 3;
 const MESSAGE_ELEMENT_SELECTOR = '[data-agent-v2-message-id]';
+// The rows of the list: its messages, the activity of the answer being produced and the footer under them
+const ROW_SELECTOR = `${MESSAGE_ELEMENT_SELECTOR}, [data-agent-run-activity], [data-agent-list-footer]`;
 const SKELETON_SELECTOR = '[data-agent-skeleton]';
 const PLACEHOLDER_SELECTOR = '[data-agent-skeleton-role]';
 const MESSAGE_ROLE_SELECTOR = '[data-agent-v2-message-role]';
@@ -126,6 +149,8 @@ const FOLLOWUP_ROW_SELECTOR = '[data-agent-followup-row]';
 const QUESTION_TEXT_SELECTOR = '[data-agent-question-text]';
 const HINTS_SELECTOR = '[data-agent-hints]';
 const HEADER_SELECTOR = '[data-agent-header]';
+// The header and what is attached under it, which together cover the top of the list
+const HEADER_COVER_SELECTOR = `${HEADER_SELECTOR}, [data-agent-header-accessory]`;
 const NO_COMPOSER: Partial<AgentConversationComposer> = {};
 // The lines that come before a message: its date and the "New" line
 const MARKER_SELECTOR = `.${styles.dateLine}, .${styles.unreadDivider}`;
@@ -201,6 +226,12 @@ export interface AgentConversation {
    */
   unreadMessageId?: number;
   /**
+   * A message the list goes to, as a tap on the news feed's pinned digest asks: once for each key, bringing it into the
+   * rendered window first when it is out of it. As Telegram places a pinned message, it stands in the middle of the list
+   * under the day's stuck line when it fits there, otherwise with its top under that line.
+   */
+  scrollRequest?: { messageId: number; key: number };
+  /**
    * The failure shows centered with Retry in place of a list that has nothing to show, and as the failure line with
    * Retry at the end of the messages already shown
    */
@@ -209,6 +240,13 @@ export interface AgentConversation {
   emptyText?: string;
   /** An answer is being produced, including the time before its first text arrives */
   isRunActive?: boolean;
+  /**
+   * How many of the last messages wait behind the answer being produced: the questions queued after it, and those a
+   * wallet switch failed with their failure. They show right under the answer, before the space the pinned question
+   * keeps for its answer at the end of the list, as on mobile, and glide into their places as rows above them come,
+   * go or change their height.
+   */
+  queuedMessageCount?: number;
   textRevealPresentations: TextRevealPresentations;
   /**
    * Messages that the next `messages` no longer has. The list shows them once more, turns them to dust where they
@@ -227,6 +265,16 @@ export interface AgentConversation {
 
 export interface AgentConversationComposer {
   isDisabled: boolean;
+  /**
+   * A question sent now waits behind the answer being produced: it shows at the end, and is pinned once it goes. Once
+   * the answer can no longer be stopped, as while its run settles, the question is pinned at once.
+   */
+  isQueueing?: boolean;
+  /**
+   * The queued question that has just gone, a new object each time, which the list pins under the header as a fresh
+   * send, with the questions that still wait under its answer
+   */
+  sentQueuedMessage?: { id: number };
   shouldHide?: boolean;
   canStop?: boolean;
   onStop?: NoneToVoidFunction;
@@ -254,7 +302,20 @@ export interface AgentConversationHistory {
 
 export interface AgentConversationSlots {
   body?: TeactNode;
+  /**
+   * What is attached under the header on its backdrop, as the news feed's pinned digest, at its height in rem; the
+   * messages start below it
+   */
+  headerAccessory?: {
+    content: TeactNode;
+    height: number;
+  };
   messageListFooter?: TeactNode;
+  /**
+   * The activity of the answer being produced, before the answer's message comes. It follows the question the answer
+   * is for, above the messages that wait.
+   */
+  runActivity?: TeactNode;
   beforeComposer?: TeactNode;
   bottomStickDependency?: unknown;
 }
@@ -264,24 +325,32 @@ export type AgentProblemReportOutcome = 'sent' | 'rateLimited' | 'failed';
 /** What the header shows for a chat among several; a single chat keeps the plain "Agent" header */
 export interface AgentConversationHeader {
   title?: string;
+  /** Stands in the title's place, as the news feed's view switch */
+  titleContent?: TeactNode;
   icon?: string;
   /** A line under the name, which tells that support has the chat */
   subtitle?: string;
   /** Shows the threads button, which calls `onBack` */
   hasBackButton?: boolean;
-  /** Shows the chat menu, whose items are Report a Problem and Delete Chat once they are offered */
+  /** Shows the chat menu, whose items are Report a Problem, Contact Support and Delete Chat once they are offered */
   hasMenu?: boolean;
+  /** Enables the support button and Contact Support, which `onRequestSupport` shows */
+  canRequestSupport?: boolean;
 }
 
 export interface AgentConversationActions {
   onBack: NoneToVoidFunction;
   /** Offers Delete Chat in the chat menu */
   onDelete?: NoneToVoidFunction;
+  /** Offers support from the header's button and the chat menu */
+  onRequestSupport?: (source: AgentV2SupportRequestSource) => void;
   /** Reports the conversation, or the message when `messageId` is given. Without it nothing offers a report. */
   onReportProblem?: (messageId: number | undefined, comment: string) => Promise<AgentProblemReportOutcome>;
   onScroll?: (event: React.UIEvent<HTMLDivElement>) => void;
   onMessageVisible?: (id: number) => void;
-  /** Shows the bell at the header's end, as the news feed does, which opens the daily digest's settings */
+  /** The scroll button is taking the list to its end */
+  onScrollToBottom?: (container: HTMLDivElement) => void;
+  /** Shows the settings button at the header's end, as the news feed does, which opens the daily digest's settings */
   onOpenDigestSettings?: NoneToVoidFunction;
 }
 
@@ -314,6 +383,8 @@ export interface AgentConversationSessionStore {
   save: (session: AgentConversationSession) => void;
   /** The news feed keeps its place off screen and saves the anchor's stable news id for its next mount */
   shouldKeepPlaceOffScreen?: boolean;
+  /** Tells the list it is about to give way to another, as a view of the news feed to the other, so it keeps its place */
+  subscribeToLeave?: (onLeave: NoneToVoidFunction) => NoneToVoidFunction;
 }
 
 export interface AgentConversationShellProps {
@@ -377,6 +448,28 @@ interface DissolveGap {
   reserve: number;
 }
 
+/** The rows of the questions that wait under the answer being produced, which move to their places rather than jump */
+interface WaitingRowMoves {
+  rows: Map<HTMLElement, MovingRow>;
+  /** The first question that waited in the frame before, whose turn and the turns after it are measured */
+  firstMessageId?: number;
+  /** The element above the rows that the frame before measured them under, as the turn of the answer being produced */
+  reference?: HTMLElement;
+  isFrameRequested?: boolean;
+}
+
+interface MovingRow {
+  /** Where the row stands under `WaitingRowMoves.reference`, without its move */
+  top: number;
+  /** Where the row stands against the end of the list's content, which stays in place while the list is held there */
+  endTop: number;
+  /** The offset the move starts from, which eases to zero */
+  from: number;
+  startedAt: number;
+  /** The offset the row is drawn at */
+  offset: number;
+}
+
 function AgentConversationShell({
   isActive,
   animationLevel,
@@ -391,13 +484,15 @@ function AgentConversationShell({
 }: AgentConversationShellProps) {
   const {
     messages, hints, isInitialLoadComplete, hasOpeningQuestion = false, hasHistoryPlaceholder = false,
-    isNewsPlaceholder = false, historyPlaceholderLayout, hasDailyDateLines = false, unreadMessageId, loadFailure,
-    emptyText, isRunActive = false, textRevealPresentations, dissolvingMessageIds, isFooterDissolving = false,
-    onDissolveStart, renderMessage,
+    isNewsPlaceholder = false, historyPlaceholderLayout, hasDailyDateLines = false, unreadMessageId, scrollRequest,
+    loadFailure, emptyText, isRunActive = false, queuedMessageCount = 0, textRevealPresentations, dissolvingMessageIds,
+    isFooterDissolving = false, onDissolveStart, renderMessage,
   } = conversation;
   const hasComposer = Boolean(composer);
   const {
     isDisabled: isInputDisabled = false,
+    isQueueing = false,
+    sentQueuedMessage,
     shouldHide: shouldHideComposer = false,
     canStop = false,
     onStop,
@@ -408,7 +503,8 @@ function AgentConversationShell({
     render: renderComposer,
   } = composer ?? NO_COMPOSER;
   const {
-    onBack, onReportProblem, onScroll: onExternalScroll, onMessageVisible, onDelete, onOpenDigestSettings,
+    onBack, onReportProblem, onRequestSupport, onScroll: onExternalScroll, onMessageVisible, onScrollToBottom, onDelete,
+    onOpenDigestSettings,
   } = actions;
   const hasOlderMessages = history?.hasOlderMessages ?? false;
   const isLoadingOlderMessages = history?.isLoading ?? false;
@@ -417,9 +513,12 @@ function AgentConversationShell({
   const historyThresholdRowCount = history?.thresholdRowCount;
   const shouldUseContinuousHistory = history?.mode === 'continuous';
   const conversationSlot = slots?.body;
+  const headerAccessory = slots?.headerAccessory;
+  const headerAccessoryStyle = headerAccessory && `--agent-header-accessory-height: ${headerAccessory.height}rem`;
   const isEmptyAfterLoad = Boolean(loadFailure || emptyText) && !messages.length;
   const hasMessageList = conversationSlot === undefined && !isEmptyAfterLoad;
   const messageListFooter = slots?.messageListFooter;
+  const runActivity = slots?.runActivity;
   const beforeComposerSlot = slots?.beforeComposer;
   const bottomStickDependency = slots?.bottomStickDependency;
   // The session is read once: what the chat kept applies as it comes on screen again
@@ -466,8 +565,18 @@ function AgentConversationShell({
   // Where the hints of an empty chat stood as its first question went, where they fade as it comes
   const [leavingHintsFrame, setLeavingHintsFrame] = useState<AgentHintsFrame>();
   const dissolveGapRef = useRef<HTMLDivElement>();
+  const waitingRowMovesRef = useRef<WaitingRowMoves>();
   const spacerRef = useRef<HTMLDivElement>();
   const liveTailRef = useRef<HTMLDivElement>();
+  const liveTailReserveRef = useRef<HTMLDivElement>();
+  // The turn that has the live tail's top space on screen
+  const shownSpaceTurnRef = useRef<{ turnId?: string; element?: HTMLElement }>({});
+  // The turn that keeps the top space while the live tail has moved on under a user reading above the end
+  const heldSpaceTurnIdRef = useRef<string>();
+  // The held space has gone to the live tail, and the rows it moved are measured anew
+  const isSpaceReleasedRef = useRef(false);
+  // The question the list was pinned at last, so that a queued question pinned as it was sent isn't pinned again
+  const pinnedQuestionIdRef = useRef<number>();
   const inputRef = useRef<HTMLTextAreaElement>();
   const rootRef = useRef<HTMLDivElement>();
   // A chat that opens again where it was left starts away from its end, so nothing holds the list there
@@ -480,10 +589,15 @@ function AgentConversationShell({
   const isFollowSuppressedRef = useRef(isQuestionPinnedOnOpen);
   const shouldRevealLiveTailAnswerRef = useRef(false);
   const liveTailTimeoutRef = useRef<number>();
+  // A question sent as in a messenger, or queued, lets its picture go if it never reaches the list
+  const messengerSendTimeoutRef = useRef<number>();
   // The list takes a question shown in place up once it has appeared
   const inPlaceScrollTimeoutRef = useRef<number>();
+  const isScrolledUpUpdatePendingRef = useRef(false);
   const lastAutoLoadLengthRef = useRef<number>();
   const stuckDateLinesTimeoutRef = useRef<number>();
+
+  const forceUpdate = useForceUpdate();
 
   useHistoryBack({ isActive, onBack });
   const { getIsSnappingToBottom, cancelSnapToBottom } = useScrollResetOnResize(messagesRef, isAtBottomRef);
@@ -503,6 +617,7 @@ function AgentConversationShell({
   useEffect(() => {
     return () => {
       window.clearTimeout(liveTailTimeoutRef.current);
+      window.clearTimeout(messengerSendTimeoutRef.current);
       window.clearTimeout(inPlaceScrollTimeoutRef.current);
       finishQuestionMotionRef.current?.();
       window.clearTimeout(stuckDateLinesTimeoutRef.current);
@@ -530,7 +645,13 @@ function AgentConversationShell({
     () => buildMessageTurnIds(allIds, messagesById, hasDailyDateLines),
     [allIds, hasDailyDateLines, messagesById],
   );
-  const lastOutgoingMessage = useMemo(() => getLastOutgoingMessage(messages), [messages]);
+  // The question being answered is the last that doesn't wait, so the questions queued after it never take its place
+  const lastOutgoingMessage = useMemo(
+    () => getLastOutgoingMessage(messages, messages.length - queuedMessageCount),
+    [messages, queuedMessageCount],
+  );
+  // The last question sent, which can wait behind the one being answered
+  const lastSentMessage = useMemo(() => getLastOutgoingMessage(messages, messages.length), [messages]);
   const isLiveTailRequestFulfilled = Boolean(
     liveTailRequest && lastOutgoingMessage && lastOutgoingMessage !== liveTailRequest.lastOutgoingMessage,
   );
@@ -540,11 +661,32 @@ function AgentConversationShell({
   const isLiveTailPending = liveTailRequest !== undefined && liveTailRequest !== focusedLiveTailRequest;
   const isLiveTailPendingRef = useStateRef(isLiveTailPending);
   const lastMessage = messages[messages.length - 1];
+  // The last message that doesn't wait: the question being answered, or its answer, above the questions that wait
+  const runningMessage = messages[messages.length - 1 - queuedMessageCount];
+  // The run's activity ends the turn of the question being answered
+  const runActivityTurnId = runningMessage ? turnIdByItemId[runningMessage.id] : undefined;
+  const firstWaitingMessageId = queuedMessageCount ? messages[messages.length - queuedMessageCount]?.id : undefined;
+  const previousFirstWaitingMessageIdRef = useRef(firstWaitingMessageId);
+  // The live tail goes to the question that waited first, which has gone
+  const isWaitingQuestionPinned = liveTailMessageId !== undefined
+    && liveTailMessageId === previousFirstWaitingMessageIdRef.current;
+  previousFirstWaitingMessageIdRef.current = firstWaitingMessageId;
+  // While the scroll button shows as a queued question goes, the turn that has the live tail's top space keeps it, so
+  // that nothing on screen moves. The space goes to the live tail once the rows it moves are out of sight, or as the
+  // list scrolls to the live tail.
+  if (liveTailTurnId === undefined) {
+    heldSpaceTurnIdRef.current = undefined;
+  } else if (
+    isWaitingQuestionPinned && isScrolledUp && !isLiveTailPending && heldSpaceTurnIdRef.current === undefined
+  ) {
+    heldSpaceTurnIdRef.current = shownSpaceTurnRef.current.turnId;
+  }
+  const spaceTurnId = heldSpaceTurnIdRef.current ?? liveTailTurnId;
   const isAnswerSettled = !isRunActive && !isLiveTailPending
-    && (!lastMessage || textRevealPresentations[lastMessage.id]?.status !== 'active');
+    && (!runningMessage || textRevealPresentations[runningMessage.id]?.status !== 'active');
   const areHintsVisible = isInitialLoadComplete && messages.length === 0;
   // The Agent thinks until the text of its answer comes
-  const isThinking = isRunActive && (!lastMessage || lastMessage.isOutgoing || !lastMessage.text);
+  const isThinking = isRunActive && (!runningMessage || runningMessage.isOutgoing || !runningMessage.text);
 
   // Messages that were already there when the list became visible are not new
   const shownIds = isReadyToShow ? allIds : undefined;
@@ -575,6 +717,27 @@ function AgentConversationShell({
     if (isAnimatingScroll(messagesRef.current)) cancelScrollAnimation();
   });
 
+  const releaseHeldSpace = useLastCallback(() => {
+    heldSpaceTurnIdRef.current = undefined;
+    isSpaceReleasedRef.current = true;
+  });
+
+  // The held space moves the rows from the turn that keeps it down to the live tail's as it goes, so it goes once they
+  // are out of sight
+  const releaseHiddenSpace = useLastCallback((container: HTMLElement) => {
+    if (heldSpaceTurnIdRef.current === undefined) return;
+
+    const heldTurn = container.querySelector<HTMLElement>(`[${LIVE_TAIL_SPACE_ATTRIBUTE}]`);
+    const liveTail = liveTailRef.current;
+    if (heldTurn && liveTail) {
+      const { top, bottom } = container.getBoundingClientRect();
+      if (liveTail.getBoundingClientRect().top > top && heldTurn.getBoundingClientRect().top < bottom) return;
+    }
+
+    releaseHeldSpace();
+    forceUpdate();
+  });
+
   const replaceSentSource = useLastCallback((source?: SentQuestionSource) => {
     if (sentSourceRef.current) discardSentSource(sentSourceRef.current);
     sentSourceRef.current = source;
@@ -591,34 +754,30 @@ function AgentConversationShell({
     return followup && { kind: 'followup', followup };
   });
 
-  // A question sent as in a messenger comes out of what it was sent from too, once the list shows it at its end. One
-  // that never reaches the list lets its picture go.
+  // A question sent as in a messenger, or one that waits behind the answer being produced, comes out of what it was sent
+  // from too, once the list shows it at its end. One that never reaches the list lets its picture go.
   const waitForMessengerQuestion = useLastCallback(() => {
-    setMessengerSend({ lastOutgoingMessage });
-    window.clearTimeout(liveTailTimeoutRef.current);
-    liveTailTimeoutRef.current = window.setTimeout(() => {
+    setMessengerSend({ lastOutgoingMessage: lastSentMessage });
+    window.clearTimeout(messengerSendTimeoutRef.current);
+    messengerSendTimeoutRef.current = window.setTimeout(() => {
       setMessengerSend(undefined);
       replaceSentSource(undefined);
     }, LIVE_TAIL_REQUEST_TIMEOUT);
   });
 
-  const requestLiveTail = useLastCallback((followupId?: string) => {
+  // `isQuestionShown` pins the last question, already in the list, rather than waiting for one to come
+  const requestLiveTail = useLastCallback((followupId?: string, isQuestionShown = false) => {
     if (noLiveTail) {
-      // The reserve of a question pinned before goes too, so that it leaves no empty space above the new message
-      const liveTail = liveTailRef.current;
-      if (liveTail) {
-        requestMutation(() => {
-          liveTail.style.removeProperty('min-height');
-        });
-      }
+      // The reserve of a question pinned before goes with it, so that it leaves no empty space under the new message
       resetLiveTail();
       isAtBottomRef.current = true;
       if (sentSourceRef.current) waitForMessengerQuestion();
       return;
     }
 
+    if (heldSpaceTurnIdRef.current !== undefined) releaseHeldSpace();
     const request: LiveTailRequest = {
-      lastOutgoingMessage,
+      lastOutgoingMessage: isQuestionShown ? undefined : lastOutgoingMessage,
       previousMessageId: liveTailMessageId,
       inPlaceTop: followupId !== undefined ? getFollowupsTop(messagesRef.current) : undefined,
     };
@@ -629,7 +788,7 @@ function AgentConversationShell({
     setLiveTailRequest(request);
     // A retried answer reuses its turn, so a reserve trimmed by scrolling must be restored for it
     requestMutation(() => {
-      liveTailRef.current?.style.removeProperty('min-height');
+      liveTailReserveRef.current?.style.removeProperty('height');
     });
     // Short histories are pushed to the bottom by the spacer. Keeping its height until the list scrolls to the new
     // question makes the old messages scroll away instead of jumping to the top when the question is added. An empty
@@ -651,6 +810,29 @@ function AgentConversationShell({
       replaceSentSource(undefined);
     }, LIVE_TAIL_REQUEST_TIMEOUT);
   });
+
+  // A queued question that goes is pinned as a fresh send is, with those that still wait under its answer, unless it
+  // was pinned as it was sent. While the scroll button shows, as when the user has scrolled up or an answer runs past
+  // the bottom of the screen, the list stays where it is and the user keeps reading.
+  const pinSentQueuedMessage = useLastCallback((messageId: number) => {
+    if (lastOutgoingMessage?.id !== messageId || pinnedQuestionIdRef.current === messageId) return;
+
+    if (!isScrolledUp) {
+      requestLiveTail(undefined, true);
+      return;
+    }
+
+    // The list holds neither its end nor the place of the question pinned before, so what comes under it, as the next
+    // answer, does not scroll it
+    isAtBottomRef.current = false;
+    isFollowSuppressedRef.current = false;
+    requestMeasure(() => {
+      if (messagesRef.current) releaseHiddenSpace(messagesRef.current);
+    });
+  });
+  useEffect(() => {
+    if (sentQueuedMessage) pinSentQueuedMessage(sentQueuedMessage.id);
+  }, [pinSentQueuedMessage, sentQueuedMessage]);
 
   useEffect(() => {
     if (!isInitialLoadComplete || messages.length > 0) return;
@@ -682,6 +864,15 @@ function AgentConversationShell({
   const previousLastAllIdRef = useRef(lastAllId);
   const lastViewportId = viewportIds?.[viewportIds.length - 1];
   const isViewportAtEnd = !lastAllId || lastAllId === lastViewportId;
+  const firstViewportId = viewportIds?.[0];
+  const previousFirstViewportIdRef = useRef(firstViewportId);
+  // The list keeps its place only through messages that come or go above the first one rendered, as older ones loading,
+  // and then keeps the first row in sight where it stood. A message that comes under that row in the same change, as an
+  // answer above the questions that wait, moves the rows after it alone.
+  const isViewportTopChanged = firstViewportId !== previousFirstViewportIdRef.current;
+  previousFirstViewportIdRef.current = firstViewportId;
+  // The live tail's turn is near the end, so it is rendered once the latest messages are
+  const isLiveTailShown = liveTailTurnId !== undefined && isViewportAtEnd;
 
   const updateScrollPosition = useLastCallback((element: HTMLDivElement) => {
     const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
@@ -690,7 +881,26 @@ function AgentConversationShell({
     const isOwnEndScroll = ownEndScrollTopRef.current !== undefined
       && Math.abs(element.scrollTop - ownEndScrollTopRef.current) < 1;
     isAtBottomRef.current = isOwnEndScroll || distanceToBottom < SCROLL_FLICKER_THRESHOLD;
-    setIsScrolledUp(!isOwnEndScroll && distanceToBottom > SCROLL_BOTTOM_THRESHOLD);
+    // As on mobile, the list is scrolled up once its last row is out of sight, rather than the reserve under the rows.
+    // While older history is rendered, the latest rows are beyond it.
+    const isLastRowHidden = !isViewportAtEnd
+      || measureLastRowOverhang(element, distanceToBottom) > SCROLL_BOTTOM_THRESHOLD;
+    setIsScrolledUp(!isOwnEndScroll && isLastRowHidden);
+  });
+
+  // Rows that come, go or grow move the last row of a list that keeps neither its end nor a pinned question in place,
+  // and the scroll button follows it
+  const requestScrolledUpUpdate = useLastCallback(() => {
+    if (isScrolledUpUpdatePendingRef.current) return;
+
+    isScrolledUpUpdatePendingRef.current = true;
+    requestMeasure(() => {
+      isScrolledUpUpdatePendingRef.current = false;
+      // A pin asked for meanwhile holds the list
+      if (!messagesRef.current || isAtBottomRef.current || isFollowSuppressedRef.current) return;
+
+      updateScrollPosition(messagesRef.current);
+    });
   });
 
   // A chat that comes on screen again opens where it was left. Otherwise it opens at its first unread message, and at
@@ -705,9 +915,11 @@ function AgentConversationShell({
   const scrollToInitialPosition = useLastCallback((element: HTMLDivElement) => {
     const liveTail = isFollowSuppressedRef.current ? liveTailRef.current : undefined;
     if (liveTail) {
+      // The list stands at the pinned question rather than at its own end, though the two can be the same place
+      ownEndScrollTopRef.current = undefined;
       element.scrollTo({ top: getPinnedLiveTailScrollTop(element, liveTail), behavior: 'instant' });
       // An answer without text yet comes into view once, as after a send
-      shouldRevealLiveTailAnswerRef.current = !lastMessage || lastMessage.isOutgoing || !lastMessage.text;
+      shouldRevealLiveTailAnswerRef.current = !runningMessage || runningMessage.isOutgoing || !runningMessage.text;
       updateScrollPosition(element);
       return;
     }
@@ -748,6 +960,49 @@ function AgentConversationShell({
         onEnd: releaseFrozenSpacer,
       }));
     });
+  });
+
+  // A message asked for comes into the rendered window, and the list then goes to it on the spring it scrolls on. The
+  // window holds while the list goes there: the animation aims at where the message was as it started, and messages
+  // loaded on the way would move it from there.
+  const handledScrollRequestKeyRef = useRef<number>();
+  const isScrollingToRequestRef = useRef(false);
+  useEffect(() => {
+    if (!scrollRequest || !isReadyToShow || handledScrollRequestKeyRef.current === scrollRequest.key) return;
+
+    const { messageId, key } = scrollRequest;
+    const listId = String(messageId);
+    // The list leaves its end, so that following the end doesn't take the rendered window back there
+    isAtBottomRef.current = false;
+    if (!viewportIds?.includes(listId)) {
+      if (allIds.includes(listId)) getMore?.({ direction: LoadMoreDirection.Backwards, offsetId: listId });
+      return;
+    }
+
+    handledScrollRequestKeyRef.current = key;
+    requestMeasure(() => {
+      const element = messagesRef.current;
+      if (!element) return;
+
+      isScrollingToRequestRef.current = true;
+      requestMutation(animateScroll(
+        element,
+        (container) => getCenteredScrollTop(container, messageId) ?? container.scrollTop,
+        {
+          forceDuration: scrollDuration,
+          onEnd: () => {
+            isScrollingToRequestRef.current = false;
+            updateScrollPosition(element);
+          },
+        },
+      ));
+    });
+  }, [allIds, getMore, isReadyToShow, scrollDuration, scrollRequest, updateScrollPosition, viewportIds]);
+
+  const handleLoadMore = useLastCallback(({ direction }: { direction: LoadMoreDirection }) => {
+    if (isScrollingToRequestRef.current && isAnimatingScroll(messagesRef.current)) return;
+
+    getMore?.({ direction });
   });
 
   // A list about to open at a message is placed there rather than at its end
@@ -855,7 +1110,7 @@ function AgentConversationShell({
     requestMeasure(() => {
       // A question taller than the screen pushes the start of its answer below the fold, so the list reveals
       // the first lines once. After that, the answer grows downward without moving the list.
-      const isAnswerVisible = lastMessage && !lastMessage.isOutgoing && Boolean(lastMessage.text);
+      const isAnswerVisible = runningMessage && !runningMessage.isOutgoing && Boolean(runningMessage.text);
       if (shouldRevealLiveTailAnswerRef.current && isAnswerVisible) {
         shouldRevealLiveTailAnswerRef.current = false;
         const mutate = animateScroll(element, getLiveTailScrollTop, {
@@ -870,12 +1125,73 @@ function AgentConversationShell({
     });
   });
 
-  const handleTextRevealProgress = useScrollToBottomOnReveal(
+  // While questions wait under the answer being produced, their rows are measured after each render of the list, each
+  // frame an answer grows and each frame any of them moves, and rest otherwise. Those that a row above them coming,
+  // going or changing its height moved start from where they stood and ease into their places, as on iOS, while the
+  // answer's own growth pushes them as it does any message. Where motion is reduced, they go to their places at once. A
+  // list hidden or put aside forgets where they stood, so that they show in their places as it comes back.
+  const moveWaitingRows = useLastCallback(() => {
+    const moves = waitingRowMovesRef.current;
+    const container = messagesRef.current;
+    if (!moves) return undefined;
+
+    moves.isFrameRequested = false;
+    if (!container?.isConnected || !shouldAnimate || !isActive || !container.clientHeight) {
+      waitingRowMovesRef.current = undefined;
+      return () => endRowMoves(moves);
+    }
+
+    const now = Date.now();
+    // A question that goes is measured once more, in the frame it goes
+    const firstMessageId = moves.firstMessageId ?? firstWaitingMessageId;
+    moves.firstMessageId = firstWaitingMessageId;
+    measureWaitingRows(container, moves, firstMessageId, firstWaitingMessageId, now, {
+      // A list held at its end keeps its end in place as the rows above it change
+      isHeldAtEnd: isAtBottomRef.current && !isFollowSuppressedRef.current && !isLiveTailPending,
+      canMove: !getIsAnswerGrowing(runningMessage, textRevealPresentations),
+    });
+
+    return () => {
+      if (drawRowMoves(moves.rows, now)) {
+        requestWaitingRowMoves();
+      } else if (moves.firstMessageId === undefined && waitingRowMovesRef.current === moves) {
+        waitingRowMovesRef.current = undefined;
+      }
+    };
+  });
+
+  const requestWaitingRowMoves = useLastCallback(() => {
+    const moves: WaitingRowMoves = waitingRowMovesRef.current ?? { rows: new Map() };
+    waitingRowMovesRef.current = moves;
+    if (moves.isFrameRequested) return;
+
+    moves.isFrameRequested = true;
+    requestForcedReflow(moveWaitingRows);
+  });
+
+  // The rows are measured again while questions wait, and until the rows that moved have settled
+  const wakeWaitingRowMoves = useLastCallback(() => {
+    if (waitingRowMovesRef.current || (queuedMessageCount && shouldAnimate && isActive)) requestWaitingRowMoves();
+  });
+
+  // Each render can bring, take away or resize a row above the questions that wait
+  useLayoutEffect(() => {
+    wakeWaitingRowMoves();
+  });
+
+  const followTextReveal = useScrollToBottomOnReveal(
     () => isAtBottomRef.current || isFollowSuppressedRef.current,
     handleRevealFrame,
   );
 
+  const handleTextRevealProgress = useLastCallback(() => {
+    followTextReveal();
+    if (!isAtBottomRef.current && !isFollowSuppressedRef.current) requestScrolledUpUpdate();
+    wakeWaitingRowMoves();
+  });
+
   const handleScrollToBottomClick = useLastCallback(() => {
+    if (messagesRef.current) onScrollToBottom?.(messagesRef.current);
     isAtBottomRef.current = true;
     isFollowSuppressedRef.current = false;
     setIsScrolledUp(false);
@@ -901,7 +1217,9 @@ function AgentConversationShell({
     }
 
     // The answer's first lines that came while the question appeared come into view with it
-    if (lastMessage && !lastMessage.isOutgoing && lastMessage.text) shouldRevealLiveTailAnswerRef.current = false;
+    if (runningMessage && !runningMessage.isOutgoing && runningMessage.text) {
+      shouldRevealLiveTailAnswerRef.current = false;
+    }
 
     requestMeasure(() => {
       const mutateScroll = animateScroll(element, getLiveTailScrollTop, {
@@ -927,6 +1245,7 @@ function AgentConversationShell({
     window.clearTimeout(liveTailTimeoutRef.current);
     cancelInPlaceScroll();
     setFocusedLiveTailRequest(liveTailRequest);
+    pinnedQuestionIdRef.current = liveTailMessageId;
     isAtBottomRef.current = true;
     isFollowSuppressedRef.current = !noLiveTail;
     shouldRevealLiveTailAnswerRef.current = !noLiveTail;
@@ -941,6 +1260,9 @@ function AgentConversationShell({
         return undefined;
       }
 
+      // The list goes to the pinned question rather than to its own end, though the two can be the same place. This
+      // runs after a scroll to the end asked for earlier in the frame.
+      ownEndScrollTopRef.current = undefined;
       const isQuestionJustSent = shouldAnimate && liveTailMessageId !== undefined
         && Boolean(justAddedIds?.has(String(liveTailMessageId)));
       const question = isQuestionJustSent ? findQuestion(element, liveTailMessageId) : undefined;
@@ -951,7 +1273,7 @@ function AgentConversationShell({
         ? measureFollowupMorph(source.followup, question.bubble, question.text, getBubble, layer)
         : undefined;
       const flight = question && source?.kind === 'field' ? measureSentQuestionFlight(
-        source.picture, question.bubble, question.text, getBubble, layer, () => getComposerTop(layer),
+        source.picture, question.bubble, question.text, getBubble, layer, () => findComposer(layer),
       ) : undefined;
       if (source && !flight) discardSentSource(source);
       const startMotion = morph ?? flight;
@@ -1008,14 +1330,55 @@ function AgentConversationShell({
     });
   });
 
-  // The question sent as in a messenger comes out of what it was sent from wherever the list puts it, at its end
-  const messengerQuestionId = messengerSend && lastOutgoingMessage
-    && lastOutgoingMessage !== messengerSend.lastOutgoingMessage ? lastOutgoingMessage.id : undefined;
+  // The live tail's top space goes from the turn that has it to the question that waited and goes, which stays where it
+  // is, and to the live tail as a space held for a user reading above the end is released. The rows of the turns it
+  // leaves move up into the space on the list's curve rather than in one frame.
+  useLayoutEffect(() => {
+    const shown = shownSpaceTurnRef.current;
+    if (spaceTurnId === shown.turnId) return;
+
+    // The space goes only to the live tail
+    const element = liveTailRef.current;
+    shownSpaceTurnRef.current = { turnId: spaceTurnId, element };
+    const left = shown.element;
+    const isReleased = isSpaceReleasedRef.current;
+    isSpaceReleasedRef.current = false;
+    // The rows that wait are measured under the turn above them, whose top the released space moves
+    if (isReleased && waitingRowMovesRef.current) waitingRowMovesRef.current.reference = undefined;
+    if (!element || !left?.isConnected || left === element || !(isWaitingQuestionPinned || isReleased)
+      || !shouldAnimate || !left.animate) {
+      return;
+    }
+
+    requestForcedReflow(() => {
+      const space = parseFloat(getComputedStyle(element).paddingTop) || 0;
+      if (!space) return undefined;
+
+      const rows: Element[] = [];
+      for (let turn: Element | null = left; turn && turn !== element; turn = turn.nextElementSibling) {
+        rows.push(...Array.from(turn.children));
+      }
+
+      return () => {
+        rows.forEach((row) => {
+          row.animate([{ translate: `0 ${space}px` }, { translate: '0 0' }], {
+            duration: ROW_MOVE_DURATION,
+            easing: ROW_MOVE_EASING,
+          });
+        });
+      };
+    });
+  }, [isWaitingQuestionPinned, shouldAnimate, spaceTurnId]);
+
+  // The question sent as in a messenger, or queued, comes out of what it was sent from wherever the list puts it, at
+  // its end
+  const messengerQuestionId = messengerSend && lastSentMessage
+    && lastSentMessage !== messengerSend.lastOutgoingMessage ? lastSentMessage.id : undefined;
   useLayoutEffect(() => {
     if (messengerQuestionId === undefined) return;
 
     setMessengerSend(undefined);
-    window.clearTimeout(liveTailTimeoutRef.current);
+    window.clearTimeout(messengerSendTimeoutRef.current);
     const isQuestionJustSent = shouldAnimate && Boolean(justAddedIds?.has(String(messengerQuestionId)));
 
     requestForcedReflow(() => {
@@ -1028,7 +1391,7 @@ function AgentConversationShell({
       let startMotion: (() => NoneToVoidFunction) | undefined;
       if (question && layer && source?.kind === 'field') {
         startMotion = measureSentQuestionFlight(
-          source.picture, question.bubble, question.text, getBubble, layer, () => getComposerTop(layer),
+          source.picture, question.bubble, question.text, getBubble, layer, () => findComposer(layer),
         );
       } else if (question && layer && source?.kind === 'followup') {
         startMotion = measureFollowupMorph(source.followup, question.bubble, question.text, getBubble, layer);
@@ -1075,7 +1438,12 @@ function AgentConversationShell({
     }
 
     // The list scrolls to the sent question once it arrives, so it must not jump to the bottom before that
-    if (isLiveTailPending || isFollowSuppressedRef.current || !isAtBottomRef.current) return;
+    if (isLiveTailPending || isFollowSuppressedRef.current) return;
+
+    if (!isAtBottomRef.current) {
+      requestScrolledUpUpdate();
+      return;
+    }
 
     if (areNewsFollowupsArriving && shouldAnimate) {
       animateToBottom();
@@ -1109,6 +1477,7 @@ function AgentConversationShell({
     lastMessage,
     messages,
     noLiveTail,
+    requestScrolledUpUpdate,
     shouldAnimate,
     textRevealPresentations,
     updateScrollPosition,
@@ -1245,20 +1614,19 @@ function AgentConversationShell({
     };
   }, [dissolveGap, isAnswerSettledRef, releaseDissolveGap]);
 
-  // The live tail reserves a screen of space under the question for the answer to grow into. Once the answer
-  // is finished, scrolling up trims whatever stays empty so the user cannot scroll back down into a blank area.
-  // Only the part below the current viewport is trimmed, so the visible content never moves.
+  // The live tail keeps a screen of space under the question for the answer to grow into, at the end of the list. Once
+  // the answer is finished, scrolling up trims whatever stays empty so the user cannot scroll back down into a blank
+  // area. Only the part below the current viewport is trimmed, so the visible content never moves.
   const trimLiveTailReserve = useLastCallback((element: HTMLDivElement) => {
-    const liveTail = liveTailRef.current;
-    if (!liveTail) return;
+    const reserve = liveTailReserveRef.current;
+    if (!reserve) return;
 
-    const slack = element.scrollHeight - element.scrollTop - element.clientHeight;
-    if (slack <= 0) return;
+    const excess = reserve.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom;
+    if (excess <= 0) return;
 
-    const contentHeight = getTurnContentHeight(liveTail);
-    const minHeight = Math.max(contentHeight, liveTail.offsetHeight - slack);
+    const height = Math.max(0, reserve.offsetHeight - excess);
     requestMutation(() => {
-      liveTail.style.minHeight = `${minHeight}px`;
+      reserve.style.height = `${height}px`;
     });
   });
 
@@ -1299,6 +1667,7 @@ function AgentConversationShell({
     // Intermediate positions of an animated scroll must not reset `isAtBottomRef` or flash the scroll button
     if (!isAnimatingScroll(element) && !getIsSnappingToBottom(element)) {
       updateScrollPosition(element);
+      releaseHiddenSpace(element);
       if (isAnswerSettled) trimLiveTailReserve(element);
     }
     if (hasDailyDateLines) updateStickyDateLines(element);
@@ -1347,6 +1716,10 @@ function AgentConversationShell({
     };
   }, [cancelSnapToBottom, hasMessageList]);
 
+  // An edit begun while the chat was free waits for an answer started since and the questions queued, with its send
+  // dimmed, as on iOS
+  const isEditWaiting = editingMessageId !== undefined && isQueueing;
+
   // The field's text as it shows, which the question's bubble comes out of once the list shows it. It reads the
   // layout, as a send does. A question with secret words shows in its bubble without them, so it doesn't come out of
   // the field.
@@ -1366,8 +1739,8 @@ function AgentConversationShell({
 
   const handleSend = useLastCallback(() => {
     const text = getInputValue().trim();
-    // The draft stays editable while an answer is running, so Enter must not send it
-    if (!text || isInputDisabled) return;
+    // The draft stays editable while an answer is running; a question then waits for it, and an edit can't
+    if (!text || isInputDisabled || isEditWaiting) return;
 
     const messageId = getEditingMessageId();
     // An edited question keeps its bubble, so only a new one comes out of the field
@@ -1375,7 +1748,14 @@ function AgentConversationShell({
     setInputValue('');
     setEditingMessageId(undefined);
     pendingEditRef.current = undefined;
-    requestLiveTail();
+    // A question that waits behind an answer still being produced comes out of the field at the end of the list, and is
+    // pinned once it goes. One sent once the answer has ended, while its run settles, goes next and is pinned at once,
+    // as a fresh send is.
+    if (!isQueueing || !canStop) {
+      requestLiveTail();
+    } else if (sentSourceRef.current) {
+      waitForMessengerQuestion();
+    }
     onSendMessage!(text, messageId);
   });
 
@@ -1491,6 +1871,9 @@ function AgentConversationShell({
     if (!isActive && shouldKeepPlaceOffScreen) requestMeasure(keepPlace);
   }, [isActive, keepPlace, shouldKeepPlaceOffScreen]);
 
+  const subscribeToLeave = session?.subscribeToLeave;
+  useEffect(() => subscribeToLeave?.(keepPlace), [keepPlace, subscribeToLeave]);
+
   const handleHintClick = useLastCallback((hint: AgentHint, button: HTMLElement) => {
     if (document.activeElement) (document.activeElement as HTMLElement).blur();
 
@@ -1550,8 +1933,7 @@ function AgentConversationShell({
     let isCancelled = false;
     requestMeasure(() => {
       if (isCancelled) return;
-      const headerElement = element.parentElement!.querySelector<HTMLElement>(HEADER_SELECTOR)!;
-      const topInset = Math.max(0, headerElement.getBoundingClientRect().bottom - element.getBoundingClientRect().top);
+      const topInset = Math.max(0, getHeaderCoverBottom(element) - element.getBoundingClientRect().top);
       observer = new IntersectionObserver((entries) => {
         if (isCancelled) return;
         entries.forEach((entry) => {
@@ -1609,7 +1991,7 @@ function AgentConversationShell({
   const composerProps: AgentConversationComposerProps = {
     inputRef,
     inputValue,
-    isDisabled: isInputDisabled,
+    isDisabled: isInputDisabled || isEditWaiting,
     canStop,
     onStop,
     onInput: handleInput,
@@ -1658,14 +2040,26 @@ function AgentConversationShell({
 
       const isLastTurn = nextId === undefined;
       const isLiveTail = turnId === liveTailTurnId;
+      const hasLiveTailSpace = turnId === spaceTurnId;
       turns.push(
         <div
           key={turnId}
           ref={isLiveTail ? liveTailRef : undefined}
-          className={buildClassName(styles.turn, isLiveTail && styles.liveTail)}
+          className={buildClassName(styles.turn, hasLiveTailSpace && styles.liveTail)}
+          data-agent-live-tail-space={hasLiveTailSpace || undefined}
           teactFastList
         >
+          {isLiveTail && (
+            <div
+              key="reserve"
+              ref={liveTailReserveRef}
+              className={styles.liveTailReserve}
+              data-agent-live-tail-reserve
+              aria-hidden
+            />
+          )}
           {ids.slice(turnStartIndex, index + 1).map(renderItem)}
+          {turnId === runActivityTurnId && runActivity}
           {isLastTurn && isViewportAtEnd && messageListFooter}
           {isLastTurn && isViewportAtEnd && renderFailureLine()}
           {isLastTurn && dissolveGap && (
@@ -1705,39 +2099,66 @@ function AgentConversationShell({
     return <div className={styles.emptyText}>{emptyText}</div>;
   }
 
+  function renderHeaderAccessory() {
+    if (!headerAccessory) return undefined;
+
+    return (
+      <div className={styles.headerAccessory} data-agent-header-accessory>
+        {headerAccessory.content}
+      </div>
+    );
+  }
+
+  function renderHeaderBackdrop() {
+    if (!headerAccessory) return undefined;
+
+    return <div className={buildClassName(styles.headerBackdrop, isScrolled && 'is-scrolled')} aria-hidden />;
+  }
+
   if (!hasMessageList) {
-    // A chat with nothing to show after its load keeps its menu, so it can still be deleted
+    // A chat with nothing to show after its load keeps its menu, so it can still be deleted, and what is attached under
+    // its header
     const isEmpty = conversationSlot === undefined;
 
     return (
-      <div className={styles.root}>
+      <div className={styles.root} style={headerAccessoryStyle}>
+        {renderHeaderBackdrop()}
         <AgentHeader
+          hasAccessory={Boolean(headerAccessory)}
           isMenuVisible={isEmpty && header?.hasMenu}
           title={header?.title}
+          titleContent={header?.titleContent}
           icon={header?.icon}
           onBack={header?.hasBackButton ? onBack : undefined}
           onDelete={isEmpty ? onDelete : undefined}
           onOpenDigestSettings={onOpenDigestSettings}
         />
+        {renderHeaderAccessory()}
         {isEmpty ? renderEmptyList() : conversationSlot}
       </div>
     );
   }
 
   return (
-    <div ref={rootRef} className={styles.root} data-agent-conversation>
+    <div ref={rootRef} className={styles.root} style={headerAccessoryStyle} data-agent-conversation>
+      {renderHeaderBackdrop()}
       <AgentHeader
         isScrolled={isScrolled}
+        hasAccessory={Boolean(headerAccessory)}
         isMenuVisible={header?.hasMenu}
         title={header?.title}
+        titleContent={header?.titleContent}
         icon={header?.icon}
         subtitle={header?.subtitle}
         onBack={header?.hasBackButton ? onBack : undefined}
         // The conversation can be reported from the start, its history loading or its thread still being created
         onReportProblem={onReportProblem ? openConversationReport : undefined}
+        onRequestSupport={onRequestSupport}
+        canRequestSupport={header?.canRequestSupport}
         onDelete={onDelete}
         onOpenDigestSettings={onOpenDigestSettings}
       />
+      {renderHeaderAccessory()}
 
       {hasHistoryPlaceholder && (
         <AgentMessagesSkeleton
@@ -1759,6 +2180,7 @@ function AgentConversationShell({
           !isReadyToShow && styles.hidden,
           areMessagesDissolving && styles.messagesDissolving,
           !hasComposer && styles.messagesWithoutComposer,
+          Boolean(headerAccessory) && styles.messagesUnderHeaderAccessory,
           areDateLinesSticky && styles.messagesStickyDates,
           'custom-scroll',
         )}
@@ -1767,18 +2189,22 @@ function AgentConversationShell({
         loadMoreStrategy={shouldUseContinuousHistory ? 'scrollDirection' : 'anchorMovement'}
         preloadBackwards={PRELOAD_BACKWARD_SLICE}
         getIsNearTop={historyThresholdRowCount !== undefined ? getIsNearTopByRows : undefined}
-        noScrollRestore={isLiveTailPending || isQuestionInPlace || isAnimatingScroll(messagesRef.current)}
-        onLoadMore={getMore}
+        noScrollRestore={
+          isLiveTailPending || isQuestionInPlace || isAnimatingScroll(messagesRef.current) || !isViewportTopChanged
+        }
+        shouldRestoreByShownItem
+        onLoadMore={handleLoadMore}
         onScroll={handleScroll}
         onClick={handleMessageLinkClick}
       >
         <div
           key="spacer"
           ref={spacerRef}
-          className={styles.spacer}
+          className={buildClassName(styles.spacer, isLiveTailShown && styles.spacerHeld)}
           style={frozenSpacerHeight ? `min-height: ${frozenSpacerHeight}px` : undefined}
         />
         {viewportIds && renderTurns(viewportIds)}
+        {runActivityTurnId === undefined && runActivity}
         {(!viewportIds?.length || !isViewportAtEnd) && messageListFooter}
         {(!viewportIds?.length || !isViewportAtEnd) && renderFailureLine()}
         <AgentHints
@@ -1820,8 +2246,8 @@ function AgentConversationShell({
 
 export default memo(AgentConversationShell);
 
-function getLastOutgoingMessage(messages: AgentMessage[]) {
-  for (let i = messages.length - 1; i >= 0; i--) {
+function getLastOutgoingMessage(messages: AgentMessage[], end: number) {
+  for (let i = end - 1; i >= 0; i--) {
     if (messages[i].isOutgoing) return messages[i];
   }
 
@@ -1836,18 +2262,28 @@ function getAppendedIds(ids: string[], prevIds: string[]) {
   return prevLastIndex === -1 ? undefined : new Set(ids.slice(prevLastIndex + 1));
 }
 
-// The live tail is about as tall as the list, so scrolling to its end puts the pinned question near the top
+// The live tail with its reserve is about as tall as the list, so scrolling to its end puts the pinned question near
+// the top
 function getLiveTailScrollTop(container: HTMLElement) {
-  const liveTail = container.querySelector<HTMLElement>(`.${styles.liveTail}`);
+  // The live tail is the turn with the reserve, whichever turn has its top space
+  const liveTail = container.querySelector(`.${styles.turn} > [${LIVE_TAIL_RESERVE_ATTRIBUTE}]`)?.parentElement;
   if (!liveTail) return getBottomScrollTop(container);
 
-  const liveTailBottom = liveTail.getBoundingClientRect().bottom
-    - container.getBoundingClientRect().top
-    + container.scrollTop;
+  const { answerEnd, reserveEnd } = measureLiveTailEnds(container, liveTail);
+  return Math.max(answerEnd, reserveEnd) - container.clientHeight;
+}
 
+/**
+ * Where the live tail's answer ends in the list's content, with the space under the list's last line, and where its
+ * reserve ends, which leaves that space out
+ */
+function measureLiveTailEnds(container: HTMLElement, liveTail: HTMLElement) {
+  const contentTop = container.getBoundingClientRect().top - container.scrollTop;
   const paddingBottom = parseFloat(getComputedStyle(container).paddingBottom) || 0;
+  const answerEnd = liveTail.getBoundingClientRect().bottom - contentTop + paddingBottom;
+  const reserve = liveTail.querySelector<HTMLElement>(`[${LIVE_TAIL_RESERVE_ATTRIBUTE}]`);
 
-  return liveTailBottom + paddingBottom - container.clientHeight;
+  return { answerEnd, reserveEnd: reserve ? reserve.getBoundingClientRect().bottom - contentTop : answerEnd };
 }
 
 /** Returns where the last answer's follow-ups begin in the list's content */
@@ -1919,9 +2355,9 @@ function measureHintsFrame(container?: HTMLElement): AgentHintsFrame | undefined
   return hints ? { top: hints.offsetTop, left: hints.offsetLeft, width: hints.offsetWidth } : undefined;
 }
 
-/** Where the field's row starts, under which a flight out of the field passes once it is past it */
-function getComposerTop(layer: HTMLElement) {
-  return layer.parentElement?.querySelector('[data-agent-composer]')?.getBoundingClientRect().top;
+/** The field's row, under whose top a flight out of the field passes once it is past it */
+function findComposer(layer: HTMLElement) {
+  return layer.parentElement?.querySelector('[data-agent-composer]') ?? undefined;
 }
 
 /** The space the follow-ups under the last answer give back as they go */
@@ -1969,25 +2405,35 @@ function measureQuestionFlyUp(container: HTMLElement, messageId: number) {
 }
 
 /**
- * Where a send pins the question of the live tail, with the reserve under it reaching the bottom of the list. An
- * answer taller than the reserve keeps the question at the top of the list's content.
+ * Where a send pins the question of the live tail, with its reserve reaching the bottom of the list. An answer taller
+ * than the reserve keeps the question at the top of the list's content.
  */
 function getPinnedLiveTailScrollTop(container: HTMLElement, liveTail: HTMLElement) {
-  const containerStyle = getComputedStyle(container);
+  const { answerEnd, reserveEnd } = measureLiveTailEnds(container, liveTail);
+  if (reserveEnd > answerEnd) return reserveEnd - container.clientHeight;
+
   const liveTailTop = liveTail.getBoundingClientRect().top - container.getBoundingClientRect().top
     + container.scrollTop;
-  if (getTurnContentHeight(liveTail) < liveTail.offsetHeight) {
-    const paddingBottom = parseFloat(containerStyle.paddingBottom) || 0;
-    return liveTailTop + liveTail.offsetHeight + paddingBottom - container.clientHeight;
-  }
-
-  const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
+  const paddingTop = parseFloat(getComputedStyle(container).paddingTop) || 0;
   const liveTailPaddingTop = parseFloat(getComputedStyle(liveTail).paddingTop) || 0;
   return liveTailTop + liveTailPaddingTop - paddingTop;
 }
 
 function getBottomScrollTop(container: HTMLElement) {
   return container.scrollHeight - container.clientHeight;
+}
+
+/**
+ * How far the last row the list renders ends below the visible bottom of the list, above the composer. A list without
+ * rows measures `distanceToBottom`, the distance to its end.
+ */
+function measureLastRowOverhang(container: HTMLElement, distanceToBottom: number) {
+  const rows = container.querySelectorAll(ROW_SELECTOR);
+  const lastRow = rows[rows.length - 1];
+  if (!lastRow) return distanceToBottom;
+
+  const paddingBottom = parseFloat(getComputedStyle(container).paddingBottom) || 0;
+  return lastRow.getBoundingClientRect().bottom - (container.getBoundingClientRect().bottom - paddingBottom);
 }
 
 // The dissolving messages end the list. The first of them comes with the date line and the "New" line before it.
@@ -2051,12 +2497,119 @@ function getIsInView(element: HTMLElement, containerRect: DOMRect) {
   return bottom > containerRect.top && top < containerRect.bottom;
 }
 
-// The turn's own height includes its reserve, so the content height comes from where its last child ends
-function getTurnContentHeight(turn: HTMLElement) {
-  const lastChild = turn.lastElementChild;
-  if (!lastChild) return 0;
+/**
+ * Measures the rows of the turns from the question `firstMessageId` on and starts a move for each row that has moved
+ * since the last frame while `canMove`. A row is measured under the turn above the questions that wait, so that neither
+ * the list's scroll nor a change that moves the whole list, as its history coming above it, moves a row on its own. A
+ * list held at its end shows the rows where they stand against its end.
+ */
+function measureWaitingRows(
+  container: HTMLElement,
+  moves: WaitingRowMoves,
+  firstMessageId: number | undefined,
+  nextFirstMessageId: number | undefined,
+  now: number,
+  { isHeldAtEnd, canMove }: { isHeldAtEnd: boolean; canMove: boolean },
+) {
+  const { rows, reference } = moves;
+  const referenceTop = reference?.isConnected ? reference.getBoundingClientRect().top : undefined;
+  // The next frame measures the rows under the turn above the question that waits first then
+  const nextReference = nextFirstMessageId !== undefined
+    ? (findMessageTurn(container, nextFirstMessageId)?.previousElementSibling ?? undefined) as HTMLElement | undefined
+    : undefined;
+  const nextReferenceTop = nextReference?.getBoundingClientRect().top ?? 0;
+  const elements = firstMessageId !== undefined ? findTurnRowsFrom(container, firstMessageId) : [];
+  // The turns themselves never move, so the last one ends where the content does without the moves
+  const lastTurn = elements.length ? elements[elements.length - 1].parentElement : undefined;
+  const contentEnd = lastTurn?.getBoundingClientRect().bottom ?? 0;
+  const measuredElements = new Set<HTMLElement>();
+  let rowAbove: MovingRow | undefined;
 
-  return lastChild.getBoundingClientRect().bottom - turn.getBoundingClientRect().top;
+  elements.forEach((element) => {
+    measuredElements.add(element);
+    const row = rows.get(element);
+    const rowTop = element.getBoundingClientRect().top - (row?.offset ?? 0);
+    const top = rowTop - nextReferenceTop;
+    const endTop = rowTop - contentEnd;
+    if (!row) {
+      // A row that comes in, as the activity of the next answer, moves along with the row above it
+      rowAbove = {
+        top, endTop, from: rowAbove?.from ?? 0, startedAt: rowAbove?.startedAt ?? now, offset: 0,
+      };
+      rows.set(element, rowAbove);
+      return;
+    }
+
+    const shift = isHeldAtEnd
+      ? row.endTop - endTop
+      : referenceTop !== undefined ? row.top - (rowTop - referenceTop) : 0;
+    // As on iOS, a row that would come from farther than the list is tall takes its place at once
+    const distance = Math.abs(shift);
+    if (canMove && distance >= ROW_MOVE_MIN_SHIFT && distance < container.clientHeight) {
+      row.from = getRowMoveOffset(row, now) + shift;
+      row.startedAt = now;
+    }
+    row.top = top;
+    row.endTop = endTop;
+    rowAbove = row;
+  });
+  moves.reference = nextReference;
+
+  // A row the list no longer has is let go, and one above the questions that wait ends its move first
+  rows.forEach((row, element) => {
+    if (!measuredElements.has(element) && (!element.isConnected || (!row.offset && !getRowMoveOffset(row, now)))) {
+      rows.delete(element);
+    }
+  });
+}
+
+/** Draws each row at the offset of its move, and tells whether any row is still moving */
+function drawRowMoves(rows: Map<HTMLElement, MovingRow>, now: number) {
+  let isMoving = false;
+  rows.forEach((row, element) => {
+    const offset = getRowMoveOffset(row, now);
+    isMoving ||= Boolean(offset);
+    if (offset === row.offset) return;
+
+    row.offset = offset;
+    setExtraStyles(element, { translate: offset ? `0 ${offset}px` : '' });
+  });
+
+  return isMoving;
+}
+
+function endRowMoves({ rows }: WaitingRowMoves) {
+  rows.forEach((row, element) => {
+    if (row.offset) setExtraStyles(element, { translate: '' });
+  });
+}
+
+function getRowMoveOffset({ from, startedAt }: MovingRow, now: number) {
+  return from * (1 - getBezierProgress(ROW_MOVE_CURVE, (now - startedAt) / ROW_MOVE_DURATION));
+}
+
+// The answer being produced grows as its text comes and is revealed, which pushes the rows under it as any message
+function getIsAnswerGrowing(message: AgentMessage | undefined, presentations: TextRevealPresentations) {
+  return Boolean(message && !message.isOutgoing && message.text
+    && (message.isStreaming || presentations[message.id]?.status === 'active'));
+}
+
+function findMessageTurn(container: HTMLElement, messageId: number) {
+  return container.querySelector(`[data-agent-v2-message-id="${messageId}"]`)?.parentElement ?? undefined;
+}
+
+// A question starts its turn, which holds the lines before it too, so the rows under an answer are those of the turns
+// from the first question that waits for it on. The live tail's reserve is no row.
+function findTurnRowsFrom(container: HTMLElement, messageId: number) {
+  const rows: HTMLElement[] = [];
+  const turn = findMessageTurn(container, messageId);
+  for (let item: Element | null | undefined = turn; item; item = item.nextElementSibling) {
+    rows.push(...(Array.from(item.children) as HTMLElement[]).filter(
+      (row) => !row.hasAttribute(LIVE_TAIL_RESERVE_ATTRIBUTE),
+    ));
+  }
+
+  return rows;
 }
 
 interface HistoryReveal {
@@ -2180,12 +2733,6 @@ function measureHistoryReveal(container: HTMLElement, layer: HTMLElement): Histo
   return reveal;
 }
 
-function getBorderRadii(style: CSSStyleDeclaration) {
-  return [
-    style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius,
-  ];
-}
-
 function captureHistoryRevealTail(style: CSSStyleDeclaration): HistoryRevealTail {
   return {
     width: style.width,
@@ -2266,7 +2813,7 @@ function startHistoryReveal({
     // stand a frame before its start, which would otherwise leave the stand-ins bare and show the bubbles' fill.
     // The corners keep the reveal's time, which the box keeps too.
     const clock = standIn.animate([{ borderRadius: sourceRadii.join(' ') }, { borderRadius: radii.join(' ') }], {
-      duration: PLACEHOLDER_MORPH_DURATION, easing: HISTORY_MORPH_EASING, fill: 'both',
+      duration: PLACEHOLDER_MORPH_DURATION, easing: TELEGRAM_EASING, fill: 'both',
     });
     // The bubble shows only its contents, which fade in over the stand-in, and its tail takes its fill
     const bubbleFill = bubble.animate([{ backgroundColor: 'transparent' }, { backgroundColor: 'transparent' }], {
@@ -2290,7 +2837,7 @@ function startHistoryReveal({
       { transform: `translateY(${shift}px)`, opacity: 0 },
     ], {
       duration: PLACEHOLDER_MORPH_DURATION,
-      easing: shift ? HISTORY_MORPH_EASING : HISTORY_FADE_EASING,
+      easing: shift ? TELEGRAM_EASING : HISTORY_FADE_EASING,
       fill: 'both',
     }));
   });
@@ -2365,12 +2912,6 @@ function placeHistoryRevealBox(standIn: HTMLElement, bubble: HTMLElement, frame:
   setExtraStyles(bubble, { clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px)` });
 }
 
-function getLayerRect(rect: MotionRect, layerRect: DOMRect): MotionRect {
-  return {
-    left: rect.left - layerRect.left, top: rect.top - layerRect.top, width: rect.width, height: rect.height,
-  };
-}
-
 // A tail of a stand-in, at its own size at the box's bottom corner, in the box's fill
 function createHistoryRevealTail(tail: HistoryRevealTail) {
   const element = document.createElement('div');
@@ -2390,12 +2931,6 @@ function createHistoryRevealTail(tail: HistoryRevealTail) {
   return element;
 }
 
-// Focus never scrolls the screens the field lies in, which may still be sliding in
-function focusAtEnd(input: HTMLTextAreaElement) {
-  input.focus({ preventScroll: true });
-  input.setSelectionRange(input.value.length, input.value.length);
-}
-
 /**
  * The scroll position that opens the list at a message: the date line and the "New" line before it come first under
  * the header, where the list's first item stands
@@ -2409,6 +2944,20 @@ function getOpeningScrollTop(container: HTMLElement, messageId: number) {
   const marginTop = parseFloat(getComputedStyle(target).marginTop) || 0;
   return target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop
     - paddingTop - marginTop;
+}
+
+/** The scroll that puts a message in the middle of the list under the day's stuck line, or its top under that line */
+function getCenteredScrollTop(container: HTMLElement, messageId: number) {
+  const message = container.querySelector<HTMLElement>(`[data-agent-v2-message-id="${messageId}"]`);
+  if (!message) return undefined;
+
+  const style = getComputedStyle(container);
+  const lineHeight = container.querySelector<HTMLElement>(`.${styles.dateLineDayHeader}`)?.offsetHeight ?? 0;
+  const top = (parseFloat(style.paddingTop) || 0) + lineHeight;
+  const available = container.clientHeight - top - (parseFloat(style.paddingBottom) || 0);
+  const { top: messageTop, height } = message.getBoundingClientRect();
+  const offset = messageTop - container.getBoundingClientRect().top + container.scrollTop;
+  return offset - top - Math.max(0, (available - height) / 2);
 }
 
 /** The days' lines stuck at the top of the list, or pushed past it by the end of their day, as in Telegram Web A */
@@ -2436,8 +2985,13 @@ function getIsWithinRowsOfTop(container: HTMLElement, rowCount: number) {
   const nextRow = rows[rowCount + 1];
   const { bottom } = row.getBoundingClientRect();
   const rowBottom = nextRow ? Math.min(bottom, nextRow.getBoundingClientRect().top) : bottom;
-  const header = container.parentElement!.querySelector<HTMLElement>(HEADER_SELECTOR)!;
-  return rowBottom > header.getBoundingClientRect().bottom;
+  return rowBottom > getHeaderCoverBottom(container);
+}
+
+/** Where the header over the list, with what is attached under it, ends */
+function getHeaderCoverBottom(container: HTMLElement) {
+  const elements = container.parentElement!.querySelectorAll<HTMLElement>(HEADER_COVER_SELECTOR);
+  return Math.max(...Array.from(elements, (element) => element.getBoundingClientRect().bottom));
 }
 
 /** The topmost of the lines that come right before a message and belong to it, or the message without them */

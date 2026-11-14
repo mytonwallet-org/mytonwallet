@@ -15,6 +15,7 @@ public enum WalletNameContextMenu {
                     ContextMenuAction(
                         title: lang("Rename"),
                         icon: .system("pencil.line"),
+                        accessibilityIdentifier: "wallet_name_menu_rename",
                         handler: {
                             AppActions.showRenameAccount(accountId: accountId())
                         }
@@ -24,6 +25,7 @@ public enum WalletNameContextMenu {
                     ContextMenuAction(
                         title: lang("Customize"),
                         icon: .system("wand.and.stars.inverse"),
+                        accessibilityIdentifier: "wallet_name_menu_customize",
                         handler: {
                             AppActions.showCustomizeWallet(accountId: accountId())
                         }
@@ -33,6 +35,7 @@ public enum WalletNameContextMenu {
                     ContextMenuAction(
                         title: lang("Manage Wallets"),
                         icon: .airBundle("MenuManageAssets26"),
+                        accessibilityIdentifier: "wallet_name_menu_manage",
                         handler: {
                             AppActions.showWalletSettings()
                         }

@@ -3,6 +3,7 @@ import * as idb from 'idb-keyval';
 import type { Storage } from '../storages/types';
 import type { ClientTimingEvent } from './developmentTelemetry';
 import type {
+  AgentRunRequestWireV2,
   AgentSemanticContentV1,
   AgentToolCall,
   AgentToolResultRequestV2,
@@ -14,6 +15,7 @@ import type {
   AgentV2RunCommandInput,
 } from './types';
 
+import compatibilityFixture from '../../../tests/fixtures/agentV2/client-wire-compatibility.v1.json';
 import navigationActionFixture from '../../../tests/fixtures/agentV2/navigation-action-projection.v1.json';
 import terminalStructuredOutputFixture from '../../../tests/fixtures/agentV2/terminal-structured-output-stream.v1.json';
 import contractManifest from './generated/manifest.json';
@@ -1060,6 +1062,95 @@ describe('AgentV2Runtime transport', () => {
     });
   });
 
+  describe('a run a limit held across a wallet authority change', () => {
+    const OTHER_ACCOUNT_ID = 'other-account';
+
+    async function setUp() {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const runRequests: Record<string, any>[] = [];
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
+        if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+        if (url.endsWith('/runs')) {
+          runRequests.push(JSON.parse(init?.body as string));
+          if (runRequests.length === 1) {
+            return Promise.resolve(jsonResponse({
+              protocolVersion: 3,
+              error: { code: 'rate_limited', retryable: true, retryAfterMs: 5_000 },
+            }, 429));
+          }
+          return Promise.resolve(ndjsonResponse([
+            runStart(),
+            messageStart(),
+            textDelta('Done'),
+            threadEvent(4),
+            messageEnd(5),
+          ]));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      }) as unknown as typeof fetch;
+      const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock,
+        onUpdate: jest.fn(),
+        now: () => Date.parse('2026-07-29T12:00:00.000Z'),
+        randomUuid: () => ids.shift() ?? DEVICE_ID,
+      });
+      await runtime.acceptConsent();
+      await runtime.updateHostContext(receiveHost('ton'));
+      const failedRun = await runtime.startRun({
+        threadId: THREAD_ID,
+        expectedThreadRevision: 1,
+        input: { kind: 'append', text: 'Held by a limit' },
+      });
+      expect(failedRun.state).toBe('failed');
+      return { runtime, runRequests, clientRunId: failedRun.clientRunId };
+    }
+
+    function otherAccountHost() {
+      const host = receiveHost('ton');
+      return {
+        ...host,
+        activeAccountId: OTHER_ACCOUNT_ID,
+        accounts: [...host.accounts, {
+          ...host.accounts[0], accountId: OTHER_ACCOUNT_ID, addresses: { ton: 'EQ-other', tron: 'T-other' },
+        }],
+      };
+    }
+
+    it('keeps it when the same account is published again, and sends it bound to the wallet context now', async () => {
+      const { runtime, runRequests, clientRunId } = await setUp();
+
+      await expect(runtime.updateHostContext(receiveHost('tron'))).resolves.toBe(true);
+      await expect(runtime.retryRun(clientRunId)).resolves.toMatchObject({ clientRunId, state: 'completed' });
+      expect(runRequests).toHaveLength(2);
+      expect(runRequests[1]).toMatchObject({
+        clientRunId,
+        input: runRequests[0].input,
+        walletContext: { mode: 'wallet', activeNetwork: 'tron' },
+      });
+      expect(runRequests[0].walletContext).toMatchObject({ activeNetwork: 'ton' });
+      await runtime.destroy();
+    });
+
+    it.each([
+      ['another account becomes active', false],
+      ['another account becomes active and the first comes back', true],
+    ])('drops it once %s', async (_name, isSwitchedBack) => {
+      const { runtime, runRequests, clientRunId } = await setUp();
+
+      await runtime.updateHostContext(otherAccountHost());
+      if (isSwitchedBack) await runtime.updateHostContext(receiveHost('ton'));
+      await expect(runtime.retryRun(clientRunId)).resolves.toBeUndefined();
+      expect(runRequests).toHaveLength(1);
+      await runtime.destroy();
+    });
+  });
+
   it('retains a pre-admission network failure for an exact manual retry', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
@@ -1108,6 +1199,99 @@ describe('AgentV2Runtime transport', () => {
     expect(runRequests).toHaveLength(4);
     expect(runRequests[3]).toEqual(runRequests[0]);
     await runtime.destroy();
+  });
+
+  it.each([false, true])('holds a quota request only until support is admitted: admitted=%s', async (
+    isSupportAdmitted,
+  ) => {
+    const now = Date.parse('2026-07-29T12:00:00.000Z');
+    const resetAt = new Date(now + 60_000).toISOString();
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const requests: AgentRunRequestWireV2[] = [];
+    const updates: AgentV2ClientUpdate[] = [];
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/runs')) {
+        const request = JSON.parse(init!.body as string) as AgentRunRequestWireV2;
+        requests.push(request);
+        if (request.entryPoint?.kind === 'supportRequest') {
+          if (!isSupportAdmitted) return Promise.reject(new TypeError('Failed to fetch'));
+          return Promise.resolve(ndjsonResponse([
+            boundEvent(RUN_ID_2, {
+              type: 'run_start', sequence: 1, clientRunId: request.clientRunId,
+              threadId: THREAD_ID, threadRevision: 2,
+            }),
+            boundEvent(RUN_ID_2, {
+              type: 'thread', sequence: 2, thread: { ...threadSummary({ revision: 2 }), support: { state: 'waiting' } },
+            }),
+            boundEvent(RUN_ID_2, {
+              type: 'message_start', sequence: 3, messageId: MESSAGE_ID_3, role: 'assistant', contentKind: 'markdown',
+            }),
+            boundEvent(RUN_ID_2, {
+              type: 'message_end', sequence: 4, messageId: MESSAGE_ID_3, finishReason: 'complete',
+            }),
+          ]));
+        }
+        if (requests.length === 1) {
+          return Promise.resolve(jsonResponse({
+            protocolVersion: 3,
+            error: {
+              code: 'user_quota_exhausted', retryable: true, resetAt,
+              quota: { limit: 20, used: 20, remaining: 0, resetAt },
+            },
+          }, 429));
+        }
+        return Promise.resolve(ndjsonResponse([
+          runStart(), messageStart(), textDelta('Recovered'), threadEvent(4), messageEnd(5),
+        ]));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID, CLIENT_RUN_ID_2, MESSAGE_ID_2];
+    const runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: (update) => updates.push(update), now: () => now,
+      randomUuid: () => ids.shift() ?? DEVICE_ID, wait: () => Promise.resolve(),
+    });
+    await runtime.acceptConsent();
+    try {
+      const held = await runtime.startRun({
+        threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Held question' },
+      });
+      expect(held.state).toBe('failed');
+      expect(updates).toContainEqual(expect.objectContaining({ kind: 'runFailed', code: 'user_quota_exhausted' }));
+      const support = await runtime.startRun({
+        threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Contact support' },
+        entryPoint: { kind: 'supportRequest', source: 'header' },
+      });
+      if (isSupportAdmitted) {
+        expect(support.state).toBe('completed');
+        expect(updates).toContainEqual(expect.objectContaining({
+          kind: 'threadChanged', thread: expect.objectContaining({ support: { state: 'waiting' } }),
+        }));
+        const requestCount = requests.length;
+        await expect(runtime.retryRun(held.clientRunId)).resolves.toBeUndefined();
+        expect(requests).toHaveLength(requestCount);
+        return;
+      }
+      expect(support.state).toBe('failed');
+      expect(updates).toContainEqual(expect.objectContaining({
+        kind: 'runFailed', clientRunId: support.clientRunId, code: 'network_error',
+      }));
+
+      const requestCount = requests.length;
+      await expect(runtime.retryRun(support.clientRunId)).resolves.toBeUndefined();
+      expect(requests).toHaveLength(requestCount);
+      await expect(runtime.retryRun(held.clientRunId)).resolves.toMatchObject({
+        clientRunId: held.clientRunId, state: 'completed',
+      });
+      expect(requests).toHaveLength(requestCount + 1);
+      expect(requests.at(-1)).toEqual(requests[0]);
+    } finally {
+      await runtime.destroy();
+    }
   });
 
   it('removes an unclaimed failed-run request when its retry window expires', async () => {
@@ -1856,6 +2040,133 @@ describe('AgentV2Runtime transport', () => {
     });
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).endsWith('/runs'))).toBe(false);
     await runtime.destroy();
+  });
+
+  it('keeps the loaded hint pool and picks starter hints anew on each call', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const pool = compatibilityFixture.fixtures.find(({ schema }) => schema === 'AgentHintPoolResponseV2')!.values[0];
+    const nextPool = {
+      protocolVersion: 3,
+      catalogVersion: 'agent-starter-hints-v2',
+      items: [
+        { id: 'news.today', group: 'market' },
+        { id: 'learn.security', group: 'learn' },
+        { id: 'action.swap', group: 'action', requiredActions: ['swap'] },
+        { id: 'action.send', group: 'action', requiredActions: ['send'] },
+      ],
+    };
+    let poolRequestCount = 0;
+    let now = 0;
+    let resolveDelayedPool!: () => void;
+    let markDelayedPoolRequested!: () => void;
+    const delayedPoolRequested = new Promise<void>((resolve) => {
+      markDelayedPoolRequested = resolve;
+    });
+    const fetchMock = jest.fn((input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+      if (url.endsWith('/hints/pool')) {
+        poolRequestCount += 1;
+        if (poolRequestCount === 1 || poolRequestCount === 4) return Promise.reject(new Error('offline'));
+        if (poolRequestCount === 3) {
+          markDelayedPoolRequested();
+          return new Promise<Response>((resolve) => {
+            resolveDelayedPool = () => resolve(jsonResponse(nextPool));
+          });
+        }
+        return Promise.resolve(jsonResponse(pool));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    }) as unknown as typeof fetch;
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: jest.fn(),
+      now: () => now,
+    });
+    await runtime.updateHostContext(receiveHost('ton'));
+    const randomSpy = jest.spyOn(Math, 'random');
+
+    try {
+      await expect(runtime.getStarterHints('funded')).rejects.toThrow();
+      randomSpy.mockReturnValue(0);
+      const first = await runtime.getStarterHints('funded');
+      randomSpy.mockReturnValue(0.99);
+      const second = await runtime.getStarterHints('funded');
+
+      expect(poolRequestCount).toBe(2);
+      expect(first).toEqual({
+        catalogVersion: 'agent-starter-hints-v2',
+        items: [
+          { id: 'wallet.assets', group: 'wallet' },
+          { id: 'market.today', group: 'market' },
+          { id: 'staking.yield', group: 'learn' },
+          { id: 'action.send', group: 'action' },
+        ],
+      });
+      expect(second.items.map(({ id }) => id)).toEqual([
+        'wallet.last_transfer', 'market.price', 'learn.multisend', 'receive.tokens',
+      ]);
+
+      now = 10 * 60_000 - 1;
+      await runtime.getStarterHints('funded');
+      expect(poolRequestCount).toBe(2);
+      now = 10 * 60_000;
+      randomSpy.mockReturnValue(0);
+      const delayed = runtime.getStarterHints('funded');
+      await delayedPoolRequested;
+      await runtime.updateHostContext(stakeHost());
+      resolveDelayedPool();
+      expect((await delayed).items.map(({ id }) => id)).toEqual(['news.today', 'learn.security', 'action.send']);
+      expect((await runtime.getStarterHints('funded')).items.map(({ id }) => id))
+        .toEqual(['news.today', 'learn.security', 'action.swap']);
+      expect(poolRequestCount).toBe(3);
+
+      now = 20 * 60_000;
+      await expect(runtime.getStarterHints('funded')).rejects.toThrow();
+      expect(poolRequestCount).toBe(4);
+    } finally {
+      randomSpy.mockRestore();
+      await runtime.destroy();
+    }
+  });
+
+  it('reads the account actions of starter hints from a context passed with the call', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const pool = {
+      protocolVersion: 3,
+      catalogVersion: 'agent-starter-hints-v2',
+      items: [
+        { id: 'news.today', group: 'market' },
+        { id: 'receive.tokens', group: 'action', requiredActions: ['receive'] },
+      ],
+    };
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: jest.fn(() => Promise.resolve(jsonResponse(pool))) as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+
+    try {
+      // No chat has published a context yet
+      expect((await runtime.getStarterHints('funded', receiveHost('ton'))).items.map(({ id }) => id))
+        .toEqual(['news.today', 'receive.tokens']);
+      expect((await runtime.getStarterHints('funded')).items.map(({ id }) => id)).toEqual(['news.today']);
+      const invalidHost = { ...receiveHost('ton'), accounts: undefined } as unknown as ReturnType<typeof receiveHost>;
+      expect((await runtime.getStarterHints('funded', invalidHost)).items.map(({ id }) => id))
+        .toEqual(['news.today']);
+
+      // A chat has published a context, and the host then reports that it has none
+      await runtime.updateHostContext(receiveHost('ton'));
+      // eslint-disable-next-line no-null/no-null
+      expect((await runtime.getStarterHints(null, null)).items.map(({ id }) => id)).toEqual(['news.today']);
+      expect((await runtime.getStarterHints()).items.map(({ id }) => id)).toEqual(['news.today', 'receive.tokens']);
+    } finally {
+      await runtime.destroy();
+    }
   });
 
   it('keeps generic hints when wallet capabilities are unavailable', async () => {
@@ -6146,12 +6457,27 @@ describe('AgentV2Runtime transport', () => {
       await runtime.getNewsFeed({ lang: 'ru', cursor: 'next-page', ...digestParams });
       await runtime.getNewsFeed({ lang: 'ru', digestHour: 21 });
       await runtime.getNewsFeed({ lang: 'ru', cursor: 'next-page', timeZone: 'Europe/Moscow' });
+      await runtime.getNewsFeed({ lang: 'ru', view: 'all', ...digestParams });
+      await runtime.getNewsFeed({ lang: 'ru', view: 'digests', ...digestParams });
+      await runtime.getNewsFeed({ lang: 'ru', view: 'digests', cursor: 'ndv1:older', ...digestParams });
+      await runtime.getNewsFeed({ lang: 'ru', ...digestParams, digestMinute: 0 });
+      await runtime.getNewsFeed({ lang: 'ru', ...digestParams, digestMinute: 45 });
+      await runtime.getNewsFeed({ lang: 'ru', digestHour: 21, digestMinute: 45 });
 
       expect(fetchMock.mock.calls.map(([input]) => getRequestUrl(input))).toEqual([
         'https://agent.test/api/v2/news-feed?locale=ru&digestHour=0&timeZone=Europe%2FMoscow',
         'https://agent.test/api/v2/news-feed?locale=ru&cursor=next-page&digestHour=0&timeZone=Europe%2FMoscow',
         'https://agent.test/api/v2/news-feed?locale=ru',
         'https://agent.test/api/v2/news-feed?locale=ru&cursor=next-page',
+        'https://agent.test/api/v2/news-feed?locale=ru&digestHour=0&timeZone=Europe%2FMoscow',
+        'https://agent.test/api/v2/news-feed?locale=ru&digestHour=0&timeZone=Europe%2FMoscow&view=digests',
+        [
+          'https://agent.test/api/v2/news-feed?locale=ru&cursor=ndv1%3Aolder',
+          '&digestHour=0&timeZone=Europe%2FMoscow&view=digests',
+        ].join(''),
+        'https://agent.test/api/v2/news-feed?locale=ru&digestHour=0&timeZone=Europe%2FMoscow',
+        'https://agent.test/api/v2/news-feed?locale=ru&digestHour=0&digestMinute=45&timeZone=Europe%2FMoscow',
+        'https://agent.test/api/v2/news-feed?locale=ru',
       ]);
     } finally {
       await runtime.destroy();

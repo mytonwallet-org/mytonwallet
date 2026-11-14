@@ -123,7 +123,12 @@ describe('InfiniteScroll', () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the items where a scroll in the same frame left them, before its scroll event', async () => {
+  it.each([
+    ['under the others', 0, 130],
+    ['over the others', 200, 330],
+  ])('keeps the items where a scroll left them before its scroll event, with an item added %s in its frame', async (
+    _, addedHeight, expectedScrollTop,
+  ) => {
     const renderList = (items: number[]) => TeactDOM.render(
       <InfiniteScroll
         items={items}
@@ -147,16 +152,18 @@ describe('InfiniteScroll', () => {
       scrollHeight: { configurable: true, value: 3000 },
       offsetHeight: { configurable: true, value: 900 },
     });
-    mockItemGeometry(firstItem, () => 100, container);
-    mockItemGeometry(lastItem, () => 2900, container);
+    let shift = 0;
+    mockItemGeometry(firstItem, () => 100 + shift, container);
+    mockItemGeometry(lastItem, () => 2900 + shift, container);
     dispatchScroll(container);
 
-    // A scroll's last step, whose event comes with the next frame, and an item added under the others in this one
+    // A scroll's last step, whose event comes with the next frame, and an item added in this one
     container.scrollTop = 130;
+    shift = addedHeight;
     renderList([1, 2, 3]);
     await flushFasterdom();
 
-    expect(container.scrollTop).toBe(130);
+    expect(container.scrollTop).toBe(expectedScrollTop);
   });
 
   it.each([

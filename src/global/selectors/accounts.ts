@@ -40,6 +40,19 @@ export function selectCurrentAccountId(global: GlobalState) {
   return global.currentTemporaryViewAccountId ?? global.currentAccountId;
 }
 
+export function selectShownCardAccountId(global: GlobalState) {
+  const { shownCardAccountId } = global;
+
+  return shownCardAccountId && selectAccount(global, shownCardAccountId)
+    ? shownCardAccountId
+    : selectCurrentAccountId(global);
+}
+
+/** The card shows an account that is not current yet, so the rest of the screen still belongs to the previous one */
+export function selectIsCardAccountPending(global: GlobalState) {
+  return selectShownCardAccountId(global) !== selectCurrentAccountId(global);
+}
+
 export function selectCurrentAccount(global: GlobalState) {
   const accountId = selectCurrentAccountId(global);
   return accountId ? selectAccount(global, accountId) : undefined;

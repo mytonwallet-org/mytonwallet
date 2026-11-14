@@ -386,6 +386,7 @@ class InstallationFile(
             )
             .put("sourceOutcome", outcome ?: JSONObject.NULL)
             .put("playInstalledAt", play.playInstalledAt ?: JSONObject.NULL)
+            .put("installationId", state.installationId)
     }
 
     private fun read() = file.read().also {

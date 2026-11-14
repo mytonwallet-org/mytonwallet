@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -216,8 +217,11 @@ class TokenSelectorCell(context: Context) :
                 tokenBalance.amountValue,
                 token?.decimals ?: 9,
                 token?.symbol ?: "",
-                token?.decimals ?: 9,
-                smartDecimals = true,
+                tokenBalance.amountValue.smartDecimalsCount(
+                    token?.decimals ?: 9,
+                    token?.amountPrecision
+                ),
+                smartDecimals = false,
                 forceCurrencyToRight = true
             )
 

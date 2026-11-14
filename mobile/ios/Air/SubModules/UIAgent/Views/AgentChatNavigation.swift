@@ -99,6 +99,9 @@ enum AgentChatNavigation {
     static let threadsButtonIdentifier = "agent_threads_button"
     static let menuButtonIdentifier = "agent_menu_button"
     static let digestSettingsButtonIdentifier = "agent_digest_settings_button"
+    static let supportButtonIdentifier = "agent_support_button"
+    /// The headset as large as the "…" glyph beside it looks
+    private static let supportIconSize: CGFloat = 22
 
     /// The back chevron of the button that returns to the chat list, drawn as the "…" button's glyph is. It points
     /// toward the leading edge, so it turns around in right-to-left layouts.
@@ -112,16 +115,22 @@ enum AgentChatNavigation {
         titleView: UIView,
         scrollView: UIScrollView? = nil
     ) -> UIView {
-        if #available(iOS 26.0, *), let scrollView {
-            scrollView.topEdgeEffect.isHidden = true
-        }
-        let background = viewController.addCustomNavigationBarBackground(color: .air.background)
+        let background = installHeaderBackground(in: viewController, scrollView: scrollView)
         let header = NavigationHeader2()
         header.isAccessibilityElement = false
         header.accessibilityElementsHidden = false
         header.setContentView(AgentChatTitlePill(titleView: titleView))
         viewController.navigationItem.titleView = header
         return background
+    }
+
+    /// The header without a title, for a screen that puts its own capsule in the title's place, as the News feed's
+    /// switch. The background covers the views added before it, so the screen adds its content first.
+    static func installHeaderBackground(in viewController: WViewController, scrollView: UIScrollView? = nil) -> UIView {
+        if #available(iOS 26.0, *), let scrollView {
+            scrollView.topEdgeEffect.isHidden = true
+        }
+        return viewController.addCustomNavigationBarBackground(color: .air.background)
     }
 
     /// Replaces the system back button of a pushed screen with the threads button, the back chevron on glass that
@@ -158,6 +167,27 @@ enum AgentChatNavigation {
         button.accessibilityLabel = lang("More")
         button.accessibilityIdentifier = menuButtonIdentifier
         return makeItem(with: circle)
+    }
+
+    /// The chat's headset before its "…" button, which offers Contact Support
+    static func makeSupportItem(primaryAction: UIAction?) -> UIBarButtonItem {
+        let circle = makeButton(image: AgentSupportIcon.makeImage(size: supportIconSize), primaryAction: primaryAction)
+        circle.button.accessibilityLabel = lang("$agent_support_contact")
+        circle.button.accessibilityIdentifier = supportButtonIdentifier
+        return makeItem(with: circle)
+    }
+
+    /// Enables or dims a glyph button made here: on glass the button doesn't dim by itself
+    static func setGlyphButtonEnabled(_ button: UIButton, isEnabled: Bool) {
+        guard button.isEnabled != isEnabled || button.configuration?.baseForegroundColor != glyphColor(isEnabled) else {
+            return
+        }
+        button.isEnabled = isEnabled
+        button.configuration?.baseForegroundColor = glyphColor(isEnabled)
+    }
+
+    private static func glyphColor(_ isEnabled: Bool) -> UIColor {
+        isEnabled ? .label : .tertiaryLabel
     }
 
     /// The News feed's trailing bell, which opens the digest and notifications sheet

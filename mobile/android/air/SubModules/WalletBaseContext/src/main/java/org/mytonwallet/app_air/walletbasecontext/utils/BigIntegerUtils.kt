@@ -135,8 +135,12 @@ private fun String.applyZeroCountSubscript(minZeroCount: Int?): String {
     return "0${decimalSeparator}0${zeroCount.toSubscriptString()}${substring(index)}"
 }
 
-fun BigInteger.smartDecimalsCount(tokenDecimals: Int): Int {
-    if (tokenDecimals <= 2) {
+fun BigInteger.smartDecimalsCount(tokenDecimals: Int, preferredPrecision: Int? = null): Int {
+    val minDigits = preferredPrecision ?: 2
+    if (minDigits == 0) {
+        return 0
+    }
+    if (tokenDecimals <= minDigits) {
         return tokenDecimals
     }
     val amount = this.abs()
@@ -145,7 +149,7 @@ fun BigInteger.smartDecimalsCount(tokenDecimals: Int): Int {
     }
     val limit = getPowerOfTen(tokenDecimals + 1)
     if (amount >= limit) {
-        return 2.coerceAtLeast(1 + tokenDecimals - "$amount".count())
+        return minDigits.coerceAtLeast(1 + tokenDecimals - "$amount".count())
     }
     var newAmount = amount
     var multiplier = 0
@@ -153,5 +157,5 @@ fun BigInteger.smartDecimalsCount(tokenDecimals: Int): Int {
         newAmount *= BigInteger.TEN
         multiplier += 1
     }
-    return multiplier.coerceIn(2, tokenDecimals)
+    return multiplier.coerceIn(minDigits, tokenDecimals)
 }

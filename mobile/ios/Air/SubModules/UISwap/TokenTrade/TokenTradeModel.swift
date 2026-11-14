@@ -40,6 +40,7 @@ final class TokenTradeModel {
     var isBuying: Bool { direction == .buy }
     var paymentToken: ApiToken? { isBuying ? swap.input.sellingToken : swap.input.buyingToken }
     var hint: SwapHint? { cardCurrency == nil ? swap.hint : nil }
+    var quoteHintText: String? { cardCurrency == nil ? swap.getQuoteHintText(isTrade: true) : nil }
     var displayImpactWarning: Double? { cardCurrency == nil ? swap.displayImpactWarning : nil }
     var estimateDebugSummary: String? { cardCurrency == nil ? swap.estimateDebugSummary : nil }
     var currency: MBaseCurrency { cardCurrency ?? TokenStore.baseCurrency }

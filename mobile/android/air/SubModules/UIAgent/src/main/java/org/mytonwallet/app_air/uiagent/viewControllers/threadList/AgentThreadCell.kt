@@ -476,9 +476,9 @@ internal class AgentThreadCell(context: Context) :
 
     override fun updateTheme() {
         rowView.updateTheme()
-        renameButton.setColor(WColor.Tint.color)
-        pinButton.setColor(SWIPE_PIN_COLOR)
-        deleteButton.setColor(SWIPE_DELETE_COLOR)
+        renameButton.setColors(WColor.Tint.color, WColor.TextOnTint.color)
+        pinButton.setColors(SWIPE_PIN_COLOR, WColor.White.color)
+        deleteButton.setColors(SWIPE_DELETE_COLOR, WColor.White.color)
     }
 
     private companion object {
@@ -870,7 +870,7 @@ internal class AgentThreadRowView(context: Context, private val avatarView: View
         previewLabel.setTextColor(WColor.SecondaryText)
         timeLabel.setTextColor(WColor.SecondaryText)
         pinIcon.setColorFilter(WColor.SecondaryText.color)
-        unreadBadge.setTextColor(WColor.TextOnTint)
+        unreadBadge.setTextColor(WColor.White)
         invalidate()
     }
 
@@ -932,14 +932,16 @@ internal class AgentThreadRowView(context: Context, private val avatarView: View
     }
 }
 
-/** A swipe action: a circle in its color with a white icon, which stretches into a pill for an armed Delete */
+/**
+ * A swipe action: a circle in its color with an icon, which stretches into a pill for an armed
+ * Delete
+ */
 @SuppressLint("ViewConstructor")
 private class SwipeActionButton(context: Context, viewId: Int) : FrameLayout(context) {
     private val circle = GradientDrawable().apply { cornerRadius = BUTTON_SIZE.dp / 2f }
     private val icon = ImageView(context).apply {
         id = generateViewId()
         scaleType = ImageView.ScaleType.FIT_CENTER
-        setColorFilter(WColor.White.color)
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private var iconSize = 30.dp
@@ -964,8 +966,9 @@ private class SwipeActionButton(context: Context, viewId: Int) : FrameLayout(con
         icon.layoutParams = LayoutParams(iconSize, iconSize, Gravity.CENTER)
     }
 
-    fun setColor(color: Int) {
+    fun setColors(color: Int, iconColor: Int) {
         circle.setColor(color)
+        icon.setColorFilter(iconColor)
     }
 
     override fun setPressed(pressed: Boolean) {

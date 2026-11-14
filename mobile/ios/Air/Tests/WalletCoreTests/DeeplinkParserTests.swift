@@ -24,6 +24,17 @@ struct DeeplinkParserTests {
         }
     }
 
+    /// The share link of a news item carries its ID and language in a fixed order and opens its discussion. The tests
+    /// run as the main flavor: `IS_GRAM_WALLET` follows the bundle identifier.
+    @Test(arguments: ["ru", "en"])
+    func agentNewsShareLinkOpensTheNewsDiscussion(lang: String) throws {
+        let url = ExplorerHelper.makeAgentNewsShareUrl(eventId: 307, lang: lang)
+        #expect(url.absoluteString == "https://my.tt/agent?news=307&lang=\(lang)&utm_source=pulse_share")
+        let deeplink = try #require(Deeplink(url: url))
+        guard case .agentNews(let eventId) = deeplink else { Issue.record("Expected news chat"); return }
+        #expect(eventId == 307)
+    }
+
     @Test
     func parsesMultisend() throws {
         let url = try #require(URL(string: "mtw://multisend"))

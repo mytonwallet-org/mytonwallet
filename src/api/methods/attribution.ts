@@ -81,7 +81,7 @@ function sameCandidate(a: AttributionState | undefined, b: AttributionState) {
 }
 
 export async function claimInstallAttribution(
-  args: ApiInitArgs, storage: RuntimeStorage, isAlive?: () => boolean,
+  args: ApiInitArgs, storage: RuntimeStorage, isAlive?: () => boolean, installationId?: string,
 ) {
   const owns = isAlive ?? (() => true);
   try {
@@ -98,7 +98,8 @@ export async function claimInstallAttribution(
         let ok = false;
         try {
           const candidate = selected.legacy ? { channel: selected.channel } : normalizeAttributionCandidate(selected);
-          ok = candidate ? Boolean((await postWalletClaim({ ...candidate, platform }, isAlive))?.ok) : false;
+          const payload = candidate && { ...candidate, platform, ...(installationId && { installationId }) };
+          ok = payload ? Boolean((await postWalletClaim(payload, isAlive))?.ok) : false;
         } catch { /* Retain the pending candidate for the next init. */ }
         const changed = await transition(async () => {
           const current = await readState(storage);
@@ -137,7 +138,7 @@ async function readTechnicalClaim(
 
 export async function setInstallChannel(
   channel: string, storage: RuntimeStorage, referrerDomain?: string, technicalKind?: 'referral',
-  isAlive?: () => boolean, outcome?: PlayInstallOutcome,
+  isAlive?: () => boolean, outcome?: PlayInstallOutcome, installationId?: string,
 ) {
   const owns = isAlive ?? (() => true);
   if (technicalKind === 'referral' || (!referrerDomain && ['organic', 'unknown'].includes(channel))) {
@@ -145,7 +146,9 @@ export async function setInstallChannel(
     try {
       const { fields, isClaimed, isDue } = await readTechnicalClaim(storage, attributionKind, outcome);
       if (!isDue || !owns()) return;
-      const res = await postWalletClaim({ channel: '', platform: 'android', attributionKind, ...fields }, isAlive);
+      const res = await postWalletClaim({
+        channel: '', platform: 'android', attributionKind, ...fields, ...(installationId && { installationId }),
+      }, isAlive);
       if (!res?.ok || !owns()) return;
       if (!isClaimed) await storage.setItem('attributionTechnicalClaimed', '1');
       if (fields && !UNINFORMATIVE_OUTCOMES.has(fields.sourceOutcome)) {
@@ -156,7 +159,7 @@ export async function setInstallChannel(
   }
   await claimInstallAttribution({
     channel, ...(referrerDomain && { attributionKind: 'referrer', referrerDomain }),
-  }, storage, isAlive);
+  }, storage, isAlive, installationId);
 }
 
 async function postWalletClaim(payload: AnyLiteral, isAlive?: () => boolean): Promise<{ ok: boolean }> {
@@ -191,9 +194,10 @@ export async function syncAndroidWalletAttribution(storage: RuntimeStorage, isAl
     if (!isAlive()) return false;
     const seed = saved && selectWalletCandidate(saved);
     const {
-      source, technicalKind, sourceOutcome, playInstalledAt,
+      source, technicalKind, sourceOutcome, playInstalledAt, installationId: nativeInstallationId,
     } = await callWindow('airInstallationSyncWalletAttribution', seed ? JSON.stringify(seed) : 'null');
     const outcome = sourceOutcome ? { sourceOutcome, playInstalledAt } : undefined;
+    const installationId = typeof nativeInstallationId === 'string' ? nativeInstallationId : undefined;
     if (!isAlive()) return false;
     if (source) {
       const selected = selectWalletCandidate(source);
@@ -204,11 +208,11 @@ export async function syncAndroidWalletAttribution(storage: RuntimeStorage, isAl
           await storage.setItem('installAttribution', selected);
         }
       });
-      await claimInstallAttribution({}, storage, isAlive);
+      await claimInstallAttribution({}, storage, isAlive, installationId);
     }
     const kind = technicalKind === 'referral' ? 'referral' : undefined;
     if (technicalKind) {
-      await setInstallChannel('organic', storage, undefined, kind, isAlive, outcome);
+      await setInstallChannel('organic', storage, undefined, kind, isAlive, outcome, installationId);
     }
     const current = await readState(storage);
     const isTechnicalClaimed = !technicalKind
@@ -223,7 +227,8 @@ export async function syncAndroidWalletAttribution(storage: RuntimeStorage, isAl
 export async function acceptInstallAttribution(snapshot: InstallAttributionCandidate, storage: RuntimeStorage) {
   if (!normalizeAttributionCandidate(snapshot)) throw new Error('Invalid attribution source');
   await persistAttribution(snapshot, storage);
-  void claimInstallAttribution({}, storage);
+  // An Android claim must carry the installation id, and only the native wallet sync supplies it
+  if (!getEnvironment().isAndroidApp) void claimInstallAttribution({}, storage);
   return true;
 }
 

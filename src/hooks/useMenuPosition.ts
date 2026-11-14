@@ -104,6 +104,7 @@ export default function useMenuPosition(
   containerRef: ElementRef<HTMLDivElement>,
   bubbleRef: ElementRef<HTMLDivElement>,
   options: MenuPositionOptions,
+  positionKey?: string | number,
 ) {
   const optionsRef = useStateRef(options);
 
@@ -123,7 +124,7 @@ export default function useMenuPosition(
     } else {
       applyStaticOptions(containerRef, bubbleRef, options2);
     }
-  }, [isOpen, containerRef, bubbleRef, optionsRef]);
+  }, [isOpen, containerRef, bubbleRef, optionsRef, positionKey]);
 }
 
 function applyStaticOptions(

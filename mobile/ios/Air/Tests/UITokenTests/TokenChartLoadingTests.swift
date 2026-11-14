@@ -11,6 +11,29 @@ import WalletResources
 @Suite("Token Chart Loading", .serialized, .settingsStoreIsolation)
 struct TokenChartLoadingTests {
     @Test
+    func `reopening a stock-only cache shows loading until token history arrives`() async throws {
+        let fixture = try await Fixture()
+        defer { fixture.close() }
+        let slug = "test-stock-only-loading-\(UUID())"
+        let now = Date.now.timeIntervalSince1970
+        let backfill = ApiPriceHistoryBackfill(symbol: "NVDA", points: [[now - 86400, 140], [now - 3600, 150]])
+        let stockOnly = ApiPriceHistory(points: [], backfill: backfill)
+        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .all, history: stockOnly, baseCurrency: TokenStore.baseCurrency))
+        let cached = TokenStore.cachedPriceHistory(tokenSlug: slug, period: .all)
+        fixture.configure(cached?.points, backfill: cached?.backfill, isHistoryRestored: true)
+        await waitUntil { fixture.spinner.alpha == 1 }
+        #expect(fixture.spinner.isAnimating)
+        #expect(fixture.emptyLabel.isHidden)
+        fixture.record("stock-cache-waiting-for-token-history.png")
+
+        fixture.configure([[now - 1800, 155], [now, 160]], backfill: backfill)
+        #expect(fixture.spinner.isHidden)
+        #expect(fixture.emptyLabel.isHidden)
+        try await Task.sleep(for: .milliseconds(300))
+        fixture.record("stock-and-token-history-loaded.png")
+    }
+
+    @Test
     func `first opening shows the spinner without a presentation delay`() async throws {
         let fixture = try await Fixture()
         defer { fixture.close() }

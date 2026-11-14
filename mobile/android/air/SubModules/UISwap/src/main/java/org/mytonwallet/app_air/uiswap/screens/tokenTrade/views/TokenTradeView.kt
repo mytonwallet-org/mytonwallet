@@ -119,6 +119,7 @@ class TokenTradeView(
         isVisible = false
     }
     private var shownHint: SwapHint? = null
+    private var shownHintMessage: String? = null
 
     private val methodIconContainer = FrameLayout(context)
     private val methodTokenIcon = IconView(context, 28.dp, 12.dp)
@@ -495,8 +496,9 @@ class TokenTradeView(
         feeLabel.visibility = if (fee == null) INVISIBLE else VISIBLE
         feeLabel.isClickable = model.canToggleFeeCurrency
         // Kept while the next quote loads
-        val hint = model.hint ?: shownHint?.takeIf { model.isLoading }
-        if (hint != shownHint) {
+        val message = model.hintMessage
+        val hint = model.hint ?: shownHint?.takeIf { model.isLoading && message == null }
+        if (hint != shownHint || message != shownHintMessage) {
             if (isLaidOut && WGlobalStorage.getAreAnimationsActive()) {
                 val transition = TransitionSet()
                     .addTransition(ChangeBounds())
@@ -513,9 +515,13 @@ class TokenTradeView(
                 TransitionManager.beginDelayedTransition(this, transition)
             }
             shownHint = hint
+            shownHintMessage = message
         }
-        if (hint != null) configureHint(hint)
-        hintView.isVisible = hint != null
+        when {
+            message != null -> hintView.configure("", message, "")
+            hint != null -> configureHint(hint)
+        }
+        hintView.isVisible = hint != null || message != null
 
         val cardCurrency = model.cardCurrency
         methodFiatIcon.isVisible = cardCurrency != null

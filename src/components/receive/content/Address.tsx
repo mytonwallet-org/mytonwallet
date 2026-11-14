@@ -6,6 +6,7 @@ import type { ApiChain } from '../../../api/types';
 import renderText from '../../../global/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
 import { getChainConfig, getChainTitle, isUtxoChain } from '../../../util/chain';
+import getTestId from '../../../util/getTestId';
 
 import useLang from '../../../hooks/useLang';
 import useQrCode from '../../../hooks/useQrCode';
@@ -52,7 +53,7 @@ function Address({
   };
 
   return (
-    <div>
+    <div data-testid={isActive ? getTestId('receive_address') : undefined}>
       <div className={buildClassName(styles.contentTitle, styles.contentTitleQr)}>
         {renderText(lang('$receive_description'))}
       </div>
@@ -91,7 +92,7 @@ function Address({
         </div>
       )}
 
-      {!isViewMode && <Actions chain={chain} isLedger={isLedger} onClose={onClose} />}
+      {!isViewMode && <Actions chain={chain} isActive={isActive} isLedger={isLedger} onClose={onClose} />}
     </div>
   );
 }

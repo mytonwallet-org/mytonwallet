@@ -1,5 +1,7 @@
 @use "../../styles/mixins";
 
+@use "agentSurface";
+
 .wrapper {
   position: relative;
   z-index: 2;
@@ -50,26 +52,13 @@
   opacity: 0.5;
 }
 
-@mixin fieldSurface {
-  // The field's glass, which the microphone beside it shares, as in the design
-  background-color: var(--color-app-background);
-  box-shadow: var(--shadow-glass-capsule);
-
-  @supports (backdrop-filter: blur(16px)) {
-    background-color: var(--color-background-blurred);
-    backdrop-filter: blur(var(--blur-glass-capsule));
-  }
-
-  @include mixins.frostedGlass(0.8);
-}
-
 .pill {
   position: relative;
   flex: 1;
   min-width: 0;
   border-radius: 1.4375rem;
 
-  @include fieldSurface;
+  @include agentSurface.glass-capsule;
 }
 
 .inputInnerWrapper {
@@ -237,7 +226,7 @@
 .sendButton.microphoneButton {
   color: var(--color-black);
 
-  @include fieldSurface;
+  @include agentSurface.glass-capsule;
 }
 
 // It holds the microphone, or the square of Stop while an answer is being written

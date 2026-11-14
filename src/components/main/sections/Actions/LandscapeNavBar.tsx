@@ -7,6 +7,7 @@ import { ContentTab } from '../../../../global/types';
 import { selectCurrentAccountSettings } from '../../../../global/selectors';
 import { ACCENT_COLORS } from '../../../../util/accentColor/constants';
 import buildClassName from '../../../../util/buildClassName';
+import getTestId from '../../../../util/getTestId';
 import { getNavigationTabShift, resolveNavigationTabOrder } from '../../../../util/navigationTabOrder';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
@@ -183,6 +184,7 @@ function NavButtonInternal({
         !isDragged && shouldAnimateShift && styles.shifting,
       )}
       style={shift ? `transform: translateY(${shift}px)` : undefined}
+      testId={getTestId(tab === 'settings' ? 'tab_settings_button' : `tab_${tab}`)}
       onClick={handleClick}
       onMouseEnter={!IS_TOUCH_ENV ? startAnimation : undefined}
     >

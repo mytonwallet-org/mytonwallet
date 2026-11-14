@@ -330,7 +330,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
                 decimals = token?.decimals ?: 9,
                 currency = token?.symbol ?: "",
                 currencyDecimals = tokenBalance.amountValue.smartDecimalsCount(
-                    token?.decimals ?: 9
+                    token?.decimals ?: 9,
+                    token?.amountPrecision
                 ),
                 showPositiveSign = false,
                 rounding = RoundingMode.DOWN

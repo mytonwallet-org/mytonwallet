@@ -6,6 +6,7 @@ import type {
   AgentThreadListRequestV2,
 } from './protocol/types';
 import type {
+  AgentV2HintWalletState,
   AgentV2HostContextSnapshot,
   AgentV2NewsFeedRequest,
   AgentV2ProblemReport,
@@ -199,6 +200,10 @@ export function updateAgentV2HostContext(snapshot?: AgentV2HostContextSnapshot) 
 
 export function getAgentV2Hints(langCode?: string) {
   return getAgentV2Runtime().getHints(langCode);
+}
+
+export function getAgentV2StarterHints(walletState?: AgentV2HintWalletState, host?: AgentV2HostContextSnapshot) {
+  return getAgentV2Runtime().getStarterHints(walletState, host);
 }
 
 export function getAgentV2Availability() {

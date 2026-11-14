@@ -78,7 +78,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
     .map(([slug, balance]): UserToken => {
       const token = tokensBySlug[slug];
       const {
-        symbol, name, localizedName, image, decimals, cmcSlug, color, chain, tokenAddress, codeHash,
+        symbol, name, localizedName, image, decimals, precision, cmcSlug, color, chain, tokenAddress, codeHash,
         type, label, keywords, percentChange24h = 0, priceUsd,
       } = token;
 
@@ -99,6 +99,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
         price,
         priceUsd,
         decimals,
+        precision,
         change24h: round(percentChange24h / 100, 4),
         isDisabled: getIsTokenDisabled(slug, balance, token, visibility),
         cmcSlug,

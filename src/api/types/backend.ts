@@ -5,7 +5,7 @@ import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { ApiChain, ApiCountryCode, ApiLoyaltyType, ApiMtwCardType, ApiTokenWithPrice } from './misc';
 
 export type ApiTokenPriceDetails = Pick<
-  ApiTokenWithPrice, 'slug' | 'type' | 'priceUsd' | 'percentChange24h' | 'localizedName'
+  ApiTokenWithPrice, 'slug' | 'type' | 'priceUsd' | 'percentChange24h' | 'localizedName' | 'precision'
 > & {
   tokenInfo?: {
     description?: string;
@@ -56,7 +56,7 @@ export interface ApiTokenVolume {
   change?: number;
 }
 
-export type ApiSwapDexRouterLabel = 'dedust-router-v2' | 'omniston' | 'jupiter' | 'uniswap' | 'lifi';
+export type ApiSwapDexRouterLabel = 'dedust-router-v2' | 'omniston' | 'jupiter' | 'uniswap' | 'lifi' | 'layerzero';
 
 export type ApiSwapDexLabel = 'dedust' | 'ston';
 export type ApiSwapCexLabel = 'changelly' | 'near-intents';
@@ -76,6 +76,7 @@ export type ApiSwapEstimateRequest = {
   shouldTryDiesel?: boolean;
   swapVersion?: 1 | 2;
   toncoinBalance?: string;
+  nativeBalance?: string;
   walletVersion?: ApiTonWalletVersion;
   isFromAmountMax?: boolean;
 };
@@ -171,7 +172,10 @@ export type ApiSwapCexEstimateResponse = {
 
 export type ApiSwapHint =
   | { type: 'intermediate'; token: string }
-  | { type: 'external'; providerName: string; url: string };
+  | { type: 'external'; providerName: string; url: string }
+  | { type: 'oneToOne'; minimumAmount: string }
+  | { type: 'betterRate'; additionalAmount: string; symbol: string }
+  | { type: 'betterRateMinimum'; minimumAmount: string; symbol: string };
 
 /** Present only for tester wallets; backend may attach more fields. */
 export type ApiSwapEstimateDebug = {
@@ -305,6 +309,7 @@ export type ApiSwapAsset = {
   chain: string;
   slug: string;
   decimals: number;
+  precision?: number;
   isPopular: boolean;
   priceUsd: number;
   image?: string;
@@ -359,6 +364,7 @@ export type ApiSwapHistoryItem = BaseApiSwapHistoryItem & {
   isCanceled?: boolean;
   cexLabel?: ApiSwapCexLabel;
   /** Provider settlement is separate from the requested token and quoted amount. */
+  layerzero?: { quoteId: string; status?: string };
   lifi?: {
     outcome?: 'completed' | 'partial' | 'refunded';
     quotedTo: string;

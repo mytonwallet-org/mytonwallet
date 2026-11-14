@@ -1,13 +1,16 @@
 import React, {
   memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
+import { getGlobal } from '../../global';
 
 import type {
+  AgentNewsFeedDigestV2,
   AgentNewsFeedItemV2,
   AgentThreadListItemV2,
   AgentThreadSummaryV2,
 } from '../../api/agentV2/protocol/types';
 import type { AgentHint } from '../../global/types';
+import type { AgentV2StarterHintEntryPoint } from '../agent/hooks/agentV2RunController';
 
 import { IS_EXTENSION } from '../../config';
 import { requestForcedReflow, requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
@@ -16,8 +19,10 @@ import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { stopEvent } from '../../util/domEvents';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
+import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 import { getSecretPhraseWordList, hasSecretPhrase } from '../../api/agentV2/secretPhrase';
 import { getReturnKeyAction, insertLineBreak } from '../agent/helpers/composerReturnKey';
+import focusAtEnd from '../agent/helpers/focusAtEnd';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
 import { createSnapGhost, getSnapEffectKind, getSnapEffectLayer } from '../agent/helpers/snapEffect';
 import { startOpeningSuggestionMorph, startOpeningTextFlight } from './agentOpeningQuestion';
@@ -29,15 +34,18 @@ import { closeAgentThreadSwipe } from './useAgentThreadSwipe';
 
 import useDerivedState from '../../hooks/useDerivedState';
 import useForceUpdate from '../../hooks/useForceUpdate';
+import { useHotkeys } from '../../hooks/useHotkeys';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
 import useSignal from '../../hooks/useSignal';
+import { buildAgentV2StarterHintEntryPoint } from '../agent/hooks/agentV2RunController';
 import useAgentLayoutSwitch from '../agent/hooks/useAgentLayoutSwitch';
 
 import AgentHeader from '../agent/AgentHeader';
 import AgentHints from '../agent/AgentHints';
 import AgentLoadFailure from '../agent/AgentLoadFailure';
+import { getIsAnyModalOpen } from '../ui/Modal';
 import AgentNewsRow from './AgentNewsRow';
 import { AgentFailureCaption } from './AgentStatusNotice';
 import AgentThreadListItem from './AgentThreadListItem';
@@ -49,6 +57,8 @@ import styles from './AgentThreadList.module.scss';
 interface OwnProps {
   /** The list is the screen on top; under an open chat it is hidden */
   isActive: boolean;
+  /** The Agent is on screen, whichever of its screens is on top */
+  isAgentActive: boolean;
   items?: AgentThreadListItemV2[];
   /** The user changed the chats, as by a pin or a deletion, and the rows play the change out */
   isUserChange?: boolean;
@@ -63,6 +73,8 @@ interface OwnProps {
   /** What the Agent is doing in each chat that answers, as a localization key */
   activityLangKeys: Record<string, string>;
   latestNewsItem?: AgentNewsFeedItemV2;
+  /** In the Digests view, the latest digest, which the News row shows */
+  latestNewsDigest?: AgentNewsFeedDigestV2;
   newsUnreadCount: number;
   /** The user has not allowed the Agent yet, so a question or a recording asks for consent first */
   isDictationHeld?: boolean;
@@ -70,15 +82,18 @@ interface OwnProps {
   onOpenNews: NoneToVoidFunction;
   /**
    * A question typed under the list starts a new chat. One sent while composing a chat opens that chat in place of the
-   * list, as on mobile.
+   * list, as on mobile. A tapped suggestion comes with its `hintEntryPoint`.
    */
-  onStartChat: (text: string, isInPlace: boolean) => void;
+  onStartChat: (text: string, isInPlace: boolean, hintEntryPoint?: AgentV2StarterHintEntryPoint) => void;
   /**
    * Carries out what the user did that sends something to the Agent once they allow it: at once if they have, or
    * after the consent sheet's Allow. Closing the sheet drops it, and gives the `field` a question was sent from its
    * focus back.
    */
   onRequestConsent: (action: NoneToVoidFunction, field?: HTMLElement) => void;
+  /** Contact Support, the suggestions' last item, which is disabled unless `canRequestSupport` */
+  onRequestSupport?: NoneToVoidFunction;
+  canRequestSupport?: boolean;
   onLoadMore: NoneToVoidFunction;
   /** Loads the chats again after they failed to load, or the page that failed */
   onRetry: NoneToVoidFunction;
@@ -97,6 +112,7 @@ const SECTION_KEY_PREFIX = 'section-';
 
 function AgentThreadList({
   isActive,
+  isAgentActive,
   items,
   isUserChange,
   dissolvingThreadIds = NO_THREAD_IDS,
@@ -106,12 +122,15 @@ function AgentThreadList({
   isRetrying,
   activityLangKeys,
   latestNewsItem,
+  latestNewsDigest,
   newsUnreadCount,
   isDictationHeld,
   onSelect,
   onOpenNews,
   onStartChat,
   onRequestConsent,
+  onRequestSupport,
+  canRequestSupport = false,
   onLoadMore,
   onRetry,
   onRename,
@@ -123,13 +142,14 @@ function AgentThreadList({
   const [switchedLayout] = useState(takeSwitchedLayout);
   const [getDraft, setDraft] = useSignal(localState.draftOnMount);
   const draft = useDerivedState(getDraft);
-  // Focusing the field turns the list into a new chat with its suggestions, as on mobile
+  // A click into the field or typing in it turns the list into a new chat with its suggestions, as on mobile. Focus
+  // alone keeps the chats, as the field takes it when the Agent opens.
   const [isComposing, setIsComposing] = useState(Boolean(switchedLayout?.isComposing));
   // Chats that failed to load show the failure in place of the suggestions, which would say there are none
   const isLoadFailureShown = Boolean(hasLoadFailed) && !items?.length;
   const isListEmpty = items?.length === 0 && !isLoadFailureShown;
   const shouldShowSuggestions = isComposing || isListEmpty;
-  const suggestions = useAgentSuggestions(lang, isActive, shouldShowSuggestions);
+  const suggestions = useAgentSuggestions(lang, isActive && shouldShowSuggestions);
   const rootRef = useRef<HTMLElement>();
   const inputRef = useRef<HTMLTextAreaElement>();
 
@@ -207,6 +227,39 @@ function AgentThreadList({
     requestMeasure(() => input.focus());
   }, [isActive]);
 
+  // On a desktop the Agent opens with the field focused, as a chat does, while a touch screen keeps its keyboard down.
+  // Coming back from a chat leaves the focus on its row, and a modal or the lock screen over the Agent keeps it.
+  const shouldFocusOnOpenRef = useRef(!IS_TOUCH_ENV && !shouldRestoreFocusRef.current);
+  useEffect(() => {
+    if (!isAgentActive) {
+      shouldFocusOnOpenRef.current = !IS_TOUCH_ENV;
+      return;
+    }
+
+    const input = inputRef.current;
+    if (!shouldFocusOnOpenRef.current || !input) return;
+
+    shouldFocusOnOpenRef.current = false;
+    if (!isActive) return;
+
+    requestMeasure(() => {
+      if (getIsAnyModalOpen() || getGlobal().isAppLockActive) return;
+      focusAtEnd(input);
+    });
+  }, [isActive, isAgentActive]);
+
+  // While nothing on the page has focus, Tab starts at the field, as in a chat
+  const handleTab = useLastCallback((e: KeyboardEvent) => {
+    const input = inputRef.current;
+    if (e.target !== document.body || !input || getIsAnyModalOpen() || getGlobal().isAppLockActive) return;
+
+    e.preventDefault();
+    focusAtEnd(input);
+  });
+
+  const hotkeysRef = useRef({ Tab: handleTab });
+  useHotkeys(isActive ? hotkeysRef.current : undefined);
+
   // The unread dots are read as the rows render
   useEffect(() => subscribeToAgentThreadReadState(forceUpdate), [forceUpdate]);
 
@@ -239,11 +292,11 @@ function AgentThreadList({
     inputRef.current?.blur();
   });
 
-  const startChat = useLastCallback((text: string) => {
+  const startChat = useLastCallback((text: string, hintEntryPoint?: AgentV2StarterHintEntryPoint) => {
     const isInPlace = isComposing;
     // The field gives up the focus before the chat comes, which would hand it back as it closes
     inputRef.current?.blur();
-    onStartChat(text, isInPlace);
+    onStartChat(text, isInPlace, hintEntryPoint);
   });
 
   const handleSend = useLastCallback(() => {
@@ -261,13 +314,27 @@ function AgentThreadList({
   const handleDraftFocus = useLastCallback(() => {
     if (!isActive) return;
     closeAgentThreadSwipe();
-    setIsComposing(true);
   });
 
+  // A focused field gets the click too, and the field's own `input` events are the user's typing, not a transcript
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input || !isActive || isComposing) return undefined;
+
+    const startComposing = () => setIsComposing(true);
+    input.addEventListener('click', startComposing);
+    input.addEventListener('input', startComposing);
+    return () => {
+      input.removeEventListener('click', startComposing);
+      input.removeEventListener('input', startComposing);
+    };
+  }, [isActive, isComposing]);
+
   const handleSuggestionClick = useLastCallback((hint: AgentHint, button: HTMLElement) => {
+    const hintEntryPoint = suggestions && buildAgentV2StarterHintEntryPoint(suggestions.starterHints, hint.id);
     onRequestConsent(() => {
-      startOpeningSuggestionMorph(button, hint.prompt);
-      startChat(hint.prompt);
+      startOpeningSuggestionMorph(button, hint.title);
+      startChat(hint.title, hintEntryPoint);
     });
   });
 
@@ -312,6 +379,7 @@ function AgentThreadList({
       <AgentNewsRow
         key="news"
         latestItem={latestNewsItem}
+        latestDigest={latestNewsDigest}
         unreadCount={newsUnreadCount}
         onClick={onOpenNews}
       />
@@ -398,7 +466,13 @@ function AgentThreadList({
         onClick={isComposing ? handleComposeClick : undefined}
       >
         <div className={styles.composeSpacer} />
-        <AgentHints isOpen={shouldShowSuggestions} hints={suggestions} onHintClick={handleSuggestionClick} />
+        <AgentHints
+          isOpen={shouldShowSuggestions}
+          hints={suggestions?.hints}
+          isSupportDisabled={!canRequestSupport}
+          onHintClick={handleSuggestionClick}
+          onSupportClick={onRequestSupport}
+        />
       </div>
       <AgentV2Composer
         inputRef={inputRef}

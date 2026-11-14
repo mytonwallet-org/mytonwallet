@@ -3,6 +3,7 @@ import React, { memo } from '../../lib/teact/teact';
 import { ANIMATED_STICKER_MIDDLE_SIZE_PX, APP_NAME } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -45,7 +46,9 @@ function SettingsDisclaimer({ isActive, onBackClick }: OwnProps) {
             nonInteractive
             size={ANIMATED_STICKER_MIDDLE_SIZE_PX}
           />
-          <div className={styles.sideTitle}>{lang('Use Responsibly')}</div>
+          <div className={styles.sideTitle} data-testid={getTestId('responsibility_title')}>
+            {lang('Use Responsibly')}
+          </div>
         </div>
         <div className={buildClassName(styles.blockAbout, 'custom-scroll')} onScroll={handleScroll}>
           <p className={styles.text}>{renderText(lang('$auth_responsibly_description1', { app_name: APP_NAME }))}</p>

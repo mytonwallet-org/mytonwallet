@@ -1,8 +1,10 @@
 import type { RgbaColor } from '../../../util/colors';
 import type { AgentGlowColor, AgentGlowColors } from './agentGlowPalette';
+import type { BezierCurve } from './agentMotion';
 
 import { parseCssColor } from '../../../util/colors';
 import { getAgentTextColors } from './agentGlowPalette';
+import { getBezierProgress } from './agentMotion';
 
 // How a streamed character comes in, as on iOS: transparent, out of a glow in the Agent's blue, sharp within
 // `SHARPEN_DURATION`, in the Agent's blue, which turns violet by the middle of its turn into the text's own colour
@@ -19,10 +21,10 @@ const INITIAL_GLOW_BLUR = 6;
 // The settling is sampled this often, in seconds, as iOS samples its colours
 const SAMPLE_INTERVAL = 0.025;
 export const STREAMED_CHARACTER_SAMPLE_INTERVAL_MS = SAMPLE_INTERVAL * 1000;
-// The x of the second control point of iOS's ease-out, `cubic-bezier(0, 0, 0.58, 1)`, which the character's opacity and
-// its glow take as it sharpens
-const EASE_OUT_CONTROL = 0.58;
-const EASE_OUT_ITERATIONS = 24;
+// iOS's ease-out, which the character's opacity and its glow take as it sharpens
+const EASE_OUT: BezierCurve = {
+  x1: 0, y1: 0, x2: 0.58, y2: 1,
+};
 
 const colorsByKey = new Map<string, string[] | undefined>();
 const glowKeyframesByKey = new Map<string, Keyframe[]>();
@@ -103,7 +105,7 @@ function getSampleAges() {
 }
 
 function getSharpness(age: number) {
-  return getEaseOut(clamp(age / SHARPEN_DURATION));
+  return getBezierProgress(EASE_OUT, clamp(age / SHARPEN_DURATION));
 }
 
 function getOpacity(age: number) {
@@ -167,31 +169,6 @@ function formatColor({
   red, green, blue, alpha,
 }: RgbaColor) {
   return `rgba(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)}, ${Number(alpha.toFixed(3))})`;
-}
-
-// iOS's ease-out at `progress` of its time, found along the curve by halving
-function getEaseOut(progress: number) {
-  // The ends are exact, so a sharp character drops its glow
-  if (progress <= 0 || progress >= 1) return progress;
-
-  let low = 0;
-  let high = 1;
-  for (let iteration = 0; iteration < EASE_OUT_ITERATIONS; iteration++) {
-    const middle = (low + high) / 2;
-    if (getBezierCoordinate(middle, 0, EASE_OUT_CONTROL) < progress) {
-      low = middle;
-    } else {
-      high = middle;
-    }
-  }
-
-  return getBezierCoordinate((low + high) / 2, 0, 1);
-}
-
-// A coordinate of a cubic Bézier curve from 0 to 1 through control coordinates `first` and `second`, `position` along it
-function getBezierCoordinate(position: number, first: number, second: number) {
-  const rest = 1 - position;
-  return 3 * rest * rest * position * first + 3 * rest * position * position * second + position ** 3;
 }
 
 function clamp(value: number) {

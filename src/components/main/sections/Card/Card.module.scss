@@ -431,7 +431,9 @@ $signSizeDiff: 0.375rem;
   }
 }
 
-.addressStatic {
+// `containerInert` covers browsers without the `inert` attribute, which still deliver clicks to an inert card
+.addressStatic,
+.containerInert {
   pointer-events: none;
 }
 

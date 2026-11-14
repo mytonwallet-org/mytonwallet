@@ -151,7 +151,8 @@ func crosschainAdjustedNativeMaxAmount(
                 swapVersion: nil,
                 toncoinBalance: nil,
                 walletVersion: nil,
-                isFromAmountMax: input.isMaxAmount ? true : nil
+                isFromAmountMax: input.isMaxAmount ? true : nil,
+                nativeBalance: swapType.cexTopology == .toWallet ? nil : account.getNativeBalanceForEstimate(chain: selling.token.chain)
             )
             let response = try await SwapQuoteDiagnostics.step("quote") {
                 try await fetchEstimate(account.id, request)

@@ -38,7 +38,7 @@ export function updateCurrentSwap(
     }
 
     if (doesSwapChangeRequireEstimation(global, newGlobal)) {
-      newGlobal = rawUpdateCurrentSwap(newGlobal, { isEstimating: true });
+      newGlobal = rawUpdateCurrentSwap(newGlobal, { isEstimating: true, swapQuoteHint: undefined });
     }
   }
 

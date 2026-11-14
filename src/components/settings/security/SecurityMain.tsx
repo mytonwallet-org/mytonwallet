@@ -15,6 +15,7 @@ import {
   getIsTouchIdAvailable,
 } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
+import getTestId from '../../../util/getTestId';
 import { getIsTelegramBiometricsRestricted } from '../../../util/telegram';
 import { CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY, IS_ELECTRON, IS_IOS } from '../../../util/windowEnvironment';
 
@@ -130,7 +131,11 @@ function SecurityMain({
       >
         {shouldShowBackup && (
           <div className={styles.settingsBlock}>
-            <div className={buildClassName(styles.item)} onClick={onOpenBackupWallet}>
+            <div
+              className={buildClassName(styles.item)}
+              data-testid={getTestId('security_back_up')}
+              onClick={onOpenBackupWallet}
+            >
               <img className={styles.menuIcon} src={backupImg} alt={lang('$back_up_security')} />
               <span className={styles.itemTitle}>{lang('$back_up_security')}</span>
 
@@ -163,6 +168,7 @@ function SecurityMain({
               <Button
                 className={styles.changePasswordButton}
                 isSimple
+                testId={getTestId('security_change_passcode')}
                 onClick={onChangePasswordClick}
               >
                 {getDoesUsePinPad() ? lang('Change Passcode') : lang('Change Password')}
@@ -197,7 +203,11 @@ function SecurityMain({
 
         <>
           <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-            <div className={buildClassName(styles.item, styles.itemSmall)} onClick={onAppLockToggle}>
+            <div
+              className={buildClassName(styles.item, styles.itemSmall)}
+              data-testid={getTestId('security_app_lock')}
+              onClick={onAppLockToggle}
+            >
               <span className={styles.itemTitle}>{lang('App Lock')}</span>
 
               <Switcher
@@ -209,6 +219,7 @@ function SecurityMain({
             {isAppLockEnabled && (
               <Dropdown
                 label={lang('Auto-Lock')}
+                testId={getTestId('security_auto_lock')}
                 items={AUTOLOCK_OPTIONS_LIST as unknown as DropdownItem<AutolockValueType>[]}
                 selectedValue={autolockValue}
                 theme="light"
@@ -222,7 +233,11 @@ function SecurityMain({
           <p className={styles.blockDescription}>{lang('$app_lock_description', { app_name: APP_NAME })}</p>
 
           <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-            <div className={buildClassName(styles.item, styles.itemSmall)} onClick={onAutoConfirmToggle}>
+            <div
+              className={buildClassName(styles.item, styles.itemSmall)}
+              data-testid={getTestId('security_remember_passcode')}
+              onClick={onAutoConfirmToggle}
+            >
               <span className={styles.itemTitle}>
                 {getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
               </span>
@@ -267,6 +282,7 @@ function SecurityMain({
           <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
             <div
               className={buildClassName(styles.item, styles.itemSmall)}
+              data-testid={getTestId('security_allow_suspicious_actions')}
               onClick={onAllowSuspiciousActionsToggle}
             >
               <span className={styles.itemTitle}>{lang('Allow Suspicious Actions')}</span>

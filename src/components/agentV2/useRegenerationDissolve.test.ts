@@ -25,6 +25,13 @@ describe('getRegenerationRemovedIds', () => {
     expect(getRegenerationRemovedIds([QUESTION], [QUESTION], ANSWER.id)).toBeUndefined();
   });
 
+  it('takes nothing while a message after the answer stays, as a question queued meanwhile does', () => {
+    const previous = [QUESTION, ANSWER, NEXT_QUESTION];
+
+    expect(getRegenerationRemovedIds(previous, [QUESTION, NEXT_QUESTION], ANSWER.id)).toBeUndefined();
+    expect(getRegenerationRemovedIds(previous, [QUESTION, NEW_ANSWER, NEXT_QUESTION], ANSWER.id)).toBeUndefined();
+  });
+
   it('takes nothing when the list is replaced, as by another chat or a cleared one', () => {
     const previous = [QUESTION, ANSWER];
 

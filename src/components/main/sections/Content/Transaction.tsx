@@ -43,6 +43,7 @@ import { toDecimal } from '../../../../util/decimals';
 import { getDnsDomainZone } from '../../../../util/dns';
 import { formatBaseCurrencyAmount, formatCurrencyExtended } from '../../../../util/formatNumber';
 import { getLocalAddressName } from '../../../../util/getLocalAddressName';
+import getTestId from '../../../../util/getTestId';
 import { vibrate } from '../../../../util/haptics';
 import { toNativeDigits } from '../../../../util/nativeDigits';
 import { shortenAddress } from '../../../../util/shortenAddress';
@@ -455,6 +456,7 @@ function Transaction({
           className,
         )}
         isSimple
+        testId={getTestId('activity_row')}
         onMouseDown={handleBeforeContextMenu}
         onContextMenu={handleContextMenu}
         onClick={onClick && (() => onClick(id))}

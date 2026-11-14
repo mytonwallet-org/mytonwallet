@@ -106,6 +106,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var sideHeaderCenterConstraint: NSLayoutConstraint?
     private var sideHeaderTopConstraint: NSLayoutConstraint?
     private var sideTabTopConstraint: NSLayoutConstraint?
+    private var sideTabHeightConstraint: NSLayoutConstraint?
     private enum SideTabEdge { case left, right }
     private var sideTabEdge: SideTabEdge?
     private var sideTabBar: UIView?
@@ -850,6 +851,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         sideHeaderCenterConstraint = nil
         sideHeaderTopConstraint = nil
         sideTabTopConstraint = nil
+        sideTabHeightConstraint = nil
         if let edge, #available(iOS 27.1, *) {
             if sideTabBar == nil {
                 let ids = pageOrder.map(\.tabId)
@@ -867,6 +869,21 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 bar.onReorder = { [weak self, weak bar] _, _ in
                     guard let self, let bar else { return }
                     self.reorderTabs(bar.itemIds.map { AppTabId($0) })
+                }
+                bar.onExpandedFrameChange = { [weak self, weak bar] frame in
+                    guard let self, let bar else { return }
+                    self.searchController.setSideTabBarFrame(frame, in: bar)
+                    if let frame, let bounds = bar.expansionBounds {
+                        let button = self.accountSwitcherButton
+                        let buttonFrame = CGRect(x: button.center.x - button.bounds.width / 2,
+                                                 y: button.center.y - button.bounds.height / 2,
+                                                 width: button.bounds.width, height: button.bounds.height)
+                        let offset = getSideControlOffset(frame: buttonFrame, avoiding: self.view.convert(frame, from: bar),
+                                                          within: self.view.convert(bounds, from: bar), isOnLeftEdge: bar.isOnLeftEdge)
+                        button.transform = CGAffineTransform(translationX: offset.x, y: offset.y)
+                    } else {
+                        self.accountSwitcherButton.transform = .identity
+                    }
                 }
                 bar.translatesAutoresizingMaskIntoConstraints = false
                 sideTabBar = bar
@@ -887,6 +904,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 let tabsTop = bar.topAnchor.constraint(equalTo: accountSwitcherButton.bottomAnchor,
                     constant: ToolbarSettings.configuration().showsAccounts ? -48 : 12)
                 sideTabTopConstraint = tabsTop
+                let height = bar.heightAnchor.constraint(equalToConstant: bar.intrinsicContentSize.height)
+                sideTabHeightConstraint = height
                 sideHeaderConstraints = [
                     center,
                     top,
@@ -895,7 +914,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                     bar.centerXAnchor.constraint(equalTo: accountSwitcherButton.centerXAnchor),
                     tabsTop,
                     bar.widthAnchor.constraint(equalToConstant: bar.intrinsicContentSize.width),
-                    bar.heightAnchor.constraint(equalToConstant: bar.intrinsicContentSize.height),
+                    height,
                 ]
                 NSLayoutConstraint.activate(sideHeaderConstraints)
                 updateSideHeaderGeometry()
@@ -929,6 +948,19 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         // Local constraints survive the root view being detached on a navigation push.
         sideHeaderCenterConstraint?.constant = origin.x - view.bounds.minX
         sideHeaderTopConstraint?.constant = origin.y - view.bounds.minY
+        let top = origin.y + (ToolbarSettings.configuration().showsAccounts ? 0 : 60)
+        let bottom = searchController.getSideToolbarFrame(in: view)?.minY
+            ?? view.convert(CGPoint(x: region.midX, y: region.maxY), from: container).y
+        sideTabHeightConstraint?.constant = min(bar.intrinsicContentSize.height, max(0, bottom - 12 - top))
+        if let bar = bar as? WVerticalTabBar {
+            let regionBottom = view.convert(CGPoint(x: region.midX, y: min(region.maxY, container.bounds.maxY - 24)), from: container).y
+            let available = CGRect(x: view.bounds.minX, y: origin.y, width: view.bounds.width, height: max(0, regionBottom - origin.y))
+            bar.expansionBounds = available.offsetBy(dx: -origin.x + bar.bounds.width / 2, dy: -top)
+        }
+    }
+
+    func searchToolbarGeometryDidChange() {
+        viewIfLoaded?.setNeedsLayout()
     }
 
     private func observeAccountSwitcher() {

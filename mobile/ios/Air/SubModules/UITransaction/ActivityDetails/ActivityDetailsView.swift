@@ -439,27 +439,28 @@ struct ActivityDetailsView: View {
         }
     }
 
-    private func _computeDisplayFee(nativeToken: ApiToken) -> MFee? {
+    /// A gasless fee is in the activity's token: the transferred one, or the sold one of a swap
+    static func computeDisplayFee(of activity: ApiActivity, token: ApiToken, nativeToken: ApiToken) -> MFee? {
+        let isGasless = activity.extra?.isGasless == true
         switch activity {
         case .transaction(let transaction):
             let fee = transaction.fee
             if fee > 0 {
                 return MFee(
                     precision: getIsActivityPendingForUser(activity) ? .approximate : .exact,
-                    terms: .init(token: nil, native: fee, stars: nil),
+                    terms: isGasless ? .init(token: fee, native: nil, stars: nil) : .init(token: nil, native: fee, stars: nil),
                     nativeSum: nil
                 )
             }
         case .swap(let swap):
-            if let native = (swap.networkFee?.value).flatMap({ doubleToBigInt($0, decimals: nativeToken.decimals) }) {
-                if native <= 0 {
+            let feeToken = isGasless ? token : nativeToken
+            if let amount = (swap.networkFee?.value).flatMap({ doubleToBigInt($0, decimals: feeToken.decimals) }) {
+                if amount <= 0 {
                     return nil
                 }
-                let terms: MFee.FeeTerms = .init(
-                    token: nil,
-                    native: native,
-                    stars: nil
-                )
+                let terms: MFee.FeeTerms = isGasless
+                    ? .init(token: amount, native: nil, stars: nil)
+                    : .init(token: nil, native: amount, stars: nil)
 
                 let fee = MFee(
                     precision: swap.displayStatus().isPending ? .approximate : .exact,
@@ -498,7 +499,7 @@ struct ActivityDetailsView: View {
             let chain = token.chain
             let nativeToken = tokens[chain.nativeToken.slug] ?? chain.nativeToken
             let isLoading = model.isLoadingDetails
-            let fee = _computeDisplayFee(nativeToken: nativeToken)
+            let fee = Self.computeDisplayFee(of: activity, token: token, nativeToken: nativeToken)
             if chain.isSupported, isLoading || fee != nil {
                 InsetDetailCell {
                     Text(lang("Fee"))

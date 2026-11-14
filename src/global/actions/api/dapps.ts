@@ -27,7 +27,7 @@ import {
   updateDappConnectRequest,
 } from '../../reducers';
 import { selectCurrentAccountId } from '../../selectors';
-import { switchAccount } from './auth';
+import { getIsAccountSwitchCurrent, switchAccount } from './auth';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
@@ -344,7 +344,7 @@ addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload
     isLegacyOutput,
   } = payload;
 
-  await apiUpdateDappOperation(
+  const isInstalled = await apiUpdateDappOperation(
     payload,
     (global) => global.currentDappTransfer,
     actions.closeDappTransfer,
@@ -363,13 +363,13 @@ addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload
     }),
   );
 
-  recordTonConnectUiEvent('wallet-transaction-confirmation-ui-displayed', promiseId);
+  if (isInstalled) recordTonConnectUiEvent('wallet-transaction-confirmation-ui-displayed', promiseId);
 });
 
 addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
   const { promiseId, dapp, payloadToSign, operationChain, parsedPayloadToSign } = payload;
 
-  await apiUpdateDappOperation(
+  const isInstalled = await apiUpdateDappOperation(
     payload,
     (global) => global.currentDappSignData,
     actions.closeDappSignData,
@@ -384,12 +384,12 @@ addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
     }),
   );
 
-  recordTonConnectUiEvent('wallet-sign-data-confirmation-ui-displayed', promiseId);
+  if (isInstalled) recordTonConnectUiEvent('wallet-sign-data-confirmation-ui-displayed', promiseId);
 });
 
 // Requests replace one another one at a time, in arrival order: each reads the request the previous one installed,
 // so every replaced request is rejected, including one that arrived while another was still being switched to
-let dappOperationQueue: Promise<void> = Promise.resolve();
+let dappOperationQueue: Promise<unknown> = Promise.resolve();
 
 function apiUpdateDappOperation(...args: Parameters<typeof replaceDappOperation>) {
   const operation = dappOperationQueue.then(() => replaceDappOperation(...args));
@@ -398,7 +398,7 @@ function apiUpdateDappOperation(...args: Parameters<typeof replaceDappOperation>
 }
 
 async function replaceDappOperation(
-  payload: { accountId: string },
+  payload: { accountId: string; promiseId: string },
   getState: (global: GlobalState) => { promiseId?: string },
   close: NoneToVoidFunction,
   clearState: (global: GlobalState) => GlobalState,
@@ -409,9 +409,9 @@ async function replaceDappOperation(
   const { accountId } = payload;
   const { promiseId: currentPromiseId } = getState(global);
 
-  await switchAccount(global, accountId);
+  const switchId = await switchAccount(global, accountId);
 
-  if (currentPromiseId) {
+  if (currentPromiseId && getIsAccountSwitchCurrent(switchId)) {
     close();
     // Rejected here rather than by the modal's close animation, which never ends if the new request renders first
     void callApi('cancelDappRequest', currentPromiseId, 'Canceled by the user');
@@ -419,10 +419,17 @@ async function replaceDappOperation(
     await pause(closeDuration + ANIMATION_END_DELAY);
   }
 
+  if (!getIsAccountSwitchCurrent(switchId)) {
+    void callApi('cancelDappRequest', payload.promiseId, 'Canceled by the user');
+    return false;
+  }
+
   global = getGlobal();
   global = clearState(global);
   global = updateState(global);
   setGlobal(global);
+
+  return true;
 }
 
 // Clears the placeholder transfer modal (opened by a wake deeplink, no request yet) so a `signData`/`connect`

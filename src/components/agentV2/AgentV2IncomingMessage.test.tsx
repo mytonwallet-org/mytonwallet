@@ -5,11 +5,14 @@ import type { AgentV2LiveAction } from '../../api/agentV2/protocol/types';
 import type { AgentMessage } from '../../global/types';
 
 import { pause, waitFor } from '../../util/schedulers';
+import { formatAgentTime } from '../agent/helpers/agentDateFormat';
 import { startTypingAnswerMorph } from '../agent/helpers/typingAnswerMorph';
 
 import MessageBubble from '../agent/MessageBubble';
 
-const mockResponseLang = Object.assign((key: string) => key, {
+const mockResponseLang = Object.assign((key: string, value?: string) => (
+  key === '$agent_daily_limit_resets_at' ? `${key}:${value}` : key
+), {
   code: 'ar',
   isRtl: true,
 });
@@ -114,6 +117,7 @@ describe('AgentV2IncomingMessage', () => {
           message={{ ...message(), text: '', followups: undefined, ...(error && { error }) }}
           isDisabled={false}
           isLatest
+          isActivityHost
           activity={{ kind: 'preparingResponse' }}
         />,
         root,
@@ -131,6 +135,22 @@ describe('AgentV2IncomingMessage', () => {
     expect(root.querySelector('[data-agent-v2-message-status="error"]')).not.toBeNull();
   });
 
+  it('keeps a daily refusal timed until its reset, then leaves its untimed caption', async () => {
+    const resetAt = new Date(Date.now() + 1_000).toISOString();
+    TeactDOM.render(
+      <MessageBubble
+        message={{ ...message(), text: '', error: { code: 'user_quota_exhausted', retryable: true, resetAt } }}
+        isDisabled={false}
+      />,
+      root,
+    );
+    await pause(20);
+
+    expect(root.textContent).toContain(`$agent_daily_limit_resets_at:${formatAgentTime('ar', resetAt)}`);
+    expect(await waitFor(() => root.textContent!.includes('$agent_daily_limit_reached'), 10, 2_000)).toBe(true);
+    expect(root.textContent).not.toContain('$agent_daily_limit_resets_at');
+  });
+
   it('grows the answer\'s bubble out of the run\'s indicator as its first text comes', async () => {
     function renderAnswer(text: string, shouldAnimate = true) {
       TeactDOM.render(
@@ -138,6 +158,7 @@ describe('AgentV2IncomingMessage', () => {
           message={{ ...message(), text, followups: undefined }}
           isDisabled={false}
           isLatest
+          isActivityHost
           shouldAnimateTextStreaming={shouldAnimate}
           activity={text ? undefined : { kind: 'preparingResponse' }}
         />,
@@ -165,6 +186,27 @@ describe('AgentV2IncomingMessage', () => {
     renderAnswer('The answer', false);
     await pause(20);
     expect(startTypingAnswerMorph).not.toHaveBeenCalled();
+  });
+
+  it('grows the bubble of an answer that questions wait under out of the run\'s indicator', async () => {
+    function renderAnswer(text: string) {
+      TeactDOM.render(
+        <MessageBubble
+          message={{ ...message(), text, followups: undefined }}
+          isDisabled={false}
+          isActivityHost
+          shouldAnimateTextStreaming
+          activity={text ? undefined : { kind: 'preparingResponse' }}
+        />,
+        root,
+      );
+    }
+
+    renderAnswer('');
+    await pause(20);
+    renderAnswer('The answer');
+    await pause(20);
+    expect(startTypingAnswerMorph).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the suggestions of an answer being answered again as they are, out of reach', async () => {

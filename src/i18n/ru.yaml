@@ -629,6 +629,7 @@ Buy crypto or choose another token to sell.: Купите криптовалют
 Your balances are small. Add funds or choose another token to swap.: На ваших балансах мало средств. Пополните баланс или выберите другой токен для обмена.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: Чтобы купить %buy_token%, сначала купите %token%, а затем обменяйте на %buy_token%.
 Open %provider% to swap this pair in the browser.: Откройте %provider%, чтобы обменять эту пару в браузере.
+"Better rate is available if you add %amount% %symbol% for network fee.": "Чтобы обменять по более выгодному курсу, добавьте %amount% %symbol% на комиссию сети."
 Buy %token%: Купить %token%
 Open %provider%: Открыть %provider%
 Cannot load widget: Невозможно загрузить виджет
@@ -1355,8 +1356,8 @@ $agent_consent_allow_button: Разрешить
 $agent_consent_feature_answers: Получайте ответы о %app_name%, токенах и активности кошелька.
 $agent_consent_feature_actions: "Подготавливайте поддерживаемые действия: отправку, получение и стейкинг."
 $agent_consent_feature_context: Используйте контекст кошелька, чтобы ответы могли учитывать релевантные активы и адреса.
-$agent_consent_disclosure_text: Нажимая «Разрешить», вы разрешаете %app_name% отправлять ваши сообщения агенту и релевантный контекст кошелька в %app_name% Agent (agent.mywallet.io) и Anthropic Claude API, нашему стороннему поставщику ИИ, для обработки ваших запросов. Контекст кошелька может включать адреса кошелька, балансы, токены, активность и детали запрошенных действий. Данные используются только для предоставления ответов агента и подготовки запрошенных вами действий.
-$agent_consent_search_disclosure_text: Для поиска в интернете Serper могут передаваться только поисковые запросы; контекст кошелька и история чата не передаются.
+$agent_consent_disclosure_text: Нажимая «Разрешить», вы разрешаете %app_name% отправлять ваши сообщения агенту и релевантный контекст кошелька в %app_name% Agent (agent.mywallet.io) и нашим сторонним поставщикам ИИ — OpenAI и Anthropic — для обработки ваших запросов. Контекст кошелька может включать адреса кошелька, балансы, токены, активность и детали запрошенных действий. При голосовом вводе запись отправляется в Inworld и при необходимости в ElevenLabs через OpenRouter для распознавания текста. Данные используются только для предоставления ответов агента и подготовки запрошенных вами действий.
+$agent_consent_search_disclosure_text: Для поиска в интернете в OpenAI и при необходимости в Serper передаются только поисковые запросы; контекст кошелька и история чата не передаются.
 $settings_token_change_threshold: Порог изменения в %
 $settings_token_change_threshold_description: Скрывает изменения за 24 часа, которые ниже выбранного порога.
 $settings_token_change_threshold_off: Выкл.
@@ -1414,14 +1415,29 @@ $agent_prompt_token_price: "Сделай анализ цены %token%."
 $agent_hint_capabilities_title: Что ты умеешь?
 $agent_hint_portfolio_title: Динамика портфеля
 $agent_hint_portfolio_prompt: Проанализируй динамику моего портфеля.
-$agent_hint_swap_title: Как работают обмены
+$agent_hint_swap_title: Как работают обмены?
 $agent_hint_swap_prompt: Объясни, как работает обмен токенов.
-$agent_hint_staking_title: Что такое стейкинг
+$agent_hint_staking_title: Что такое стейкинг?
 $agent_hint_staking_prompt: Объясни стейкинг с нуля, как человеку, который раньше не пользовался криптовалютой.
-$agent_hint_security_title: Безопасность кошелька
+$agent_hint_security_title: Как защитить кошелёк?
 $agent_hint_security_prompt: Расскажи, как защитить мой кошелёк.
 $agent_hint_receive_title: Получить токены
 $agent_hint_receive_prompt: Помоги мне получить токены.
+$agent_hint_assets_title: Покажи мои активы
+$agent_hint_total_title: Сколько у меня всего?
+$agent_hint_spending_title: На что я тратил за неделю?
+$agent_hint_last_transfer_title: Покажи последний перевод
+$agent_hint_fund_title: Как пополнить кошелёк?
+$agent_hint_market_today_title: Что сегодня на рынке?
+$agent_hint_news_today_title: Главные новости за сутки
+$agent_hint_bitcoin_title: Что происходит с биткоином?
+$agent_hint_price_title: Сколько стоит 0,5 ETH?
+$agent_hint_staking_yield_title: Где выше доходность?
+$agent_hint_staking_options_title: Какие варианты стейкинга доступны?
+$agent_hint_multisend_title: Как отправить нескольким людям?
+$agent_hint_action_swap_title: Обменять токены
+$agent_hint_action_send_title: Отправить крипту
+$agent_hint_action_stake_title: Начать стейкинг
 $agent_notice_content_over_budget: Результат слишком большой для полного отображения.
 $agent_notice_web_search_no_results: Не удалось найти подходящую информацию по вашему запросу.
 $agent_error_session: Сессия агента истекла. Откройте агента заново и повторите попытку.
@@ -2176,8 +2192,7 @@ News: "Новости"
 Crypto Market News: "Новости крипторынка"
 $agent_news_new: "Новые"
 $agent_news_open_source: "Открыть источник"
-$agent_news_source: "Источник: %sources%"
-$agent_news_sources: "Источники: %sources%"
+$agent_news_sources: "Источники"
 $agent_news_unavailable: "Новости сейчас недоступны"
 $agent_news_read_more: "Подробнее"
 $agent_news_discuss: "Обсудить"
@@ -2191,6 +2206,11 @@ $agent_news_unread_count:
   fewValue: "%count% непрочитанные новости"
   manyValue: "%count% непрочитанных новостей"
   otherValue: "%count% непрочитанных новостей"
+$agent_news_unread_digests_count:
+  oneValue: "%count% непрочитанная сводка"
+  fewValue: "%count% непрочитанные сводки"
+  manyValue: "%count% непрочитанных сводок"
+  otherValue: "%count% непрочитанных сводок"
 Explorer mode: Режим обозревателя
 Open a link to a wallet, transfer, token or collectible to see its details here.: Откройте ссылку на кошелёк, перевод, токен или NFT, чтобы посмотреть здесь детали.
 
@@ -2450,7 +2470,7 @@ $agent_chats_unavailable: "Не удалось загрузить чаты"
 "View your assets and activity": "Ваши активы и история операций"
 "Ask AI and follow the news": "Задавайте вопросы ИИ и следите за новостями"
 $underlying_stock: 'Акция %symbol%'
-$agent_support_requested: "Вы позвали поддержку. Оператор ответит здесь"
+$agent_support_requested: "Вы позвали поддержку. Оператор ответит здесь — обычно это занимает пару минут"
 $agent_support_operator_joined: "К чату подключилась поддержка: %name%"
 $agent_support_closed_operator: "Поддержка закрыла обращение. Дальше отвечает агент"
 $agent_support_closed_inactivity: "Обращение закрыто: 48 часов без ответа. Дальше отвечает агент"
@@ -2470,26 +2490,47 @@ $send_only_chain_and_token: Отправляйте на этот адрес то
 $agent_digest_unavailable: "Эта сводка больше недоступна"
 $agent_digest_title: "Главное за сутки"
 $agent_digest_meta:
-  oneValue: "%count% новость · %time%"
-  fewValue: "%count% новости · %time%"
-  manyValue: "%count% новостей · %time%"
-  otherValue: "%count% новостей · %time%"
+  oneValue: "%count% новость"
+  fewValue: "%count% новости"
+  manyValue: "%count% новостей"
+  otherValue: "%count% новостей"
 $agent_digest_more:
   oneValue: "и ещё %count% новость — они выше в ленте"
   fewValue: "и ещё %count% новости — они выше в ленте"
   manyValue: "и ещё %count% новостей — они выше в ленте"
   otherValue: "и ещё %count% новостей — они выше в ленте"
+$agent_digest_more_count:
+  oneValue: "и ещё %count% новость"
+  fewValue: "и ещё %count% новости"
+  manyValue: "и ещё %count% новостей"
+  otherValue: "и ещё %count% новостей"
 $agent_digest_settings_title: "Сводка и уведомления"
 $agent_digest_settings_text: "Раз в сутки в ленте появляется сводка — главные новости за день."
 $agent_digest_time: "Время сводки"
-$agent_digest_time_zone: "По часовому поясу телефона."
+$agent_digest_time_hint: "Сводка появится в ленте в это время, даже если уведомления выключены."
 $agent_digest_notifications_off: "Выключены"
-$agent_digest_notifications_off_hint: "Сводка будет только в ленте"
 $agent_digest_notifications_daily: "Сводка раз в день"
-$agent_digest_notifications_daily_hint: "В %time%, главные новости одним уведомлением"
+$agent_digest_notifications_daily_hint: "Одно уведомление в %time% с главными новостями дня."
 $agent_digest_notifications_every: "Каждая новость"
-$agent_digest_notifications_every_hint: "Отдельное уведомление о каждой новости"
-$agent_digest_post_header: "MyPulse · сводка · %time%"
 $agent_digest_sheet_title: "Ежедневная сводка"
-$agent_digest_device_time_zone: "По часовому поясу этого устройства."
 $agent_dictation_microphone_denied_device: "Разрешите доступ к микрофону в настройках устройства, чтобы диктовать."
+"$perps_funding_usdc_fees": "Чтобы открыть позицию, нужно не менее %minUSDC% USDC в Arbitrum: %amount% USDC и %fees% USDC на комиссии."
+"$perps_funding_usdc_increase_fees": "Чтобы увеличить эту позицию, нужно не менее %minUSDC% USDC в Arbitrum: %amount% USDC и %fees% USDC на комиссии."
+"PerpsOrderNotPlaced": "Ордер не был размещён. USDC, переведённые для него, остаются на балансе Hyperliquid."
+$agent_feedback_support_liked_toast: "Спасибо! Оценка уйдёт команде поддержки."
+$agent_feedback_support_disliked_toast: "Команда поддержки разберёт этот ответ."
+$agent_support_request_message: "Хочу поговорить с живым человеком"
+$agent_support_contact: "Связаться с поддержкой"
+$agent_support_confirm_title: "Позвать оператора?"
+$agent_support_confirm_text: "Оператор поддержки увидит этот чат и адреса кошелька и ответит здесь."
+$agent_support_confirm_text_no_wallet: "Оператор поддержки увидит этот чат и ответит здесь."
+$agent_support_confirm_action: "Позвать"
+$agent_support_rate_limited: "Сегодня вы уже трижды обращались в поддержку. Попробуйте завтра или напишите @mysupport в Telegram."
+$agent_news_digests_empty: "Сводок пока нет"
+$agent_news_view_all: "Все новости"
+$agent_news_view_digests: "Сводки"
+$agent_digest_hours: "Часы"
+$agent_digest_minutes: "Минуты"
+$swap_one_to_one: Более выгодный курс (1:1) доступен от %value%.
+$swap_better_rate_minimum: "Более выгодный курс доступен от %value%."
+$agent_daily_limit_resets_at: "Дневной лимит агента исчерпан. Обновится в %time%."

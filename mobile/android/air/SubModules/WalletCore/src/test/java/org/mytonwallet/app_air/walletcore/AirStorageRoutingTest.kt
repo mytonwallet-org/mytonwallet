@@ -1,19 +1,17 @@
 package org.mytonwallet.app_air.walletcore
 
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AirStorageRoutingTest {
     @Test
-    fun persistentAppKeysUseSecureStorage() {
+    fun walletKeysUseSecureStorage() {
         val keys = listOf(
             "accounts",
             "stateVersion",
             "currentAccountId",
-            "clientId",
             "installMetadata",
-            "referrer",
+            "installAttribution",
             "langCode",
             "dapps",
             "dappMethods:lastAccountId",
@@ -26,25 +24,26 @@ class AirStorageRoutingTest {
         )
 
         keys.forEach {
-            assertTrue(it, JSWebViewBridge.JsWebInterface.usesSecureStorage(it))
+            assertEquals(it, AirStorageRoute.SECURE, AirStorageRouting.routeOf(it))
         }
     }
 
     @Test
-    fun sdkOnlyKeysDoNotUseSecureStorage() {
-        val keys = listOf(
-            "agentMessages",
-            "agentConversationId",
-            "headlessBalanceSnapshots"
-        )
+    fun sdkOnlyKeysUseSdkStorage() {
+        listOf("agentMessages", "agentConversationId", "headlessBalanceSnapshots").forEach {
+            assertEquals(it, AirStorageRoute.SDK, AirStorageRouting.routeOf(it))
+        }
+    }
 
-        keys.forEach {
-            assertFalse(it, JSWebViewBridge.JsWebInterface.usesSecureStorage(it))
+    @Test
+    fun clientIdentityKeysUseInstallationStorage() {
+        listOf("clientId", "referrer").forEach {
+            assertEquals(it, AirStorageRoute.INSTALLATION, AirStorageRouting.routeOf(it))
         }
     }
 
     @Test
     fun unknownKeysUseSecureStorage() {
-        assertTrue(JSWebViewBridge.JsWebInterface.usesSecureStorage("futureStorageKey"))
+        assertEquals(AirStorageRoute.SECURE, AirStorageRouting.routeOf("futureStorageKey"))
     }
 }

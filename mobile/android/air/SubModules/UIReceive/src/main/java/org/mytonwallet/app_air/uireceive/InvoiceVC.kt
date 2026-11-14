@@ -24,6 +24,7 @@ import java.lang.ref.WeakReference
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.math.max
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
@@ -66,7 +67,12 @@ class InvoiceVC(context: Context) : WViewController(context) {
     override val shouldDisplayBottomBar = true
 
     private val amountInputView by lazy {
-        TokenAmountInputView(context, isFirstItem = true).apply {
+        TokenAmountInputView(
+            context,
+            isFirstItem = true,
+            amountEditTextId = UIComponentsR.id.invoice_amount_input,
+            tokenSelectorId = UIComponentsR.id.invoice_token_selector
+        ).apply {
             id = View.generateViewId()
         }
     }
@@ -82,6 +88,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
 
     private val commentInputView by lazy {
         WEditText(context, multilinePaste = false).apply {
+            id = UIComponentsR.id.invoice_comment_input
             hint = LocaleController.getString("Optional")
             setStyle(adaptiveFontSize())
             layoutParams =
@@ -100,6 +107,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
 
     private val linkLabel by lazy {
         WLabel(context).apply {
+            id = UIComponentsR.id.invoice_link
             setPaddingDp(20, 8, 20, 20)
             setStyle(14f)
             movementMethod = LinkMovementMethod.getInstance()

@@ -23,6 +23,8 @@ export interface AddressMenuItem {
 interface OwnProps {
   item: AddressMenuItem;
   withDelimiter?: boolean;
+  testId?: string;
+  actionTestId?: string;
   onClick: (e: React.UIEvent<HTMLElement>, item: AddressMenuItem) => void;
   onMouseEnter?: (e: React.MouseEvent<HTMLElement>, item: AddressMenuItem, rowEl: HTMLElement) => void;
   onActionMouseEnter?: NoneToVoidFunction;
@@ -35,6 +37,8 @@ const ADDRESS_TAIL_LENGTH = 6;
 function MenuItem({
   item,
   withDelimiter,
+  testId,
+  actionTestId,
   onClick,
   onMouseEnter,
   onActionMouseEnter,
@@ -49,6 +53,7 @@ function MenuItem({
       role="button"
       tabIndex={0}
       className={buildClassName(menuStyles.item, styles.chainItem, withDelimiter && menuStyles.delimiter)}
+      data-testid={testId}
       onClick={(e: React.MouseEvent<HTMLElement>) => { onClick(e, item); }}
       onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {
         if (e.code !== 'Enter' && e.code !== 'Space') return;
@@ -87,6 +92,7 @@ function MenuItem({
         role="button"
         className={buildClassName(item.actionIcon, styles.itemActionButton)}
         aria-label={item.actionLabel}
+        data-testid={actionTestId}
         onMouseEnter={onActionMouseEnter}
         onClick={(e: React.MouseEvent<HTMLElement>) => { onActionClick(e, item); }}
         onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {

@@ -100,7 +100,7 @@ export async function estimatePerpsCctpDepositGasUsdc(
       network,
       address,
       buildPerpsGasEstimationCalls(address),
-      { needsGasless: true },
+      { needsGasless: true, gasToken: ARBITRUM_USDC_MAINNET.tokenAddress },
     );
 
     if ('error' in feeResult) {
@@ -296,9 +296,10 @@ export async function buildPerpsCctpDepositTransfer(
       return { error: validationError };
     }
 
-    const feeResult = await estimateBatchUserOpFee(chain, signer.network, signer.address, calls, {
-      needsGasless: await perpsDepositNeedsGasless(signer.network, signer.address),
-    });
+    const needsGasless = await perpsDepositNeedsGasless(signer.network, signer.address);
+    const feeResult = await estimateBatchUserOpFee(chain, signer.network, signer.address, calls, needsGasless
+      ? { needsGasless: true, gasToken: ARBITRUM_USDC_MAINNET.tokenAddress }
+      : undefined);
 
     if ('error' in feeResult) {
       return feeResult;
@@ -326,10 +327,12 @@ export async function submitPerpsCctpDepositTransfer(
       return { error: validationError };
     }
 
+    const needsGasless = await perpsDepositNeedsGasless(signer.network, signer.address);
     const result = await submitBatchUserOp(
-      chain, signer.network, signer.address, signer.privateKey, calls, {
-        needsGasless: await perpsDepositNeedsGasless(signer.network, signer.address),
-      },
+      chain, signer.network, signer.address, signer.privateKey, calls,
+      needsGasless
+        ? { needsGasless: true, gasToken: ARBITRUM_USDC_MAINNET.tokenAddress }
+        : undefined,
     );
 
     return 'error' in result ? result : { txHash: result.txHash };

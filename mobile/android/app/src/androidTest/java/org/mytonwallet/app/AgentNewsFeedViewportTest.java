@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.ContextThemeWrapper;
 import android.view.View;
@@ -36,13 +37,19 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentCachedHistorie
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage;
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole;
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsChatRequest;
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsPostContent;
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsPostArrival;
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVM;
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsMenuKt;
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup;
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController;
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder;
+import org.mytonwallet.app_air.walletcore.deeplink.Deeplink;
+import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser;
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem;
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp;
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary;
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -119,7 +126,7 @@ public class AgentNewsFeedViewportTest {
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
       AgentNewsChatRequest request = new AgentNewsChatRequest(
         42, "en", "News awaiting discussion", null, null, "Feed excerpt", null,
-        "2026-10-20T12:00:00Z", "News body", Collections.emptyList()
+        "2026-10-20T12:00:00Z", "News body", Collections.emptyList(), null, false
       );
       Object controller = reflect(() -> Class.forName(
         "org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC"
@@ -203,10 +210,10 @@ public class AgentNewsFeedViewportTest {
     CoroutineScope scope = CoroutineScopeKt.MainScope();
     CoroutineScopeKt.cancel(scope, null);
     AgentVM model = new AgentVM(null, new LiveAgentV2Client(), new AgentV2ThreadSummary(
-      "preview-thread", 1, null, null, null, null, 0, null, null, null, null, null, null
+      "preview-thread", 1, null, null, null, null, 0, null, null, null, null, null, null, null
     ), Collections.singletonList(failure), null, false,
       new AgentCachedHistories(scope, () -> null, (threadId, continuation) -> null),
-      scope, null, () -> 0L, () -> 0L);
+      scope, null, () -> 0L, () -> 0L, continuation -> Unit.INSTANCE, null, null);
     try {
       setField(model, "state", AgentVM.State.ERROR);
       setField(controller, "preparedVM", model);
@@ -376,6 +383,46 @@ public class AgentNewsFeedViewportTest {
   }
 
   @Test
+  public void shareNewsHeadlineAndLinkFromMenu() {
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      Intent[] launched = {null};
+      Context capturingContext = new ContextWrapper(context) {
+        @Override
+        public void startActivity(Intent intent) {
+          launched[0] = intent;
+        }
+      };
+      for (String locale : new String[]{"ru", "en"}) {
+        launched[0] = null;
+        AgentNewsPostContent post = new AgentNewsPostContent(new AgentV2ThreadNewsCard(
+          307, "News headline", null, null, "2026-10-20T12:00:00Z", null,
+          "Full **news** body", Collections.singletonList(
+            new AgentV2NewsFeedItem.Source("Source", "https://example.com/story")
+          )
+        ), locale);
+        List<WMenuPopup.Item> items = AgentNewsMenuKt.buildAgentNewsMenuItems(
+          new View(capturingContext), post, null, null
+        );
+
+        WMenuPopup.Item shareItem = items.get(items.size() - 1);
+        assertEquals("Share", ((WMenuPopup.Item.Config.Item) shareItem.getConfig()).getTitle().toString());
+        shareItem.getOnTap().invoke();
+        assertNotNull(launched[0]);
+        assertEquals(Intent.ACTION_CHOOSER, launched[0].getAction());
+        assertEquals("News headline", launched[0].getCharSequenceExtra(Intent.EXTRA_TITLE));
+        Intent shared = launched[0].getParcelableExtra(Intent.EXTRA_INTENT);
+        assertNotNull(shared);
+        assertEquals(Intent.ACTION_SEND, shared.getAction());
+        assertEquals("text/plain", shared.getType());
+        String sharedText = shared.getStringExtra(Intent.EXTRA_TEXT);
+        assertEquals("News headline\nhttps://my.tt/agent?news=307&lang=" + locale + "&utm_source=pulse_share", sharedText);
+        assertEquals(new Deeplink.Agent(null, 307, null),
+          DeeplinkParser.Companion.parse(Uri.parse(sharedText.substring(sharedText.indexOf('\n') + 1))));
+      }
+    });
+  }
+
+  @Test
   public void httpSourceLaunchesCustomTabWithOriginalUrl() {
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
       Intent[] launched = {null};
@@ -424,7 +471,7 @@ public class AgentNewsFeedViewportTest {
       items.add(new AgentV2NewsFeedItem(
         id, String.format(Locale.ROOT, "2026-10-20T12:%02d:%02dZ", id / 60, id % 60),
         "News " + id, String.join("", Collections.nCopies(8, "Market news **summary**. ")),
-        null, Collections.emptyList(), null
+        null, Collections.emptyList(), null, null
       ));
     }
     return items;

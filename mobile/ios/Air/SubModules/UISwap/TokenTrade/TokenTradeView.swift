@@ -77,11 +77,15 @@ final class TokenTradeView: NativeTradeEntryView {
         }
         impactPresence.setContentVisible(hasImpact, animated: animated)
         let hintValue = model.hint
-        hasHint = hintValue != nil
+        let quoteHintText = model.quoteHintText
+        hasHint = hintValue != nil || quoteHintText != nil
         if let hintValue {
             let content = SwapHintContent(hint: hintValue, tradeDirection: model.direction)
             hint.update(.init(title: content.title, message: content.message, actionTitle: content.actionTitle), animated: animated)
             hint.onAction = { [weak model] in model?.performHintAction(hintValue) }
+        } else if let quoteHintText {
+            hint.update(.init(title: "", message: quoteHintText), animated: animated)
+            hint.onAction = nil
         }
         hintPresence.setContentVisible(hasHint, animated: animated)
         rendered = true

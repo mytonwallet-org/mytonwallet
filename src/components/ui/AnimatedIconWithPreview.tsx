@@ -48,10 +48,11 @@ function AnimatedIconWithPreview(props: OwnProps & StateProps) {
   const [isPreviewLoaded, markPreviewLoaded] = useFlag(
     Boolean(iconPreviewClass) || Boolean(thumbDataUri) || loadedPreviewUrls.has(previewUrl),
   );
-  // A recolored preview is a CSS mask, which has no load event to wait for. Until the image loads,
-  // the mask hides the whole element, so nothing shows up early.
-  const ref = useMediaTransition(isPreviewLoaded || noPreviewTransition || Boolean(color));
   const [isAnimationReady, markAnimationReady, markAnimationNotReady] = useFlag(false);
+  // A recolored preview is a CSS mask, which has no load event to wait for. Until the image loads,
+  // the mask hides the whole element, so nothing shows up early. A ready animation replaces the preview,
+  // which then never loads, so the icon has to stay visible when its color goes away.
+  const ref = useMediaTransition(isPreviewLoaded || noPreviewTransition || Boolean(color) || isAnimationReady);
 
   useEffect(() => {
     if (noAnimation) {

@@ -1,6 +1,7 @@
 import type {
-  AgentNewsFeedDigestV2, AgentNewsFeedItemV2, AgentThreadNewsCardV2,
+  AgentNewsDigestHeadlineV2, AgentNewsFeedDigestV2, AgentNewsFeedItemV2, AgentThreadNewsCardV2,
 } from '../../api/agentV2/protocol/types';
+import type { AgentV2ChatTarget } from '../agent/hooks/useAgentV2Messages';
 
 import { getDayStartAt } from '../../util/dateFormat';
 import { formatNumber } from '../../util/formatNumber';
@@ -19,6 +20,12 @@ type AgentNewsFeedRow =
 
 // As much of the body as the server keeps in a thread's news card
 const NEWS_EXCERPT_MAX_LENGTH = 200;
+const DIGEST_HEADLINE_BULLET = '• ';
+
+/** A digest's headlines one per line, as its card's and its post's menus copy them */
+export function formatAgentDigestHeadlines(headlines: AgentNewsDigestHeadlineV2[]) {
+  return headlines.map(({ headline }) => `${DIGEST_HEADLINE_BULLET}${headline}`).join('\n');
+}
 
 /**
  * The time a news post shows in its discussion: the time today, the day and the time this year, and the year too
@@ -108,4 +115,10 @@ export function buildAgentNewsPreviewCard(item: AgentNewsFeedItemV2): AgentThrea
     publishedAt: item.deliveredAt,
     ...(source && { source }),
   };
+}
+
+/** The language a news discussion was opened in, by its news or by its thread */
+export function getChatTargetNewsLocale(target?: AgentV2ChatTarget) {
+  if (target?.kind === 'news') return target.news.locale;
+  return target?.kind === 'thread' ? target.newsLocale : undefined;
 }

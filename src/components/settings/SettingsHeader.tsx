@@ -10,12 +10,13 @@ import styles from './Settings.module.scss';
 
 interface OwnProps {
   title?: string;
+  titleTestId?: string;
   isScrolled?: boolean;
   className?: string;
   onBackClick?: NoneToVoidFunction;
 }
 
-function SettingsHeader({ title, isScrolled, className, onBackClick }: OwnProps) {
+function SettingsHeader({ title, titleTestId, isScrolled, className, onBackClick }: OwnProps) {
   const lang = useLang();
 
   return (
@@ -33,7 +34,7 @@ function SettingsHeader({ title, isScrolled, className, onBackClick }: OwnProps)
           <span>{lang('Back')}</span>
         </Button>
       )}
-      {title && <span className={styles.headerTitle}>{title}</span>}
+      {title && <span className={styles.headerTitle} data-testid={titleTestId}>{title}</span>}
     </div>
   );
 }

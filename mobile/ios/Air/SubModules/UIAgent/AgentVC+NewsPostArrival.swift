@@ -2,7 +2,7 @@ import UIKit
 import UIComponents
 
 extension AgentVC {
-    /// Flies a news card from the feed into this chat's news post. The card's picture takes its place in `window` at once,
+    /// Flies a news or digest card from the feed into this chat's post. The card's picture takes its place in `window` at once,
     /// at `frame` in the window's coordinates, under the feed's header, which ends at `contentTop` in the window, so the
     /// feed hides the card itself. Returns whether the card flies, which it does not with Reduce Motion.
     @discardableResult
@@ -33,7 +33,7 @@ extension AgentVC {
         return AgentNewsPostArrival.Destination(
             hostView: view,
             cell: cell,
-            news: model.news,
+            post: model.newsPostContent,
             contentTop: collectionView.getContentTopInWindow(),
             contentBottom: view.convertAsShown(composerView.convert(composerView.inputBackgroundFrame, to: view), to: window).minY,
             headerBackground: navigationBarBackground

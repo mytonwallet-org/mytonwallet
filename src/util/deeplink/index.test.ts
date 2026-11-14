@@ -19,8 +19,15 @@ import { INITIAL_STATE } from '../../global/initialState';
 import { callApi } from '../../api';
 import { getEvmChains } from '../chain';
 import { openUrl } from '../openUrl';
+import { getAgentNewsShareUrl } from '../url';
+import * as deeplinkConstants from './constants';
 import {
-  getDeeplinkFromLocation, parseDeeplinkTransferParams, parseTonDeeplink, processDeeplink, processSelfDeeplink,
+  getDeeplinkFromLocation,
+  isSelfDeeplink,
+  parseDeeplinkTransferParams,
+  parseTonDeeplink,
+  processDeeplink,
+  processSelfDeeplink,
 } from './index';
 
 // Mock modules
@@ -296,6 +303,8 @@ describe('processSelfDeeplink', () => {
       openTemporaryViewAccount: jest.fn(),
       switchToPortfolio: jest.fn(),
       switchToMarket: jest.fn(),
+      switchToAgent: jest.fn(),
+      openAgentNewsDiscussion: jest.fn(),
       openMintCardModal: jest.fn(),
       addSavedAddress: jest.fn(),
       switchAccount: jest.fn(),
@@ -741,6 +750,72 @@ describe('processSelfDeeplink', () => {
 
       expect(result).toBe(true);
       expect(mockActions.switchToMarket).toHaveBeenCalled();
+    });
+  });
+
+  describe('Agent command', () => {
+    it.each([
+      'mtw://agent?news=7',
+      'https://my.tt/agent?news=2147483647&lang=ru&utm_source=pulse_share',
+    ])('should open the news discussion of %s', async (url) => {
+      expect(await processSelfDeeplink(url)).toBe(true);
+
+      const eventId = Number(new URL(url).searchParams.get('news'));
+      expect(mockActions.openAgentNewsDiscussion).toHaveBeenCalledWith({ eventId });
+      expect(mockActions.switchToAgent).not.toHaveBeenCalled();
+    });
+
+    // Gram's self host is not the short-link host its news links name
+    it.each([
+      [['https://my.tt', 'https://go.mytonwallet.org']],
+      [['https://go.gramwallet.io']],
+    ])('should open the discussion of the news its share link names with self hosts %j', async (selfUrls) => {
+      const selfUniversalUrls = jest.replaceProperty(deeplinkConstants, 'SELF_UNIVERSAL_URLS', selfUrls);
+      try {
+        const url = getAgentNewsShareUrl(1234, 'en');
+        // The link names the short-link host whatever the flavor's self hosts are
+        expect(url).toBe('https://my.tt/agent?news=1234&lang=en&utm_source=pulse_share');
+        expect(await processDeeplink(url)).toBe(true);
+        // In any order of its parameters
+        expect(await processDeeplink('https://my.tt/agent?lang=en&news=5')).toBe(true);
+      } finally {
+        selfUniversalUrls.restore();
+      }
+
+      expect(mockActions.openAgentNewsDiscussion).toHaveBeenNthCalledWith(1, { eventId: 1234 });
+      expect(mockActions.openAgentNewsDiscussion).toHaveBeenNthCalledWith(2, { eventId: 5 });
+    });
+
+    // Gram takes the short-link host as its own for news alone
+    it.each([
+      'https://my.tt/agent',
+      'https://my.tt/agent/x?news=7',
+      'https://my.tt/swap?news=7',
+      'https://example.com/agent?news=7',
+    ])('should not take %s as a self link in Gram', (url) => {
+      const selfUniversalUrls = jest.replaceProperty(
+        deeplinkConstants, 'SELF_UNIVERSAL_URLS', ['https://go.gramwallet.io'],
+      );
+      try {
+        expect(isSelfDeeplink(url)).toBe(false);
+      } finally {
+        selfUniversalUrls.restore();
+      }
+    });
+
+    it.each([
+      'mtw://agent',
+      'mtw://agent?news=0',
+      'mtw://agent?news=abc',
+      'mtw://agent?news=1e3',
+      'mtw://agent?news=-1',
+      'mtw://agent?news=2147483648',
+      'https://my.tt/agent?news=7&digest=digest-1',
+    ])('should only switch to the agent for %s', async (url) => {
+      expect(await processSelfDeeplink(url)).toBe(true);
+
+      expect(mockActions.switchToAgent).toHaveBeenCalledTimes(1);
+      expect(mockActions.openAgentNewsDiscussion).not.toHaveBeenCalled();
     });
   });
 

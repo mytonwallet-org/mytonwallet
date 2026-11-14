@@ -23,6 +23,9 @@ public final class AgentSuggestionButton: UIButton {
     private let arrowView = UIImageView()
     private var suggestionTitle = ""
     private var showsArrow = false
+    private var hasIcon = false
+    private static let arrowImage = UIImage(named: "AgentFollowupArrow", in: AirBundle, compatibleWith: nil)?
+        .withRenderingMode(.alwaysOriginal)
 
     public var maximumNumberOfLines = 1 {
         didSet {
@@ -103,8 +106,7 @@ public final class AgentSuggestionButton: UIButton {
         titleGradient.mask = labelMask.layer
         titleGradient.actions = ["bounds": NSNull(), "position": NSNull(), "colors": NSNull()]
         capsuleView.layer.addSublayer(titleGradient)
-        arrowView.image = UIImage(named: "AgentFollowupArrow", in: AirBundle, compatibleWith: nil)?
-            .withRenderingMode(.alwaysOriginal)
+        arrowView.image = Self.arrowImage
         arrowView.contentMode = .scaleAspectFit
         arrowView.isAccessibilityElement = false
         capsuleView.addSubview(arrowView)
@@ -119,12 +121,15 @@ public final class AgentSuggestionButton: UIButton {
         fatalError("init(coder:) has not been implemented")
     }
 
-    public func configure(title: String, showsArrow: Bool = false) {
+    /// With `icon`, a template image, the pill shows it before the title in the title's colour, in the arrow's place
+    public func configure(title: String, showsArrow: Bool = false, icon: UIImage? = nil) {
         suggestionTitle = title
-        self.showsArrow = showsArrow
+        self.showsArrow = showsArrow || icon != nil
+        hasIcon = icon != nil
+        arrowView.image = icon ?? Self.arrowImage
         labelMask.attributedText = NSAttributedString(string: title, attributes: Self.textAttributes)
         labelMask.layer.setNeedsDisplay()
-        arrowView.isHidden = !showsArrow
+        arrowView.isHidden = !self.showsArrow
         accessibilityLabel = title
         invalidateIntrinsicContentSize()
         setNeedsLayout()
@@ -217,7 +222,7 @@ public final class AgentSuggestionButton: UIButton {
             width: 15,
             height: Self.singleLineTitleHeight
         ).offsetBy(dx: -pillFrame.minX, dy: -pillFrame.minY)
-        arrowView.transform = isRTL ? CGAffineTransform(scaleX: -1, y: 1) : .identity
+        arrowView.transform = isRTL && !hasIcon ? CGAffineTransform(scaleX: -1, y: 1) : .identity
     }
 
     /// Fades the title and the arrow in after `delay`, as a placeholder's pill gets its suggestion
@@ -245,6 +250,7 @@ public final class AgentSuggestionButton: UIButton {
 
     private func updateColors() {
         AgentSuggestionAppearance.configureTitleGradient(titleGradient, for: traitCollection)
+        arrowView.tintColor = AgentSuggestionAppearance.titleGradientColors(for: traitCollection).first.map(UIColor.init(cgColor:))
     }
 
     @objc private func handleGlassTap() {

@@ -44,7 +44,7 @@ class ExploreTrendingItemCell(
     WThemedView {
 
     private val imageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(22f.dp)
+        defaultRounding = Content.Rounding.Radius(0f)
         set(
             Content.ofUrl(
                 site.extendedIcon.ifBlank { site.iconUrl ?: "" }
@@ -53,6 +53,7 @@ class ExploreTrendingItemCell(
     }
 
     private val imageViewContainer = WFrameLayout(context).apply {
+        setBackgroundColor(Color.TRANSPARENT, 22f.dp, true)
         addView(imageView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
@@ -100,6 +101,7 @@ class ExploreTrendingItemCell(
     private val bottomBlurView = WGlassView(context).apply {
         flavor = GlassFlavor.FROSTED
         fadeSide = WGlassView.FadeSide.TOP
+        transparentBackstop = true
         setProvider(GlassProviders.plain(WColor.Transparent, 130 / 255f))
         setupWith(imageViewContainer)
     }

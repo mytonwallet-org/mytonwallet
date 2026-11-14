@@ -1,4 +1,6 @@
-import type { AgentToolCall, AgentWalletDataQueryArgs, AgentWalletTransactionsListArgs } from './types';
+import type {
+  AgentHintPoolResponseV2, AgentToolCall, AgentWalletDataQueryArgs, AgentWalletTransactionsListArgs,
+} from './types';
 
 import { getSupportedChains } from '../../../util/chain';
 import compatibilityFixture from '../../../../tests/fixtures/agentV2/client-wire-compatibility.v1.json';
@@ -13,6 +15,7 @@ import {
   decodeAgentV2ApiError,
   decodeAgentV2DefaultThread,
   decodeAgentV2FeatureCapabilities,
+  decodeAgentV2HintPool,
   decodeAgentV2Hints,
   decodeAgentV2Messages,
   decodeAgentV2NewsFeed,
@@ -378,13 +381,52 @@ describe('Agent V2 news feed contracts', () => {
     })).toEqual(response);
   });
 
-  it('decodes digests with and without a discussion, and ignores their extensions', () => {
+  it.each([
+    { title: 'Network update', icon: '📰', followups: ['What changed?'] },
+    { title: 'Network update', followups: [] },
+    undefined,
+  ])('decodes optional discussion naming: %j', (discussionNaming) => {
+    const item = { ...newsFeedItem(), ...(discussionNaming !== undefined && { discussionNaming }) };
+    const digest = { ...newsFeedDigest(), ...(discussionNaming !== undefined && { discussionNaming }) };
+    const response = { protocolVersion: 3, locale: 'en', items: [item], digests: [digest] };
+    expect(decodeAgentV2NewsFeed(response)).toEqual(response);
+  });
+
+  it.each([
+    JSON.parse('null') as unknown,
+    { title: '', followups: [] },
+    { title: ' ', followups: [] },
+    { title: 'a\u0000b', followups: [] },
+    { title: 'Network update', icon: 42, followups: [] },
+    { title: 'Network update', icon: 'x'.repeat(17), followups: [] },
+    { title: 'Network update', followups: ['What changed?', 42] },
+    { title: 'Network update', followups: [' '] },
+    { title: 'Network update', followups: ['**What changed?**'] },
+    { title: 'Network update', followups: ['a\nb'] },
+    { title: 'Network update', followups: ['One', 'Two', 'Three', 'Four'] },
+    { title: 'Network update', followups: ['x'.repeat(81)] },
+    { title: 'x'.repeat(81), followups: [] },
+  ])('discards malformed discussion naming and preserves the feed item, digest and page: %j', (discussionNaming) => {
+    const item = newsFeedItem();
+    const digest = newsFeedDigest();
+    expect(decodeAgentV2NewsFeed({
+      protocolVersion: 3,
+      locale: 'en',
+      items: [{ ...item, discussionNaming }],
+      digests: [{ ...digest, discussionNaming }],
+    })).toEqual({ protocolVersion: 3, locale: 'en', items: [item], digests: [digest] });
+  });
+
+  it('decodes digests with and without a discussion, headlines with and without a picture, ignoring extensions', () => {
     const digests = [
       { ...newsFeedDigest(), discussion: { threadId: THREAD_ID, icon: '📰' } },
       { ...newsFeedDigest(), id: 'en:2026-11-05T08:00:00.000Z', top: newsFeedDigest().top.slice(0, 1) },
     ];
     const response = { protocolVersion: 3, locale: 'en', items: [newsFeedItem()], digests };
-    expect(decodeAgentV2NewsFeed(response)).toEqual(response);
+    const decoded = decodeAgentV2NewsFeed(response);
+    expect(decoded).toEqual(response);
+    expect(decoded.digests![0].top[0].imageUrl).toBe(newsFeedDigest().top[0].imageUrl);
+    expect(decoded.digests![0].top[1]).not.toHaveProperty('imageUrl');
     expect(decodeAgentV2NewsFeed({
       ...response,
       digests: digests.map((digest) => ({
@@ -405,6 +447,7 @@ describe('Agent V2 news feed contracts', () => {
     { digests: [{}] },
     { top: [] }, { top: Array.from({ length: 6 }, (_, index) => ({ eventId: index + 1, headline: 'TON update' })) },
     { top: [{ eventId: 0, headline: 'TON update' }] }, { top: [{ eventId: 42, headline: '' }] },
+    { top: [{ eventId: 42, headline: 'TON update', imageUrl: 42 }] },
     { id: '' }, { id: 'x'.repeat(65) }, { deliveredAt: 'invalid' }, { total: 0 }, { total: 1.5 },
     JSON.parse('{"discussion": null}') as Record<string, unknown>,
     { discussion: { threadId: 'not-a-thread' } },
@@ -1598,6 +1641,31 @@ describe('Agent V2 semantic public contract', () => {
     }).items).toHaveLength(1);
   });
 
+  it('reads the hint pool and drops the items it cannot read', () => {
+    const pool = compatibilityFixture.fixtures
+      .find(({ schema }) => schema === 'AgentHintPoolResponseV2')!.values[0] as AgentHintPoolResponseV2;
+    expect(decodeAgentV2HintPool(pool)).toEqual(pool);
+    expect(pool.items).toHaveLength(17);
+
+    const items = [
+      { id: 'future.hint', group: 'market' },
+      { id: 'market.today', group: 'future' },
+      { id: 'action.swap', group: 'action', requiredActions: ['swap', 'future'] },
+      { id: 'wallet.fund', group: 'wallet', walletState: 'future' },
+      { id: 'wallet.assets', group: 'wallet', walletState: 'funded', title: 'Show my assets' },
+      { id: 'action.send', group: 'action', requiredActions: ['send'] },
+    ];
+    expect(decodeAgentV2HintPool({ ...pool, items }).items).toEqual([
+      { id: 'wallet.assets', group: 'wallet', walletState: 'funded' },
+      { id: 'action.send', group: 'action', requiredActions: ['send'] },
+    ]);
+    expect(() => decodeAgentV2HintPool({ ...pool, items: {} })).toThrow(AgentV2ContractError);
+    const fullItems = Array.from({ length: 64 }, (_, index) => pool.items[index % pool.items.length]);
+    expect(decodeAgentV2HintPool({ ...pool, items: fullItems }).items).toHaveLength(64);
+    expect(() => decodeAgentV2HintPool({ ...pool, items: [...fullItems, pool.items[0]] }))
+      .toThrow(AgentV2ContractError);
+  });
+
   it('accepts the flat backend wallet-query transaction frame', () => {
     const toolCall = {
       id: TOOL_CALL_ID,
@@ -1990,6 +2058,9 @@ function decodeCompatibilityFixtureGroup(fixture: CompatibilityFixtureGroup) {
     case 'AgentHintsResponseV2':
       fixture.values.forEach((value) => expect(decodeAgentV2Hints(value)).toBeDefined());
       break;
+    case 'AgentHintPoolResponseV2':
+      fixture.values.forEach((value) => expect(decodeAgentV2HintPool(value)).toBeDefined());
+      break;
     case 'AgentWalletSnapshotAckV1':
       fixture.values.forEach((value) => expect(decodeAgentV2WalletSnapshotAck(value)).toBeDefined());
       break;
@@ -2030,7 +2101,10 @@ function newsFeedDigest() {
   return {
     id: 'en:2026-11-04T08:00:00.000Z',
     deliveredAt: '2026-11-04T08:00:00.000Z',
-    top: [{ eventId: 42, headline: 'TON update' }, { eventId: 43, headline: 'Bitcoin update' }],
+    top: [
+      { eventId: 42, headline: 'TON update', imageUrl: 'https://pulse.mytonwallet.org/images/42.jpg' },
+      { eventId: 43, headline: 'Bitcoin update' },
+    ],
     total: 12,
   };
 }

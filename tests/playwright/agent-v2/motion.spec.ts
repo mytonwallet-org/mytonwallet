@@ -56,7 +56,15 @@ const QUESTION_FLIGHT_MS = 500;
 // A suggestion's reveal, which the tail of the bubble it hangs from goes into its corner with
 const TAIL_AWAY_MS = 300;
 // The tail grows back on a spring that settles in 400 ms, 50 ms after the suggestions go
+const TAIL_SPRING_MS = 400;
 const TAIL_BACK_MS = 450;
+// The longest the tail is recorded growing back, as a busy runner gets its transitions under way later
+const TAIL_BACK_MAX_RECORDING_MS = 4000;
+// The tail has rested whole for this many frames when such a recording ends
+const TAIL_WHOLE_FRAME_COUNT = 3;
+// An empty chat's hints fade and slide down this far over this time as its first question comes
+const HINTS_LEAVE_MS = 250;
+const HINTS_LEAVE_SLIDE_PX = 26;
 // The farthest the question a new chat opens with stands below the list's top, under the date line that opens the chat
 const OPENING_QUESTION_MAX_OFFSET_PX = 96;
 // A flight's last state stands on the bubble as the flight reads it in the same frame
@@ -69,6 +77,33 @@ const OPENING_SETTLE_MS = 500;
 const LONG_ANSWER = Array.from({ length: 50 }, (_, index) => `Part ${index + 1}.`).join('\n\n');
 // The most a streamed letter may move as it settles from the Agent's colours into the text's
 const LETTER_TOLERANCE_PX = 0.25;
+// Questions asked before, whose answers run over a couple of lines on a phone
+const QUEUE_HISTORY_QUESTIONS = [
+  'Open the chat with a question long enough to wrap',
+  'Ask a second question that wraps onto another line',
+  'Ask a third question that wraps onto another line too',
+];
+const QUEUE_PINNED_QUESTION = 'The question being answered';
+const QUEUE_WAITING_QUESTIONS = [
+  'The first question that waits',
+  'The second question that waits',
+  'The third question that waits',
+];
+// The Agent thinks this long, and the list is recorded this long after an answer has come
+const QUEUE_STEP_MS = 1500;
+const QUEUE_RECORDING_MAX_MS = 30_000;
+// The list rests once it has held still for longer than a question that shows where it lands waits there before the
+// list takes it up
+const QUEUE_REST_MS = QUESTION_IN_PLACE_MS;
+// A queued question that moves the rows on screen does so within this time
+const ROW_MOVE_WATCH_MS = 1500;
+// A frame is this long at 60 Hz
+const FRAME_MS = 1000 / 60;
+// Rows hold still to within this, as subpixel layout rounds
+const STILL_TOLERANCE_PX = 2;
+// The fastest a row moves on screen in a frame: the scroll that pins a question and a glide together stay below it,
+// while a jump of the list or of the rows over a screen's part goes past it
+const MAX_FRAME_STEP_PX = 56;
 
 test.use({ video: 'on' });
 
@@ -372,6 +407,12 @@ for (const viewport of VIEWPORTS) {
     }, testInfo) => {
       await agentV2.reset('news-post');
       await agentV2.seedWallet();
+      await page.route('**/api/v2/news-feed?*', async (route) => {
+        const response = await route.fetch();
+        const feed = await response.json();
+        feed.items[0].discussion = { threadId: SERVER_THREAD_ID };
+        await route.fulfill({ response, json: feed });
+      });
       let releaseHistory!: () => void;
       const historyMayFinish = new Promise<void>((resolve) => {
         releaseHistory = resolve;
@@ -783,23 +824,28 @@ for (const viewport of VIEWPORTS) {
 
       // A tapped followup takes the followups away, and the tail grows back out of its corner on its spring
       const answerId = going.at(-1)!.messageId;
-      const backRecording = recordTail(page, 1000, answerId);
+      const backRecording = recordTail(page, TAIL_BACK_MAX_RECORDING_MS, answerId, true);
       await page.getByRole('button', { name: FOLLOWUPS[0].text, exact: true }).click();
       const back = (await backRecording).filter(({ tail }) => tail);
       await testInfo.attach('tail-back.json', {
         body: JSON.stringify(back, undefined, 2), contentType: 'application/json',
       });
-      const growing = back.filter(({ tail }) => tail!.opacity > 0.05 && tail!.opacity < 0.95);
-      expect(growing.length, JSON.stringify(back)).toBeGreaterThanOrEqual(2);
-      // The tail's own transitions, each started once, end within the spring's time after the followups go
+      // The tail's own transitions, each started once, take the spring's time and end within it after the followups
+      // go
       const tailTransitions = new Map(back.flatMap((frame) => frame.tailTransitions).map((transition) => (
         [`${transition.property}@${transition.startTime}`, transition] as const
       )));
       for (const property of ['transform', 'opacity']) {
         const started = Array.from(tailTransitions.values()).filter((transition) => transition.property === property);
         expect(started, JSON.stringify(back)).toHaveLength(1);
+        expect(started[0].duration, JSON.stringify(started)).toBe(TAIL_SPRING_MS);
         expect(started[0].delay + started[0].duration, JSON.stringify(started)).toBeLessThanOrEqual(TAIL_BACK_MS);
       }
+      // The tail is seen growing on them, in however few frames a busy runner draws meanwhile
+      const growing = back.filter((frame) => frame.tailTransitions.some(({ delay, duration, currentTime }) => (
+        currentTime > delay && currentTime < delay + duration
+      )));
+      expect(growing.length, JSON.stringify(back)).toBeGreaterThanOrEqual(1);
       // And the tail is seen whole by then, within a frame drawn late on a loaded machine
       const backIndex = back.findIndex(({ tail }) => tail!.opacity === 1 && tail!.transform === 'none');
       const backFrameGap = Math.max(...back.slice(1).map(({ time }, index) => time - back[index].time));
@@ -905,13 +951,24 @@ for (const viewport of VIEWPORTS) {
           expect(Math.abs(frame.bubble!.top - shown.bubble!.top), JSON.stringify(frame)).toBeLessThanOrEqual(1);
           expect(frame.scrollTop, JSON.stringify(frame)).toBe(shown.scrollTop);
         }
-        // The hints fade where they stood, only sliding down a little, and go
+        // The hints fade where they stood, only sliding down a little, and go: their box holds still, neither pushed by
+        // the question nor taking its place, and only their own slide takes them down, as far as it goes and never back
         const withHints = frames.filter(({ hints }) => hints);
-        withHints.slice(1).forEach((frame, index) => {
-          expect(Math.abs(frame.hints!.top - withHints[index].hints!.top), JSON.stringify(frame)).toBeLessThan(12);
+        const standingTop = withHints[0].hints!.top;
+        withHints.forEach(({ hints }, index) => {
+          expect(Math.abs(hints!.top - hints!.slide - standingTop), JSON.stringify(hints))
+            .toBeLessThanOrEqual(STILL_TOLERANCE_PX);
+          expect(hints!.slide, JSON.stringify(hints)).toBeLessThanOrEqual(HINTS_LEAVE_SLIDE_PX);
+          if (!index) return;
+          expect(hints!.slide, JSON.stringify(hints)).toBeGreaterThanOrEqual(withHints[index - 1].hints!.slide);
         });
-        expect(frames.slice(shownIndex).some(({ hints }) => hints && hints.opacity > 0.05 && hints.opacity < 0.95))
-          .toBe(true);
+        // They fade and slide on transitions of their own, which go on between the frames a busy runner draws
+        const hintsTransitions = frames.slice(shownIndex).flatMap((frame) => frame.hintsTransitions);
+        for (const property of ['opacity', 'transform']) {
+          const started = hintsTransitions.filter((transition) => transition.property === property);
+          expect(started, JSON.stringify(hintsTransitions)).toHaveLength(1);
+          expect(started[0].duration, JSON.stringify(started)).toBe(HINTS_LEAVE_MS);
+        }
         expect(frames.at(-1)!.hints, JSON.stringify(frames.at(-1))).toBeUndefined();
         // The run's activity comes up under the question, clear of the hints as they fade
         for (const { hints, activity } of frames) {
@@ -1104,6 +1161,83 @@ for (const viewport of VIEWPORTS) {
         }
       }
     });
+
+    test('keeps the questions that wait in place as another is queued, the answer comes and the next one goes', async ({
+      agentV2, page,
+    }, testInfo) => {
+      test.setTimeout(120_000);
+      await agentV2.reset();
+      await agentV2.seedWallet();
+      // Each run waits for the test while the Agent thinks, then streams: the answer's message starts, its text comes
+      // in a later chunk, and the run ends soon after, while the answer still appears
+      const heldRuns: (() => void)[] = [];
+      await page.route('**/api/v2/runs', async (route) => {
+        await new Promise<void>((resolve) => {
+          heldRuns.push(resolve);
+        });
+        await route.continue();
+      });
+      let releasedRunCount = 0;
+      const releaseRun = async () => {
+        await expect.poll(() => heldRuns.length).toBeGreaterThan(releasedRunCount);
+        heldRuns[releasedRunCount]();
+        releasedRunCount += 1;
+      };
+      const input = page.locator('textarea[placeholder="Ask anything"]:visible');
+      const send = page.getByRole('button', { name: 'Send', exact: true });
+      const stop = page.getByRole('button', { name: 'Stop response', exact: true });
+      const userMessage = page.locator('[data-agent-v2-message-role="user"]:visible');
+      const activity = page.locator('[data-agent-conversation] [data-agent-run-activity]');
+      await agentV2.open();
+      await agentV2.waitForList();
+      await agentV2.send(QUEUE_HISTORY_QUESTIONS[0]);
+      await releaseRun();
+      await expect(page.getByText(`Deterministic response: ${QUEUE_HISTORY_QUESTIONS[0]}`, { exact: true }))
+        .toBeVisible();
+      // The chat has some history above the questions, each pinned as it is sent
+      for (const question of QUEUE_HISTORY_QUESTIONS.slice(1)) {
+        await expect(stop).toHaveCount(0);
+        await input.fill(question);
+        await expect(send).toBeEnabled();
+        await input.press('Enter');
+        await releaseRun();
+        await expect(page.getByText(`Deterministic response: ${question}`, { exact: true })).toBeVisible();
+      }
+      await expect(stop).toHaveCount(0);
+
+      // The question sent next is pinned under the header while the Agent thinks
+      await input.fill(QUEUE_PINNED_QUESTION);
+      await expect(send).toBeEnabled();
+      await input.press('Enter');
+      await expect(activity.last()).toBeVisible();
+      await waitForQueueListRest(page);
+
+      // The questions wait under the activity, each queued as the others wait. The answer comes, the first of them
+      // goes, and its own answer comes in turn.
+      await startQueueRecording(page);
+      for (const question of QUEUE_WAITING_QUESTIONS) {
+        await input.fill(question);
+        await expect(send).toBeEnabled();
+        await input.press('Enter');
+        await expect(userMessage.last()).toContainText(question);
+      }
+      await page.waitForTimeout(QUEUE_STEP_MS);
+      await releaseRun();
+      await expect(page.getByText(`Deterministic response: ${QUEUE_PINNED_QUESTION}`, { exact: true }))
+        .toBeVisible();
+      await page.waitForTimeout(QUEUE_STEP_MS);
+      await releaseRun();
+      await expect(page.getByText(`Deterministic response: ${QUEUE_WAITING_QUESTIONS[0]}`, { exact: true }))
+        .toBeVisible();
+      await page.waitForTimeout(QUEUE_STEP_MS);
+      const recording = await finishQueueRecording(page);
+      const framesPath = testInfo.outputPath('queue-frames.json');
+      await writeFile(framesPath, JSON.stringify(recording, undefined, 2));
+      await testInfo.attach('queue-frames.json', { path: framesPath, contentType: 'application/json' });
+
+      const failures = findQueueMotionFailures(recording.frames);
+      expect(failures.length, failures.slice(0, 40).join('\n')).toBe(0);
+    });
   });
 }
 
@@ -1145,12 +1279,17 @@ async function waitForLastAnswerTyped(page: Page) {
 // The chat list shows the server's thread, whose history holds no message yet, as a chat cleared elsewhere, so the
 // chat opens with the hints of an empty chat and its runs answer in it
 async function routeEmptyThread(page: Page) {
-  await page.route('**/api/v2/hints*', (route) => route.fulfill({
+  // One hint of each group, so that the pick shows them all
+  await page.route('**/api/v2/hints/pool*', (route) => route.fulfill({
     json: {
       protocolVersion: 3,
-      catalogVersion: 'agent-starter-hints-v1',
-      items: ['agent.capabilities', 'learn.swap', 'learn.staking', 'learn.security', 'receive.tokens']
-        .map((id) => ({ id, requiredCapabilities: [] })),
+      catalogVersion: 'agent-starter-hints-v2',
+      items: [
+        { id: 'agent.capabilities', group: 'learn' },
+        { id: 'receive.tokens', group: 'wallet' },
+        { id: 'market.today', group: 'market' },
+        { id: 'action.swap', group: 'action' },
+      ],
     },
   }));
   // The list leaves out a chat it counts no message in
@@ -1495,11 +1634,16 @@ function assertFlightStates(states: FlightState[]) {
   return { first, landing };
 }
 
-// The tail of an answer, the last one or the one with `messageId`, and the corner it goes into
-function recordTail(page: Page, duration: number, messageId?: string) {
-  return page.evaluate(async ({ milliseconds, id, bubbleSelector }) => {
+// The tail of an answer, the last one or the one with `messageId`, and the corner it goes into, for `duration`, or,
+// `shouldEndWhole`, until the tail has rested whole after its transitions, for `duration` at most
+function recordTail(page: Page, duration: number, messageId?: string, shouldEndWhole = false) {
+  return page.evaluate(async ({
+    milliseconds, id, bubbleSelector, isUntilWhole, wholeFrameCount,
+  }) => {
     const frames = [];
     const startedAt = performance.now();
+    let hasTransitioned = false;
+    let wholeFrames = 0;
     while (performance.now() - startedAt < milliseconds) {
       await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
       const host = Array.from(document.querySelectorAll<HTMLElement>('[data-agent-conversation]')).at(-1);
@@ -1518,19 +1662,32 @@ function recordTail(page: Page, duration: number, messageId?: string) {
           startTime: Number(startTime),
           delay: delay ?? 0,
           duration: Number(duration),
+          currentTime: Number(animation.currentTime),
         }];
       });
+      const tailState = tail ? { opacity: Number(tail.opacity), transform: tail.transform } : undefined;
       frames.push({
         time: performance.now() - startedAt,
         messageId: answer?.dataset.agentV2MessageId,
         followupCount: answer?.querySelectorAll('[data-agent-followup-id]').length ?? 0,
-        tail: tail ? { opacity: Number(tail.opacity), transform: tail.transform } : undefined,
+        tail: tailState,
         tailTransitions,
         cornerRadius: bubble ? Number.parseFloat(getComputedStyle(bubble).borderEndStartRadius) : 0,
       });
+      hasTransitioned ||= tailTransitions.length > 0;
+      const isWhole = hasTransitioned && !tailTransitions.length && tailState?.opacity === 1
+        && tailState.transform === 'none';
+      wholeFrames = isWhole ? wholeFrames + 1 : 0;
+      if (isUntilWhole && wholeFrames >= wholeFrameCount) break;
     }
     return frames;
-  }, { milliseconds: duration, id: messageId, bubbleSelector: BUBBLE_SELECTOR });
+  }, {
+    milliseconds: duration,
+    id: messageId,
+    bubbleSelector: BUBBLE_SELECTOR,
+    isUntilWhole: shouldEndWhole,
+    wholeFrameCount: TAIL_WHOLE_FRAME_COUNT,
+  });
 }
 
 // The flight over the screens, and the bubble, the thinking row under it and the screen of the chat that opens with the
@@ -1606,11 +1763,22 @@ function recordEmptyChatSend(page: Page, duration: number) {
   return page.evaluate(async ({ milliseconds, bubbleSelector }) => {
     const frames = [];
     const startedAt = performance.now();
+    // The transitions the hints start, as each starts, though it may start and end between two frames drawn
+    let hintsTransitions: { property: string; duration: number }[] = [];
+    function handleTransitionRun({ target, propertyName }: TransitionEvent) {
+      if (!(target instanceof HTMLElement) || !target.matches('[data-agent-hints]')) return;
+      const transition = target.getAnimations().find((animation) => (
+        animation instanceof CSSTransition && animation.transitionProperty === propertyName
+      ));
+      hintsTransitions.push({ property: propertyName, duration: Number(transition?.effect?.getTiming().duration) });
+    }
+    document.addEventListener('transitionrun', handleTransitionRun, true);
     while (performance.now() - startedAt < milliseconds) {
       await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
       const host = Array.from(document.querySelectorAll<HTMLElement>('[data-agent-conversation]')).at(-1)!;
       const hints = host.querySelector<HTMLElement>('[data-agent-hints]');
       const hintsRect = hints?.getBoundingClientRect();
+      const hintsStyle = hints && getComputedStyle(hints);
       const bubble = host.querySelector<HTMLElement>(`[data-agent-v2-message-role="user"] ${bubbleSelector}`);
       const activity = host.querySelector<HTMLElement>('[data-agent-run-activity]');
       const activityRect = activity?.getBoundingClientRect();
@@ -1624,13 +1792,16 @@ function recordEmptyChatSend(page: Page, duration: number) {
       frames.push({
         time: performance.now() - startedAt,
         scrollTop: host.querySelector<HTMLElement>('.custom-scroll')!.scrollTop,
-        hints: hints && hintsRect ? {
+        hints: hints && hintsRect && hintsStyle ? {
           top: hintsRect.top,
           bottom: hintsRect.bottom,
-          opacity: Number(getComputedStyle(hints).opacity),
+          // How far their own transform takes them down
+          slide: hintsStyle.transform === 'none' ? 0 : new DOMMatrixReadOnly(hintsStyle.transform).m42,
+          opacity: Number(hintsStyle.opacity),
           buttons: Array.from(hints.querySelectorAll('button'))
             .map((button) => ({ isVisible: getComputedStyle(button).visibility === 'visible' })),
         } : undefined,
+        hintsTransitions,
         bubble: bubble ? { top: bubble.getBoundingClientRect().top } : undefined,
         activity: activity && activityRect?.height
           ? { top: activityRect.top, bottom: activityRect.bottom, opacity: activityOpacity }
@@ -1638,9 +1809,11 @@ function recordEmptyChatSend(page: Page, duration: number) {
         hasFlight: Boolean(host.querySelector('[class*="__motionLayer__"] [class*="__flightBubble__"]')),
         hasMorph: Boolean(host.querySelector('[class*="__motionLayer__"] [class*="__followupMorph__"]')),
       });
+      hintsTransitions = [];
       // The recording has the chat as it stands before the test acts on it
       document.body.dataset.agentRecording = 'started';
     }
+    document.removeEventListener('transitionrun', handleTransitionRun, true);
     delete document.body.dataset.agentRecording;
     return frames;
   }, { milliseconds: duration, bubbleSelector: BUBBLE_SELECTOR });
@@ -1697,7 +1870,9 @@ function recordNewsFlight(page: Page) {
         const insets = style.clipPath.match(/^inset\(([^)]+)\)/u)?.[1].split(/\s+/u).map(parseFloat) ?? [0];
         const topInset = insets[0];
         const bottomInset = insets[2] ?? topInset;
-        const headers = Array.from(document.querySelectorAll<HTMLElement>('[data-agent-header]'))
+        const headers = Array.from(document.querySelectorAll<HTMLElement>(
+          '[data-agent-header], [data-agent-header-accessory]',
+        ))
           .map((header) => header.getBoundingClientRect())
           .filter((header) => header.right > rect.left && header.left < rect.right);
         const headerBottom = Math.max(0, ...headers.map((header) => header.bottom));
@@ -1797,4 +1972,320 @@ function recordNewsPicture(page: Page) {
     landedFrameCount: LANDED_FRAME_COUNT,
     maxDuration: NEWS_PICTURE_MAX_RECORDING_MS,
   });
+}
+
+interface QueueRow {
+  /** The message's id, or `activity` */
+  key: string;
+  /** The row's element, numbered as it was first seen, so that a row put in again counts as another */
+  node: number;
+  role: 'user' | 'assistant' | 'activity';
+  status?: string;
+  /** The text of the row's bubble, empty while an answer has none */
+  text: string;
+  /** Where its bubble, or the row without one, stands against the top of the list's box */
+  top: number;
+  bottom: number;
+  /** With the opacity of every element between it and the list */
+  opacity: number;
+  translate: string;
+}
+
+interface QueueFrame {
+  time: number;
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+  /** Where the list's padding leaves the messages, against the top of its box */
+  visibleTop: number;
+  visibleBottom: number;
+  spacerHeight?: number;
+  liveTailKey?: string;
+  reserveBottom?: number;
+  rows: QueueRow[];
+}
+
+interface QueueScrollWrite {
+  time: number;
+  from: number;
+  to: number;
+  /** The calls that set the list's scroll position */
+  stack: string[];
+}
+
+interface QueueRecording {
+  frames: QueueFrame[];
+  scrollWrites: QueueScrollWrite[];
+}
+
+// The list holds still for `QUEUE_REST_MS`, its rows in place and its scroll position kept
+async function waitForQueueListRest(page: Page) {
+  await expect.poll(() => page.evaluate(async (restMs) => {
+    const host = Array.from(document.querySelectorAll<HTMLElement>('[data-agent-conversation]')).at(-1)!;
+    const list = host.querySelector<HTMLElement>('.custom-scroll')!;
+    const measure = () => [list.scrollTop, ...Array.from(list.querySelectorAll('[data-agent-v2-message-id]'))
+      .map((row) => row.getBoundingClientRect().top)].join();
+    const shown = measure();
+    const startedAt = performance.now();
+    while (performance.now() - startedAt < restMs) {
+      await new Promise(requestAnimationFrame);
+      if (measure() !== shown) return false;
+    }
+    return true;
+  }, QUEUE_REST_MS), { timeout: 10_000 }).toBe(true);
+}
+
+/**
+ * Samples, after each frame has been drawn, where every message and activity of the open chat stands on screen and how
+ * opaque it is, until `finishQueueRecording`. Every write of the list's scroll position is noted with its callers.
+ */
+async function startQueueRecording(page: Page) {
+  await page.evaluate(({ bubbleSelector, maxMs }) => {
+    const host = Array.from(document.querySelectorAll<HTMLElement>('[data-agent-conversation]')).at(-1)!;
+    const list = host.querySelector<HTMLElement>('.custom-scroll')!;
+    const startedAt = performance.now();
+    const nodes = new WeakMap<Element, number>();
+    let nodeCount = 0;
+    const recording = { isDone: false, frames: [] as QueueFrame[], scrollWrites: [] as QueueScrollWrite[] };
+
+    function recordScrollWrite(element: Element, to: number) {
+      if (element !== list) return;
+      recording.scrollWrites.push({
+        time: performance.now() - startedAt,
+        from: list.scrollTop,
+        to,
+        stack: (new Error().stack ?? '').split('\n').slice(3, 14)
+          .map((line) => line.trim().replace(/https?:\/\/[^/]+\//gu, '')),
+      });
+    }
+
+    const scrollTopDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!;
+    Object.defineProperty(Element.prototype, 'scrollTop', {
+      configurable: true,
+      get(this: Element) {
+        return scrollTopDescriptor.get!.call(this);
+      },
+      set(this: Element, value: number) {
+        recordScrollWrite(this, value);
+        scrollTopDescriptor.set!.call(this, value);
+      },
+    });
+    const { scrollTo } = Element.prototype;
+    Element.prototype.scrollTo = function recordScrollTo(this: Element, ...args: unknown[]) {
+      const [options, y] = args;
+      const top = typeof options === 'object' ? (options as ScrollToOptions | null)?.top : y;
+      recordScrollWrite(this, Number(top));
+      Reflect.apply(scrollTo, this, args);
+    };
+
+    function getOpacity(element: Element) {
+      let opacity = 1;
+      for (let current: Element | null = element; current && current !== list; current = current.parentElement) {
+        opacity *= Number(getComputedStyle(current).opacity);
+      }
+      return opacity;
+    }
+
+    function getNode(element: Element) {
+      if (!nodes.has(element)) {
+        nodeCount += 1;
+        nodes.set(element, nodeCount);
+      }
+      return nodes.get(element)!;
+    }
+
+    function measureRow(element: HTMLElement, listTop: number): QueueRow {
+      const isActivity = element.hasAttribute('data-agent-run-activity');
+      const bubble = isActivity ? undefined : element.querySelector<HTMLElement>(bubbleSelector) ?? undefined;
+      // An answer with no text yet shows the activity in its place
+      const isAnswerPlaceholder = !isActivity && Boolean(element.querySelector('[data-agent-run-activity]'));
+      const { top, bottom } = (bubble ?? element).getBoundingClientRect();
+      return {
+        key: isActivity ? 'activity' : element.getAttribute('data-agent-v2-message-id')!,
+        node: getNode(element),
+        role: isActivity
+          ? 'activity'
+          : element.getAttribute('data-agent-v2-message-role') === 'user' ? 'user' : 'assistant',
+        status: element.getAttribute('data-agent-v2-message-status') ?? undefined,
+        text: isAnswerPlaceholder ? '' : (bubble?.textContent ?? '').trim().slice(0, 80),
+        top: top - listTop,
+        bottom: bottom - listTop,
+        opacity: getOpacity(bubble ?? element),
+        translate: getComputedStyle(element).translate,
+      };
+    }
+
+    function measureFrame(): QueueFrame {
+      const listRect = list.getBoundingClientRect();
+      const style = getComputedStyle(list);
+      const liveTail = list.querySelector('[class*="__liveTail__"]');
+      const reserve = list.querySelector('[data-agent-live-tail-reserve]');
+      const spacer = list.querySelector<HTMLElement>('[class*="__spacer__"]');
+      return {
+        time: performance.now() - startedAt,
+        scrollTop: list.scrollTop,
+        scrollHeight: list.scrollHeight,
+        clientHeight: list.clientHeight,
+        visibleTop: Number.parseFloat(style.paddingTop),
+        visibleBottom: list.clientHeight - Number.parseFloat(style.paddingBottom),
+        spacerHeight: spacer?.offsetHeight,
+        liveTailKey: liveTail?.querySelector('[data-agent-v2-message-id]')?.getAttribute('data-agent-v2-message-id')
+          ?? undefined,
+        reserveBottom: reserve ? reserve.getBoundingClientRect().bottom - listRect.top : undefined,
+        rows: Array.from(list.querySelectorAll<HTMLElement>('[data-agent-v2-message-id], [data-agent-run-activity]'))
+          .filter((element) => element.getClientRects().length > 0)
+          .map((element) => measureRow(element, listRect.top)),
+      };
+    }
+
+    void (async () => {
+      while (!recording.isDone && performance.now() - startedAt < maxMs) {
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => setTimeout(resolve, 0));
+        });
+        recording.frames.push(measureFrame());
+      }
+    })();
+    (window as unknown as { agentQueueRecording: typeof recording }).agentQueueRecording = recording;
+  }, { bubbleSelector: BUBBLE_SELECTOR, maxMs: QUEUE_RECORDING_MAX_MS });
+}
+
+function finishQueueRecording(page: Page) {
+  return page.evaluate((): QueueRecording => {
+    const recording = (window as unknown as {
+      agentQueueRecording: QueueRecording & { isDone: boolean };
+    }).agentQueueRecording;
+    recording.isDone = true;
+    return { frames: recording.frames, scrollWrites: recording.scrollWrites };
+  });
+}
+
+/**
+ * Tells how the rows of a queue recording moved otherwise than on mobile, where the questions that wait ride with the
+ * list and move under it only as far as the rows above them change, and the pinned question stays in sight
+ */
+function findQueueMotionFailures(frames: QueueFrame[]) {
+  const failures: string[] = [];
+  const [pinnedQuestion, firstWaitingQuestion] = [QUEUE_PINNED_QUESTION, QUEUE_WAITING_QUESTIONS[0]];
+  const describeFrame = (index: number) => `Frame ${index} (${Math.round(frames[index].time)} ms)`;
+  const describeRow = (row: QueueRow) => (row.role === 'activity' ? 'the activity' : `"${row.text.slice(0, 40)}"`);
+  const findQuestion = (frame: QueueFrame, text: string) => frame.rows.find((row) => (
+    row.role === 'user' && row.text.includes(text)
+  ));
+  const findAnswer = (frame: QueueFrame, question: string) => {
+    const messages = frame.rows.filter(({ role }) => role !== 'activity');
+    const index = messages.findIndex((row) => row.role === 'user' && row.text.includes(question));
+    return index === -1 || messages[index + 1]?.role !== 'assistant' ? undefined : messages[index + 1];
+  };
+  const getMessageKeys = (frame: QueueFrame) => frame.rows
+    .filter(({ role }) => role !== 'activity')
+    .map(({ key }) => key)
+    .join();
+  const getIsShown = (frame: QueueFrame, text: string) => {
+    const question = findQuestion(frame, text);
+    return question !== undefined && question.top >= frame.visibleTop - 18
+      && question.bottom <= frame.visibleBottom + STILL_TOLERANCE_PX && question.opacity >= 0.95;
+  };
+
+  // A row moves on screen in a frame no farther than the scroll that pins a question and a glide take it
+  frames.slice(1).forEach((frame, previousIndex) => {
+    const previous = frames[previousIndex];
+    const duration = frame.time - previous.time;
+    const maxStep = MAX_FRAME_STEP_PX * Math.max(1, duration / FRAME_MS);
+    frame.rows.forEach((row) => {
+      const shown = previous.rows.find(({ node }) => node === row.node);
+      if (shown && Math.abs(row.top - shown.top) > maxStep) {
+        failures.push(`${describeFrame(previousIndex + 1)}: ${describeRow(row)} moved`
+          + ` ${Math.round(row.top - shown.top)} px on screen in ${Math.round(duration)} ms`);
+      }
+    });
+  });
+
+  // A question queued comes in at the end, and nothing on screen moves
+  QUEUE_WAITING_QUESTIONS.forEach((question) => {
+    const queuedIndex = frames.findIndex((frame) => findQuestion(frame, question));
+    if (queuedIndex < 1) {
+      failures.push(`"${question}" did not come in while the list was recorded`);
+      return;
+    }
+
+    const shownFrame = frames[queuedIndex - 1];
+    const keys = getMessageKeys(frames[queuedIndex]);
+    for (let index = queuedIndex; index < frames.length && getMessageKeys(frames[index]) === keys
+      && frames[index].time - frames[queuedIndex].time < ROW_MOVE_WATCH_MS; index++) {
+      frames[index].rows.forEach((row) => {
+        // A question just queued finishes its own appearance
+        const shown = shownFrame.rows.find(({ node, opacity }) => node === row.node && opacity > 0.99);
+        if (shown && Math.abs(row.top - shown.top) > STILL_TOLERANCE_PX) {
+          failures.push(`${describeFrame(index)}: ${describeRow(row)} moved ${Math.round(row.top - shown.top)} px on`
+            + ` screen as "${question}" was queued`);
+        }
+      });
+    }
+  });
+
+  // The answer comes under the pinned question, which stays where it is from the frame the answer's message comes in
+  // place of the activity until the answer ends
+  const startIndex = frames.findIndex((frame) => findAnswer(frame, pinnedQuestion));
+  const endIndex = frames.findIndex((frame) => findAnswer(frame, pinnedQuestion)?.status === 'complete');
+  if (startIndex < 1 || !frames.some((frame) => findAnswer(frame, pinnedQuestion)?.text)) {
+    failures.push('The answer to the pinned question did not come while the list was recorded');
+  } else {
+    const shown = findQuestion(frames[startIndex - 1], pinnedQuestion)!;
+    for (let index = startIndex; index < (endIndex === -1 ? frames.length : endIndex); index++) {
+      const question = findQuestion(frames[index], pinnedQuestion);
+      if (question && Math.abs(question.top - shown.top) > STILL_TOLERANCE_PX) {
+        failures.push(`${describeFrame(index)}: the pinned question moved ${Math.round(question.top - shown.top)} px`
+          + ' on screen as its answer came');
+      }
+    }
+  }
+
+  // The questions that wait never come over a message above them, though they may pass over an activity coming in
+  frames.forEach((frame, index) => {
+    let bottom = -Infinity;
+    frame.rows.forEach((row) => {
+      if (row.role === 'activity' || !row.text) return;
+      if (row.role === 'user' && QUEUE_WAITING_QUESTIONS.some((question) => row.text.includes(question))
+        && row.top < bottom - STILL_TOLERANCE_PX) {
+        failures.push(`${describeFrame(index)}: ${describeRow(row)} came ${Math.round(bottom - row.top)} px over the`
+          + ' message above it');
+      }
+      bottom = Math.max(bottom, row.bottom);
+    });
+  });
+
+  // A pinned question is in sight in every frame: the one being answered, or the one that goes after it, which
+  // stays in sight from the frame its activity shows under it
+  const pinnedQuestions = [pinnedQuestion, ...QUEUE_WAITING_QUESTIONS];
+  const goneIndices = pinnedQuestions.map((question) => frames.findIndex((frame) => {
+    const index = frame.rows.findIndex((row) => row.role === 'user' && row.text.includes(question));
+    return index !== -1 && frame.rows.slice(index + 1).some(({ role }) => role === 'activity');
+  }));
+  if (goneIndices[1] === -1) failures.push(`"${firstWaitingQuestion}" did not go while the list was recorded`);
+  // The rows above a question that goes hold still on screen in the frame it goes, before the list scrolls to it
+  goneIndices.forEach((goneIndex, questionIndex) => {
+    if (goneIndex < 1 || !questionIndex) return;
+
+    const question = pinnedQuestions[questionIndex];
+    const [shownFrame, frame] = [frames[goneIndex - 1], frames[goneIndex]];
+    const index = frame.rows.findIndex((row) => row.role === 'user' && row.text.includes(question));
+    frame.rows.slice(0, index).forEach((row) => {
+      const shown = shownFrame.rows.find(({ node }) => node === row.node);
+      if (shown && Math.abs(row.top - shown.top) > STILL_TOLERANCE_PX) {
+        failures.push(`${describeFrame(goneIndex)}: ${describeRow(row)} moved ${Math.round(row.top - shown.top)} px`
+          + ` on screen as "${question}" went`);
+      }
+    });
+  });
+  frames.forEach((frame, index) => {
+    const pinnedIndex = goneIndices.reduce((last, goneIndex, questionIndex) => (
+      goneIndex !== -1 && goneIndex <= index ? questionIndex : last
+    ), 0);
+    const isShown = getIsShown(frame, pinnedQuestions[pinnedIndex])
+      || (pinnedIndex + 1 < pinnedQuestions.length && getIsShown(frame, pinnedQuestions[pinnedIndex + 1]));
+    if (!isShown) failures.push(`${describeFrame(index)}: no pinned question in sight`);
+  });
+
+  return failures;
 }

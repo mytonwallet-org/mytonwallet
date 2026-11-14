@@ -24,6 +24,7 @@ import {
   isScamTransaction,
   shouldShowTransactionAddress,
 } from '../../../../util/activities';
+import { getAssetAmountPrecision } from '../../../../util/assetPrecision';
 import { bigintAbs } from '../../../../util/bigint';
 import buildClassName from '../../../../util/buildClassName';
 import { getChainTitle } from '../../../../util/chain';
@@ -31,6 +32,7 @@ import { formatRelativeHumanDateTime } from '../../../../util/dateFormat';
 import { toDecimal } from '../../../../util/decimals';
 import { formatBaseCurrencyAmount } from '../../../../util/formatNumber';
 import { getLocalAddressName } from '../../../../util/getLocalAddressName';
+import getTestId from '../../../../util/getTestId';
 import { toNativeDigits } from '../../../../util/nativeDigits';
 import { getIsTransactionWithPoisoning } from '../../../../util/poisoningHash';
 import { getIsNewStakeAllowed, getStakingStateStatus } from '../../../../util/staking';
@@ -232,14 +234,17 @@ function TransactionInfo({
   }
 
   function renderFee() {
-    if (!(fee || shouldLoadDetails) || !nativeToken) {
+    const isGaslessFee = Boolean(transaction?.extra?.isGasless && token);
+    const feeToken = isGaslessFee ? token : nativeToken;
+
+    if (!(fee || shouldLoadDetails) || !feeToken) {
       return undefined;
     }
 
     return (
       <TransactionFee
-        terms={{ native: fee }}
-        token={nativeToken}
+        terms={isGaslessFee ? { token: fee } : { native: fee }}
+        token={feeToken}
         precision={isAnyPending ? 'approximate' : 'exact'}
         isLoading={shouldLoadDetails}
         className={styles.feeField}
@@ -305,6 +310,7 @@ function TransactionInfo({
           isTransaction
           copyNotification={lang('Transaction ID Copied')}
           className={styles.cexTextField}
+          testId={getTestId('transaction_id')}
         />
       </div>
     );
@@ -386,12 +392,14 @@ function TransactionInfo({
         <HeroAmount
           value={toDecimal(bigintAbs(amount!), TONCOIN.decimals)}
           decimals={TONCOIN.decimals}
+          fractionDigits={getAssetAmountPrecision(token ?? TONCOIN)}
           suffix={TONCOIN.symbol}
           baseCurrencyValue={token && formatBaseCurrencyAmount(amount!, baseCurrency, token, currencyRates)}
           isPositive={isIncoming}
           isNegative={!isIncoming}
           isSensitiveDataHidden={isSensitiveDataHidden}
           className={styles.heroAmount}
+          testId={getTestId('transaction_amount')}
         />
       ) : amountDisplayMode !== 'hide' && (
         <TransactionAmount
@@ -407,6 +415,7 @@ function TransactionInfo({
           isApprovalUnlimited={transaction?.isApprovalUnlimited}
           baseCurrency={baseCurrency}
           currencyRates={currencyRates}
+          testId={getTestId('transaction_amount')}
           onTokenClick={onTokenClick}
         />
       )}
@@ -435,6 +444,7 @@ function TransactionInfo({
                   address={fromAddress}
                   copyNotification={addressCopiedMessage}
                   className={styles.copyButtonWrapper}
+                  testId={isIncoming ? getTestId('transaction_address_row') : undefined}
                   textClassName={isScam && isIncoming ? styles.scamAddress : undefined}
                 />
               </>
@@ -449,6 +459,7 @@ function TransactionInfo({
                   isScam={isScam && !isIncoming}
                   copyNotification={addressCopiedMessage}
                   className={styles.copyButtonWrapper}
+                  testId={isIncoming ? undefined : getTestId('transaction_address_row')}
                 />
               </>
             )}
@@ -465,6 +476,7 @@ function TransactionInfo({
               isScam={isScam && !isIncoming}
               copyNotification={addressCopiedMessage}
               className={styles.copyButtonWrapper}
+              testId={getTestId('transaction_address_row')}
               textClassName={isScam && isIncoming ? styles.scamAddress : undefined}
             />
           </>

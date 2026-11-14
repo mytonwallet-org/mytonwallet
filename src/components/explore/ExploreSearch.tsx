@@ -10,6 +10,7 @@ import { selectCurrentAccountState, selectCurrentNetwork } from '../../global/se
 import buildClassName from '../../util/buildClassName';
 import { DeeplinkCommand, isSelfDeeplink, processSelfDeeplink } from '../../util/deeplink';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 import { vibrate } from '../../util/haptics';
 import { logDebugError } from '../../util/logs';
 import { normalizeUrl } from '../../util/url';
@@ -222,6 +223,7 @@ function ExploreSearch({
         <input
           ref={inputRef}
           name="explore-search"
+          data-testid={getTestId('explore_search_input')}
           className={styles.searchInput}
           placeholder={lang('Search app or enter address')}
           value={searchValue}

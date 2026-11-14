@@ -8,11 +8,13 @@ import menuStyles from '../../../../ui/Dropdown.module.scss';
 import styles from '../Card.module.scss';
 
 interface OwnProps {
+  testId?: string;
   onClick: (e: React.MouseEvent) => void;
   onMouseEnter?: NoneToVoidFunction;
 }
 
 function ShareButton({
+  testId,
   onClick,
   onMouseEnter,
 }: OwnProps) {
@@ -22,6 +24,7 @@ function ShareButton({
     <button
       type="button"
       className={buildClassName(menuStyles.item, styles.shareItem)}
+      data-testid={testId}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
     >

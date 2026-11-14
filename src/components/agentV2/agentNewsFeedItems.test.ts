@@ -1,13 +1,7 @@
 import type { AgentNewsFeedItemV2 } from '../../api/agentV2/protocol/types';
 
 import { getDayStartAt } from '../../util/dateFormat';
-import { openUrl } from '../../util/openUrl';
-import {
-  getAgentNewsCopyText,
-  getAgentNewsSourceEntries,
-  getAgentNewsSourceUrl,
-  openAgentNewsSource,
-} from '../agent/helpers/agentNews';
+import { getAgentNewsCopyText, getAgentNewsMenuSources } from '../agent/helpers/agentNews';
 import {
   buildAgentNewsFeedRows,
   buildAgentNewsPreviewCard,
@@ -16,8 +10,6 @@ import {
   mergeAgentNewsFeedEntries,
   mergeAgentNewsItems,
 } from './agentNewsFeedItems';
-
-jest.mock('../../util/openUrl', () => ({ openUrl: jest.fn() }));
 
 describe('agentNewsFeedItems', () => {
   it('shows a post\'s time today, its day and time this year, and its year before that', () => {
@@ -87,42 +79,14 @@ describe('agentNewsFeedItems', () => {
   });
 
   it('opens only web and Telegram sources without credentials', () => {
-    expect(getAgentNewsSourceUrl(newsItem(1, '2026-10-21T09:00:00.000Z', 'News', 'https://example.com/a')))
-      .toBe('https://example.com/a');
-    expect(getAgentNewsSourceUrl(newsItem(1, '2026-10-21T09:00:00.000Z', 'News', 'tg://resolve?domain=mypulse')))
-      .toBe('tg://resolve?domain=mypulse');
-    expect(getAgentNewsSourceUrl(newsItem(1, '2026-10-21T09:00:00.000Z', 'News', 'javascript:alert(1)')))
-      .toBeUndefined();
-    expect(getAgentNewsSourceUrl(newsItem(1, '2026-10-21T09:00:00.000Z', 'News', 'https://user:pass@example.com')))
-      .toBeUndefined();
-  });
+    function getUrls(url: string) {
+      return getAgentNewsMenuSources(newsItem(1, '2026-10-21T09:00:00.000Z', 'News', url)).map((source) => source.url);
+    }
 
-  it('names the first three distinct sources by name or site, linking only those the app can open', () => {
-    expect(getAgentNewsSourceEntries({
-      sources: [
-        { name: '  ', url: 'https://www.coindesk.com/a' },
-        { url: 'not a link' },
-        { name: 'CoinDesk.com', url: 'https://coindesk.com/b' },
-        { name: ' The Block ', url: 'mtw://transfer?address=UQ123&amount=100' },
-        { name: 'Decrypt', url: 'tg://resolve?domain=decrypt' },
-        { name: 'Fourth', url: 'https://fourth.example' },
-      ],
-      source: 'Legacy',
-    })).toEqual([
-      { name: 'coindesk.com', url: 'https://www.coindesk.com/a' },
-      { name: 'The Block' },
-      { name: 'Decrypt', url: 'tg://resolve?domain=decrypt' },
-    ]);
-    expect(getAgentNewsSourceEntries({ sources: [{ name: 'A', url: 'https://user:pass@example.com' }] }))
-      .toEqual([{ name: 'A' }]);
-  });
-
-  it('names the stored source of a card that kept no links, and nothing without one', () => {
-    expect(getAgentNewsSourceEntries({ source: ' Legacy ' })).toEqual([{ name: 'Legacy' }]);
-    expect(getAgentNewsSourceEntries({ sources: [{ url: 'not a link' }], source: 'Legacy' }))
-      .toEqual([{ name: 'Legacy' }]);
-    expect(getAgentNewsSourceEntries({ sources: [], source: ' ' })).toEqual([]);
-    expect(getAgentNewsSourceEntries({})).toEqual([]);
+    expect(getUrls('https://example.com/a')).toEqual(['https://example.com/a']);
+    expect(getUrls('tg://resolve?domain=mypulse')).toEqual(['tg://resolve?domain=mypulse']);
+    expect(getUrls('javascript:alert(1)')).toEqual([]);
+    expect(getUrls('https://user:pass@example.com')).toEqual([]);
   });
 
   it('previews a news chat with its full body, sources, plain excerpt and delivery time', () => {
@@ -139,23 +103,20 @@ describe('agentNewsFeedItems', () => {
     });
   });
 
-  it('opens feed and post sources with the same URL checks', () => {
+  it('finds feed and post sources with the same URL checks', () => {
     const item = newsItem(5, '2026-10-21T09:00:00.000Z', 'News', 'tg://resolve?domain=mypulse');
 
-    void openAgentNewsSource(item);
-    void openAgentNewsSource(buildAgentNewsPreviewCard(item));
-    void openAgentNewsSource({ sources: [{ url: 'javascript:alert(1)' }] });
-
-    expect(openUrl).toHaveBeenCalledTimes(2);
-    expect(openUrl).toHaveBeenNthCalledWith(1, 'tg://resolve?domain=mypulse');
-    expect(openUrl).toHaveBeenNthCalledWith(2, 'tg://resolve?domain=mypulse');
+    const urls = [{ name: 'Source', url: 'tg://resolve?domain=mypulse' }];
+    expect(getAgentNewsMenuSources(item)).toEqual(urls);
+    expect(getAgentNewsMenuSources(buildAgentNewsPreviewCard(item))).toEqual(urls);
+    expect(getAgentNewsMenuSources({ sources: [{ url: 'javascript:alert(1)' }] })).toEqual([]);
   });
 
-  it('copies the complete post with plain body text and its source', () => {
+  it('copies the complete post with plain body text and without its source', () => {
     const item = { ...newsItem(5, '2026-10-21T09:00:00.000Z'), body: `**Bitcoin** ${'a'.repeat(300)}` };
 
     expect(getAgentNewsCopyText(buildAgentNewsPreviewCard(item)))
-      .toBe(`News 5\n\nBitcoin ${'a'.repeat(300)}\n\nhttps://example.com`);
+      .toBe(`News 5\n\nBitcoin ${'a'.repeat(300)}`);
   });
 });
 

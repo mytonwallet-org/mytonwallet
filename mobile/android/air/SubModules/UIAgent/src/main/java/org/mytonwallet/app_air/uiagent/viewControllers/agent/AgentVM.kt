@@ -33,10 +33,12 @@ import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2SemanticText
 import org.mytonwallet.app_air.uiagent.agentV2.buildAgentActionUrl
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentAnalyzingRequestText
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentV2RunActivityText
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentWritingAnswerText
 import org.mytonwallet.app_air.uiagent.agentV2.hasPost
 import org.mytonwallet.app_air.uiagent.agentV2.hasVisibleFailure
+import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
 import org.mytonwallet.app_air.uiagent.agentV2.isAgentV2ThreadStarted
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
 import org.mytonwallet.app_air.uiagent.agentV2.mapAgentV2Message
@@ -60,7 +62,9 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
@@ -68,6 +72,8 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+
+private const val CAPACITY_EXHAUSTED = "capacity_exhausted"
 
 class AgentVM internal constructor(
     initialScrollPosition: ScrollPosition? = null,
@@ -82,16 +88,20 @@ class AgentVM internal constructor(
     private val now: () -> Long = System::currentTimeMillis,
     // How long the row of an answer stopped before it showed stays, with the top stopping, before it goes
     private val stoppedAnswerDurationMs: () -> Long = { 0L },
-    private val waitForSupportPoll: suspend () -> Unit = { delay(SUPPORT_POLLING_INTERVAL_MS) }
+    private val waitForSupportPoll: suspend () -> Unit = { delay(SUPPORT_POLLING_INTERVAL_MS) },
+    initialOpeningFollowupText: String? = null,
+    initialOpeningAuthority: AgentV2AuthorityBinding? = null
 ) : WalletCore.UpdatesObserver,
     WalletCore.EventObserver {
-    constructor(
+    internal constructor(
         initialScrollPosition: ScrollPosition? = null,
         client: AgentV2Client = LiveAgentV2Client(),
         initialThread: AgentV2ThreadSummary,
         initialMessages: List<AgentMessage> = emptyList(),
         initialOpeningEntryPoint: AgentV2EntryPoint? = null,
-        canShowCachedMessages: Boolean = false
+        canShowCachedMessages: Boolean = false,
+        initialOpeningFollowupText: String? = null,
+        initialOpeningAuthority: AgentV2AuthorityBinding? = null
     ) : this(
         initialScrollPosition,
         client,
@@ -103,7 +113,9 @@ class AgentVM internal constructor(
         CoroutineScope(SupervisorJob() + Dispatchers.Main),
         stoppedAnswerDurationMs = {
             if (isAgentStoppedAnswerAnimated) AGENT_STOPPED_ANSWER_DURATION_MS else 0L
-        }
+        },
+        initialOpeningFollowupText = initialOpeningFollowupText,
+        initialOpeningAuthority = initialOpeningAuthority
     )
 
     // A rating that settles while the clear hides the timeline updates [fallbackMessages]
@@ -111,12 +123,17 @@ class AgentVM internal constructor(
         var fallbackMessages: List<AgentMessage>,
         val fallbackScrollPosition: ScrollPosition?
     ) {
-        var chatOpening: Pair<List<AgentMessage>, AgentV2EntryPoint>? = null
+        var chatOpening: AgentPromptQueue.Prompt? = null
             private set
 
-        fun reopenChat(messages: List<AgentMessage>, entryPoint: AgentV2EntryPoint): Boolean {
+        fun reopenChat(
+            messages: List<AgentMessage>,
+            entryPoint: AgentV2EntryPoint,
+            followupText: String?,
+            authority: AgentV2AuthorityBinding?
+        ): Boolean {
             if (chatOpening != null) return false
-            chatOpening = messages to entryPoint
+            chatOpening = AgentPromptQueue.Prompt(messages, entryPoint, followupText, authority)
             return true
         }
     }
@@ -145,6 +162,9 @@ class AgentVM internal constructor(
 
         /** The chat started or stopped offering problem reports ([AgentVM.canReportProblem]) */
         fun onProblemReportAvailabilityChanged() {}
+
+        /** The chat can or can no longer call support ([AgentVM.canRequestSupport]) */
+        fun onSupportRequestAvailabilityChanged() {}
 
         fun onOlderMessagesLoadingChanged() {}
     }
@@ -196,16 +216,26 @@ class AgentVM internal constructor(
     private val _messages = initialMessages.toMutableList()
     private var initialOpeningMessageId = initialMessages
         .firstOrNull { it.role == AgentMessageRole.USER }?.id
+    private var openingSupportAuthority = initialOpeningEntryPoint?.takeIf {
+        AgentV2EntryPoint.isSupportRequest(it) &&
+            it.source == AgentV2SupportRequestSource.HEADER.value
+    }?.let { hostContextProvider.captureMessageAuthority() }
     private val initialOpeningPrompts = AgentPromptQueue().apply {
         if (initialOpeningEntryPoint != null) {
             initialMessages.firstOrNull { it.role == AgentMessageRole.USER }?.let {
-                enqueue(initialMessages, checkNotNull(initialOpeningEntryPoint))
+                enqueue(
+                    initialMessages,
+                    checkNotNull(initialOpeningEntryPoint),
+                    initialOpeningFollowupText,
+                    initialOpeningAuthority
+                )
             }
         }
     }
     private var initialAssistantMessageId = initialMessages
         .firstOrNull { it.role == AgentMessageRole.ASSISTANT }?.id
     private var availableHints = emptyList<AgentHint>()
+    private var hasLoadedHints = false
     private var hintsCatalogVersion: String? = null
     private var followupsAndHintsNotificationJob: Job? = null
     private var startupJob: Job? = null
@@ -213,6 +243,7 @@ class AgentVM internal constructor(
     private var operationJob: Job? = null
     private var actionJob: Job? = null
     private var historyJob: Job? = null
+    private var supportThreadsJob: Job? = null
 
     // The SDK's copy of the history being read while the history loads
     private var cacheReadJob: Job? = null
@@ -227,11 +258,15 @@ class AgentVM internal constructor(
     private var hasFailedSupportRefresh = false
     private var cancellationJob: Job? = null
     private var hostContextRecoveryJob: Job? = null
-    private var isDeletingChat = false
+    private var deletionHoldCount = 0
+    private val isDeletingChat: Boolean get() = deletionHoldCount > 0
     private var availability: AgentV2Availability? = null
     private var userQuota: AgentV2UserQuota? = null
     private var limitRetry: AgentLimitRetry? = null
     private var limitExpiryJob: Job? = null
+
+    // Questions queued for the wallet the user switched from, which Retry queues again for the current one
+    private var failedQueue: AgentFailedQueue? = null
     private val problemReportJobs = mutableSetOf<Job>()
 
     // The rating requests of each answer that have not all settled yet, by its server id: history
@@ -352,7 +387,12 @@ class AgentVM internal constructor(
             _messages.isEmpty() &&
             !thread.hasPost
         ) {
-            availableHints
+            // Contact Support follows the server's hints once they have loaded or failed to
+            if (hasLoadedHints && isSupportRequestVisible) {
+                availableHints + makeAgentSupportHint()
+            } else {
+                availableHints
+            }
         } else {
             emptyList()
         }
@@ -365,35 +405,93 @@ class AgentVM internal constructor(
      * limit held back waits for it, until the limit resets
      */
     val isInputBlockedByLimit: Boolean
-        get() {
-            val now = now()
-            val capacity = availability?.takeIf { it.state == CAPACITY_EXHAUSTED }
-            if ((capacity?.resetAt ?: 0L) > now) return true
-            // A question the quota held back waits for its own reset rather than the quota's
-            val quota = userQuota?.takeIf { it.remaining == 0 && limitRetry?.isRateLimit != false }
-            if ((quota?.resetAt?.let(::parseAgentV2Timestamp)?.time ?: 0L) > now) return true
-            return (limitRetry?.resetAt ?: 0L) > now
-        }
+        get() = isBlockedByLimit(limitRetry)
 
-    /** Retry can send the question a limit held back, which it can once the limit resets */
+    /** Whether a limit blocks new questions while [retry] is the question a limit held back */
+    private fun isBlockedByLimit(retry: AgentLimitRetry?): Boolean {
+        val now = now()
+        if ((rateLimitResetAt ?: 0L) > now) return true
+        // Operator replies cost no quota or capacity on the server, so only a rate limit's wait holds a message back
+        if (isChatWithSupport) return retry?.isRateLimit == true && (retry.resetAt ?: 0L) > now
+        // A question the quota held back waits for its own reset rather than the quota's
+        val quota = userQuota.takeIf { retry?.isRateLimit != false }
+        return getAgentInputLimitCode(availability, quota, now) != null ||
+            (retry?.resetAt ?: 0L) > now
+    }
+
+    // A rate limit holds back every request until it resets, a support request too
+    private val isRateLimitWaiting: Boolean
+        get() = limitRetry?.let { it.isRateLimit && (it.resetAt ?: 0L) > now() } == true ||
+            (rateLimitResetAt ?: 0L) > now()
+
+    // When the rate limit that stopped a support request resets; the request itself isn't held for Retry
+    private var rateLimitResetAt: Long? = null
+
+    /** Whether the chat offers to call a support operator: not while support has it */
+    val isSupportRequestVisible: Boolean
+        get() = isAgentSupportHandoffDeclared && !isChatWithSupport
+
+    /**
+     * Whether a support request can go now. The server skips the daily quota and the Agent's capacity for it, so
+     * neither holds it back.
+     */
+    val canRequestSupport: Boolean
+        get() = !hasUnsentOpening && canStartSupportRequest
+
+    private val canStartSupportRequest: Boolean
+        get() = isSupportRequestVisible && hasConsent == true && clearIntent == null &&
+            !isLoadingOlderMessages && !isRateLimitWaiting && canSendNow()
+
+    /** Whether Contact Support among the empty chat's starter hints can go: once the server's chats have loaded */
+    val canRequestSupportFromStarterHint: Boolean
+        get() = canRequestSupport && supportThreads != null
+
+    // The server's chats, read as the empty chat offers Contact Support, which choose the chat it opens; null until read
+    private var supportThreads: List<AgentV2ThreadListItem>? = null
+
+    // The questions and failures of failed support requests
+    private val failedSupportRequestIds = mutableSetOf<String>()
+
+    /**
+     * Of the timeline's rows, given by their message ids or null for other rows, the one whose failure offers Retry: the
+     * last message, above any failed support requests after it, which offer none
+     */
+    internal fun findFailureRetryRowIndex(messageIds: List<String?>): Int? =
+        messageIds.indexOfLast { it != null && it !in failedSupportRequestIds }.takeIf { it >= 0 }
+
+    /**
+     * Retry can send the question a limit held back, which it can once the limit resets. It goes before the questions
+     * queued after it.
+     */
     private val canRetryLimit: Boolean
         get() {
             if (isChatWithSupport) return false
             val retry = limitRetry ?: return false
             if (retry.expiresAt <= now()) return false
-            return !isInputBlockedByLimit && clearIntent == null &&
-                pendingMessages.isEmpty() && canSendNow()
+            val authority = hostContextProvider.captureMessageAuthority() ?: return false
+            if (authority.accountId != retry.authority.accountId) return false
+            return !isInputBlockedByLimit && clearIntent == null && canSendNow()
+        }
+
+    /** Retry can queue again the questions a wallet switch failed, while their failure stays in the chat */
+    private val canRetryFailedQueue: Boolean
+        get() {
+            val failed = failedQueue ?: return false
+            return clearIntent == null && !isDeletingChat &&
+                _messages.any { it.id == failed.failureMessageId }
         }
 
     /**
      * What Retry under the chat's latest failure does now, if anything: start the chat again after its startup
-     * failed, or send the question a limit held back. Neither shows while a limit blocks sending.
+     * failed, send the question a limit held back, or queue again the questions a wallet switch failed. None shows
+     * while a limit blocks sending.
      */
     val failureRetry: (() -> Unit)?
         get() = when {
             isInputBlockedByLimit -> null
             state == State.ERROR -> ::retry
             canRetryLimit -> ::retryLimit
+            canRetryFailedQueue -> ::retryFailedQueue
             else -> null
         }
 
@@ -416,14 +514,17 @@ class AgentVM internal constructor(
         private set
     internal var startupErrorCode: String? = null
         private set
+
+    /** A left chat stays loaded while it has work under way, such as questions it queued that a limit holds */
     internal val shouldRetainSession: Boolean
-        get() = !isDeletingChat && (
+        get() = isDeletingChat || (
             state == State.RUNNING ||
                 state == State.CLEARING ||
                 clearIntent != null ||
                 operationJob?.isActive == true ||
                 historyJob?.isActive == true ||
                 hostContextRecoveryJob?.isActive == true ||
+                (state == State.READY && pendingMessages.isNotEmpty()) ||
                 (
                     initialOpeningPrompts.isNotEmpty &&
                         (startupJob?.isActive == true || state == State.READY)
@@ -444,8 +545,10 @@ class AgentVM internal constructor(
             notifyFollowupsAndHints()
         }
         hostContextProvider.onMessageAuthorityChanged = {
+            bindQueueToMessageAuthority()
             enqueueInitialOpeningPrompt()
             notifyFollowupsAndHints()
+            notifySessionIdle()
         }
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateAgentV2::class.java, this)
         WalletCore.registerObserver(this)
@@ -690,6 +793,7 @@ class AgentVM internal constructor(
         initialOpeningEntryPoint = null
         initialOpeningPrompts.clear()
         initialAssistantMessageId = null
+        limitRetry?.let(::restoreUserQuotaFailureText)
         limitRetry = null
         clearIntent = ClearIntent(
             fallbackMessages = safeAgentClearFallback(
@@ -714,22 +818,21 @@ class AgentVM internal constructor(
         }
     }
 
-    /** Stops local work now; server deletion outlives the screen and its session. */
-    fun deleteChat(onFailure: (Throwable) -> Unit) {
+    internal fun deleteChat(onFailure: (Throwable) -> Unit, onSuccess: () -> Unit) {
         if (isDeletingChat) return
-        isDeletingChat = true
+        holdQueueForDeletion()
         val threadId = thread.id
-        cachedHistories.remove(threadId)
-        initialOpeningPrompts.clear()
-        pendingMessages.clear()
         val deletionScope = CoroutineScope(scope.coroutineContext + SupervisorJob())
-        onDestroy()
         deletionScope.launch {
             try {
                 client.deleteThread(threadId)
+                cachedHistories.remove(threadId)
+                onSuccess()
+                onDestroy()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
+                resumeQueueAfterFailedDeletion()
                 onFailure(error)
             } finally {
                 deletionScope.cancel()
@@ -737,27 +840,51 @@ class AgentVM internal constructor(
         }
     }
 
+    internal fun holdQueueForDeletion() {
+        deletionHoldCount++
+    }
+
+    internal fun resumeQueueAfterFailedDeletion() {
+        deletionHoldCount--
+        if (isDeletingChat) return
+        sendNextPending()
+        notifySessionIdle()
+    }
+
     internal fun reopenOpeningAfterClear(
         messages: List<AgentMessage>,
-        entryPoint: AgentV2EntryPoint
+        entryPoint: AgentV2EntryPoint,
+        followupText: String? = null,
+        authority: AgentV2AuthorityBinding? = null
     ) {
         if (messages.isEmpty()) return
         val intent = clearIntent ?: return
-        if (!intent.reopenChat(messages, entryPoint)) return
+        if (!intent.reopenChat(messages, entryPoint, followupText, authority)) return
         _messages.addAll(messages)
         notifyLoaded()
     }
 
-    internal fun acceptOpening(messages: List<AgentMessage>, entryPoint: AgentV2EntryPoint) {
+    internal fun acceptOpening(
+        messages: List<AgentMessage>,
+        entryPoint: AgentV2EntryPoint,
+        followupText: String? = null,
+        authority: AgentV2AuthorityBinding? = null
+    ) {
         if (isDeletingChat || messages.isEmpty()) return
+        val isHeaderSupportRequest = AgentV2EntryPoint.isSupportRequest(entryPoint) &&
+            entryPoint.source == AgentV2SupportRequestSource.HEADER.value
+        if (isHeaderSupportRequest && !canRequestSupport) return
         if (clearIntent != null) {
-            reopenOpeningAfterClear(messages, entryPoint)
+            reopenOpeningAfterClear(messages, entryPoint, followupText, authority)
             return
         }
         val user = messages.first { it.role == AgentMessageRole.USER }
         if (_messages.any { it.id == user.id }) return
+        if (isHeaderSupportRequest) {
+            openingSupportAuthority = hostContextProvider.captureMessageAuthority()
+        }
         _messages.addAll(messages)
-        initialOpeningPrompts.enqueue(messages, entryPoint)
+        initialOpeningPrompts.enqueue(messages, entryPoint, followupText, authority)
         notifyLoaded()
         sendNextPending()
     }
@@ -795,13 +922,13 @@ class AgentVM internal constructor(
             if (!hasFailed) {
                 cachedHistories.remove(currentThread.id)
                 clearIntent = null
-                intent.chatOpening?.let { (messages, entryPoint) ->
+                intent.chatOpening?.let { (messages, entryPoint, followupText, authority) ->
                     val user = messages.first { it.role == AgentMessageRole.USER }
                     initialOpeningMessageId = user.id
                     initialAssistantMessageId = messages
                         .firstOrNull { it.role == AgentMessageRole.ASSISTANT }?.id
                     initialOpeningEntryPoint = entryPoint
-                    initialOpeningPrompts.enqueue(messages, entryPoint)
+                    initialOpeningPrompts.enqueue(messages, entryPoint, followupText, authority)
                     _messages.clear()
                     _messages.addAll(messages)
                     notifyLoaded()
@@ -819,16 +946,14 @@ class AgentVM internal constructor(
     }
 
     // The limits arrive as updates
-    private fun loadLimits() {
-        scope.launch {
-            try {
-                client.loadAvailability()
-                client.loadUserQuota()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Throwable) {
-                // Without them, questions go out and the server tells about any limit
-            }
+    private fun loadLimits(): Job = scope.launch {
+        try {
+            client.loadAvailability()
+            client.loadUserQuota()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            // Without them, questions go out and the server tells about any limit
         }
     }
 
@@ -836,11 +961,18 @@ class AgentVM internal constructor(
     private fun onLimitsChanged() {
         limitExpiryJob?.cancel()
         val now = now()
+        limitRetry?.takeIf { !it.isRateLimit && (it.resetAt ?: Long.MAX_VALUE) <= now }
+            ?.let(::restoreUserQuotaFailureText)
         if (limitRetry?.expiresAt?.let { it <= now } == true) limitRetry = null
         notifyDelegates { it.onInputLimitChanged() }
         notifyFollowupsAndHints()
+        // The queue a limit held goes on once it resets, after the question it held back
+        if (state == State.READY && pendingMessages.isNotEmpty() && !isInputBlockedByLimit) {
+            sendNextPending()
+        }
         val nextReset = listOfNotNull(
             availability?.resetAt,
+            rateLimitResetAt,
             userQuota?.resetAt?.let(::parseAgentV2Timestamp)?.time,
             limitRetry?.resetAt,
             limitRetry?.expiresAt
@@ -883,12 +1015,16 @@ class AgentVM internal constructor(
         return problemReportAvailability ?: false
     }
 
-    // The user's consent decides whether the chat offers problem reports
+    // The user's consent decides whether the chat offers problem reports and support requests
     private fun updateConsent(isAllowed: Boolean) {
         val couldReport = canReportProblem
+        val couldRequestSupport = canRequestSupport
         hasConsent = isAllowed
         if (canReportProblem != couldReport) {
             notifyDelegates { it.onProblemReportAvailabilityChanged() }
+        }
+        if (canRequestSupport != couldRequestSupport) {
+            notifyDelegates { it.onSupportRequestAvailabilityChanged() }
         }
     }
 
@@ -1078,6 +1214,54 @@ class AgentVM internal constructor(
     }
 
     /**
+     * Sends the support request message, which the server hands to an operator without the model. A question a limit
+     * holds back for Retry stays held, and the request itself is never held for Retry.
+     */
+    fun requestSupport(source: AgentV2SupportRequestSource): Boolean {
+        if (!canRequestSupport) return false
+        val authority = hostContextProvider.captureMessageAuthority() ?: return false
+        acceptMessage(
+            getAgentSupportRequestText(),
+            AgentV2EntryPoint.supportRequest(source),
+            null,
+            authority,
+            shouldSendNow = true
+        )
+        return true
+    }
+
+    /**
+     * Contact Support among the empty chat's starter hints hands [open] the most recently active chat that support
+     * has, from the server's chats, or else calls support here. A list that fails to load drops the request.
+     */
+    fun requestSupportFromStarterHint(open: (AgentV2ThreadSummary) -> Unit) {
+        if (!canRequestSupportFromStarterHint) return
+        val supportThread = findAgentSupportThread(supportThreads!!)?.takeIf { it.id != thread.id }
+        if (supportThread != null) {
+            open(supportThread)
+        } else {
+            requestSupport(AgentV2SupportRequestSource.STARTER_HINT)
+        }
+    }
+
+    // Reads the server's chats for Contact Support, which stays disabled until they load
+    private fun loadSupportThreads() {
+        supportThreadsJob?.cancel()
+        supportThreads = null
+        if (!isSupportRequestVisible || _messages.isNotEmpty()) return
+        supportThreadsJob = scope.launch {
+            supportThreads = try {
+                client.listThreads().threads
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                return@launch
+            }
+            notifyDelegates { it.onSupportRequestAvailabilityChanged() }
+        }
+    }
+
+    /**
      * Stops the answer the chat is waiting for and frees the chat at once: the text shown so far stays, without a
      * rating or suggestions, and the next queued question goes. The SDK cancels the run on the server itself.
      */
@@ -1109,6 +1293,10 @@ class AgentVM internal constructor(
         }
         notifySessionIdle()
     }
+
+    /** Whether the question shown as [messageId] waits in the queue, as behind a regeneration */
+    internal fun isMessageQueued(messageId: String): Boolean =
+        pendingMessages.any { it.message.id == messageId }
 
     fun canEditMessage(messageId: String): Boolean = canSendFollowup &&
         _messages.any {
@@ -1228,10 +1416,11 @@ class AgentVM internal constructor(
         previousFollowupOwner?.takeIf { it.followups.isNotEmpty() }?.let { message ->
             notifyDelegates { it.onFollowupsChanged(message.id) }
         }
-        notifyDelegates { it.onMessageAdded(localMessage) }
         val pendingMessage = AgentPendingMessage(localMessage, entryPoint, authority, followupOf)
+        // The screen finds a question queued (`isMessageQueued`) as it shows
+        if (!shouldSendNow) pendingMessages.add(pendingMessage)
+        notifyDelegates { it.onMessageAdded(localMessage) }
         if (!shouldSendNow) {
-            pendingMessages.add(pendingMessage)
             when (state) {
                 State.ERROR -> retry()
                 State.READY -> sendNextPending()
@@ -1415,6 +1604,15 @@ class AgentVM internal constructor(
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            is WalletEvent.AccountWillChange,
+            is WalletEvent.AccountChanged,
+            is WalletEvent.AccountChangedInApp,
+            WalletEvent.AccountChangeAborted,
+            is WalletEvent.AccountRemoved,
+            WalletEvent.AddNewWalletCompletion,
+            is WalletEvent.ByChainUpdated,
+            is WalletEvent.TemporaryAccountSaved -> openingSupportAuthority = null
+
             WalletEvent.AppBackground -> {
                 isInBackground = true
                 chatActivity.setInBackground(true)
@@ -1430,9 +1628,14 @@ class AgentVM internal constructor(
 
             // The copy belongs to the previous wallet's Agent identity; the reset handles the loaded messages
             WalletEvent.AccountsReset -> {
+                openingSupportAuthority = null
+                dropInitialHeaderSupportRequest()
                 cacheReadJob?.cancel()
                 cacheReadJob = null
                 discardCachedMessages()
+                initialOpeningPrompts.clear()
+                failPendingMessages()
+                notifySessionIdle()
             }
 
             else -> Unit
@@ -1440,6 +1643,9 @@ class AgentVM internal constructor(
     }
 
     fun onDestroy() {
+        initialOpeningPrompts.clear()
+        pendingMessages.clear()
+        failedQueue = null
         supportPollingJob?.cancel()
         refreshJob?.cancel()
         resetActiveRunState()
@@ -1459,6 +1665,7 @@ class AgentVM internal constructor(
     private fun start() {
         if (isDeletingChat || startupJob?.isActive == true) return
         startupErrorCode = null
+        limitRetry?.let(::restoreUserQuotaFailureText)
         limitRetry = null
         actionAvailability.invalidate()
         setState(State.LOADING)
@@ -1506,7 +1713,8 @@ class AgentVM internal constructor(
         check(hostContextProvider.start()) { "Host context is unavailable" }
         hydrate()
         refreshProblemReportAvailability()
-        loadLimits()
+        val limitsRequest = loadLimits()
+        if (thread.hasPost && hasUnsentOpening) limitsRequest.join()
         if (clearIntent != null) {
             launchPendingClear()
             return
@@ -1535,7 +1743,7 @@ class AgentVM internal constructor(
             null
         }
         val hydration = try {
-            if (initialOpeningEntryPoint != null) {
+            if (initialOpeningEntryPoint != null && !thread.hasPost) {
                 hydrateAgentOpeningThread(thread, loadMessages)
             } else {
                 hydrateAgentThread(thread, loadMessages)
@@ -1558,7 +1766,7 @@ class AgentVM internal constructor(
             emptyList(),
             hydration.messages
         )
-        if (initialOpeningEntryPoint != null && hasLoadedHistoryMessages) {
+        if (initialOpeningEntryPoint != null && hasLoadedHistoryMessages && !thread.hasPost) {
             initialOpeningEntryPoint = null
             initialOpeningPrompts.clear()
             _messages.removeAll {
@@ -1584,7 +1792,14 @@ class AgentVM internal constructor(
         val shownMessages = _messages.filterNot { it.id in cachedMessageIds }
         val reconciledMessages = withPendingFeedback(
             if (isKeptChatRefresh) {
-                refreshAgentMessages(shownMessages, hydratedMessages, stoppedAnswers.keys)
+                // The questions still queued, and those a wallet switch failed with their failure, stay last
+                val trailing = trailingMessages()
+                val trailingIds = trailing.mapTo(mutableSetOf()) { it.id }
+                refreshAgentMessages(
+                    shownMessages.filterNot { it.id in trailingIds },
+                    hydratedMessages,
+                    stoppedAnswers.keys
+                ) + trailing
             } else {
                 reconcileAgentMessages(shownMessages, hydratedMessages)
             }
@@ -1657,29 +1872,62 @@ class AgentVM internal constructor(
         ) {
             return
         }
+        var hasDroppedHeaderSupportRequest = false
         initialOpeningPrompts.submit(
-            { messages, entryPoint ->
+            { messages, entryPoint, followupText, openingAuthority ->
                 val message = messages.first { it.role == AgentMessageRole.USER }
-                val assistant = messages.first { it.role == AgentMessageRole.ASSISTANT }
+                val assistant = messages.firstOrNull { it.role == AgentMessageRole.ASSISTANT }
+                val isHeaderSupportRequest = AgentV2EntryPoint.isSupportRequest(entryPoint) &&
+                    entryPoint.source == AgentV2SupportRequestSource.HEADER.value
+                if (isHeaderSupportRequest) {
+                    initialOpeningEntryPoint = null
+                    val authority = openingSupportAuthority
+                    openingSupportAuthority = null
+                    if (!canStartSupportRequest || authority == null ||
+                        !hostContextProvider.isMessageAuthorityCurrent(authority) ||
+                        (
+                            openingAuthority != null &&
+                                openingAuthority.accountId != authority.accountId
+                            )
+                    ) {
+                        _messages.removeAll { it.id == message.id }
+                        initialOpeningMessageId = null
+                        hasDroppedHeaderSupportRequest = true
+                        return@submit true
+                    }
+                    sendNow(AgentPendingMessage(message, entryPoint, authority, null))
+                    return@submit true
+                }
                 val authority = hostContextProvider.captureMessageAuthority()
                     ?: return@submit false
+                val post = _messages.firstOrNull { it.newsPost }
+                val followup = post?.followups?.firstOrNull { it.text == followupText }
+                val followupOf = post?.sdkMessageId?.let { messageId ->
+                    followup?.let { AgentV2FollowUpReference(messageId, it.id) }
+                }
                 initialOpeningEntryPoint = null
-                pendingMessages.add(
-                    AgentPendingMessage(
-                        message,
-                        entryPoint,
-                        authority,
-                        assistantMessageId = assistant.id
-                    )
+                val pendingMessage = AgentPendingMessage(
+                    message,
+                    entryPoint.takeUnless { thread.hasPost },
+                    authority,
+                    followupOf,
+                    assistantMessageId = assistant?.id
                 )
+                if (openingAuthority != null && openingAuthority.accountId != authority.accountId) {
+                    failQueuedMessages(listOf(pendingMessage))
+                } else {
+                    pendingMessages.add(pendingMessage)
+                }
                 true
             },
             state
         )
+        if (hasDroppedHeaderSupportRequest) notifyLoaded()
     }
 
     private suspend fun loadHints() {
         if (thread.hasPost) return
+        loadSupportThreads()
         availableHints = try {
             val response = client.hints(LocaleController.activeLanguage.langCode)
             hintsCatalogVersion = response.catalogVersion
@@ -1692,6 +1940,7 @@ class AgentVM internal constructor(
             hintsCatalogVersion = null
             emptyList()
         }
+        hasLoadedHints = true
         notifyHints()
     }
 
@@ -1700,6 +1949,7 @@ class AgentVM internal constructor(
             finishClearFailure(canReturnToReady = false)
             return
         }
+        dropInitialHeaderSupportRequest()
         startupErrorCode = (error as? AgentV2OperationException)?.error?.code
         val text = when (startupErrorCode) {
             "client_update_required", "device_token_missing", "device_token_invalid",
@@ -1711,6 +1961,22 @@ class AgentVM internal constructor(
         hideCachedFollowups()
         appendUnavailable(text = text)
         setState(State.ERROR)
+    }
+
+    private fun dropInitialHeaderSupportRequest() {
+        if (!AgentV2EntryPoint.isSupportRequest(initialOpeningEntryPoint) ||
+            initialOpeningEntryPoint?.source != AgentV2SupportRequestSource.HEADER.value
+        ) {
+            return
+        }
+        val messageId = initialOpeningMessageId
+        initialOpeningMessageId = null
+        initialOpeningEntryPoint = null
+        openingSupportAuthority = null
+        if (messageId != null) {
+            initialOpeningPrompts.removeMessage(messageId)
+            removeMessage(messageId)
+        }
     }
 
     /** Under the failure, the device's copy shows no suggestions, which return with the history Retry loads */
@@ -1737,10 +2003,12 @@ class AgentVM internal constructor(
             return
         }
 
+        val isSupportRequest = AgentV2EntryPoint.isSupportRequest(pendingMessage.entryPoint)
         val run = AgentActiveRun(
             UUID.randomUUID().toString(),
             localMessage.id,
             pendingMessage.authority,
+            isSupportRequest = isSupportRequest,
             canResendSupportConflict = isChatWithSupport &&
                 pendingMessage.targetUserMessageId == null &&
                 pendingMessage.targetAssistantMessageId == null,
@@ -1757,10 +2025,22 @@ class AgentVM internal constructor(
                 ?: addAssistantPlaceholder()
             initialAssistantMessageId = null
         }
-        // A new question takes the place of one a limit held back
-        limitRetry = null
+        // A new question takes the place of one a limit held back, and of questions a wallet switch failed; a support
+        // request leaves them
+        if (!isSupportRequest) {
+            limitRetry?.let(::restoreUserQuotaFailureText)
+            limitRetry = null
+            failedQueue = null
+        }
         setState(State.RUNNING)
         launchRun(run) {
+            if (isDeletingChat) {
+                removeUnboundAssistantPlaceholder()
+                pendingMessages.add(0, pendingMessage)
+                resetActiveRunState()
+                setState(State.READY)
+                return@launchRun null
+            }
             client.startRun(
                 clientRunId = run.clientRunId,
                 threadId = currentThread.id,
@@ -1803,6 +2083,25 @@ class AgentVM internal constructor(
         launchRun(run) { client.retryRun(retry.clientRunId) }
     }
 
+    /**
+     * Queues again, for the current wallet, the questions that failed when the user switched wallets. They go after
+     * the answer being produced, before the questions queued since.
+     */
+    fun retryFailedQueue() {
+        val failed = failedQueue ?: return
+        if (!canRetryFailedQueue) return
+        val authority = hostContextProvider.captureMessageAuthority() ?: return
+        failedQueue = null
+        removeMessage(failed.failureMessageId)
+        pendingMessages.addAll(0, failed.messages.map { it.copy(authority = authority) })
+        when (state) {
+            State.ERROR -> retry()
+            State.READY -> sendNextPending()
+            else -> Unit
+        }
+        notifyHints()
+    }
+
     /** Follows [run], which [start] starts, and shows how it ends */
     private fun launchRun(run: AgentActiveRun, start: suspend () -> AgentV2RunResult?) {
         refreshJob?.cancel()
@@ -1818,7 +2117,6 @@ class AgentVM internal constructor(
                     "agent_wallet_authority_changed"
                 }
                 currentCoroutineContext().ensureActive()
-                if (isDeletingChat) return@launch
                 var result = start()
                 if (activeRun !== run) return@launch
                 if (run.shouldResendSupportConflict && result != null &&
@@ -1872,9 +2170,20 @@ class AgentVM internal constructor(
             if (hasFailed || (!run.hasStartedAssistant && !run.hasDeliveredToSupport)) {
                 notifyDelegates { it.onOutgoingMessageFailed(run.inputPresentationId) }
             }
-            val failure = if (hasFailed) appendUnavailable(run.failureCode) else null
+            val failure = if (hasFailed) {
+                val resetAt = run.limitRetry?.resetAt?.takeIf { it > now() }
+                appendUnavailable(
+                    run.failureCode,
+                    agentV2ErrorText(run.failureCode, resetAt?.let(::Date))
+                )
+            } else {
+                null
+            }
+            if (run.isSupportRequest && failure != null) {
+                failedSupportRequestIds += listOf(run.inputPresentationId, failure.id)
+            }
             run.limitRetry?.takeIf { hasFailed }?.let { retry ->
-                limitRetry = retry.copy(
+                val heldRetry = retry.copy(
                     inputPresentationId = run.inputPresentationId,
                     failureMessageId = failure?.id,
                     editedMessage = run.editedMessage,
@@ -1882,6 +2191,7 @@ class AgentVM internal constructor(
                     regenerationTargetId = run.regenerationTargetId,
                     replacedStoppedAnswerIds = run.replacedStoppedAnswerIds
                 )
+                limitRetry = heldRetry.copy(isHoldingQueue = isBlockedByLimit(heldRetry))
                 onLimitsChanged()
             }
             if (hasFailed && (
@@ -1922,28 +2232,41 @@ class AgentVM internal constructor(
 
     private fun sendNextPending() {
         enqueueInitialOpeningPrompt()
-        val message = activateNextAgentPendingMessage(
-            pendingMessages = pendingMessages,
-            canStart = canSendNow(),
-            isAuthorityCurrent = hostContextProvider::isMessageAuthorityCurrent,
-            onInvalidated = ::notifyPendingMessageFailed,
-            onActivated = { pendingMessage ->
-                notifyDelegates { it.onPendingMessageActivated(pendingMessage.message.id) }
-            }
-        )
-        if (message == null) {
-            requestHostContextRecovery()
-            return
+        // A question a limit held back goes by itself, ahead of the queue behind it, once it resets
+        val isQueueHeld = limitRetry?.isHoldingQueue == true
+        // A limit holds the queue, rather than each question meeting it again. While the wallet's
+        // authority is published again, the queue waits for `bindQueueToMessageAuthority`.
+        val message = pendingMessages.firstOrNull()?.takeIf {
+            !isQueueHeld && canSendNow() && !isPendingBlockedByLimit(it) &&
+                hostContextProvider.isMessageAuthorityCurrent(it.authority)
         }
-        sendNow(message)
+        if (message != null) {
+            pendingMessages.removeAt(0)
+            notifyDelegates { it.onPendingMessageActivated(message.message.id) }
+            sendNow(message)
+        } else if (isQueueHeld && pendingMessages.isNotEmpty() && canRetryLimit) {
+            retryLimit()
+        } else if (!isInputBlockedByLimit) {
+            requestHostContextRecovery()
+        }
     }
 
+    // The daily quota and the Agent's capacity don't hold back a support request, as the server skips them for it
+    private fun isPendingBlockedByLimit(pendingMessage: AgentPendingMessage) =
+        if (AgentV2EntryPoint.isSupportRequest(pendingMessage.entryPoint)) {
+            isRateLimitWaiting
+        } else {
+            isInputBlockedByLimit
+        }
+
+    // The queue waits out a wallet change under way, which decides it once it ends
     private fun requestHostContextRecovery() {
         if (
             state != State.READY ||
             pendingMessages.isEmpty() ||
             hostContextRecoveryJob?.isActive == true ||
-            !hostContextProvider.canRecoverAuthorityContext()
+            !hostContextProvider.canRecoverAuthorityContext() ||
+            hostContextProvider.captureMessageAuthority() == null
         ) {
             return
         }
@@ -1961,12 +2284,16 @@ class AgentVM internal constructor(
                 notifySessionIdle()
                 return@launch
             }
-            if (didRecover && hasCurrentAuthority()) {
-                sendNextPending()
-            } else {
-                failPendingMessages()
-                appendUnavailable()
-                setState(State.ERROR)
+            when {
+                didRecover && hasCurrentAuthority() -> sendNextPending()
+
+                hostContextProvider.captureMessageAuthority() == null -> Unit
+
+                else -> {
+                    failPendingMessages()
+                    appendUnavailable()
+                    setState(State.ERROR)
+                }
             }
             notifySessionIdle()
         }
@@ -2180,7 +2507,13 @@ class AgentVM internal constructor(
                     run.shouldResendSupportConflict = true
                     return
                 }
-                run.limitRetry = update.toLimitRetry(run.hasReceivedStreamEvent, now())
+                run.limitRetry = update.takeUnless { run.isSupportRequest }
+                    ?.toLimitRetry(run.hasReceivedStreamEvent, now(), run.authority)
+                update.resetAt?.takeIf { run.isSupportRequest && update.code == "rate_limited" }
+                    ?.let { resetAt ->
+                        rateLimitResetAt = maxOf(rateLimitResetAt ?: 0L, resetAt)
+                        onLimitsChanged()
+                    }
                 run.shouldResyncThread = run.shouldResyncThread ||
                     requiresAgentV2ThreadResync(update.code)
             }
@@ -2193,6 +2526,9 @@ class AgentVM internal constructor(
             is AgentV2Update.WalletAuthorityChanged -> {
                 if (update.threadId != null && update.threadId != currentThreadId) return
                 invalidateAuthorityBoundActions()
+                // The SDK forgets the held question when this thread changes, and keeps it while
+                // the wallet it was asked for stays
+                if (update.threadId != null) dropLimitRetry()
                 appendAccountChangeMarker()
             }
 
@@ -2246,6 +2582,7 @@ class AgentVM internal constructor(
                 notifyDelegates { it.onStreamingUpdate(id) }
             }
         }
+        if (run.isSupportRequest) requeueHeldQuestion()
         val targetId = run.regenerationTargetId ?: return
         val retained = agentMessagesBeforeRegeneration(
             _messages,
@@ -2257,6 +2594,27 @@ class AgentVM internal constructor(
             notifyDelegates { it.onMessageRemoved(removed.id) }
         }
         run.assistantPresentationId = addAssistantPlaceholder()
+    }
+
+    /**
+     * The SDK forgets the question a limit held back once a support request is admitted. The question goes to the
+     * queue, after the request, and is asked again once the chat can send it; an edit or a regeneration is dropped.
+     */
+    private fun requeueHeldQuestion() {
+        val retry = limitRetry ?: return
+        limitRetry = null
+        val message = _messages.firstOrNull { it.id == retry.inputPresentationId }
+            ?.takeIf { retry.editedMessage == null && retry.regenerationTargetId == null }
+        if (message != null) {
+            retry.failureMessageId?.let(::removeMessage)
+            removeMessage(message.id)
+            _messages.add(message)
+            pendingMessages.add(0, AgentPendingMessage(message, null, retry.authority))
+            notifyDelegates { it.onMessageAdded(message) }
+        } else {
+            restoreUserQuotaFailureText(retry)
+        }
+        onLimitsChanged()
     }
 
     private fun ensureAssistantMessage(messageId: String): AgentMessage =
@@ -2279,7 +2637,7 @@ class AgentVM internal constructor(
         val index = activeRunOutputInsertionIndex(
             _messages,
             activeRun?.inputPresentationId,
-            pendingMessages.map { it.message }
+            trailingMessages()
         )
         _messages.add(index, message)
         notifyDelegates { it.onMessageAdded(message) }
@@ -2296,7 +2654,7 @@ class AgentVM internal constructor(
         val index = activeRunOutputInsertionIndex(
             _messages,
             activeRun?.inputPresentationId,
-            pendingMessages.map { it.message }
+            trailingMessages()
         )
         _messages.add(index, message)
         notifyDelegates { it.onMessageAdded(message) }
@@ -2477,9 +2835,12 @@ class AgentVM internal constructor(
         } else {
             updatedThread.messageCount
         }
+        val wasChatWithSupport = isChatWithSupport
         thread = updatedThread
         revision = updatedThread.revision
         if (hasSupportChanged) notifyFollowupsAndHints()
+        // The quota and capacity hold back no message while support has the chat
+        if (isChatWithSupport != wasChatWithSupport) onLimitsChanged()
         if (hasChanged) notifyDelegates { it.onThreadChanged(updatedThread) }
         if (hasSupportChanged && !isLatestHistory) {
             requestSupportHistoryRefresh()
@@ -2495,8 +2856,9 @@ class AgentVM internal constructor(
         if (history == null) {
             if (!run.isEditAdmitted && clearIntent == null) {
                 run.editFallbackMessages?.let { fallback ->
+                    val trailing = trailingMessages()
                     _messages.clear()
-                    _messages.addAll(fallback + pendingMessages.map { it.message })
+                    _messages.addAll(fallback + trailing)
                     notifyLoaded()
                 }
             }
@@ -2510,7 +2872,7 @@ class AgentVM internal constructor(
                 historyMessages.map { message ->
                     val existing = existingBySdkId[message.sdkMessageId ?: message.id]
                     message.copy(id = existing?.id ?: message.id)
-                } + listOfNotNull(failure) + pendingMessages.map { it.message }
+                } + listOfNotNull(failure) + trailingMessages()
             } else {
                 reconcileAgentMessages(_messages, historyMessages)
             }
@@ -2687,8 +3049,9 @@ class AgentVM internal constructor(
     private fun keepStoppedAnswer(run: AgentActiveRun) {
         val fallback = run.editFallbackMessages
         if (fallback != null && !run.isEditAdmitted) {
+            val trailing = trailingMessages()
             _messages.clear()
-            _messages.addAll(fallback + pendingMessages.map { it.message })
+            _messages.addAll(fallback + trailing)
             notifyLoaded()
         } else {
             for (message in _messages.toList()) {
@@ -2776,23 +3139,48 @@ class AgentVM internal constructor(
         activeRun = null
     }
 
+    // The queue and the question a limit held back wait until the authority is published again, as
+    // the wallet may stay the same; `bindQueueToMessageAuthority` then decides them
     private fun invalidateWalletAuthority() {
-        val invalidatedMessages = pendingMessages.filterNot { pendingMessage ->
-            hostContextProvider.isMessageAuthorityCurrent(pendingMessage.authority)
-        }
-        pendingMessages.removeAll(invalidatedMessages.toSet())
-        invalidatedMessages.forEach(::notifyPendingMessageFailed)
         invalidateAuthorityBoundActions()
         notifyFollowupsAndHints()
+        notifySessionIdle()
+    }
+
+    /**
+     * Puts the queue under the wallet's message authority once it is published: a question asked
+     * for the same wallet waits on under the new authority, and one asked for another wallet fails.
+     * The question a limit held back for another wallet loses its Retry, as the SDK sends it only
+     * for its own.
+     */
+    private fun bindQueueToMessageAuthority() {
+        val authority = hostContextProvider.captureMessageAuthority() ?: return
+        val otherWalletMessages = mutableListOf<AgentPendingMessage>()
+        bindAgentPendingMessages(pendingMessages, authority, otherWalletMessages::add)
+        failQueuedMessages(otherWalletMessages)
+        val retry = limitRetry
+        if (retry != null && retry.authority.accountId != authority.accountId) dropLimitRetry()
+    }
+
+    private fun dropLimitRetry() {
+        if (limitRetry == null) return
+        restoreUserQuotaFailureText(limitRetry!!)
+        limitRetry = null
+        onLimitsChanged()
+    }
+
+    private fun restoreUserQuotaFailureText(retry: AgentLimitRetry) {
+        if (retry.isRateLimit || retry.resetAt == null) return
+        val failureMessageId = retry.failureMessageId ?: return
+        val text = agentV2ErrorText("user_quota_exhausted")
+        val message = _messages.firstOrNull { it.id == failureMessageId && it.text != text }
+            ?: return
+        replaceMessage(message.copy(text = text))
+        notifyDelegates { it.onMessagesRefreshed(_messages.toList()) }
     }
 
     private fun invalidateAuthorityBoundActions() {
         cancelPendingAction()
-        // The SDK sends a held question only for the wallet it was asked for
-        if (limitRetry != null) {
-            limitRetry = null
-            onLimitsChanged()
-        }
         for (index in _messages.indices) {
             val message = _messages[index]
             val deeplinks = message.deeplinks.filter { it.actionId == null }
@@ -2818,6 +3206,39 @@ class AgentVM internal constructor(
         val failedMessages = pendingMessages.toList()
         pendingMessages.clear()
         failedMessages.forEach(::notifyPendingMessageFailed)
+    }
+
+    /**
+     * Questions queued for another wallet fail together, as a failed send does: their bubbles stay, with one failure
+     * after them, whose Retry queues them again for the current wallet. They stay after the answer being produced.
+     */
+    private fun failQueuedMessages(messages: List<AgentPendingMessage>) {
+        if (messages.isEmpty()) return
+        messages.forEach(::notifyPendingMessageFailed)
+        val previous = failedQueue
+        previous?.let { removeMessage(it.failureMessageId) }
+        val failedMessages = previous?.messages.orEmpty() + messages
+        val lastIndex = _messages.indexOfLast { message ->
+            failedMessages.any { it.message.id == message.id }
+        }
+        val failure = AgentMessage(
+            role = AgentMessageRole.SYSTEM,
+            text = agentV2ErrorText(null),
+            isFailure = true
+        )
+        _messages.add(if (lastIndex >= 0) lastIndex + 1 else _messages.size, failure)
+        failedQueue = AgentFailedQueue(failedMessages, failure.id)
+        notifyDelegates { it.onMessageAdded(failure) }
+        notifyErrorEvent()
+    }
+
+    // What comes last in the chat, after the answer being produced: the questions a wallet switch failed, with their
+    // failure, and the questions still queued
+    private fun trailingMessages(): List<AgentMessage> {
+        val queuedMessages = pendingMessages.map { it.message }
+        val failed = failedQueue ?: return queuedMessages
+        val failure = _messages.firstOrNull { it.id == failed.failureMessageId }
+        return failed.messages.map { it.message } + listOfNotNull(failure) + queuedMessages
     }
 
     private fun notifyPendingMessageFailed(pendingMessage: AgentPendingMessage) {
@@ -2858,7 +3279,7 @@ class AgentVM internal constructor(
         val index = activeRunOutputInsertionIndex(
             _messages,
             activeRun?.inputPresentationId,
-            pendingMessages.map { it.message }
+            trailingMessages()
         )
         val previousMessage = _messages.getOrNull(index - 1)
         val isShown = previousMessage?.role == AgentMessageRole.SYSTEM &&
@@ -2920,12 +3341,7 @@ class AgentVM internal constructor(
     }
 
     private fun notifySessionIdle() {
-        if (
-            !shouldRetainSession &&
-            (state != State.READY || pendingMessages.isEmpty())
-        ) {
-            onSessionIdle?.invoke()
-        }
+        if (!shouldRetainSession) onSessionIdle?.invoke()
     }
 
     private fun clearPresentation() {
@@ -2934,6 +3350,7 @@ class AgentVM internal constructor(
         historyCursor = null
         seenHistoryCursors.clear()
         pendingMessages.clear()
+        failedQueue = null
         _messages.clear()
         scrollPosition = ScrollPosition(ScrollAnchor.Bottom)
         notifyLoaded()
@@ -2959,7 +3376,7 @@ class AgentVM internal constructor(
         val insertionIndex = accountChangeMarkerInsertionIndex(
             _messages,
             currentActiveInputId,
-            pendingMessages.map { it.message }
+            trailingMessages()
         )
         _messages.add(insertionIndex, message)
         val animated = liveDelegates(activeDelegates).isNotEmpty()
@@ -2996,12 +3413,24 @@ class AgentVM internal constructor(
 
     private companion object {
         const val MESSAGE_PAGE_SIZE = 100
-        const val CAPACITY_EXHAUSTED = "capacity_exhausted"
         const val PROBLEM_REPORT_CHECK_ATTEMPTS = 3
     }
 }
 
 internal fun normalizeAgentMessageText(text: String): String = text.trim()
+
+internal fun getAgentInputLimitCode(
+    availability: AgentV2Availability?,
+    userQuota: AgentV2UserQuota?,
+    now: Long
+): String? {
+    val capacity = availability?.takeIf { it.state == CAPACITY_EXHAUSTED }
+    if ((capacity?.resetAt ?: 0L) > now) return "agent_capacity_exhausted"
+    val quota = userQuota?.takeIf { it.remaining == 0 }
+    return "user_quota_exhausted".takeIf {
+        (quota?.resetAt?.let(::parseAgentV2Timestamp)?.time ?: 0L) > now
+    }
+}
 
 private data class AgentPendingMessage(
     val message: AgentMessage,
@@ -3015,22 +3444,36 @@ private data class AgentPendingMessage(
     val replacedStoppedAnswerIds: Set<String> = emptySet()
 )
 
-private fun activateNextAgentPendingMessage(
+/** Questions queued for a previous wallet, which show as failed sends, with [failureMessageId] after them */
+private data class AgentFailedQueue(
+    val messages: List<AgentPendingMessage>,
+    val failureMessageId: String
+)
+
+/**
+ * Binds the queued questions asked for the wallet of [authority] to it, and takes out those asked
+ * for another wallet, which [onOtherWallet] gets
+ */
+private fun bindAgentPendingMessages(
     pendingMessages: MutableList<AgentPendingMessage>,
-    canStart: Boolean,
-    isAuthorityCurrent: (AgentV2AuthorityBinding) -> Boolean,
-    onInvalidated: (AgentPendingMessage) -> Unit,
-    onActivated: (AgentPendingMessage) -> Unit
-): AgentPendingMessage? {
-    val iterator = pendingMessages.iterator()
+    authority: AgentV2AuthorityBinding,
+    onOtherWallet: (AgentPendingMessage) -> Unit
+) {
+    val iterator = pendingMessages.listIterator()
     while (iterator.hasNext()) {
         val pendingMessage = iterator.next()
-        if (isAuthorityCurrent(pendingMessage.authority)) continue
-        iterator.remove()
-        onInvalidated(pendingMessage)
+        when {
+            pendingMessage.authority === authority -> Unit
+
+            pendingMessage.authority.accountId == authority.accountId ->
+                iterator.set(pendingMessage.copy(authority = authority))
+
+            else -> {
+                iterator.remove()
+                onOtherWallet(pendingMessage)
+            }
+        }
     }
-    if (!canStart) return null
-    return pendingMessages.removeFirstOrNull()?.also(onActivated)
 }
 
 private enum class AgentClearAction {
@@ -3141,6 +3584,11 @@ private fun safeAgentClearFallback(
         if (message.isStreaming) message.copy(isStreaming = false) else message
     }
 
+/**
+ * Where the active run's output goes: after its input, before the questions queued after it. A
+ * regeneration's input is the answer it replaces, which its admission takes out, and its output
+ * then goes before the queue.
+ */
 private fun activeRunOutputInsertionIndex(
     messages: List<AgentMessage>,
     activeInputMessageId: String?,
@@ -3149,7 +3597,6 @@ private fun activeRunOutputInsertionIndex(
     val activeIndex = activeInputMessageId?.let { messageId ->
         messages.indexOfFirst { it.matchesMessageId(messageId) }
     } ?: return messages.size
-    if (activeIndex < 0) return messages.size
     return pendingMessages.firstNotNullOfOrNull { pendingMessage ->
         messages.indexOfFirst { it.matchesMessageId(pendingMessage.id) }
             .takeIf { it > activeIndex }

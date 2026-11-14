@@ -6,6 +6,8 @@ private enum AgentHintsSectionMetrics {
     static let contentInset: CGFloat = 20
     static let sparkleSize: CGFloat = 48
     static let sparkleToPillsSpacing: CGFloat = 16
+    /// The headset of Contact Support, as tall as the title's line allows
+    static let supportIconSize: CGFloat = 15
 }
 
 final class AgentHintsSectionView: UIView {
@@ -29,6 +31,10 @@ final class AgentHintsSectionView: UIView {
     private var buttons: [AgentSuggestionButton] = []
     private var hints: [AgentHint] = []
     private var onHintTap: ((AgentHint) -> Void)?
+    /// Contact Support among the hints can be tapped
+    var isSupportRequestEnabled = true {
+        didSet { updateSupportRequestButton() }
+    }
 
     nonisolated static func calculateContentHeight(for hintCount: Int) -> CGFloat {
         guard hintCount > 0 else { return 0 }
@@ -88,7 +94,6 @@ final class AgentHintsSectionView: UIView {
         while buttons.count < hints.count {
             let index = buttons.count
             let button = AgentSuggestionButton()
-            button.accessibilityIdentifier = "agent_suggestion"
             button.addAction(UIAction { [weak self] _ in
                 guard let self, self.hints.indices.contains(index) else { return }
                 self.onHintTap?(self.hints[index])
@@ -99,11 +104,22 @@ final class AgentHintsSectionView: UIView {
             button.heightAnchor.constraint(equalToConstant: AgentSuggestionButton.height).isActive = true
         }
         for (button, hint) in zip(buttons, hints) {
-            button.configure(title: hint.title)
+            button.configure(
+                title: hint.title,
+                icon: hint.isSupportRequest ? AgentSupportIcon.makeImage(size: AgentHintsSectionMetrics.supportIconSize) : nil
+            )
+            button.accessibilityIdentifier = hint.isSupportRequest ? "agent_support_hint" : "agent_suggestion"
+            button.isEnabled = true
             // A pill that turned into its question shows again with the suggestions
             button.alpha = 1
         }
+        updateSupportRequestButton()
         stackView.isHidden = hints.isEmpty
+    }
+
+    private func updateSupportRequestButton() {
+        guard let index = hints.firstIndex(where: \.isSupportRequest), buttons.indices.contains(index) else { return }
+        buttons[index].isEnabled = isSupportRequestEnabled
     }
 
     /// The pill of `hint`, while it shows

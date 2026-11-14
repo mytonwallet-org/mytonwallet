@@ -227,6 +227,7 @@ function LandscapeContent({
       return (
         <LandscapeWalletOverview
           totalTokensAmount={totalTokensAmount}
+          isActive={isSlideActive}
           onStakedTokenClick={onStakedTokenClick}
         />
       );
@@ -258,7 +259,7 @@ function LandscapeContent({
           data-slide-key={currentKey}
           onScroll={handleContentScroll}
         >
-          {isActivitySlide && !currentToken && <TopActions className={styles.topActions} />}
+          {isActivitySlide && !currentToken && <TopActions isActive={isSlideActive} className={styles.topActions} />}
           <div className={buildClassName(styles.landscapeHeader, isScrolled && styles.landscapeHeaderScrolled)}>
             {renderHeader()}
           </div>

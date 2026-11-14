@@ -81,7 +81,8 @@ enum AgentSentMessageMorph {
     private static let textBubbleStartScale: CGFloat = 0.85
 
     /// Morphs `bubble`, the sent question's appearance view, from `picture`, the field's text at `sourceFrame` in
-    /// `container`. `target` is the bubble's text, which the picture lines up with.
+    /// `container`. `target` is the bubble's text, which the picture lines up with, also as the list moves the bubble
+    /// during the flight, as it does going down with the keyboard.
     static func animate(_ bubble: UIView, target: UIView, from picture: UIView, at sourceFrame: CGRect, in container: UIView) {
         let source = (picture: picture, frame: sourceFrame)
         let targetFrame = target.convert(target.bounds, to: container)
@@ -118,6 +119,7 @@ enum AgentSentMessageMorph {
             picture.removeFromSuperview()
         }
         move.startAnimation()
+        follow(bubbleSuperview, with: picture, in: container)
         // The bubble shows as the picture goes, crossing over in the first half of the flight
         UIView.animate(withDuration: duration * 0.5, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
             bubble.alpha = 1
@@ -125,5 +127,24 @@ enum AgentSentMessageMorph {
         UIView.animate(withDuration: duration * 0.45, delay: duration * 0.1, options: [.curveEaseIn, .allowUserInteraction]) {
             picture.alpha = 0
         }
+    }
+
+    /// Moves `picture` by as much as `landing`, the view the bubble lands in, moves in `container` from now on, every
+    /// frame until the picture is gone
+    private static func follow(_ landing: UIView, with picture: UIView, in container: UIView) {
+        let landingOrigin = landing.convert(CGPoint.zero, to: container)
+        let center = picture.center
+        // The clock keeps itself until the picture is gone
+        var clock: GlassMotionClock?
+        clock = GlassMotionClock(frameRateRange: nil) { [weak landing, weak picture, weak container] _ in
+            guard let landing, let picture, let container, picture.superview != nil else {
+                clock?.stop()
+                clock = nil
+                return
+            }
+            let origin = landing.convert(CGPoint.zero, to: container)
+            picture.center = CGPoint(x: center.x + origin.x - landingOrigin.x, y: center.y + origin.y - landingOrigin.y)
+        }
+        clock?.start()
     }
 }

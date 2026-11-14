@@ -3,7 +3,11 @@ import type {
   AgentStarterHintIdV2,
   AgentV2ErrorCode,
 } from '../../api/agentV2/protocol/types';
+import type { AgentV2StarterHint } from '../../api/agentV2/types';
+import type { AgentHint } from '../../global/types';
 import type { LangFn } from '../../util/langProvider';
+
+import { formatAgentTime } from '../agent/helpers/agentDateFormat';
 
 const HINT_KEYS: Record<AgentStarterHintIdV2, [string, string?]> = {
   'agent.capabilities': ['$agent_hint_capabilities_title'],
@@ -11,6 +15,21 @@ const HINT_KEYS: Record<AgentStarterHintIdV2, [string, string?]> = {
   'learn.staking': ['$agent_hint_staking_title', '$agent_hint_staking_prompt'],
   'learn.security': ['$agent_hint_security_title', '$agent_hint_security_prompt'],
   'receive.tokens': ['$agent_hint_receive_title', '$agent_hint_receive_prompt'],
+  'wallet.assets': ['$agent_hint_assets_title'],
+  'wallet.total': ['$agent_hint_total_title'],
+  'wallet.spending': ['$agent_hint_spending_title'],
+  'wallet.last_transfer': ['$agent_hint_last_transfer_title'],
+  'wallet.fund': ['$agent_hint_fund_title'],
+  'market.today': ['$agent_hint_market_today_title'],
+  'news.today': ['$agent_hint_news_today_title'],
+  'market.bitcoin': ['$agent_hint_bitcoin_title'],
+  'market.price': ['$agent_hint_price_title'],
+  'staking.yield': ['$agent_hint_staking_yield_title'],
+  'staking.options': ['$agent_hint_staking_options_title'],
+  'learn.multisend': ['$agent_hint_multisend_title'],
+  'action.swap': ['$agent_hint_action_swap_title'],
+  'action.send': ['$agent_hint_action_send_title'],
+  'action.stake': ['$agent_hint_action_stake_title'],
 };
 
 const NOTICE_KEYS: Record<AgentSemanticContentV1['code'], string> = {
@@ -25,19 +44,31 @@ export function getAgentV2HintCopy(id: AgentStarterHintIdV2, lang: LangFn) {
   return { title, subtitle: subtitleKey ? lang(subtitleKey) : '', prompt: title };
 }
 
+export function mapAgentV2StarterHints(items: readonly AgentV2StarterHint[], lang: LangFn): AgentHint[] {
+  const langCode = lang.code ?? 'en';
+  return items.map(({ id }) => ({ id, langCode, ...getAgentV2HintCopy(id, lang) }));
+}
+
 export function getAgentV2NoticeTexts(content: AgentSemanticContentV1, lang: LangFn): string[] {
   return [lang(NOTICE_KEYS[content.code])];
 }
 
-export function getAgentV2ErrorText(code: AgentV2ErrorCode, lang: LangFn) {
+export function getAgentV2ErrorText(code: AgentV2ErrorCode, lang: LangFn, resetAt?: string | number): string {
   switch (code) {
     case 'client_update_required':
       return lang('$agent_error_update_required');
     case 'device_token_missing':
     case 'device_token_invalid':
       return lang('$agent_error_session');
-    case 'user_quota_exhausted':
+    case 'user_quota_exhausted': {
+      const resetTimestamp = typeof resetAt === 'string' ? Date.parse(resetAt) : resetAt;
+      if (resetTimestamp !== undefined && resetTimestamp > Date.now()) {
+        return lang('$agent_daily_limit_resets_at', formatAgentTime(lang.code ?? 'en', resetTimestamp)) as string;
+      }
       return lang('$agent_daily_limit_reached');
+    }
+    case 'support_escalation_rate_limited':
+      return lang('$agent_support_rate_limited');
     case 'rate_limited':
     case 'agent_capacity_exhausted':
     case 'device_token_rate_limited':

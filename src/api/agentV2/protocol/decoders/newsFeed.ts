@@ -19,6 +19,7 @@ import {
   string,
   timestamp,
 } from '../wireReader';
+import { followupText } from './messages';
 import { protocol, uuid } from './readers';
 
 const NEWS_FEED_LOCALES = new Set(['ru', 'en']);
@@ -98,6 +99,9 @@ function newsFeedItem(value: unknown, path: string): AgentNewsFeedItemV2 {
   const discussion = result.discussion === undefined
     ? undefined
     : newsDiscussion(result.discussion, `${path}.discussion`);
+  const discussionNaming = result.discussionNaming === undefined
+    ? undefined
+    : decodeDiscussionNaming(result.discussionNaming, `${path}.discussionNaming`);
   return {
     eventId,
     deliveredAt,
@@ -106,6 +110,7 @@ function newsFeedItem(value: unknown, path: string): AgentNewsFeedItemV2 {
     ...(imageUrl !== undefined && { imageUrl }),
     sources,
     ...(discussion !== undefined && { discussion }),
+    ...(discussionNaming !== undefined && { discussionNaming }),
   };
 }
 
@@ -118,7 +123,17 @@ function newsFeedDigest(value: unknown, path: string): AgentNewsFeedDigestV2 {
   const discussion = result.discussion === undefined
     ? undefined
     : newsDiscussion(result.discussion, `${path}.discussion`);
-  return { id, deliveredAt, top, total, ...(discussion !== undefined && { discussion }) };
+  const discussionNaming = result.discussionNaming === undefined
+    ? undefined
+    : decodeDiscussionNaming(result.discussionNaming, `${path}.discussionNaming`);
+  return {
+    id,
+    deliveredAt,
+    top,
+    total,
+    ...(discussion !== undefined && { discussion }),
+    ...(discussionNaming !== undefined && { discussionNaming }),
+  };
 }
 
 function digestId(value: unknown, path: string) {
@@ -135,7 +150,8 @@ function digestHeadline(value: unknown, path: string): AgentNewsDigestHeadlineV2
   const result = object(value, path);
   const eventId = boundedInteger(result.eventId, `${path}.eventId`, 1, MAX_NEWS_EVENT_ID);
   const headline = string(result.headline, `${path}.headline`);
-  return { eventId, headline };
+  const imageUrl = result.imageUrl === undefined ? undefined : string(result.imageUrl, `${path}.imageUrl`);
+  return { eventId, headline, ...(imageUrl !== undefined && { imageUrl }) };
 }
 
 function newsSource(value: unknown, path: string): AgentNewsFeedItemV2['sources'][number] {
@@ -150,4 +166,19 @@ function newsDiscussion(value: unknown, path: string): NonNullable<AgentNewsFeed
   const threadId = uuid(result.threadId, `${path}.threadId`);
   const icon = result.icon === undefined ? undefined : boundedString(result.icon, `${path}.icon`, 1, 16);
   return { threadId, ...(icon !== undefined && { icon }) };
+}
+
+function decodeDiscussionNaming(value: unknown, path: string): AgentNewsFeedItemV2['discussionNaming'] {
+  try {
+    const result = object(value, path);
+    const title = boundedString(result.title, `${path}.title`, 1, 80);
+    if (!title.trim() || title.includes('\u0000')) fail(`${path}.title`);
+    const icon = result.icon === undefined ? undefined : boundedString(result.icon, `${path}.icon`, 1, 16);
+    const followups = array(result.followups, `${path}.followups`, 3)
+      .map((value, index) => followupText(value, `${path}.followups[${index}]`, 80));
+    return { title, ...(icon !== undefined && { icon }), followups };
+  } catch (error) {
+    if (!(error instanceof AgentV2ContractError)) throw error;
+    return undefined;
+  }
 }

@@ -94,7 +94,9 @@ export const AgentComposerStatus = memo(({
   const content = kind === 'failure' ? (
     <div className={styles.chatFailure}>
       <AgentFailureCaption
-        text={getAgentV2ErrorText(ERROR_CODE_BY_STATUS_KIND[status.kind], lang)}
+        text={getAgentV2ErrorText(
+          ERROR_CODE_BY_STATUS_KIND[status.kind], lang, 'resetAt' in status ? status.resetAt : undefined,
+        )}
         isRetryDisabled={isRetryDisabled}
         onRetry={onRetry}
       />
@@ -227,8 +229,7 @@ function getComposerStatusTitle(lang: LangFn, status: AgentV2ComposerStatus) {
       ? '$agent_capacity_degraded_title'
       : '$agent_capacity_limit_title');
   }
-  // The daily quota reads as in the design, on one line
-  if (status.kind === 'userQuota') return lang('$agent_daily_limit_reached');
+  if (status.kind === 'userQuota') return getAgentV2ErrorText('user_quota_exhausted', lang, status.resetAt);
   return lang('$agent_rate_limit_title');
 }
 

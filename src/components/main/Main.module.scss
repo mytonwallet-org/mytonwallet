@@ -12,7 +12,6 @@ $landscapeSidebarWidth: 22.375rem;
 .portraitContainer {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
 
   height: auto;
   min-height: calc(var(--vh, 1vh) * 100);
@@ -50,6 +49,7 @@ $landscapeSidebarWidth: 22.375rem;
 }
 
 .landscapeContainer {
+  --card-carousel-gutter: 1rem;
   --app-padding-top: 1rem;
 
   display: grid;
@@ -80,17 +80,13 @@ $landscapeSidebarWidth: 22.375rem;
   }
 
   .sidebar {
-    margin-inline-end: #{$scrollOffset};
-    padding-top: var(--app-padding-top);
-    padding-bottom: max(var(--safe-area-bottom), 1rem);
-    // The trailing gap is 1rem once the scrollbar and the scroll offset are taken out of it. The
-    // leading side has nothing to subtract, so the same 1rem is set directly and the column ends up
-    // with equal air on both sides. The sidebar scrolls, which clips anything reaching its edge -
-    // the wallet card leans out of its box while it tilts, and without this it loses that edge.
-    padding-inline-start: 1rem;
-    padding-inline-end: calc(1rem - var(--scrollbar-width) - #{$scrollOffset});
-  }
+    // The neighbouring cards show in the side padding. A scrollbar would take its width from the right one
+    // and hide the right card, so the sidebar scrolls without a scrollbar.
+    scrollbar-width: none !important;
+    padding: var(--app-padding-top) 1rem max(var(--safe-area-bottom), 1rem);
 
+    &::-webkit-scrollbar { display: none; }
+  }
 }
 
 .main,
@@ -112,7 +108,24 @@ $landscapeSidebarWidth: 22.375rem;
 .sidebar {
   overflow-x: hidden;
   overflow-y: scroll;
+  overscroll-behavior: none;
 
   // Add some space between scrollbar and content
   padding-inline-end: #{$scrollOffset};
+}
+
+.accountRegion { display: flow-root; flex-shrink: 0; }
+
+// While the card shows another account, account actions must not run against the previous one.
+// The carousel restores `pointer-events` for itself.
+.isAccountPending { pointer-events: none; }
+
+.portraitContentRegion {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+
+  min-width: 0;
+  // The gap above the content is inside the region, so the outgoing account view covers it too
+  padding-top: 1rem;
 }

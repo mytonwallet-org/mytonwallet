@@ -4,6 +4,7 @@ import React, { memo, useRef, useState } from '../../lib/teact/teact';
 import type { IAnchorPosition } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -120,6 +121,7 @@ function TokenTradeMenu({
         isRound
         className={styles.headerButton}
         ariaLabel={lang('Swap Details')}
+        testId={getTestId('token_trade_settings')}
         onClick={handleButtonClick}
       >
         <i

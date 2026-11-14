@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.MathContext
 import java.math.RoundingMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -43,6 +45,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.DEFAULT_SWAP_VERSION
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
@@ -882,12 +885,63 @@ class SwapViewModel :
     val uiStatusFlow: Flow<UiStatus> =
         combine(uiInputStateFlow, simulatedSwapFlow, _loadingStatusFlow, this::getUiState)
 
-    val hintFlow: Flow<SwapHint?> = combine(uiInputStateFlow, simulatedSwapFlow) { state, est ->
-        SwapHint.resolve(
-            state,
-            est?.takeIf { it.request.key == state.key }
-        )
+    private val hintInputFlow = combine(uiInputStateFlow, simulatedSwapFlow) { state, est ->
+        state to est?.takeIf { it.request.key == state.key }
+    }
+
+    internal val swapScreenHintFlow = getHintFlow()
+    internal val tradeScreenHintFlow = getHintFlow(isTrade = true)
+
+    private fun getHintFlow(isTrade: Boolean = false) = hintInputFlow.map { (state, estimate) ->
+        val hint = SwapHint.resolve(state, estimate)
+        val message = if (hint == null && estimate != null) {
+            getQuoteHintText(estimate, isTrade)
+        } else {
+            null
+        }
+        hint to message
     }.distinctUntilChanged()
+
+    private fun getQuoteHintText(estimate: SwapEstimateResponse, isTrade: Boolean): String? {
+        val hint = estimate.hint ?: return null
+        if (estimate.error != null) return null
+        if (hint.type == "betterRate") {
+            val amount = hint.additionalAmount?.toBigDecimalOrNull() ?: return null
+            val value = amount.round(
+                MathContext(2, RoundingMode.UP)
+            ).stripTrailingZeros().toPlainString()
+            val symbol = hint.symbol ?: return null
+            return LocaleController.getStringWithKeyValues(
+                "Better rate is available if you add %amount% %symbol% for network fee.",
+                listOf("%amount%" to value, "%symbol%" to symbol)
+            )
+        }
+        if (hint.type == "betterRateMinimum") {
+            val minimum = hint.minimumAmount ?: return null
+            val symbol = hint.symbol ?: return null
+            return LocaleController.getStringWithKeyValues(
+                "\$swap_better_rate_minimum",
+                listOf("%value%" to "${minimum.withLocalizedNumbers} $symbol")
+            )
+        }
+        if (isTrade || hint.type != "oneToOne") return null
+        val token = estimate.request.tokenToSend
+        val decimals = token.decimals
+        val minimum = CoinUtils.fromDecimal(hint.minimumAmount, decimals) ?: return null
+        val amount = minimum.toString(
+            decimals = decimals,
+            currency = token.symbol.orEmpty(),
+            currencyDecimals = 2,
+            showPositiveSign = false,
+            rounding = RoundingMode.UP,
+            localizedDigits = true,
+            zeroCountSubscriptMinCount = null
+        )
+        return LocaleController.getStringWithKeyValues(
+            "\$swap_one_to_one",
+            listOf("%value%" to amount)
+        )
+    }
 
     private fun getUiState(
         assets: SwapUiInputState,
@@ -1368,7 +1422,7 @@ class SwapViewModel :
                             ],
                             fromAmount = dex.fromAmount,
                             networkFee = dex.realNetworkFee ?: dex.networkFee,
-                            shouldTryDiesel = estimate.request.shouldTryDiesel,
+                            shouldTryDiesel = estimate.explainedFee.isGasless,
                             slippage = estimate.request.slippage,
                             swapFee = dex.swapFee,
                             to = dex.to,
@@ -1776,7 +1830,7 @@ class SwapViewModel :
                         it.isCex,
                         it.wallet.accountId,
                         it.wallet.addressByChain,
-                        it.nativeTokenToSendBalance,
+                        it.nativeTokenToSend?.let { token -> it.wallet.balances[token.slug] },
                         it.tokenToSendIsSupported,
                         it.tokenToReceiveIsSupported
                     )

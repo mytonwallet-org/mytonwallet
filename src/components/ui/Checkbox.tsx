@@ -10,6 +10,7 @@ import styles from './Checkbox.module.scss';
 
 type OwnProps = {
   id?: string;
+  testId?: string;
   className?: string;
   contentClassName?: string;
   children?: TeactNode;
@@ -20,6 +21,7 @@ type OwnProps = {
 
 function Checkbox({
   id,
+  testId,
   className,
   contentClassName,
   children,
@@ -33,7 +35,7 @@ function Checkbox({
   });
 
   return (
-    <label className={buildClassName(styles.wrapper, className)}>
+    <label className={buildClassName(styles.wrapper, className)} data-testid={testId}>
       <input
         id={id}
         type="checkbox"

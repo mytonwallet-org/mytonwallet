@@ -34,6 +34,7 @@ function CustomCardPreview({ nft, className }: OwnProps) {
     <div className={className}>
       <div className={styles.container}>
         <img
+          data-account-crossfade-image
           src={imageUrl}
           alt=""
           className={styles.image}
@@ -41,6 +42,7 @@ function CustomCardPreview({ nft, className }: OwnProps) {
         />
         {skeletonUrl && isImageLoaded && (
           <img
+            data-account-crossfade-image
             src={skeletonUrl}
             alt=""
             className={styles.skeleton}

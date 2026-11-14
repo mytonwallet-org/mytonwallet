@@ -242,16 +242,20 @@ abstract class WWindow :
     }
 
     private fun relayoutCenteredWindows() {
+        navigationControllers.forEach(::relayoutCenteredWindow)
+    }
+
+    // Re-centres one presented centered window to its content's current height. Leaves it to the present and
+    // dismiss animators while a nav animates, and a dismissed window where it is.
+    fun relayoutCenteredWindow(nav: WNavigationController) {
         if (navAnimation != NavAnimation.NONE) return
-        for (nav in navigationControllers) {
-            if (!nav.isCenteredWindow || nav.isDismissed || nav.parent !== windowView) continue
-            val lp = nav.layoutParams ?: continue
-            val frame = centeredWindowFrame(nav)
-            if (lp.width != frame.width || lp.height != frame.height) {
-                applyCenteredWindowLayout(nav)
-            }
-            nav.y = frame.y.toFloat()
+        if (!nav.isCenteredWindow || nav.isDismissed || nav.parent !== windowView) return
+        val lp = nav.layoutParams ?: return
+        val frame = centeredWindowFrame(nav)
+        if (lp.width != frame.width || lp.height != frame.height) {
+            applyCenteredWindowLayout(nav)
         }
+        nav.y = frame.y.toFloat()
     }
 
     // Bottom inset a nav reserves so its content stays above the minimized nav.

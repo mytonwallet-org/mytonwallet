@@ -256,6 +256,7 @@ class InstallationStorageContractTest {
     val sideloaded = storage.syncWalletAttribution(null)
     assertEquals("direct", sideloaded.getString("technicalKind"))
     assertEquals("not_play_install", sideloaded.getString("sourceOutcome"))
+    assertEquals(JSONObject(path.readText()).getString("installationId"), sideloaded.getString("installationId"))
   }
 
   @Test fun migrationCommitFailureRetainsLegacyPendingAndAcknowledgedInstallationEvents() {

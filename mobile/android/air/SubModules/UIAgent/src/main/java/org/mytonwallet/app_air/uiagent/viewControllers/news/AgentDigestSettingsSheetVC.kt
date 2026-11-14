@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.news
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -10,13 +11,14 @@ import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.animation.doOnEnd
 import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
-import com.google.android.material.progressindicator.CircularProgressIndicator
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,30 +28,34 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationMode
 
 /**
- * The digest's hour and the choice of MyPulse notifications, in a bottom sheet as tall as its content under the
- * header the app's sheets have, with Done at its foot. A change made before the sheet closes is still applied.
+ * The choice of MyPulse notifications and the digest's time, in a bottom sheet as tall as its content under the
+ * header the app's sheets have, with Done at its foot. The time's row opens a wheel of hours and minutes under it, as
+ * on iOS. A change made before the sheet closes is still applied.
  */
 @SuppressLint("ViewConstructor")
 class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewController(context) {
@@ -60,26 +66,31 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
 
     override val wrapsContentInCenteredWindow = true
 
+    // As tall as its content, which the sheet follows as the time's wheel opens and closes
+    override val isExpandable = false
+
+    override fun getModalHalfExpandedHeight(): Int {
+        val width = navigationController?.width?.takeIf { it > 0 } ?: view.width
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val windowHeight = window?.windowView?.height?.takeIf { it > 0 }
+            ?: return view.measuredHeight
+        return min(view.measuredHeight, windowHeight)
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val model = AgentDigestSettingsModel(AgentDigestNotificationSettings.Shared) {
-        if (!isDestroyed) showError(MBridgeError.Type.UNEXPECTED_ERROR)
-    }
+    private val model = AgentDigestSettingsModel(
+        AgentDigestNotificationSettings.Shared,
+        AgentDigestSettingsModel.sharedPendingState
+    )
+    private val updateModelViews: () -> Unit = ::updateViews
 
-    private val textLabel = WLabel(context).apply {
-        setStyle(TEXT_SIZE)
-        setLineHeight(TEXT_LINE_HEIGHT)
-        text = LocaleController.getString("\$agent_digest_settings_text")
-    }
-
-    // The chosen hour on the pill a settings value that opens a choice has, with its arrows
-    private val hourArrows = context.getDrawableCompat(R.drawable.ic_arrows_18)
+    // The chosen time, in the accent while its wheel is open
     private val hourValueView = WLabel(context).apply {
-        setStyle(adaptiveFontSize(), WFont.Medium)
+        setStyle(adaptiveFontSize())
         setSingleLine()
-        gravity = android.view.Gravity.CENTER_VERTICAL
-        setPaddingRelative(HOUR_PILL_START.dp, 0, HOUR_PILL_END.dp, 0)
-        compoundDrawablePadding = HOUR_ARROWS_GAP.dp
-        setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, hourArrows, null)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private val hourTitleLabel = WLabel(context).apply {
@@ -92,7 +103,7 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
         minHeight = ROW_HEIGHT.dp
         background = hourRipple
         addView(hourTitleLabel, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-        addView(hourValueView, ConstraintLayout.LayoutParams(WRAP_CONTENT, HOUR_PILL_HEIGHT.dp))
+        addView(hourValueView, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {
             toStart(hourTitleLabel, ROW_INSET.toFloat())
             endToStart(hourTitleLabel, hourValueView, ROW_GAP.toFloat())
@@ -100,19 +111,22 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
             toEnd(hourValueView, ROW_INSET.toFloat())
             toCenterY(hourValueView)
         }
-        setOnClickListener { showHourMenu() }
+        setOnClickListener { toggleHourWheel() }
     }
-    private val timeZoneLabel = makeFootnote(LocaleController.getString("\$agent_digest_time_zone"))
-    private val notificationsHeader = WLabel(context).apply {
-        setStyle(SECTION_HEADER_TEXT_SIZE, WFont.Medium)
-        text = LocaleController.getString("Notifications")
-        setPaddingRelative(
-            ROW_INSET.dp,
-            SECTION_HEADER_TOP.dp,
-            ROW_INSET.dp,
-            SECTION_HEADER_BOTTOM.dp
-        )
+    private val hourWheel = AgentHourWheelView(context).apply {
+        onTimeSelected = { time -> applyChange { model.selectTime(time) } }
     }
+
+    // Holds the wheel at its full height while it opens and closes, the section growing with it
+    private val hourWheelContainer = FrameLayout(context).apply {
+        id = View.generateViewId()
+        clipChildren = true
+        isGone = true
+        addView(hourWheel, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    }
+    private var isHourWheelShown = false
+    private var hourWheelAnimator: ValueAnimator? = null
+    private val hourHintLabel = makeFootnote(LocaleController.getString("\$agent_digest_time_hint"))
     private val modeRows = AgentDigestSettingsModel.MODES.associateWith { mode ->
         ModeRow(context, AgentDigestSettingsModel.title(mode)).apply {
             setOnClickListener { select(mode) }
@@ -138,9 +152,8 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
         background = enableRipple
         setOnClickListener { openNotificationSettings() }
     }
-    private val hourSection = makeSection(hourRow)
-    private val notificationsSection =
-        makeSection(notificationsHeader, *modeRows.values.toTypedArray())
+    private val hourSection = makeSection(hourRow, hourWheelContainer)
+    private val notificationsSection = makeSection(*modeRows.values.toTypedArray())
     private val permissionSection = makeSection(permissionTitleLabel, enableLabel).apply {
         isGone = true
     }
@@ -153,11 +166,10 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
-        addView(textLabel, footnoteParams(bottomMargin = ViewConstants.GAP.dp + TEXT_GAP.dp))
-        addView(hourSection, sectionParams())
-        addView(timeZoneLabel, footnoteParams(topMargin = FOOTNOTE_GAP.dp))
-        addView(notificationsSection, sectionParams(topMargin = ViewConstants.GAP.dp + TEXT_GAP.dp))
+        addView(notificationsSection, sectionParams())
         addView(permissionSection, sectionParams(topMargin = ViewConstants.GAP.dp))
+        addView(hourSection, sectionParams(topMargin = ViewConstants.GAP.dp + SECTION_GAP.dp))
+        addView(hourHintLabel, footnoteParams(topMargin = FOOTNOTE_GAP.dp))
     }
     private val scrollView = ScrollView(context).apply {
         id = View.generateViewId()
@@ -181,7 +193,7 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
 
     override fun setupViews() {
         super.setupViews()
-        setNavTitle(LocaleController.getString("\$agent_digest_settings_title"))
+        setNavTitle(LocaleController.getString("Notifications"))
         setupNavBar(true)
         navigationBar?.addCloseButton()
         view.addView(
@@ -195,8 +207,13 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
             navigationBar?.let { topToBottom(contentView, it) } ?: toTop(contentView)
             toCenterX(contentView)
             toBottom(contentView)
+            // A centred window grows only up to its frame's limit, past which the content scrolls above Done
+            constrainedHeight(contentView.id, true)
         }
-        model.onChange = ::updateViews
+        model.onChange = updateModelViews
+        model.onError = {
+            if (!isDestroyed) showError(MBridgeError.Type.UNEXPECTED_ERROR)
+        }
         updateViews()
         updateTheme()
     }
@@ -228,62 +245,111 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
             it.backgroundColor = WColor.Background.color
             it.rippleColor = WColor.SecondaryBackground.color
         }
-        textLabel.setTextColor(WColor.SecondaryText)
-        timeZoneLabel.setTextColor(WColor.SecondaryText)
+        hourHintLabel.setTextColor(WColor.SecondaryText)
         hourTitleLabel.setTextColor(WColor.PrimaryText)
-        hourValueView.setTextColor(WColor.PrimaryText)
-        hourValueView.setBackgroundColor(WColor.TrinaryBackground.color, HOUR_PILL_HEIGHT.dp / 2f)
-        hourArrows?.setTint(WColor.SecondaryText.color)
-        notificationsHeader.setTextColor(WColor.Tint)
+        updateHourValueColor()
+        hourWheel.updateTheme()
         permissionTitleLabel.setTextColor(WColor.PrimaryText)
         enableLabel.setTextColor(WColor.Tint)
         modeRows.values.forEach(ModeRow::updateTheme)
         doneButton.updateTheme()
     }
 
+    override fun viewWillDisappear() {
+        super.viewWillDisappear()
+        // The wheel settles at once, so the sheet going away isn't resized under its dismiss animation
+        hourWheelAnimator?.end()
+    }
+
     override fun onDestroy() {
-        model.onChange = null
+        hourWheelAnimator?.let {
+            hourWheelAnimator = null
+            it.cancel()
+        }
+        if (model.onChange === updateModelViews) {
+            model.onChange = null
+            model.onError = null
+        }
         scope.cancel()
         super.onDestroy()
     }
 
     private fun updateViews() {
-        val hour = AgentDigestSettingsModel.formatHour(model.digestHour)
-        hourValueView.text = hour
-        hourRow.contentDescription = "${LocaleController.getString("\$agent_digest_time")}, $hour"
-        hourRow.isEnabled = !model.isApplyingHour
+        val time = AgentDigestSettingsModel.formatTime(model.digestTime)
+        hourValueView.text = time
+        hourRow.contentDescription = "${LocaleController.getString("\$agent_digest_time")}, $time"
+        hourWheel.setTime(model.digestTime, animated = hourWheelContainer.isShown)
         modeRows.forEach { (mode, row) ->
-            row.configure(
-                hint = model.hint(mode),
-                isSelected = model.mode == mode,
-                isPending = model.pendingMode == mode,
-                isEnabled = model.pendingMode == null
-            )
+            row.configure(hint = model.hint(mode), isSelected = model.mode == mode)
         }
-        permissionSection.isGone = !model.isPermissionDenied
+        val isPermissionGone = !model.isPermissionDenied
+        if (permissionSection.isGone != isPermissionGone) {
+            permissionSection.isGone = isPermissionGone
+            fitSheetToContent()
+        }
     }
 
-    /** The 24 hours, the current one marked; a pick while another hour is applied is ignored */
-    private fun showHourMenu() {
-        if (model.isApplyingHour) return
-        WMenuPopup.present(
-            hourValueView,
-            AgentDigestSettingsModel.HOURS.map { hour ->
-                WMenuPopup.Item(
-                    WMenuPopup.Item.Config.SelectableItem(
-                        title = AgentDigestSettingsModel.formatHour(hour),
-                        subtitle = null,
-                        isSelected = hour == model.digestHour
-                    )
-                ) { applyChange { model.selectHour(hour) } }
-            },
-            popupWidth = WRAP_CONTENT,
-            positioning = WMenuPopup.Positioning.BELOW,
-            windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout.fromView(
-                hourValueView,
-                roundRadius = HOUR_CUTOUT_RADIUS.dp
-            )
+    /** Opens or closes the time's wheel under its row, the sheet growing or shrinking with it */
+    private fun toggleHourWheel() {
+        isHourWheelShown = !isHourWheelShown
+        updateHourValueColor()
+        hourRow.isSelected = isHourWheelShown
+        val from = if (hourWheelContainer.isGone) 0 else hourWheelContainer.height
+        hourWheelAnimator?.let {
+            hourWheelAnimator = null
+            it.cancel()
+        }
+        hourWheel.measure(
+            View.MeasureSpec.makeMeasureSpec(hourSection.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
+        val fullHeight = hourWheel.measuredHeight
+        val to = if (isHourWheelShown) fullHeight else 0
+        hourWheelContainer.isGone = false
+        fun setHeight(height: Int) {
+            hourWheelContainer.updateLayoutParams<LinearLayout.LayoutParams> {
+                this.height = height
+            }
+            fitSheetToContent()
+        }
+        val isSystemMotionOn = !DEBUG_MODE ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            ValueAnimator.areAnimatorsEnabled()
+        val canAnimate = WGlobalStorage.getAreAnimationsActive() && isSystemMotionOn
+        if (!canAnimate) {
+            setHeight(to)
+            hourWheelContainer.isGone = !isHourWheelShown
+            return
+        }
+        hourWheelAnimator = ValueAnimator.ofInt(from, to).apply {
+            duration = AnimationConstants.QUICK_ANIMATION
+            interpolator = CubicBezierInterpolator.EASE_BOTH
+            addUpdateListener { setHeight(it.animatedValue as Int) }
+            doOnEnd { animator ->
+                if (hourWheelAnimator !== animator) return@doOnEnd
+                hourWheelAnimator = null
+                if (!isHourWheelShown) hourWheelContainer.isGone = true
+            }
+            start()
+        }
+    }
+
+    /**
+     * Fits the sheet to its content's height: a bottom sheet keeps its foot at the screen's, so the rows and Done move up
+     * instead of down past the screen's edge, and a centred window stays centred
+     */
+    private fun fitSheetToContent() {
+        // The sheet takes its first height as it is presented and keeps its last one as it goes away
+        if (!view.isLaidOut || isDisappeared) return
+        val navigation = navigationController?.takeIf { !it.isDismissed } ?: return
+        when {
+            navigation.isBottomSheet -> navigation.onBottomSheetHeightChanged()
+            navigation.isCenteredWindow -> window?.relayoutCenteredWindow(navigation)
+        }
+    }
+
+    private fun updateHourValueColor() {
+        hourValueView.setTextColor(if (isHourWheelShown) WColor.Tint else WColor.SecondaryText)
     }
 
     private fun select(mode: AgentNewsNotificationMode) = applyChange { model.selectMode(mode) }
@@ -333,12 +399,11 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
         LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { this.topMargin = topMargin }
 
     // Footnotes stand as the settings' do, a little inside their sections
-    private fun footnoteParams(topMargin: Int = 0, bottomMargin: Int = 0) =
+    private fun footnoteParams(topMargin: Int = 0) =
         LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
             marginStart = FOOTNOTE_INSET.dp
             marginEnd = FOOTNOTE_INSET.dp
             this.topMargin = topMargin
-            this.bottomMargin = bottomMargin
         }
 
     /** The sheet's text over Done, as tall as it up to [maxContentHeight], past which the text scrolls */
@@ -370,7 +435,7 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
         }
     }
 
-    /** A notification choice: the app's radio, its title and hint, and a spinner in the radio's place while applied */
+    /** A notification choice: the app's radio, which takes the choice once tapped, its title and its hint */
     @SuppressLint("ViewConstructor")
     private class ModeRow(context: Context, title: String) :
         WView(context),
@@ -380,13 +445,6 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
             id = generateViewId()
             importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        private val spinner = CircularProgressIndicator(context).apply {
-            id = generateViewId()
-            isIndeterminate = true
-            indicatorSize = SPINNER_SIZE.dp
-            trackThickness = SPINNER_THICKNESS.dp
-            isGone = true
-        }
         private val titleLabel = WLabel(context).apply {
             setStyle(adaptiveFontSize(), WFont.Medium)
             text = title
@@ -394,41 +452,41 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
         private val hintLabel = WLabel(context).apply {
             setStyle(FOOTNOTE_TEXT_SIZE)
             setLineHeight(FOOTNOTE_LINE_HEIGHT)
+            setPadding(0, MODE_HINT_GAP.dp, 0, 0)
+        }
+
+        // The title alone, or over its hint, in the middle of the row
+        private val textColumn = LinearLayout(context).apply {
+            id = generateViewId()
+            orientation = LinearLayout.VERTICAL
+            addView(titleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(hintLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
 
         init {
-            minimumHeight = MODE_ROW_HEIGHT.dp
+            // `ConstraintLayout` measures with its own minimum height, not the view's
+            minHeight = ROW_HEIGHT.dp
             background = ripple
             importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
             isFocusable = true
             addView(radioView, LayoutParams(RADIO_BOX.dp, RADIO_BOX.dp))
-            addView(spinner, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-            addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
-            addView(hintLabel, LayoutParams(0, WRAP_CONTENT))
+            addView(textColumn, LayoutParams(0, WRAP_CONTENT))
             setConstraints {
                 toStart(radioView, RADIO_START.toFloat())
                 toCenterY(radioView)
-                centerXToCenterX(spinner, radioView)
-                centerYToCenterY(spinner, radioView)
-                toStart(titleLabel, MODE_TEXT_START.toFloat())
-                toEnd(titleLabel, ROW_INSET.toFloat())
-                toTop(titleLabel, MODE_TEXT_TOP.toFloat())
-                topToBottom(hintLabel, titleLabel, MODE_HINT_GAP.toFloat())
-                toStart(hintLabel, MODE_TEXT_START.toFloat())
-                toEnd(hintLabel, ROW_INSET.toFloat())
-                toBottom(hintLabel, MODE_TEXT_TOP.toFloat())
+                toStart(textColumn, MODE_TEXT_START.toFloat())
+                toEnd(textColumn, ROW_INSET.toFloat())
+                toCenterY(textColumn, MODE_TEXT_TOP.toFloat())
             }
             updateTheme()
         }
 
-        fun configure(hint: String, isSelected: Boolean, isPending: Boolean, isEnabled: Boolean) {
+        fun configure(hint: String?, isSelected: Boolean) {
             // TalkBack reads the current choice as selected
             this.isSelected = isSelected
             hintLabel.text = hint
-            radioView.isGone = isPending
-            spinner.isGone = !isPending
-            this.isEnabled = isEnabled
-            contentDescription = "${titleLabel.text}, $hint"
+            hintLabel.isGone = hint == null
+            contentDescription = listOfNotNull(titleLabel.text, hint).joinToString(", ")
             updateRadio()
         }
 
@@ -437,7 +495,6 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
             ripple.rippleColor = WColor.SecondaryBackground.color
             titleLabel.setTextColor(WColor.PrimaryText)
             hintLabel.setTextColor(WColor.SecondaryText)
-            spinner.setIndicatorColor(WColor.Tint.color)
             updateRadio()
         }
 
@@ -458,9 +515,7 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
 
         // In dp and sp: the settings' sections, rows and footnotes
         private const val CONTENT_TOP = 4
-        private const val TEXT_SIZE = 15f
-        private const val TEXT_LINE_HEIGHT = 20f
-        private const val TEXT_GAP = 4
+        private const val SECTION_GAP = 4
         private const val FOOTNOTE_TEXT_SIZE = 13f
         private const val FOOTNOTE_LINE_HEIGHT = 18f
         private const val FOOTNOTE_INSET = 16
@@ -468,27 +523,16 @@ class AgentDigestSettingsSheetVC private constructor(context: Context) : WViewCo
         private const val ROW_HEIGHT = 50
         private const val ROW_INSET = 20
         private const val ROW_GAP = 16
-        private const val SECTION_HEADER_TEXT_SIZE = 14f
-        private const val SECTION_HEADER_TOP = 16
-        private const val SECTION_HEADER_BOTTOM = 4
         private const val PERMISSION_TEXT_INSET = 14
-        private const val HOUR_CUTOUT_RADIUS = 40f
-        private const val HOUR_PILL_HEIGHT = 36
-        private const val HOUR_PILL_START = 12
-        private const val HOUR_PILL_END = 6
-        private const val HOUR_ARROWS_GAP = 4
         private const val BUTTON_HEIGHT = 50
         private const val BUTTON_MARGIN = 16
 
         // A choice as the app's selection rows show one: the radio in a 40 dp box 12 dp in, the text 64 dp in
-        private const val MODE_ROW_HEIGHT = 60
         private const val RADIO_BOX = 40
         private const val RADIO_START = 12
         private const val MODE_TEXT_START = 64
         private const val MODE_TEXT_TOP = 10
         private const val MODE_HINT_GAP = 2
-        private const val SPINNER_SIZE = 20
-        private const val SPINNER_THICKNESS = 2
 
         /** Shows the sheet over [from]'s window, once; nothing shows when [from] has no window */
         fun present(from: WViewController) {

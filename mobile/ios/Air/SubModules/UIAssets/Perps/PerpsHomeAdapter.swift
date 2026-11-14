@@ -25,9 +25,19 @@ import WalletContext
     }
 
     public static func home(store: PerpsStore, accountId: String, previewMarkets: Bool = true) -> PerpsHomeDisplayData {
-        let activities = (store.fills[accountId] ?? []).compactMap { fill in
-            store.asset(named: fill.coin).map { PerpsTradeActivity(fill: fill, asset: $0) }
+        let fills = store.fills[accountId] ?? []
+        var timedActivities = fills.compactMap { fill in
+            store.asset(named: fill.coin).map { (time: fill.time, activity: PerpsTradeActivity(fill: fill, asset: $0)) }
         }
+        // A failed order older than the loaded trades waits for the page that reaches its time.
+        let oldestLoadedTime = store.historyCursors[accountId] == nil ? nil : fills.last?.time
+        timedActivities += store.operations.values.compactMap { operation in
+            guard operation.accountId == accountId, operation.isFailedOrder,
+                  oldestLoadedTime.map({ operation.createdAt >= $0 }) ?? true,
+                  let asset = store.asset(id: operation.assetId) else { return nil }
+            return (operation.createdAt, PerpsTradeActivity(failedOrder: operation, asset: asset))
+        }
+        let activities = timedActivities.sorted { $0.time > $1.time }.map(\.activity)
         return .init(positions: positions(store: store, accountId: accountId),
                      balanceWithdrawal: balanceWithdrawal(store: store, accountId: accountId),
                      marketSections: marketSections(market: store.market, preview: previewMarkets),

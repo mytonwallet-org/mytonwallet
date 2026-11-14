@@ -65,6 +65,22 @@ struct UniversalSearchIndexTests {
     }
 
     @Test
+    func `rebuilding after documents move or change identity finds each one`() {
+        let alpha = SearchDocument(id: SearchEntityID("token:alpha"), kind: .token, fields: [SearchField("Alpha", kind: .title)])
+        let beta = SearchDocument(id: SearchEntityID("token:beta"), kind: .token, fields: [SearchField("Beta", kind: .title)])
+        let gamma = SearchDocument(id: SearchEntityID("token:gamma"), kind: .token, fields: [SearchField("Gamma", kind: .title)])
+        let engine = UniversalSearchEngine()
+
+        let shifted = UniversalSearchIndex(documents: [alpha, beta], reusing: UniversalSearchIndex(documents: [beta]))
+        #expect(engine.search("alpha", in: shifted).map(\.id) == [alpha.id])
+        #expect(engine.search("beta", in: shifted).map(\.id) == [beta.id])
+
+        let replaced = UniversalSearchIndex(documents: [alpha, gamma], reusing: shifted)
+        #expect(engine.search("gamma", in: replaced).map(\.id) == [gamma.id])
+        #expect(engine.search("beta", in: replaced).isEmpty)
+    }
+
+    @Test
     func `candidate index falls back when typo changes leading gram`() {
         let document = SearchDocument(
             id: SearchEntityID("app:wallet"),

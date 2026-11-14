@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiChain } from '../../../../api/types';
@@ -9,7 +9,7 @@ import type { AddressMenuItem } from './addressMenu/MenuItem';
 import { IS_EXPLORER } from '../../../../config';
 import {
   selectAccount,
-  selectCurrentAccountChainDisplay,
+  selectAccountChainDisplay,
   selectCurrentAccountId,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
@@ -35,7 +35,11 @@ import ViewModeIcon from './ViewModeIcon';
 import styles from './Card.module.scss';
 
 interface OwnProps {
+  accountId?: string;
+  withTextGradient?: boolean;
   isMinimized?: boolean;
+  isDisabled?: boolean;
+  testId?: string;
 }
 
 interface StateProps {
@@ -63,8 +67,10 @@ function CardAddress({
   accountType,
   withTextGradient,
   isMinimized,
+  isDisabled,
   isTemporary,
   selectedExplorerIds,
+  testId,
 }: StateProps & OwnProps) {
   const lang = useLang();
 
@@ -85,6 +91,11 @@ function CardAddress({
     handleMouseEnter,
     handleMouseLeave,
   } = useAddressMenu(ref, menuRef);
+
+  // The menu is rendered outside the card, so the `inert` attribute of the card does not reach it
+  useEffect(() => {
+    if (isDisabled) closeMenu();
+  }, [isDisabled, closeMenu]);
 
   const byChain = accountByChain ?? EMPTY_BY_CHAIN;
   const chains = visibleChains ?? EMPTY_CHAINS;
@@ -141,6 +152,7 @@ function CardAddress({
         withTextGradient={withTextGradient}
         isMinimized={isMinimized}
         isTinyFormat={isTinyFormat}
+        testId={testId}
         toggleMenu={toggleMenu}
         onLongPress={handleLongPress}
         onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
@@ -168,11 +180,11 @@ function CardAddress({
   );
 }
 
-export default memo(withGlobal((global): StateProps => {
-  const accountId = selectCurrentAccountId(global);
+export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
+  const accountId = ownProps.accountId ?? selectCurrentAccountId(global);
   const account = accountId ? selectAccount(global, accountId) : undefined;
   const { type: accountType, byChain, isTemporary } = account || {};
-  const chainDisplay = selectCurrentAccountChainDisplay(global);
+  const chainDisplay = accountId ? selectAccountChainDisplay(global, accountId) : undefined;
 
   return {
     accountByChain: byChain,

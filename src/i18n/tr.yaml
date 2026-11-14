@@ -624,6 +624,7 @@ Buy crypto or choose another token to sell.: Kripto satın alın veya satmak iç
 Your balances are small. Add funds or choose another token to swap.: Bakiyeleriniz düşük. Bakiye ekleyin veya takas etmek için başka bir token seçin.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: "%buy_token% satın almak için önce %token% satın alın, ardından %buy_token% ile takas edin."
 Open %provider% to swap this pair in the browser.: Bu çifti tarayıcıda takas etmek için %provider% hizmetini açın.
+"Better rate is available if you add %amount% %symbol% for network fee.": "Ağ ücreti için %amount% %symbol% eklerseniz daha iyi bir kurdan yararlanabilirsiniz."
 Buy %token%: "%token% satın al"
 Open %provider%: "%provider% hizmetini aç"
 Cannot load widget: Widget yüklenemiyor
@@ -1323,8 +1324,8 @@ $agent_consent_allow_button: Asistana İzin Ver
 $agent_consent_feature_answers: "%app_name%, tokenlar ve cüzdan etkinliği hakkında yanıtlar alın."
 $agent_consent_feature_actions: Gönderme, alma ve staking gibi desteklenen işlemleri hazırlayın.
 $agent_consent_feature_context: Yanıtların ilgili varlıklara ve adreslere referans verebilmesi için cüzdan bağlamını kullanın.
-$agent_consent_disclosure_text: Asistana İzin Ver düğmesine dokunarak %app_name% uygulamasının asistan mesajlarınızı ve ilgili cüzdan bağlamınızı %app_name% Agent (agent.mywallet.io) ile üçüncü taraf AI sağlayıcımız Anthropic Claude API'ye isteklerinizi işlemek üzere göndermesine izin verirsiniz. Cüzdan bağlamı cüzdan adreslerini, bakiyeleri, tokenları, etkinliği ve istenen işlem ayrıntılarını içerebilir. Veriler yalnızca asistan yanıtları sağlamak ve istediğiniz işlemleri hazırlamak için kullanılır.
-$agent_consent_search_disclosure_text: Web aramalarında Serper'a yalnızca arama sorguları gönderilebilir; cüzdan bağlamı ve sohbet geçmişi gönderilmez.
+$agent_consent_disclosure_text: Asistana İzin Ver düğmesine dokunarak %app_name% uygulamasının asistan mesajlarınızı ve ilgili cüzdan bağlamınızı %app_name% Agent (agent.mywallet.io) ile üçüncü taraf AI sağlayıcılarımız OpenAI ve Anthropic'e isteklerinizi işlemek üzere göndermesine izin verirsiniz. Cüzdan bağlamı cüzdan adreslerini, bakiyeleri, tokenları, etkinliği ve istenen işlem ayrıntılarını içerebilir. Sesli giriş kullanırsanız kaydınız metne dönüştürülmek üzere Inworld hizmetine ve gerektiğinde OpenRouter üzerinden ElevenLabs hizmetine gönderilir. Veriler yalnızca asistan yanıtları sağlamak ve istediğiniz işlemleri hazırlamak için kullanılır.
+$agent_consent_search_disclosure_text: Web aramalarında yalnızca arama sorguları OpenAI hizmetine ve gerektiğinde Serper hizmetine gönderilir; cüzdan bağlamı ve sohbet geçmişi gönderilmez.
 $settings_token_change_threshold: "% Değişim Eşiği"
 $settings_token_change_threshold_description: Seçilen eşiğin altındaki 24 saatlik yüzde değişimlerini gizler.
 $settings_token_change_threshold_off: Kapalı
@@ -1386,10 +1387,25 @@ $agent_hint_swap_title: Takaslar nasıl çalışır?
 $agent_hint_swap_prompt: Token takaslarının nasıl çalıştığını açıkla.
 $agent_hint_staking_title: Staking nedir?
 $agent_hint_staking_prompt: Daha önce hiç kripto kullanmamışım gibi staking işlemini en baştan açıkla.
-$agent_hint_security_title: Cüzdan güvenliği
+$agent_hint_security_title: Cüzdanımı nasıl korurum?
 $agent_hint_security_prompt: Cüzdanımı nasıl güvende tutacağımı bana gösterin.
 $agent_hint_receive_title: Token alma
 $agent_hint_receive_prompt: Token almama yardım et.
+$agent_hint_assets_title: Varlıklarımı göster
+$agent_hint_total_title: Toplam bakiyem ne kadar?
+$agent_hint_spending_title: Bu hafta neye harcadım?
+$agent_hint_last_transfer_title: Son transferimi göster
+$agent_hint_fund_title: Cüzdanıma nasıl para yüklerim?
+$agent_hint_market_today_title: Bugün piyasada neler oluyor?
+$agent_hint_news_today_title: Günün öne çıkan haberleri
+$agent_hint_bitcoin_title: Bitcoin'de neler oluyor?
+$agent_hint_price_title: 0,5 ETH ne kadar?
+$agent_hint_staking_yield_title: Getiri nerede daha yüksek?
+$agent_hint_staking_options_title: Hangi staking seçenekleri var?
+$agent_hint_multisend_title: Birden fazla kişiye nasıl gönderirim?
+$agent_hint_action_swap_title: Token takas et
+$agent_hint_action_send_title: Kripto gönder
+$agent_hint_action_stake_title: Staking'e başla
 $agent_notice_content_over_budget: Sonuç çok büyük olduğu için tamamı görüntülenemiyor.
 $agent_notice_web_search_no_results: İsteğinizle eşleşen bilgi bulunamadı.
 $agent_error_session: Asistan oturumunuzun süresi doldu. Asistanı yeniden açıp tekrar deneyin.
@@ -2133,8 +2149,7 @@ News: "Haberler"
 Crypto Market News: "Kripto piyasası haberleri"
 $agent_news_new: "Yeni"
 $agent_news_open_source: "Kaynağı Aç"
-$agent_news_source: "Kaynak: %sources%"
-$agent_news_sources: "Kaynaklar: %sources%"
+$agent_news_sources: "Kaynaklar"
 $agent_news_unavailable: "Haberler şu anda kullanılamıyor"
 $agent_news_read_more: "Devamını oku"
 $agent_news_discuss: "Tartış"
@@ -2146,6 +2161,9 @@ $agent_news_quote_accessibility: "MyPulse haberi: %headline%"
 $agent_news_unread_count:
   oneValue: "%count% okunmamış haber"
   otherValue: "%count% okunmamış haber"
+$agent_news_unread_digests_count:
+  oneValue: "%count% okunmamış özet"
+  otherValue: "%count% okunmamış özet"
 Explorer mode: Kaşif modu
 Open a link to a wallet, transfer, token or collectible to see its details here.: Detaylarını burada görmek için bir cüzdan, transfer, token veya koleksiyon öğesi bağlantısını açın.
 
@@ -2405,7 +2423,7 @@ $agent_chats_unavailable: "Sohbetler yüklenemedi"
 "View your assets and activity": "Varlıklarınızı ve etkinliklerinizi görüntüleyin"
 "Ask AI and follow the news": "Yapay zekâya sorun ve haberleri takip edin"
 $underlying_stock: '%symbol% hissesi'
-$agent_support_requested: "Destek istediniz. Bir temsilci burada yanıt verecek"
+$agent_support_requested: "Destek istediniz. Bir temsilci genellikle birkaç dakika içinde burada yanıt verecek"
 $agent_support_operator_joined: "Destek sohbete katıldı: %name%"
 $agent_support_closed_operator: "Destek talebi kapattı. Bundan sonra asistan yanıt verecek"
 $agent_support_closed_inactivity: "Talep, 48 saat boyunca yanıt gelmediği için kapatıldı. Bundan sonra asistan yanıt verecek"
@@ -2425,22 +2443,41 @@ $send_only_chain_and_token: Bu adrese yalnızca %symbol%, %tokenSymbol% veya di�
 $agent_digest_unavailable: "Bu özet artık kullanılamıyor"
 $agent_digest_title: "Günün öne çıkanları"
 $agent_digest_meta:
-  oneValue: "%count% haber · %time%"
-  otherValue: "%count% haber · %time%"
+  oneValue: "%count% haber"
+  otherValue: "%count% haber"
 $agent_digest_more:
   oneValue: "ve %count% haber daha — akışta yukarıda"
   otherValue: "ve %count% haber daha — akışta yukarıda"
+$agent_digest_more_count:
+  oneValue: "ve %count% haber daha"
+  otherValue: "ve %count% haber daha"
 $agent_digest_settings_title: "Özet ve bildirimler"
 $agent_digest_settings_text: "Akışta günde bir kez günün öne çıkan haberlerinin özeti yer alır."
 $agent_digest_time: "Özet saati"
-$agent_digest_time_zone: "Telefonunuzun saat diliminde."
+$agent_digest_time_hint: "Bildirimler kapalı olsa bile özet bu saatte akışınızda görünür."
 $agent_digest_notifications_off: "Kapalı"
-$agent_digest_notifications_off_hint: "Özet yalnızca akışta görünür"
 $agent_digest_notifications_daily: "Günlük özet"
-$agent_digest_notifications_daily_hint: "%time% saatinde, öne çıkan haberler tek bildirimde"
+$agent_digest_notifications_daily_hint: "Günün öne çıkan haberleriyle %time% saatinde tek bildirim."
 $agent_digest_notifications_every: "Her haber"
-$agent_digest_notifications_every_hint: "Her haber için ayrı bildirim"
-$agent_digest_post_header: "MyPulse · özet · %time%"
 $agent_digest_sheet_title: "Günlük özet"
-$agent_digest_device_time_zone: "Bu cihazın saat diliminde."
 $agent_dictation_microphone_denied_device: "Dikte etmek için cihaz ayarlarından mikrofon erişimine izin verin."
+"$perps_funding_usdc_fees": "Pozisyon açmak için Arbitrum’da en az %minUSDC% USDC gerekir: %amount% USDC artı %fees% USDC ücret."
+"$perps_funding_usdc_increase_fees": "Bu pozisyonu artırmak için Arbitrum’da en az %minUSDC% USDC gerekir: %amount% USDC artı %fees% USDC ücret."
+"PerpsOrderNotPlaced": "Emir verilmedi. Bunun için aktarılan USDC Hyperliquid bakiyenizde kalır."
+$agent_feedback_support_liked_toast: "Teşekkürler! Değerlendirmeniz destek ekibine iletilecek."
+$agent_feedback_support_disliked_toast: "Destek ekibi bu yanıtı inceleyecek."
+$agent_support_request_message: "Bir insanla konuşmak istiyorum"
+$agent_support_contact: "Destekle iletişime geç"
+$agent_support_confirm_title: "Bir operatör çağrılsın mı?"
+$agent_support_confirm_text: "Bir destek operatörü bu sohbeti ve cüzdan adreslerinizi görecek ve buradan yanıt verecek."
+$agent_support_confirm_text_no_wallet: "Bir destek operatörü bu sohbeti görecek ve buradan yanıt verecek."
+$agent_support_confirm_action: "Çağır"
+$agent_support_rate_limited: "Bugün destekle zaten üç kez iletişime geçtiniz. Yarın tekrar deneyin veya Telegram’da @mysupport hesabına yazın."
+$agent_news_digests_empty: "Henüz özet yok"
+$agent_news_view_all: "Tüm haberler"
+$agent_news_view_digests: "Özetler"
+$agent_digest_hours: "Saat"
+$agent_digest_minutes: "Dakika"
+$swap_one_to_one: Daha iyi kur (1:1), %value% ve üzeri tutarlarda geçerlidir.
+$swap_better_rate_minimum: "%value% ve üzeri için daha iyi bir kur mevcut."
+$agent_daily_limit_resets_at: "Günlük asistan sınırına ulaşıldı. %time% itibarıyla sıfırlanır."

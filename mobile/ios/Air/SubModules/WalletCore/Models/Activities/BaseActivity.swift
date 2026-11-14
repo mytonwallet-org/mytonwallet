@@ -22,6 +22,8 @@ public protocol BaseActivity: Identifiable {
 public struct BaseActivityExtra: Equatable, Hashable, Codable, Sendable {
     /// Only for TON
     public var withW5Gasless: Bool?
+    /// The fee is paid in the transferred token, or the sold token of a swap
+    public var isGasless: Bool?
     /// Only for TON liquidity deposit and withdrawal
     public var dex: ApiSwapDexLabel? // Only for TON liquidity deposit and withdrawal
     public var marketplace: ApiNftMarketplace?

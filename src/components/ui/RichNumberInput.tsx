@@ -18,6 +18,7 @@ import styles from './Input.module.scss';
 type OwnProps = {
   ref?: RefObject<HTMLInputElement | undefined>;
   id?: string;
+  testId?: string;
   labelText?: TeactNode;
   value?: string;
   hasError?: boolean;
@@ -46,6 +47,7 @@ const MIN_LENGTH_FOR_SHRINK = 5;
 function RichNumberInput({
   ref,
   id,
+  testId,
   labelText,
   hasError,
   isLoading = false,
@@ -200,6 +202,7 @@ function RichNumberInput({
             ref={combinedRef}
             contentEditable={!disabled && !isLoading}
             id={id}
+            data-testid={testId}
             role="textbox"
             aria-required
             aria-invalid={hasError || undefined}

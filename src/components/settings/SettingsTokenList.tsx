@@ -4,6 +4,7 @@ import { getActions, withGlobal } from '../../global';
 import type { UserSwapToken, UserToken } from '../../global/types';
 
 import { selectTokenInfoUserTokens } from '../../global/selectors';
+import getTestId from '../../util/getTestId';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -43,7 +44,11 @@ function SettingsTokenList({
 
   return (
     <div className={styles.slide}>
-      <SettingsHeader title={lang('Select Token')} onBackClick={onBackClick} />
+      <SettingsHeader
+        title={lang('Select Token')}
+        titleTestId={getTestId('token_selector_title')}
+        onBackClick={onBackClick}
+      />
       <div className={styles.tokenListContent}>
         <TokenSelector
           isActive={isActive}

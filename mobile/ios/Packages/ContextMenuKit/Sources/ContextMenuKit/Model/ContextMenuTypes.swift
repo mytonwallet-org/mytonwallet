@@ -339,6 +339,18 @@ public struct ContextMenuStyle: Sendable {
     public var containerSpacing: CGFloat
     public var screenInsets: UIEdgeInsets
     public var horizontalAlignment: ContextMenuHorizontalAlignment
+    /// Rows without an icon start their text where the separators start, rather than at `rowSideInset`
+    public var alignsPlainTitlesWithSeparators = false
+
+    /// Where a separator's line starts and ends, from the panel's sides
+    var separatorSideInset: CGFloat {
+        rowSideInset + 4.0
+    }
+
+    /// Where the text of a row without an icon starts, from the panel's leading side
+    var plainTitleSideInset: CGFloat {
+        alignsPlainTitlesWithSeparators ? separatorSideInset : rowSideInset
+    }
 
     public init(
         minWidth: CGFloat = 220.0,

@@ -183,9 +183,6 @@ PLACEHOLDER_TYPE_OVERRIDES: dict[str, dict[str, ParameterKind]] = {
     "$domains_expire": {
         "days": ParameterKind.STRING,
     },
-    "$agent_digest_meta": {
-        "time": ParameterKind.STRING,
-    },
     "push_domain_expires_in_days_number": {
         "domain": ParameterKind.STRING,
     },

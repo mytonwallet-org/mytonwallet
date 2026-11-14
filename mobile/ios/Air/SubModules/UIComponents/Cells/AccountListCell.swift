@@ -194,10 +194,12 @@ public extension AccountListCell {
         normalBackground: Color = .air.groupedItem,
         showCurrentAccountHighlight: Bool = true,
         showsAddress: Bool = true,
+        accessibilityIdentifier: String? = nil,
         contextMenuConfigurationProvider: (@MainActor (String) -> ContextMenuConfiguration)? = nil
     ) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
         UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
             let accountContext = AccountContext(accountId: accountId)
+            cell.accessibilityIdentifier = accessibilityIdentifier
             cell.configurationUpdateHandler = { cell, state in
                 cell.contentConfiguration = UIHostingConfiguration {
                     AccountListCell(

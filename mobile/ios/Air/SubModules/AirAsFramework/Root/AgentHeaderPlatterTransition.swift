@@ -815,13 +815,16 @@ final class AgentHeaderPlatterTransition {
 }
 
 extension AgentHeaderPlatterTransition.Bar {
-    /// A chat's or the News feed's bar: the threads button, the title's pill and the more button
+    /// A chat's or the News feed's bar: the threads button, the title's pill or the feed's switch, and the more button
     @MainActor
     static func chat(_ chat: (any AgentChatNavigationHandoff)?) -> Self {
         Self(
             leading: chat?.navigationHandoffLeadingView.map { AgentHeaderPlatterTransition.Capsule.button($0) },
             pill: chat?.navigationHandoffTitlePill.map { pill in
-                AgentHeaderPlatterTransition.Capsule.snapshot(pill, content: chat?.navigationHandoffTitleContent ?? pill)
+                if let tabs = pill as? WSegmentedControl {
+                    return AgentHeaderPlatterTransition.Capsule.tabs(tabs)
+                }
+                return AgentHeaderPlatterTransition.Capsule.snapshot(pill, content: chat?.navigationHandoffTitleContent ?? pill)
             },
             trailing: chat?.navigationHandoffTrailingView.map { AgentHeaderPlatterTransition.Capsule.button($0) }
         )
@@ -892,5 +895,16 @@ extension AgentHeaderPlatterTransition.Capsule {
             picture.frame = CGRect(origin: .zero, size: content.bounds.size)
             return picture
         }
+    }
+
+    /// Header tabs in a bar's title place, such as the News feed's switch, handed over as the list's tabs are
+    @MainActor
+    static func tabs(_ tabs: WSegmentedControl) -> Self {
+        Self(
+            view: tabs,
+            makeItem: { [weak tabs] in tabs?.makeContentSnapshot() },
+            shouldSwapOnHandOff: true,
+            shouldKeepContentScale: true
+        )
     }
 }

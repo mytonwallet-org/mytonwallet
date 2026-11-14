@@ -12,7 +12,7 @@ enum AgentV2MessagePresentation {
         withMessageLanguage(message.responseLanguage) {
             if message.contentKind == .markdown {
                 let text = message.text
-                return text.isEmpty ? nil : Bubble(text: text, rendersMarkdown: true)
+                return text.isEmpty ? nil : Bubble(text: text, rendersMarkdown: message.role != .operator)
             }
             return nil
         }

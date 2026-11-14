@@ -131,6 +131,27 @@ describe('preserveActivityStatusProgress', () => {
 });
 
 describe('projectSwapActivities', () => {
+  it('keeps the paymaster token fee when the backend row has no native fee', () => {
+    const sourceHash = `0x${'d'.repeat(64)}`;
+    const backendRow = swapActivity({
+      status: 'completed', hashes: [sourceHash], networkFee: '0',
+    });
+    const sourceLeg = swapActivity({
+      id: sourceHash,
+      status: 'completed',
+      hashes: [],
+      networkFee: '0.021319',
+      externalMsgHashNorm: sourceHash,
+      extra: { isGasless: true },
+    });
+
+    const projected = projectSwapActivities([sourceLeg], [backendRow], { fromTime: 0, toTime: NOW });
+    const visibleSwap = visible(projected)[0] as ApiSwapActivity;
+
+    expect(visibleSwap).toMatchObject({ networkFee: '0.021319', extra: { isGasless: true } });
+    expect(projected.find(({ id }) => id === sourceHash)?.shouldHide).toBe(true);
+  });
+
   it('keeps a pending LI.FI swap pending after its completed source swap leg arrives', () => {
     const sourceHash = `0x${'a'.repeat(64)}`;
     const backendRow = swapActivity({
@@ -683,3 +704,16 @@ describe('CEX swap (Changelly, GRAM -> HYPE)', () => {
 function parseTraceId(activityId: string) {
   return activityId.split(':')[0];
 }
+
+describe('LayerZero settlement', () => {
+  it.each(['completed', 'failed'] as const)('keeps VT pending after a %s source leg', (status) => {
+    const sourceHash = `0x${'e'.repeat(64)}`;
+    const backendRow = swapActivity({
+      status: 'pendingTrusted', hashes: [sourceHash], layerzero: { quoteId: 'quote' },
+    });
+    const sourceLeg = swapActivity({ id: sourceHash, status, hashes: [], toAmount: '999' });
+    const projected = projectSwapActivities([sourceLeg], [backendRow], { fromTime: 0, toTime: NOW });
+    expect(idsWithStatus(visible(projected))).toEqual([[backendRow.id, 'pendingTrusted']]);
+    expect((visible(projected)[0] as ApiSwapActivity).toAmount).toBe(backendRow.toAmount);
+  });
+});

@@ -12,6 +12,7 @@ public enum WalletCoreSearchAttributeKey {
     public static let addressName = SearchAttributeKey("wallet-core.address-name")
     public static let chain = SearchAttributeKey("wallet-core.chain")
     public static let domain = SearchAttributeKey("wallet-core.domain")
+    public static let futuresAssetID = SearchAttributeKey("wallet-core.futures-asset-id")
     public static let iconURL = SearchAttributeKey("wallet-core.icon-url")
     public static let inputAddressOrDomain = SearchAttributeKey("wallet-core.input-address-or-domain")
     public static let isResolvingDomain = SearchAttributeKey("wallet-core.is-resolving-domain")

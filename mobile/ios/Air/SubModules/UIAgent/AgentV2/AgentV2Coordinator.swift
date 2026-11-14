@@ -7,6 +7,8 @@ private let log = Log("AgentV2Coordinator")
 @MainActor
 enum AgentV2CoordinatorChange: Equatable {
     case reload
+    /// A missing account id marks an account reset
+    case walletSelectionChanged(accountId: String?)
     case messagesHydrated
     case messageIdReconciled(localId: String, canonicalId: String)
     case messageUpdated(id: String)
@@ -21,6 +23,8 @@ protocol AgentV2CoordinatorObserver: AnyObject {
 @MainActor
 final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendable {
     private static let initialHostContextMaxAttempts = 3
+    static let defaultSupportPollingInterval: TimeInterval = 15
+    private static let maxSupportHistoryPages = 10
 
     private final class WeakObserver {
         weak var value: AgentV2CoordinatorObserver?
@@ -37,6 +41,11 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         let threadId: String
         var localInputMessageId: String?
         var isRunning: Bool
+        var isSupportAppend = false
+        /// The run asks for a support operator, which a limit never holds back for Retry
+        var isSupportRequest = false
+        var isUnsubmittedDiscussionSupportRequest = false
+        var discussionSupportAccountId: String?
         /// The answers the run has started, which a stop ends whether or not their text is still coming
         var answerMessageIds: Set<String> = []
     }
@@ -56,6 +65,20 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         let clientRunId: String
         let threadId: String
         let resetAt: Double?
+        /// The wallet the question was asked for: a switch to another one drops it, while the same wallet's authority
+        /// published again keeps it
+        let accountId: String?
+        /// Sent to support, which takes it on Retry, while a question asked before support took the chat has none there
+        let isSupportAppend: Bool
+        /// The bubble of a message sent to support, which stays while the limit holds it back
+        let localInputMessageId: String?
+    }
+
+    /// A support request the server didn't take, which shows with its failure until the next question
+    struct FailedSupportRequest: Equatable, Sendable {
+        let clientRunId: String
+        let message: AgentV2NativeMessage
+        let code: ApiAgentV2ErrorCode?
     }
 
     private enum ErrorSource {
@@ -96,6 +119,39 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     let client: AgentV2Client
     private(set) var thread: ApiAgentV2ThreadSummary?
     var messages: [AgentV2NativeMessage] { conversation.messages }
+
+    var supportState: AgentSupportState {
+        switch thread?.support?.state {
+        case .waiting:
+            return .waiting
+        case .operator:
+            // The operator who wrote or joined last, as the chat's header names them
+            for message in messages.reversed() {
+                if message.role == .operator, let author = message.operatorAuthor {
+                    return .operator(author)
+                }
+                if case .operatorJoined(let author)? = message.supportEvent {
+                    return .operator(author)
+                }
+            }
+            return .operator(nil)
+        case .closed:
+            return .closed
+        case nil:
+            return .none
+        }
+    }
+
+    var isSupportActive: Bool {
+        thread?.support?.state == .waiting || thread?.support?.state == .operator
+    }
+
+    private(set) var failedSupportRequest: FailedSupportRequest?
+
+    var isChatForegroundVisible: Bool { isChatVisible && !isInBackground }
+    var isLoadingHistory: Bool { historyReadCount > 0 }
+    private(set) var loadedOperatorMessageAt: String?
+
     private(set) var nextMessageCursor: String?
     private(set) var activeRun: RunState? {
         didSet { retireReplacedStoppedAnswersIfAdmitted() }
@@ -123,14 +179,14 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     var seenMessageCount: Int? {
         guard hasHydratedMessages else { return nil }
-        return unloadedMessageCount + messages.filter { !$0.status.isStreaming }.count
+        return unloadedMessageCount + messages.filter { !$0.status.isStreaming && $0.role != .event }.count
     }
 
     /// The message that follows the first `seenMessageCount` ones counted as `seenMessageCount` counts them, without
     /// the messages in `ignoredIDs`. Seen messages beyond the loaded ones leave the first loaded message.
     func getFirstUnseenMessageID(seenMessageCount: Int, ignoredIDs: Set<String>) -> String? {
         guard hasHydratedMessages else { return nil }
-        let settled = messages.filter { !$0.status.isStreaming && !ignoredIDs.contains($0.id) }
+        let settled = messages.filter { !$0.status.isStreaming && $0.role != .event && !ignoredIDs.contains($0.id) }
         let index = max(0, seenMessageCount - unloadedMessageCount)
         return index < settled.count ? settled[index].id : nil
     }
@@ -160,7 +216,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         case .newsUnavailable: lang("$agent_news_unavailable")
         case .digestUnavailable: lang("$agent_digest_unavailable")
         case .failedToLoadChat(let code): Self.loadErrorText(code)
-        case .run(let code): AgentV2Copy.error(code)
+        case .run(let code): AgentV2Copy.error(code, resetAt: userQuotaResetDate)
         case nil: nil
         }
     }
@@ -223,34 +279,57 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     var isInputBlockedByLimit: Bool { inputLimitErrorCode != nil }
 
-    /// The limit that blocks sending now, if any
+    var userQuotaResetDate: Date? {
+        if let limitRetry, limitRetry.kind == .userQuota {
+            return limitRetry.resetAt.map { Date(timeIntervalSince1970: $0 / 1_000) }
+        }
+        return userQuota.map { AgentV2DateParser.date($0.resetAt) }
+    }
+
+    /// The limit that blocks sending now, if any. An operator's chat is answered without the model, so neither the
+    /// capacity nor the daily quota blocks it.
     var inputLimitErrorCode: ApiAgentV2ErrorCode? {
         let now = Date()
-        if availability.state == .capacityExhausted,
+        let isSupportActive = isSupportActive
+        if !isSupportActive,
+           availability.state == .capacityExhausted,
            let resetAt = availability.resetAt,
            Date(timeIntervalSince1970: resetAt / 1_000) > now {
             return .agentCapacityExhausted
         }
-        if let userQuota,
+        if !isSupportActive,
+           let userQuota,
            limitRetry?.kind != .userQuota,
            userQuota.remaining == 0,
            AgentV2DateParser.date(userQuota.resetAt) > now {
             return .userQuotaExhausted
         }
-        if let retry = limitRetry,
+        if isRateLimitWaiting {
+            return .rateLimited
+        }
+        if !isSupportActive,
+           let retry = limitRetry,
            let resetAt = retry.resetAt,
            Date(timeIntervalSince1970: resetAt / 1_000) > now {
-            return retry.kind == .rateLimit ? .rateLimited : .userQuotaExhausted
+            return .userQuotaExhausted
         }
         return nil
     }
 
+    /// A rate limit holds a question back until it resets, which a support request waits for too
+    var isRateLimitWaiting: Bool {
+        guard let retry = limitRetry, retry.kind == .rateLimit, let resetAt = retry.resetAt else { return false }
+        return Date(timeIntervalSince1970: resetAt / 1_000) > Date()
+    }
+
+    /// A limit holds back a question that Retry sends again; while support has the chat, only a message sent to support
     var hasLimitRetry: Bool {
-        limitRetry != nil
+        guard let limitRetry else { return false }
+        return !isSupportActive || limitRetry.isSupportAppend
     }
 
     var canRetryLimit: Bool {
-        limitRetry != nil && activeRun?.isRunning != true && !isInputBlockedByLimit
+        hasLimitRetry && activeRun?.isRunning != true && !isInputBlockedByLimit
     }
 
     struct Opening {
@@ -287,11 +366,34 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     private let newsRequest: ApiAgentV2ThreadNewsRequest?
     private let digestRequest: ApiAgentV2ThreadDigestRequest?
+    private let shouldDeferThread: Bool
+    private(set) var discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming?
+    private var hasRequestedDiscussionThread = false
+    private(set) var hasLoadedDiscussionStatus = false
+    private(set) var isDiscussionSupportRequest = false
+
+    var isDeferredDiscussion: Bool {
+        shouldDeferThread && !hasHydratedMessages
+    }
+
+    var isWaitingForFirstDiscussionMessage: Bool {
+        isDeferredDiscussion && !hasRequestedDiscussionThread
+    }
+
+    var isCreatingDiscussionThread: Bool {
+        isDeferredDiscussion && hasRequestedDiscussionThread && thread == nil && startupTask != nil
+    }
+
+    var isAwaitingDiscussionStatus: Bool {
+        isDeferredDiscussion && hasOpeningConsent && !hasLoadedDiscussionStatus
+    }
 
     var isDiscussion: Bool {
-        news != nil || newsRequest != nil || thread?.digest != nil || digestRequest != nil
+        news != nil || newsRequest != nil || digest != nil || digestRequest != nil
     }
     private(set) var newsPreview: ApiAgentV2ThreadNewsCard?
+    /// The digest as the feed's card showed it, which the digest discussion's post shows until its thread comes
+    private(set) var digestPreview: ApiAgentV2ThreadDigestCard?
     private var opening: Opening?
     private var queuedOpenings: [Opening] = []
     private var openingFinished = false
@@ -313,12 +415,13 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private(set) var isAcceptingOpeningConsent = false
     var resolveOpeningThread: ((ApiAgentV2ThreadSummary) -> Bool)?
     var onOpeningThreadCreated: ((ApiAgentV2ThreadSummary) -> Void)?
+    var onOpeningFinished: (() -> Void)?
     /// The thread's latest history loaded, or `nil` once the thread has none to show
     var onCachedHistoryChange: ((String, AgentCachedHistory?) -> Void)?
 
     /// The digest a digest discussion is about; a news discussion has none
     var digest: ApiAgentV2ThreadDigestCard? {
-        news == nil ? thread?.digest : nil
+        news == nil ? thread?.digest ?? digestPreview : nil
     }
 
     var news: ApiAgentV2ThreadNewsCard? {
@@ -356,6 +459,23 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         notifyObservers()
     }
 
+    func updateDigestPreview(_ preview: ApiAgentV2ThreadDigestCard) {
+        digestPreview = preview
+        notifyObservers()
+    }
+
+    func updateDiscussionNaming(_ naming: ApiAgentV2NewsFeedItem.DiscussionNaming?) {
+        discussionNaming = naming
+        notifyObservers()
+    }
+
+    func requestDiscussionThreadCreation(isSupportRequest: Bool = false) {
+        guard isWaitingForFirstDiscussionMessage, !isStopped else { return }
+        hasRequestedDiscussionThread = true
+        isDiscussionSupportRequest = isSupportRequest
+        startOpening()
+    }
+
     var openingInputMessageId: String? { opening?.isQuestion == true ? opening?.inputMessageId : nil }
     var presentationOpeningInputMessageId: String? {
         queuedOpenings.last?.inputMessageId ?? openingCanonicalInputMessageId ?? openingInputMessageId
@@ -364,7 +484,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     var hasPendingOpenings: Bool { isOpening || !queuedOpenings.isEmpty }
     var isOpening: Bool { opening != nil && !openingFinished }
     var canRetryOpening: Bool {
-        isOpening && error != nil && startupTask == nil && activeRun?.isRunning != true && !isInputBlockedByLimit
+        !isSupportActive && isOpening && error != nil && startupTask == nil
+            && activeRun?.isRunning != true && !isInputBlockedByLimit
     }
     var showsOpeningTypingIndicator: Bool {
         (opening?.isQuestion == true && isOpening || !queuedOpenings.isEmpty)
@@ -387,6 +508,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private var runTask: Task<Void, Never>?
     /// The thread's revision when the user stopped an answer; the thread saved by the server's cancellation is newer
     private var stoppedThreadRevision: Int?
+    /// The bubbles of stopped messages to support under their local ids, which stay until the next history the chat
+    /// applies tells whether the server took them
+    private var stoppedSupportInputIds: Set<String> = []
     /// The answers the user stopped in this chat, as they showed. A reload keeps one as it showed while the server's
     /// saved version has less of its text, or none of it; once the server has as much, the server's version stays.
     private var stoppedAnswers: [String: AgentV2NativeMessage] = [:]
@@ -395,12 +519,20 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private var replacedStoppedAnswers: (clientRunId: String, messageIds: Set<String>)?
     private var presentationExpiryTasks: [String: Task<Void, Never>] = [:]
     private var hydrationGeneration = 0
+    private var historyReadCount = 0
+    private var supportPollingTimer: Timer?
+    private var supportRefreshTask: Task<Void, Never>?
+    private var needsSupportRefresh = false
+    private var isSupportRefreshDeferred = false
+    private var isRefreshingSupportHistory = false
     private var actionGeneration = 0
     private var runGeneration = 0
     private var retiredClientRunIds = Set<String>()
     private var retiredRunIds = Set<String>()
     private var terminalErrorSourcesByClientRunId: [String: ErrorSource] = [:]
     private var failedMessageIdsByClientRunId: [String: String] = [:]
+    private var supportResendClientRunId: String?
+    private var supportRevisionConflictClientRunId: String?
     private var limitExpiryTask: Task<Void, Never>?
     private var errorSource: ErrorSource? {
         didSet {
@@ -422,8 +554,21 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private var initialContentWaiters: [CheckedContinuation<Void, Never>] = []
     private let hostContextProvider: AgentV2HostContextProvider
     private let initialHostContextRetryDelay: Duration
-    /// The wallet's active account, whose actions the chat resolves
+    /// The wallet's active account, whose actions the chat resolves and which a question that waits is asked for
     private let activeAccount: @MainActor () -> MAccount?
+    /// How often a chat support has reads its latest history while it shows
+    private let supportPollingInterval: TimeInterval
+
+    /// The wallet the user is in
+    var activeAccountID: String? {
+        activeAccount()?.id
+    }
+
+    /// The wallet's authority is being published again, as after an account change: the questions that wait go once it
+    /// is
+    var isAwaitingAuthorityContext: Bool {
+        hostContextProvider.isRepublishingAuthorityContext
+    }
 
     init(
         client: AgentV2Client,
@@ -431,21 +576,31 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         initialHostContextRetryDelay: Duration = .seconds(1),
         news: ApiAgentV2ThreadNewsCard? = nil,
         newsRequest: ApiAgentV2ThreadNewsRequest? = nil,
+        shouldDeferThread: Bool = false,
+        discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming? = nil,
         digestRequest: ApiAgentV2ThreadDigestRequest? = nil,
+        digest: ApiAgentV2ThreadDigestCard? = nil,
         question: String? = nil,
         entryPoint: ApiAgentV2EntryPoint? = nil,
         cachedHistory: AgentCachedHistory? = nil,
         isSummaryCached: Bool = false,
+        supportPollingInterval: TimeInterval = AgentV2Coordinator.defaultSupportPollingInterval,
         activeAccount: @escaping @MainActor () -> MAccount? = { AccountStore.account }
     ) {
         self.client = client
+        self.supportPollingInterval = supportPollingInterval
         self.activeAccount = activeAccount
         self.thread = thread
         self.newsPreview = news
+        digestPreview = digest
         canShowCachedMessages = !isSummaryCached && (thread?.messageCount ?? 0) > 0
             && thread?.news == nil && thread?.digest == nil
-            && news == nil && newsRequest == nil && digestRequest == nil && question == nil
+            && news == nil && newsRequest == nil && digestRequest == nil && digest == nil && question == nil
         self.newsRequest = newsRequest
+        self.shouldDeferThread = shouldDeferThread
+        self.discussionNaming = discussionNaming
+        hasOpeningConsent = shouldDeferThread && client.isConsentKnownGiven
+        needsConsentToSend = shouldDeferThread && !hasOpeningConsent
         self.digestRequest = digestRequest
         if let digestRequest {
             opening = Opening(source: .digest(digestRequest))
@@ -466,6 +621,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         hostContextProvider.onAuthorityContextPublished = { [weak self] in
             self?.refreshActionPresentations()
             self?.loadStartupStatusIfNeeded()
+            self?.notifyAuthorityContextPublished()
         }
         WalletCoreData.add(eventObserver: self)
         if let cachedHistory {
@@ -474,6 +630,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     deinit {
+        supportPollingTimer?.invalidate()
+        supportRefreshTask?.cancel()
         startupTask?.cancel()
         loadRetryTask?.cancel()
         initialHostContextTask?.cancel()
@@ -508,7 +666,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     private func prepareStartup(loadConversation: () async -> Void) async {
-        let shouldReloadStartupStatus = statusRefreshTask != nil
+        let shouldReloadStartupStatus = statusRefreshTask != nil && !isDeferredDiscussion
         let requiresHostContext = !isDiscussion
         if initialHostContextTask == nil {
             initialHostContextTask = Task { [weak self] in
@@ -562,11 +720,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     /// The availability, the quota and the problem report's availability, which the SDK gives only with consent
     private func loadStartupStatusIfNeeded() {
         guard !isStopped, !needsConsentToSend, statusRefreshTask == nil else { return }
-        statusRefreshTask = Task { [client] in
+        statusRefreshTask = Task { [weak self, client] in
             async let availability: Void = client.loadAvailability()
             async let userQuota: Void = client.loadUserQuota()
             _ = await (availability, userQuota)
+            guard !Task.isCancelled, let self, !self.isStopped, self.isDeferredDiscussion else { return }
+            self.hasLoadedDiscussionStatus = true
+            self.notifyObservers()
         }
+        if isDeferredDiscussion { notifyObservers() }
         refreshProblemReportAvailability()
     }
 
@@ -599,6 +761,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     func transferOpening(to coordinator: AgentV2Coordinator) {
         if let newsPreview { coordinator.updateNewsPreview(newsPreview) }
+        if let digestPreview { coordinator.updateDigestPreview(digestPreview) }
         guard let opening, opening.isQuestion, !openingRunAttempted else { return }
         coordinator.acceptOpening(opening)
     }
@@ -632,7 +795,12 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         startupTask = Task { [weak self] in
             guard let self else { return }
             defer {
+                if self.isDiscussionSupportRequest, self.thread == nil {
+                    self.hasRequestedDiscussionThread = false
+                }
+                self.isDiscussionSupportRequest = false
                 self.startupTask = nil
+                self.onOpeningFinished?()
                 self.notifyObservers()
                 self.startNextOpeningIfPossible()
             }
@@ -646,8 +814,18 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                         self.needsOpeningConsent = !self.hasOpeningConsent
                         if self.needsOpeningConsent { return }
                     } else {
-                        // A news discussion's thread, its post and its suggestions come before consent
                         self.needsConsentToSend = !self.hasOpeningConsent
+                    }
+                }
+                if self.isDeferredDiscussion {
+                    guard self.hasOpeningConsent else { return }
+                    self.loadStartupStatusIfNeeded()
+                    await self.statusRefreshTask?.value
+                    guard !Task.isCancelled, !self.isStopped, !self.isWaitingForFirstDiscussionMessage else { return }
+                    if let code = self.inputLimitErrorCode,
+                       !self.isDiscussionSupportRequest || self.isRateLimitWaiting {
+                        self.errorSource = .run(self.isDiscussionSupportRequest ? .rateLimited : code)
+                        return
                     }
                 }
                 if self.thread == nil {
@@ -714,7 +892,13 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     func loadConsent() async throws -> Bool {
-        try await client.consent()
+        if isDeferredDiscussion { await startupTask?.value }
+        let hasConsent = try await client.consent()
+        if hasConsent, isDeferredDiscussion {
+            markConsentGiven()
+            await statusRefreshTask?.value
+        }
+        return hasConsent
     }
 
     /// The opening's consent turned out given when read again before the sheet would ask: the opening goes on
@@ -726,7 +910,12 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     func acceptConsent() async throws {
+        if isDeferredDiscussion { await startupTask?.value }
         try await client.acceptConsent()
+        if isDeferredDiscussion {
+            markConsentGiven()
+            await statusRefreshTask?.value
+        }
     }
 
     /// The user allowed the Agent in the sheet a news discussion opened before consent asked with
@@ -736,7 +925,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         needsConsentToSend = false
         statusRefreshTask?.cancel()
         statusRefreshTask = nil
-        if hostContextProvider.isAuthorityContextCurrent {
+        if isDeferredDiscussion || hostContextProvider.isAuthorityContextCurrent {
             loadStartupStatusIfNeeded()
         }
     }
@@ -829,24 +1018,36 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         waiters.forEach { $0.resume() }
     }
 
-    func beginChatDeletion() {
+    func beginChatDeletion(onCompletion: @escaping (Bool) -> Void) {
         guard !isDeletingChat else { return }
         isDeletingChat = true
         let threadId = thread?.id
         let creation = threadCreationTask
-        stop()
-        deletionTask = Task { [client] in
-            let id: String?
-            if let threadId {
-                id = threadId
-            } else {
-                id = try? await creation?.value.id
+        if hasPendingOpenings {
+            stop()
+        } else {
+            notifyObservers()
+        }
+        deletionTask = Task { [self, client] in
+            do {
+                let id: String?
+                if let threadId {
+                    id = threadId
+                } else {
+                    id = try? await creation?.value.id
+                }
+                // A failed or unstarted creation has nothing to remove on the server
+                if let id {
+                    let response = try await client.deleteThread(id: id)
+                    WalletCoreData.notify(event: .agentThreadDeleted(threadId: response.threadId))
+                    AgentSearchProvider.shared.notifyConversationChanged()
+                }
+                onCompletion(true)
+            } catch {
+                isDeletingChat = false
+                onCompletion(false)
+                throw error
             }
-            // A failed or unstarted creation has nothing to remove on the server.
-            guard let id else { return }
-            let response = try await client.deleteThread(id: id)
-            WalletCoreData.notify(event: .agentThreadDeleted(threadId: response.threadId))
-            AgentSearchProvider.shared.notifyConversationChanged()
         }
     }
 
@@ -856,8 +1057,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     /// While the chat is on screen in the foreground, the SDK keeps the server's copy of the wallet snapshot current.
     func setChatVisible(_ isVisible: Bool) {
+        let wasVisible = isChatVisible
         isChatVisible = isVisible
         updateChatActivity()
+        if isVisible && !wasVisible && (isSupportActive || needsSupportRefresh) {
+            needsSupportRefresh = true
+            isSupportRefreshDeferred = false
+        }
+        updateSupportPolling()
+        if thread?.support != nil { notifyObservers() }
         if isVisible {
             refreshProblemReportAvailability()
         }
@@ -903,6 +1111,11 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             sendChatActivity(false)
         }
         isStopped = true
+        isDiscussionSupportRequest = false
+        supportPollingTimer?.invalidate()
+        supportPollingTimer = nil
+        supportRefreshTask?.cancel()
+        supportRefreshTask = nil
         if !isDeletingChat { threadCreationTask?.cancel() }
         startupTask?.cancel()
         startupTask = nil
@@ -977,6 +1190,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         hydrationGeneration += 1
         invalidateActionPresentations(threadId: thread.id)
         conversation.removeAllMessages()
+        loadedOperatorMessageAt = nil
         stoppedAnswers.removeAll()
         unloadedMessageCount = 0
         nextMessageCursor = nil
@@ -984,6 +1198,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         runActivity = nil
         errorSource = nil
         limitRetry = nil
+        failedSupportRequest = nil
         scheduleLimitExpiryUpdate()
         onCachedHistoryChange?(thread.id, nil)
         AgentSearchProvider.shared.notifyConversationChanged()
@@ -1079,12 +1294,31 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     @discardableResult
     /// With `idleRunGeneration`, loads and applies the history only while the chat stays free in that run generation
-    func hydrate(preservingLiveActions: Bool = false, idleRunGeneration: Int? = nil) async -> Bool {
+    func hydrate(
+        preservingLiveActions: Bool = false,
+        idleRunGeneration: Int? = nil,
+        isFailureSilent: Bool = false
+    ) async -> Bool {
         guard !Task.isCancelled, !isStopped, isIdle(inRunGeneration: idleRunGeneration),
               let threadId = thread?.id else { return false }
         hydrationGeneration += 1
         let generation = hydrationGeneration
         let fetchRunGeneration = activeRun?.generation
+        let shouldMergeSupportHistory = hasHydratedMessages
+            && (isSupportActive || activeRun?.isRunning == true && activeRun?.isSupportAppend == true)
+        let fetchLifecycleGeneration = runGeneration
+        historyReadCount += 1
+        updateSupportPolling()
+        var isHistoryReadEnded = false
+        // The read ends before the chat hears of its result, so the chat reads a state without it, as the support it
+        // offers again once a failed load is retried
+        func endHistoryRead() {
+            guard !isHistoryReadEnded else { return }
+            isHistoryReadEnded = true
+            historyReadCount -= 1
+            updateSupportPolling()
+        }
+        defer { endHistoryRead() }
         let isCacheable = canShowCachedHistory
         cacheableHydrationGeneration = isCacheable ? generation : nil
         if isCacheable {
@@ -1116,13 +1350,27 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                   page.messages.allSatisfy({ $0.threadId == threadId }) else {
                 throw AgentV2NativeContractError.threadBindingMismatch
             }
+            if shouldMergeSupportHistory, page.thread.revision < currentRevision() { return false }
+            let supportPages = shouldMergeSupportHistory
+                ? try await loadLatestSupportPages(firstPage: page, generation: generation, runGeneration: fetchLifecycleGeneration)
+                : SupportPages(pages: [page], gapCursor: nil)
+            // Pages that don't reach the loaded history take its place, as a first load does
+            let isMergingSupportHistory = shouldMergeSupportHistory && supportPages.gapCursor == nil
+            guard !Task.isCancelled, !isStopped, hydrationGeneration == generation,
+                  !hasHydratedMessages || activeRun?.generation == fetchRunGeneration else { return false }
             invalidateActionPresentations(
                 threadId: threadId,
                 clearsExistingPresentations: !preservingLiveActions
             )
+            let pendingSupportRefresh = needsSupportRefresh
+            let closesSupport = thread?.support?.state != .closed && page.thread.support?.state == .closed
             newsPreview = news
-            try bindThread(page.thread, notify: false)
-            let hydratedMessages = page.messages.map(hydratedMessage)
+            if hasHydratedMessages || page.thread.revision >= currentRevision()
+                || thread?.support == nil && page.thread.support == nil {
+                try bindThread(page.thread, notify: false)
+            }
+            needsSupportRefresh = pendingSupportRefresh || closesSupport
+            let hydratedMessages = supportPages.pages.reversed().flatMap(\.messages).map(hydratedMessage)
             var shouldFinishOpening = false
             if isOpening, let opening {
                 if opening.isQuestion {
@@ -1144,15 +1392,22 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             let shouldReplaceMessages = !hydratedMessages.isEmpty || pendingMessages.isEmpty || isShowingCachedMessages
             isShowingCachedMessages = false
             if shouldReplaceMessages {
-                unloadedMessageCount = max(0, page.thread.messageCount - hydratedMessages.count)
-                conversation.replaceMessages(
-                    keepingStoppedAnswers(in: hydratedMessages) + pendingMessages,
-                    preservingLiveActions: preservingLiveActions
-                )
+                dropStoppedSupportInputs()
+                if isMergingSupportHistory {
+                    conversation.mergeLatestMessages(keepingStoppedAnswers(in: hydratedMessages) + pendingMessages)
+                } else {
+                    conversation.replaceMessages(
+                        keepingStoppedAnswers(in: hydratedMessages) + pendingMessages,
+                        preservingLiveActions: preservingLiveActions
+                    )
+                }
+                unloadedMessageCount = max(0, page.thread.messageCount - messages.filter { $0.role != .event }.count)
             }
+            loadedOperatorMessageAt = page.thread.support?.lastOperatorMessageAt
             applyPendingFeedback()
-            nextMessageCursor = page.nextCursor
+            if !isMergingSupportHistory { nextMessageCursor = supportPages.gapCursor ?? page.nextCursor }
             hasHydratedMessages = true
+            scheduleLimitExpiryUpdate()
             let isHistoryCacheable = !page.messages.isEmpty && page.thread.news == nil && page.thread.digest == nil
             onCachedHistoryChange?(
                 threadId,
@@ -1163,7 +1418,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             }
             refreshActionPresentations(in: messages, threadId: threadId)
             AgentSearchProvider.shared.notifyConversationChanged()
-            notifyObservers(shouldReplaceMessages ? .messagesHydrated : .reload)
+            endHistoryRead()
+            notifyObservers(shouldReplaceMessages && !isMergingSupportHistory ? .messagesHydrated : .reload)
             if shouldFinishOpening {
                 openingFinished = true
                 notifyObservers()
@@ -1172,7 +1428,10 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             return true
         } catch {
             endCacheableHydration(generation)
-            guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return false }
+            guard !Task.isCancelled, !(error is CancellationError),
+                  !isStopped, hydrationGeneration == generation else { return false }
+            if isFailureSilent { return false }
+            endHistoryRead()
             if (error as? ApiAgentV2MutationError)?.code == .threadNotFound {
                 if isShowingCachedMessages {
                     isShowingCachedMessages = false
@@ -1187,6 +1446,148 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             notifyObservers()
             return false
         }
+    }
+
+    private var canRefreshSupportHistory: Bool {
+        !isStopped && !isDeletingChat && isChatForegroundVisible && hasHydratedMessages
+            && thread != nil && activeRun?.isRunning != true && !isLoadingHistory
+    }
+
+    private func updateSupportPolling() {
+        let shouldPoll = !isStopped && !isDeletingChat && isChatForegroundVisible
+            && hasHydratedMessages && isSupportActive
+        if shouldPoll, supportPollingTimer == nil {
+            let timer = Timer(timeInterval: supportPollingInterval, repeats: true) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, self.isSupportActive else { return }
+                    self.needsSupportRefresh = true
+                    self.isSupportRefreshDeferred = false
+                    self.updateSupportPolling()
+                }
+            }
+            supportPollingTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        } else if !shouldPoll {
+            supportPollingTimer?.invalidate()
+            supportPollingTimer = nil
+        }
+        if !isChatForegroundVisible || isStopped {
+            supportRefreshTask?.cancel()
+        }
+        guard needsSupportRefresh, !isSupportRefreshDeferred, canRefreshSupportHistory, supportRefreshTask == nil,
+              !isRefreshingSupportHistory else { return }
+        supportRefreshTask = Task { [weak self] in
+            guard let self else { return }
+            _ = await self.refreshSupportHistory()
+            self.supportRefreshTask = nil
+            self.updateSupportPolling()
+        }
+    }
+
+    @discardableResult
+    func refreshSupportHistory() async -> Bool {
+        guard canRefreshSupportHistory, !isRefreshingSupportHistory,
+              isSupportActive || needsSupportRefresh, let threadId = thread?.id else { return false }
+        needsSupportRefresh = false
+        isSupportRefreshDeferred = false
+        isRefreshingSupportHistory = true
+        historyReadCount += 1
+        hydrationGeneration += 1
+        let generation = hydrationGeneration
+        let fetchRunGeneration = runGeneration
+        updateSupportPolling()
+        var hasAppliedHistory = false
+        defer {
+            historyReadCount -= 1
+            isRefreshingSupportHistory = false
+            updateSupportPolling()
+            // The chat hears of the history once its read has ended, as a support that closed offers its request again
+            if hasAppliedHistory { notifyObservers() }
+        }
+        do {
+            let page = try await client.messages(threadId: threadId, cursor: nil, limit: 50)
+            let supportPages = try await loadLatestSupportPages(
+                firstPage: page,
+                generation: generation,
+                runGeneration: fetchRunGeneration
+            )
+            guard !Task.isCancelled, canApplySupportHistory(generation: generation, runGeneration: fetchRunGeneration),
+                  isChatForegroundVisible, page.thread.revision >= currentRevision() else {
+                if !isChatForegroundVisible { needsSupportRefresh = true }
+                return false
+            }
+            let previousThread = thread
+            let previousMessages = messages
+            let pendingSupportRefresh = needsSupportRefresh
+            let closesSupport = thread?.support?.state != .closed && page.thread.support?.state == .closed
+            try bindThread(page.thread, notify: false)
+            needsSupportRefresh = pendingSupportRefresh || closesSupport
+            let latestMessages = supportPages.pages.reversed().flatMap(\.messages).map(hydratedMessage)
+            dropStoppedSupportInputs()
+            if let gapCursor = supportPages.gapCursor {
+                // The pages don't reach the loaded history: they take its place, and the older pages load from the gap
+                conversation.replaceMessages(keepingStoppedAnswers(in: latestMessages))
+                nextMessageCursor = gapCursor
+            } else {
+                conversation.mergeLatestMessages(keepingStoppedAnswers(in: latestMessages))
+            }
+            unloadedMessageCount = max(0, page.thread.messageCount - messages.filter { $0.role != .event }.count)
+            loadedOperatorMessageAt = page.thread.support?.lastOperatorMessageAt
+            applyPendingFeedback()
+            refreshActionPresentations(in: latestMessages, threadId: threadId)
+            scheduleLimitExpiryUpdate()
+            if previousThread != thread || previousMessages != messages {
+                AgentSearchProvider.shared.notifyConversationChanged()
+            }
+            hasAppliedHistory = true
+            return true
+        } catch {
+            if Task.isCancelled {
+                needsSupportRefresh = true
+            } else if thread?.support?.state == .closed {
+                isSupportRefreshDeferred = !needsSupportRefresh
+                needsSupportRefresh = true
+            }
+            return false
+        }
+    }
+
+    /// The newest pages of a support chat, back to the loaded history. When they run out first, `gapCursor` is the
+    /// cursor of the older messages between them and the loaded history.
+    private struct SupportPages {
+        let pages: [ApiAgentV2ThreadHydration]
+        let gapCursor: String?
+    }
+
+    private func loadLatestSupportPages(
+        firstPage: ApiAgentV2ThreadHydration,
+        generation: Int,
+        runGeneration: Int
+    ) async throws -> SupportPages {
+        let threadId = firstPage.thread.id
+        let knownIds = Set(messages.map(\.id))
+        var pages = [firstPage]
+        var gapCursor: String?
+        while let page = pages.last {
+            guard !Task.isCancelled, canApplySupportHistory(generation: generation, runGeneration: runGeneration) else {
+                throw CancellationError()
+            }
+            guard isBoundThread(threadId), page.thread.id == threadId,
+                  page.messages.allSatisfy({ $0.threadId == threadId }) else {
+                throw AgentV2NativeContractError.threadBindingMismatch
+            }
+            guard !page.messages.contains(where: { knownIds.contains($0.id) }), let cursor = page.nextCursor else { break }
+            guard pages.count < Self.maxSupportHistoryPages else {
+                gapCursor = cursor
+                break
+            }
+            pages.append(try await client.messages(threadId: threadId, cursor: cursor, limit: 50))
+        }
+        return SupportPages(pages: pages, gapCursor: gapCursor)
+    }
+
+    private func canApplySupportHistory(generation: Int, runGeneration: Int) -> Bool {
+        !isStopped && hydrationGeneration == generation && self.runGeneration == runGeneration
     }
 
     /// A chat opened on its thread that shows nothing of its own yet. A chat with unread messages opens at the first of
@@ -1221,6 +1622,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
               !history.messages.isEmpty,
               history.messages.allSatisfy({ $0.threadId == threadId }) else { return false }
         conversation.replaceMessages(history.messages.map(hydratedMessage))
+        scheduleLimitExpiryUpdate()
         isShowingCachedMessages = true
         hasShownCachedMessages = true
         return true
@@ -1241,6 +1643,14 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     func refreshThreadIfNeeded(_ thread: ApiAgentV2ThreadSummary) {
+        if isBoundThread(thread.id), thread.revision >= currentRevision(),
+           self.thread?.support != nil || thread.support != nil {
+            let hasSupportChanges = self.thread?.support != thread.support
+            if hasSupportChanges {
+                try? bindThread(thread)
+                return
+            }
+        }
         guard !isStopped, !hasPendingOpenings, isBoundThread(thread.id), activeRun?.isRunning != true,
               thread.revision > currentRevision() else { return }
         Task { [weak self] in
@@ -1251,7 +1661,16 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     @discardableResult
     func loadOlderMessages() async -> Bool {
-        guard !isStopped, let threadId = thread?.id, let cursor = nextMessageCursor else { return false }
+        guard !isStopped, !isRefreshingSupportHistory, let threadId = thread?.id, let cursor = nextMessageCursor else { return false }
+        historyReadCount += 1
+        updateSupportPolling()
+        var hasPrependedMessages = false
+        defer {
+            historyReadCount -= 1
+            updateSupportPolling()
+            // The chat hears of the older messages once their read has ended
+            if hasPrependedMessages { notifyObservers() }
+        }
         let generation = hydrationGeneration
         guard let page = try? await client.messages(threadId: threadId, cursor: cursor, limit: 50) else { return false }
         guard !isStopped,
@@ -1261,14 +1680,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
               page.messages.allSatisfy({ $0.threadId == threadId }) else { return false }
         guard (try? bindThread(page.thread, notify: false)) != nil else { return false }
         let hydratedMessages = keepingStoppedAnswers(in: page.messages.map(hydratedMessage), olderThan: messages)
-        let previousMessageCount = messages.count
+        let previousMessageCount = messages.filter { $0.role != .event }.count
         conversation.prependMessages(hydratedMessages)
-        unloadedMessageCount = max(0, unloadedMessageCount - (messages.count - previousMessageCount))
+        let addedMessageCount = messages.filter { $0.role != .event }.count - previousMessageCount
+        unloadedMessageCount = max(0, unloadedMessageCount - addedMessageCount)
         applyPendingFeedback()
         nextMessageCursor = page.nextCursor
         refreshActionPresentations(in: hydratedMessages, threadId: threadId)
         AgentSearchProvider.shared.notifyConversationChanged()
-        notifyObservers()
+        hasPrependedMessages = true
         return true
     }
 
@@ -1280,11 +1700,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         visibleText: String? = nil,
         localInputMessageId: String? = nil
     ) -> Bool {
+        let isSupportRequest = Self.isSupportRequest(entryPoint)
         guard !isStopped,
               let threadId = thread?.id,
               activeRun?.isRunning != true,
               !isDiscussion || hasHydratedMessages,
-              !isInputBlockedByLimit else { return false }
+              isSupportRequest ? !isRateLimitWaiting : !isInputBlockedByLimit else { return false }
+        if isSupportActive {
+            guard case .append = input, followup == nil else { return false }
+        }
         let generation = beginRunLifecycle()
         let replacedStoppedAnswerIds: Set<String>
         switch input {
@@ -1297,8 +1721,12 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         case .append:
             replacedStoppedAnswerIds = []
         }
-        limitRetry = nil
-        scheduleLimitExpiryUpdate()
+        // A support request leaves the question a limit holds back with its Retry
+        if !isSupportRequest {
+            limitRetry = nil
+            scheduleLimitExpiryUpdate()
+        }
+        failedSupportRequest = nil
         let optimisticInputMessageId: String?
         if let visibleText, !visibleText.isEmpty {
             let messageId: String
@@ -1318,6 +1746,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             optimisticInputMessageId = localInputMessageId
         }
         let clientRunId = client.makeClientRunId()
+        if isSupportActive, case .append = input {
+            supportResendClientRunId = clientRunId
+        }
         replacedStoppedAnswers = replacedStoppedAnswerIds.isEmpty ? nil : (clientRunId, replacedStoppedAnswerIds)
         activeRun = RunState(
             generation: generation,
@@ -1326,7 +1757,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             runId: nil,
             threadId: threadId,
             localInputMessageId: optimisticInputMessageId,
-            isRunning: true
+            isRunning: true,
+            isSupportAppend: supportResendClientRunId == clientRunId,
+            isSupportRequest: isSupportRequest
         )
         runActivity = nil
         errorSource = nil
@@ -1355,8 +1788,39 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                     }
                     guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
                 }
-                guard !Task.isCancelled, !self.isDeletingChat, self.isCurrentRun(generation) else { return }
-                let result = try await self.client.startRun(command)
+                guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+                guard !self.isDeletingChat else {
+                    self.settleRun(generation: generation, clientRunId: clientRunId, outcome: .cancelled)
+                    return
+                }
+                if let run = self.activeRun, run.isUnsubmittedDiscussionSupportRequest,
+                   run.discussionSupportAccountId != self.activeAccountID {
+                    self.cancelUnsubmittedDiscussionSupportRequest()
+                    return
+                }
+                self.activeRun?.isUnsubmittedDiscussionSupportRequest = false
+                var result = try await self.client.startRun(command)
+                guard !Task.isCancelled, self.isCurrentRun(generation), self.isBoundThread(threadId) else { return }
+                if self.supportRevisionConflictClientRunId == clientRunId, result.state != .cancelled {
+                    self.supportRevisionConflictClientRunId = nil
+                    guard self.activeRun?.isRunning == true else { return }
+                    let didHydrate = await self.hydrate(preservingLiveActions: true, isFailureSilent: true)
+                    guard !Task.isCancelled, self.isCurrentRun(generation), self.isBoundThread(threadId),
+                          self.activeRun?.isRunning == true else { return }
+                    guard didHydrate else {
+                        self.errorSource = .run(.threadRevisionConflict)
+                        self.settleRun(generation: generation, clientRunId: clientRunId, outcome: .failed)
+                        return
+                    }
+                    result = try await self.client.startRun(ApiAgentV2RunCommand(
+                        clientRunId: clientRunId,
+                        threadId: threadId,
+                        expectedThreadRevision: self.currentRevision(),
+                        input: command.input,
+                        entryPoint: command.entryPoint,
+                        followupOf: command.followupOf
+                    ))
+                }
                 guard !Task.isCancelled,
                       self.bindRunResult(result, generation: generation, threadId: threadId) else { return }
                 self.reconcileRunInput(result)
@@ -1369,6 +1833,10 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 if self.replacedStoppedAnswers?.clientRunId == activeClientRunId {
                     self.replacedStoppedAnswers = nil
                 }
+                if let run = self.activeRun, run.isSupportRequest, self.failedSupportRequest == nil {
+                    self.failSupportRequest(run, code: (error as? ApiAgentV2MutationError)?.code)
+                }
+                self.dropLocalSupportInput()
                 if !self.isOpening {
                     await self.hydrate()
                 } else {
@@ -1384,6 +1852,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             }
             if !self.isOpening || terminalState == .completed || terminalState == .cancelled {
                 if self.isOpening { self.openingFinished = true }
+                self.dropLocalSupportInput()
                 await self.hydrate(preservingLiveActions: true)
             }
             guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
@@ -1396,10 +1865,56 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         return true
     }
 
+    func bindDiscussionSupportRun(accountId: String?) {
+        guard activeRun?.isSupportRequest == true, activeRun?.isConfirmed == false,
+              activeRun?.isRunning == true else { return }
+        activeRun?.isUnsubmittedDiscussionSupportRequest = true
+        activeRun?.discussionSupportAccountId = accountId
+    }
+
+    private func cancelUnsubmittedDiscussionSupportRequest() {
+        guard let run = activeRun, run.isRunning, run.isUnsubmittedDiscussionSupportRequest else { return }
+        if let localId = run.localInputMessageId {
+            conversation.removeMessage(id: localId)
+        }
+        invalidateRunLifecycle(clearsActiveRun: false)
+        runActivity = nil
+        hostContextProvider.flushDeferredDynamicUpdate()
+        notifyObservers(.runTerminated(.cancelled))
+        startNextOpeningIfPossible()
+    }
+
+    /// The bubble of a message to support that its run left under its local id, before the history merges: the
+    /// history has the message under its own id, or never took it, and the merge keeps every message it doesn't have.
+    /// A message a limit holds back for Retry keeps its bubble.
+    private func dropLocalSupportInput() {
+        guard let run = activeRun, let localId = getLocalSupportInputId(of: run) else { return }
+        conversation.removeMessage(id: localId)
+    }
+
+    /// The bubble of a message to support that `run` left under its local id, unless a limit holds it back for Retry
+    private func getLocalSupportInputId(of run: RunState) -> String? {
+        guard run.isSupportAppend || isSupportActive, limitRetry?.clientRunId != run.clientRunId,
+              let localId = run.localInputMessageId, localId.hasPrefix("local-") else { return nil }
+        return localId
+    }
+
+    /// The history the chat applies has the stopped messages to support under their own ids, or never took them
+    private func dropStoppedSupportInputs() {
+        for id in stoppedSupportInputIds {
+            conversation.removeMessage(id: id)
+        }
+        stoppedSupportInputIds.removeAll()
+    }
+
     /// Stops the answer being written. The chat is free at once; the runtime ends the run, cancels it on the server
     /// and reports the saved thread, which brings the saved part of the answer.
     func stopRun() {
         guard !isStopped, let run = activeRun, run.isRunning else { return }
+        // The stopped run hears nothing more, so the next history the chat applies settles a message to support it sent
+        if let localId = getLocalSupportInputId(of: run) {
+            stoppedSupportInputIds.insert(localId)
+        }
         invalidateRunLifecycle(clearsActiveRun: false)
         runActivity = nil
         conversation.finalizeStreamingMessages(status: .cancelled)
@@ -1432,8 +1947,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             isConfirmed: true,
             runId: nil,
             threadId: threadId,
-            localInputMessageId: isOpening ? openingInputMessageId : nil,
-            isRunning: true
+            localInputMessageId: isOpening ? openingInputMessageId : retry?.localInputMessageId,
+            isRunning: true,
+            isSupportAppend: retry?.isSupportAppend == true
         )
         scheduleLimitExpiryUpdate()
         notifyObservers()
@@ -1485,6 +2001,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             }
             if !self.isOpening || terminalState == .completed || terminalState == .cancelled {
                 if self.isOpening { self.openingFinished = true }
+                self.dropLocalSupportInput()
                 await self.hydrate(preservingLiveActions: true)
             }
             guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
@@ -1516,12 +2033,28 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         switch event {
         case .agentV2(let update):
             handle(update)
+        case .accountChanged(let accountId, _):
+            if activeRun?.discussionSupportAccountId != accountId {
+                cancelUnsubmittedDiscussionSupportRequest()
+            }
+            notifyObservers(.walletSelectionChanged(accountId: accountId))
+        case .accountsReset:
+            cancelUnsubmittedDiscussionSupportRequest()
+            notifyObservers(.walletSelectionChanged(accountId: nil))
         case .applicationDidEnterBackground:
             isInBackground = true
             updateChatActivity()
+            updateSupportPolling()
+            if thread?.support != nil { notifyObservers() }
         case .applicationWillEnterForeground:
             isInBackground = false
             updateChatActivity()
+            if isSupportActive || needsSupportRefresh {
+                needsSupportRefresh = true
+                isSupportRefreshDeferred = false
+            }
+            updateSupportPolling()
+            if thread?.support != nil { notifyObservers() }
         default:
             break
         }
@@ -1665,32 +2198,55 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             change = .reload
         case .runFailed(let bound, let clientRunId, let threadId, let messageId, let code, let retryable, let resetAt):
             let target = bound?.threadId ?? threadId
-            guard let target,
-                  isBoundThread(target),
-                  let disposition = matchRunUpdate(
+            guard let target, isBoundThread(target) else { return }
+            if code == .threadRevisionConflict, bound == nil, messageId == nil,
+               supportResendClientRunId == clientRunId,
+               let run = activeRun, run.generation == runGeneration, run.isRunning,
+               !run.isConfirmed, run.runId == nil,
+               run.clientRunId == clientRunId, run.threadId == target {
+                supportResendClientRunId = nil
+                supportRevisionConflictClientRunId = clientRunId
+                return
+            }
+            guard let disposition = matchRunUpdate(
                     clientRunId: clientRunId,
                     runId: bound?.runId,
                     threadId: target
                   ) else { return }
             let errorSource: ErrorSource = .run(code)
-            terminalErrorSourcesByClientRunId[clientRunId] = errorSource
-            limitRetry = makeLimitRetry(
-                bound: bound,
-                clientRunId: clientRunId,
-                threadId: target,
-                code: code,
-                retryable: retryable,
-                resetAt: resetAt
-            )
-            scheduleLimitExpiryUpdate()
-            // A failed answer shows its own error; the status row shows a failure without one and a limit retry.
-            if limitRetry == nil,
-               let messageId,
-               conversation.failMessage(id: messageId, error: ApiAgentV2MessageError(code: code, retryable: retryable)) {
-                failedMessageIdsByClientRunId[clientRunId] = messageId
+            let supportRequest = activeRun.flatMap { $0.clientRunId == clientRunId && $0.isSupportRequest ? $0 : nil }
+            if let supportRequest, bound == nil {
+                // The server didn't take the request, which shows with its failure under it
+                failSupportRequest(supportRequest, code: code)
             } else {
-                self.errorSource = errorSource
+                terminalErrorSourcesByClientRunId[clientRunId] = errorSource
+                // A support request is never held for Retry, nor does it touch the question a limit holds back
+                if supportRequest == nil {
+                    limitRetry = makeLimitRetry(
+                        bound: bound,
+                        clientRunId: clientRunId,
+                        threadId: target,
+                        code: code,
+                        retryable: retryable,
+                        resetAt: resetAt
+                    )
+                }
+                // A failed answer shows its own error; the status row shows a failure without one and a limit retry.
+                if supportRequest != nil || limitRetry == nil,
+                   let messageId,
+                   conversation.failMessage(id: messageId, error: ApiAgentV2MessageError(
+                    code: code,
+                    retryable: retryable,
+                    resetAt: resetAt.map {
+                        Date(timeIntervalSince1970: $0 / 1_000).ISO8601Format(.init(includingFractionalSeconds: true))
+                    }
+                   )) {
+                    failedMessageIdsByClientRunId[clientRunId] = messageId
+                } else {
+                    self.errorSource = errorSource
+                }
             }
+            scheduleLimitExpiryUpdate()
             if disposition == .retiredActive {
                 change = .reload
                 break
@@ -1744,7 +2300,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 runActivity = nil
                 conversation.finalizeStreamingMessages(status: .cancelled)
             }
-            invalidateAuthorityBoundState(threadId: threadId)
+            invalidateAuthorityBoundState(threadId: threadId, isThreadInvalidated: threadId != nil)
             if threadId == nil, hostContextProvider.isAuthorityContextCurrent {
                 refreshActionPresentations()
             }
@@ -1826,16 +2382,27 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     private func handleAuthorityContextInvalidation() {
         guard !isStopped else { return }
-        invalidateAuthorityBoundState(threadId: thread?.id)
+        if activeRun?.discussionSupportAccountId != activeAccountID {
+            cancelUnsubmittedDiscussionSupportRequest()
+        }
+        invalidateAuthorityBoundState(threadId: thread?.id, isThreadInvalidated: false)
         notifyObservers()
     }
 
-    private func invalidateAuthorityBoundState(threadId: String?) {
+    /// The questions that wait for the wallet's authority go once it is published again
+    private func notifyAuthorityContextPublished() {
+        guard !isStopped, hasHydratedMessages else { return }
+        notifyObservers()
+    }
+
+    /// The question a limit held back stays held while the user stays in its wallet, unless the thread itself was
+    /// invalidated
+    private func invalidateAuthorityBoundState(threadId: String?, isThreadInvalidated: Bool) {
         invalidateWalletContextBoundState(threadId: threadId)
-        if limitRetry != nil {
+        if let limitRetry, isThreadInvalidated || limitRetry.accountId != activeAccountID {
             invalidateRunLifecycle(clearsActiveRun: false)
+            self.limitRetry = nil
         }
-        limitRetry = nil
         scheduleLimitExpiryUpdate()
     }
 
@@ -1908,6 +2475,22 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         }
     }
 
+    private static func isSupportRequest(_ entryPoint: ApiAgentV2EntryPoint?) -> Bool {
+        guard case .supportRequest? = entryPoint else { return false }
+        return true
+    }
+
+    /// Keeps the request the server didn't take, as the chat showed it, for its failure to show under it. A question
+    /// a limit holds back shows its limit again, with its Retry, which the request's start cleared.
+    private func failSupportRequest(_ run: RunState, code: ApiAgentV2ErrorCode?) {
+        if let limitRetry, errorSource == nil {
+            errorSource = .run(limitRetry.kind == .rateLimit ? .rateLimited : .userQuotaExhausted)
+        }
+        guard let messageId = run.localInputMessageId,
+              let message = messages.first(where: { $0.id == messageId }) else { return }
+        failedSupportRequest = FailedSupportRequest(clientRunId: run.clientRunId, message: message, code: code)
+    }
+
     private func makeLimitRetry(
         bound: ApiAgentV2ClientUpdate.Bound?,
         clientRunId: String,
@@ -1926,17 +2509,24 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         default:
             return nil
         }
+        let run = activeRun?.clientRunId == clientRunId ? activeRun : nil
+        let isSupportAppend = run?.isSupportAppend == true
         return LimitRetry(
             kind: kind,
             clientRunId: clientRunId,
             threadId: threadId,
-            resetAt: resetAt
+            resetAt: resetAt,
+            accountId: activeAccountID,
+            isSupportAppend: isSupportAppend,
+            localInputMessageId: isSupportAppend ? run?.localInputMessageId : nil
         )
     }
 
     private func beginRunLifecycle(reusingClientRunId: String? = nil) -> Int {
         runTask?.cancel()
         runTask = nil
+        supportResendClientRunId = nil
+        supportRevisionConflictClientRunId = nil
         stoppedThreadRevision = nil
         if let runId = activeRun?.runId {
             retiredRunIds.insert(runId)
@@ -1957,6 +2547,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private func invalidateRunLifecycle(clearsActiveRun: Bool) {
         runTask?.cancel()
         runTask = nil
+        supportResendClientRunId = nil
+        supportRevisionConflictClientRunId = nil
         if let runId = activeRun?.runId {
             retiredRunIds.insert(runId)
         }
@@ -2101,6 +2693,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     ) {
         guard isCurrentRun(generation) else { return }
         runTask = nil
+        supportResendClientRunId = nil
+        supportRevisionConflictClientRunId = nil
         activeRun?.isRunning = false
         hostContextProvider.flushDeferredDynamicUpdate()
         let terminalErrorSource = clientRunId.flatMap {
@@ -2113,7 +2707,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         let isShownByFailedMessage = failedMessageId.map { id in
             messages.contains { $0.id == id && $0.error != nil }
         } ?? false
-        if !isShownByFailedMessage {
+        let isShownBySupportRequest = clientRunId != nil && failedSupportRequest?.clientRunId == clientRunId
+        if !isShownByFailedMessage, !isShownBySupportRequest {
             restoreTerminalErrorIfNeeded(outcome: outcome, terminalErrorSource: terminalErrorSource)
         }
         if let clientRunId {
@@ -2142,11 +2737,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private func scheduleLimitExpiryUpdate() {
         limitExpiryTask?.cancel()
         let now = Date()
-        let resetDates = [
+        let messageResetDates = messages.compactMap { message -> Date? in
+            guard message.error?.code == .userQuotaExhausted, let resetAt = message.error?.resetAt else { return nil }
+            return AgentV2DateParser.date(resetAt)
+        }
+        let resetDates = ([
             availability.resetAt.map { Date(timeIntervalSince1970: $0 / 1_000) },
             userQuota.map { AgentV2DateParser.date($0.resetAt) },
             limitRetry?.resetAt.map { Date(timeIntervalSince1970: $0 / 1_000) }
-        ].compactMap { $0 }.filter { $0 > now }
+        ].compactMap { $0 } + messageResetDates).filter { $0 > now }
         guard let resetDate = resetDates.min() else {
             limitExpiryTask = nil
             return
@@ -2207,6 +2806,11 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         if let boundThread = self.thread, boundThread.id != thread.id {
             throw AgentV2NativeContractError.threadBindingMismatch
         }
+        if self.thread?.support != thread.support,
+           self.thread?.support != nil || thread.support != nil {
+            needsSupportRefresh = true
+            isSupportRefreshDeferred = false
+        }
         self.thread = thread
         revision = thread.revision
         if notify { notifyObservers() }
@@ -2217,6 +2821,11 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     private func notifyObservers(_ change: AgentV2CoordinatorChange = .reload) {
+        if case .runTerminated = change, isSupportActive {
+            needsSupportRefresh = true
+            isSupportRefreshDeferred = false
+        }
+        updateSupportPolling()
         // Reports waiting for the thread look again: it is there, or there is none to come
         resumeThreadWaiters()
         guard !isStopped else { return }

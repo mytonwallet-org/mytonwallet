@@ -1,4 +1,5 @@
 import Foundation
+import SwiftNavigation
 import UIInAppBrowser
 import UIUniversalSearch
 import UniversalSearchCore
@@ -66,6 +67,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
     private let interactionStore: WalletCoreSearchInteractionStore
     private let interactionSource: WalletCoreSearchInteractionSource
     private let userDefaults: UserDefaults
+    private let perpsStore: PerpsStore
 
     private var routesByItemID: [String: UniversalSearchFeatureRoute] = [:]
     private var queryTask: Task<Void, Never>?
@@ -89,6 +91,8 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
     private var lastAutocomplete: UniversalSearchAutocomplete?
     private var hasPresentedBrowseContent = false
     private var isStarted = false
+    private var futuresRowsObservation: ObserveToken?
+    private var shownFuturesRows: [String: FuturesRowValues] = [:]
 
     public init(
         screen: UniversalSearchScreenViewController,
@@ -98,7 +102,8 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         entityRegistry: WalletCoreSearchEntityRegistry = .init(),
         querySources: [any UniversalSearchQuerySource]? = nil,
         interactionStore: WalletCoreSearchInteractionStore = .shared,
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults = .standard,
+        perpsStore: PerpsStore = .shared
     ) {
         let indexService = indexService ?? (coordinator == nil
             ? UniversalSearchFeatureFactory.sharedIndexService
@@ -120,6 +125,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         self.interactionStore = interactionStore
         self.interactionSource = WalletCoreSearchInteractionSource(store: interactionStore)
         self.userDefaults = userDefaults
+        self.perpsStore = perpsStore
 
         screen.onSelect = { [weak self] item in
             guard let self, let route = routesByItemID[item.id] else { return }
@@ -144,6 +150,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         isStarted = true
         indexService?.add(observer: self)
         currentContext = WalletCoreUniversalSearchFactory.currentContext()
+        observeFuturesRows()
         updateQuery(initialQuery)
     }
 
@@ -151,6 +158,8 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         guard isStarted else { return }
         isStarted = false
         indexService?.remove(observer: self)
+        futuresRowsObservation = nil
+        shownFuturesRows = [:]
         queryTask?.cancel()
         renderTask?.cancel()
         querySourceTasks.forEach { $0.cancel() }
@@ -177,6 +186,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         querySourceTasks = []
         querySourcesGeneration = nil
         routesByItemID = [:]
+        shownFuturesRows = [:]
 
         let query = UniversalSearchQuery(text)
 
@@ -482,6 +492,34 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         )
     }
 
+    /// Futures rows show prices and positions that the index leaves out, so a change to a shown one re-runs the query
+    private func observeFuturesRows() {
+        futuresRowsObservation = observe { [weak self] in
+            guard let self else { return }
+            let rows = readFuturesRows()
+            guard rows != shownFuturesRows, let context = currentContext else { return }
+            shownFuturesRows = rows
+            Task { [weak self] in
+                await self?.refreshVisibleResults(for: context)
+            }
+        }
+    }
+
+    private func readFuturesRows() -> [String: FuturesRowValues] {
+        // Both are read even without futures rows, so the observation keeps tracking them
+        _ = perpsStore.market
+        let snapshots = perpsStore.snapshots
+        var rows: [String: FuturesRowValues] = [:]
+        for (itemID, route) in routesByItemID {
+            guard case .futuresMarket(let accountID, let assetID) = route else { continue }
+            rows[itemID] = FuturesRowValues(
+                markPx: perpsStore.asset(id: assetID)?.context.markPx,
+                position: snapshots[accountID]?.positions.first { $0.assetId == assetID }
+            )
+        }
+        return rows
+    }
+
     private func stamped(
         _ snapshot: UniversalSearchSourceSnapshot,
         queryGeneration: UInt64
@@ -504,6 +542,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         completion: (() -> Void)? = nil
     ) {
         routesByItemID = presentation.routesByItemID
+        shownFuturesRows = readFuturesRows()
         let autocomplete = autocomplete(for: presentation)
         if autocomplete != lastAutocomplete {
             lastAutocomplete = autocomplete
@@ -549,10 +588,15 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
                 actionTitle: lang("Open Website")
             )
         case .token(let result):
+            let isFuturesMarket = if case .futuresMarket = presentation.routesByItemID[preselectedItemID] {
+                true
+            } else {
+                false
+            }
             return standardAutocomplete(
                 typedText: typedText,
                 suggestion: result.title,
-                actionTitle: lang("Open Token")
+                actionTitle: lang(isFuturesMarket ? "Open" : "Open Token")
             )
         case .collectible(let result):
             return standardAutocomplete(
@@ -626,6 +670,11 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
     private func formatted(_ value: Double?) -> String {
         value.map { String(format: "%.2f", $0) } ?? "n/a"
     }
+}
+
+private struct FuturesRowValues: Equatable {
+    let markPx: String?
+    let position: ApiPerpsAccountPosition?
 }
 
 extension UniversalSearchFeatureSession: UniversalSearchIndexServiceObserver {

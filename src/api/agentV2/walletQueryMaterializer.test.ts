@@ -4,6 +4,7 @@ import type { AgentApiChain, AgentToolCall, AgentWalletDataQueryArgs } from './p
 import type { AgentV2HostContextSnapshot, AgentV2HostPosition } from './types';
 import type { WalletQueryMaterializationDependencies } from './walletQueryTypes';
 
+import { buildBackendSwapId } from '../../util/activities';
 import { getSupportedChains } from '../../util/chain';
 import * as cache from '../common/cache';
 import contractManifest from './generated/manifest.json';
@@ -13,6 +14,9 @@ import { resolveWalletQueryScope } from './walletQueryScope';
 import { AgentV2WalletSession } from './walletSession';
 
 const NOW = '2026-08-10T12:00:00.000Z';
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 const MESSAGE_ID = '11111111-1111-4111-8111-111111111111';
 const CHAIN_CASES = [
   { name: 'runtime catalog', chains: [...getSupportedChains()] },
@@ -739,16 +743,16 @@ describe('wallet query materializer', () => {
     const session = sessionWithHost();
     const result = await runQuery(session, {
       ...transactionsArgs('list'),
-      accountSelector: { kind: 'current' },
       chains: ['ethereum'],
     }, {
       fetchPastActivities: () => Promise.resolve({
         activities: [transaction('a'.repeat(64), Date.parse(NOW), 1n)],
-        hasMore: false,
+        hasMore: true,
       }),
     });
 
     expect(result).toMatchObject({ operation: 'transactions.list', transactions: [] });
+    expect(result.coverage.sourceOutcomes).toMatchObject([{ status: 'failed_retryable' }]);
   });
 
   it('does not identify stale account addresses as wallet counterparties', async () => {
@@ -897,14 +901,11 @@ describe('wallet query materializer', () => {
   it('expands a bounded activity window before advancing so equal-timestamp peers are not lost', async () => {
     const session = sessionWithHost();
     const activities = Array.from({ length: 60 }, (_, index) => transaction(
-      index.toString(16).padStart(64, '0'),
+      buildTransactionHash(index),
       Date.parse('2026-08-10T10:00:00.000Z'),
       1_000_000_000n,
     ));
-    const fetchPastActivities = jest.fn((_accountId: string, limit: number) => Promise.resolve({
-      activities: activities.slice(0, limit),
-      hasMore: activities.length > limit,
-    }));
+    const fetchPastActivities = createPagedHistory(activities);
     const result = await runQuery(session, {
       ...transactionsArgs('list'), accountSelector: { kind: 'current' }, pageSize: 50,
     }, { fetchPastActivities });
@@ -913,7 +914,146 @@ describe('wallet query materializer', () => {
     if (result.operation !== 'transactions.list') return;
     expect(result.transactions).toHaveLength(50);
     expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual([50, 100]);
-    expect(result.coverage).toMatchObject({ status: 'partial', rowsOmitted: 10 });
+    expect(result.coverage).toMatchObject({ status: 'partial', rowsOmitted: 10, limitations: ['row_limit'] });
+  });
+
+  it.each([
+    {
+      name: 'a period inside a long history',
+      activities: buildHistory(1_000, HOUR).map((activity, index) => (
+        index === 120 || index === 160 ? { ...activity, isScam: true } : activity
+      )),
+      clauses: [
+        buildTimestampClause('2026-07-29T00:00:00.000Z', '2026-08-05T22:00:00.000Z'),
+        buildTimestampClause('2026-08-04T06:00:00.000Z', '2026-08-05T22:00:00.000Z'),
+      ],
+      reads: [50, 100, 200],
+      rowCount: 39,
+      spamCount: 1,
+      sourceStatus: 'complete',
+    },
+    {
+      name: 'a period starting at a page boundary',
+      activities: buildHistory(1_000, HOUR).map((activity, index) => (
+        index === 99 ? { ...activity, timestamp: activity.timestamp + HOUR } : activity
+      )),
+      clauses: [buildTimestampClause('2026-08-06T09:00:00.000Z', '2026-08-06T18:00:00.000Z')],
+      reads: [50, 100, 200],
+      rowCount: 10,
+      spamCount: 0,
+      sourceStatus: 'complete',
+    },
+    {
+      name: 'a period newer than a long history',
+      activities: buildHistory(1_000, HOUR, 30 * DAY),
+      clauses: [buildTimestampClause('2026-08-03T12:00:00.000Z', NOW)],
+      reads: [50],
+      rowCount: 0,
+      spamCount: 0,
+      sourceStatus: 'complete_empty',
+    },
+  ])('reads $name no further than its start and reports it complete', async ({
+    activities, clauses, reads, rowCount, spamCount, sourceStatus,
+  }) => {
+    const fetchPastActivities = createPagedHistory(activities);
+    const result = await runQuery(sessionWithHost(), {
+      ...transactionsArgs('list'), accountSelector: { kind: 'current' }, filters: buildTransactionFilters(clauses),
+    }, { fetchPastActivities });
+
+    expect(result.operation).toBe('transactions.list');
+    if (result.operation !== 'transactions.list') return;
+    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual(reads);
+    expect(result.transactions).toHaveLength(rowCount);
+    expect(result.coverage).toMatchObject({ status: 'complete', rowsOmitted: 0, limitations: [] });
+    expect(result.coverage.emptyReason).toBe(rowCount ? undefined : 'no_matching_rows');
+    expect(result.coverage.sourceOutcomes).toEqual([buildTransactionSourceOutcome(sourceStatus)]);
+    expect(result.policySummary).toMatchObject({
+      spamMatches: { count: spamCount, accuracy: 'exact' }, hiddenMatches: { accuracy: 'exact' },
+    });
+  });
+
+  it('does not treat a backend swap summary older than its page as the end of the period', async () => {
+    const swapSummary: ApiActivity = {
+      kind: 'swap',
+      id: buildBackendSwapId('swap-summary'),
+      timestamp: Date.parse(NOW) - 2 * HOUR,
+      from: 'toncoin',
+      fromAmount: '1',
+      fromAddress: 'EQ-main-private-address',
+      to: 'usdton',
+      toAmount: '3',
+      networkFee: '0.01',
+      swapFee: '0',
+      status: 'completed',
+      hashes: [],
+      transactionIds: {},
+    };
+    const activities = buildHistory(1_000, MINUTE);
+    activities.splice(10, 0, swapSummary);
+    const fetchPastActivities = createPagedHistory(activities);
+    const result = await runQuery(sessionWithHost(), {
+      ...transactionsArgs('list'),
+      accountSelector: { kind: 'current' },
+      filters: buildTransactionFilters([buildTimestampClause('2026-08-10T11:00:00.000Z', NOW)]),
+    }, { fetchPastActivities });
+
+    expect(result.operation).toBe('transactions.list');
+    if (result.operation !== 'transactions.list') return;
+    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual([50, 100]);
+    expect(result.transactions.length + result.coverage.rowsOmitted).toBe(60);
+    expect(result.coverage.limitations).toEqual(['row_limit']);
+  });
+
+  it.each([
+    {
+      name: 'a period longer than the scan limit',
+      fetchPastActivities: () => createPagedHistory(buildHistory(1_000, MINUTE)),
+      clauses: [buildTimestampClause('2026-08-03T12:00:00.000Z', NOW)],
+      reads: [50, 100, 200, 400, 500],
+      matchCount: 499,
+      limitations: ['row_limit', 'history_limit'],
+      sourceStatus: 'complete',
+    },
+    {
+      name: 'no matching row within the scan limit',
+      fetchPastActivities: () => createPagedHistory(buildHistory(1_000, MINUTE)),
+      clauses: [{ field: 'transaction.direction' as const, operator: 'in' as const, values: ['self' as const] }],
+      reads: [50, 100, 200, 400, 500],
+      matchCount: 0,
+      limitations: ['history_limit'],
+      sourceStatus: 'complete_empty',
+    },
+    {
+      name: 'a source that stops growing',
+      fetchPastActivities: () => createHistorySource(() => ({ activities: buildHistory(49, MINUTE), hasMore: true })),
+      clauses: [buildTimestampClause('2026-08-03T12:00:00.000Z', NOW)],
+      reads: [50, 100],
+      matchCount: 49,
+      limitations: ['history_limit'],
+      sourceStatus: 'complete',
+    },
+  ])('reports the history limit for $name', async ({
+    fetchPastActivities: createFetchPastActivities, clauses, reads, matchCount, limitations, sourceStatus,
+  }) => {
+    const fetchPastActivities = createFetchPastActivities();
+    const result = await runQuery(sessionWithHost(), {
+      ...transactionsArgs('list'), accountSelector: { kind: 'current' }, filters: buildTransactionFilters(clauses),
+    }, { fetchPastActivities });
+
+    expect(result.operation).toBe('transactions.list');
+    if (result.operation !== 'transactions.list') return;
+    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual(reads);
+    expect(result.transactions.length + result.coverage.rowsOmitted).toBe(matchCount);
+    expect(result.transactions.map(({ timestamp }) => timestamp)).toEqual(
+      buildHistory(Math.min(matchCount, 50), MINUTE).map(({ timestamp }) => new Date(timestamp).toISOString()),
+    );
+    expect(result.coverage.status).toBe('partial');
+    expect(result.coverage.limitations).toEqual(limitations);
+    expect(result.coverage).not.toHaveProperty('emptyReason');
+    expect(result.coverage.sourceOutcomes).toEqual([buildTransactionSourceOutcome(sourceStatus)]);
+    expect(result.policySummary).toMatchObject({
+      spamMatches: { accuracy: 'lower_bound' }, hiddenMatches: { accuracy: 'lower_bound' },
+    });
   });
 
   it('fails closed when enriched detail no longer matches the requested full hash', async () => {
@@ -940,19 +1080,18 @@ describe('wallet query materializer', () => {
     const bareHash = 'a'.repeat(64);
     const requestedHash = `0x${bareHash.toUpperCase()}`;
     const fetchActivityDetails = jest.fn(() => Promise.resolve(transaction(bareHash, Date.parse(NOW), 1n)));
+    const activities = buildHistory(1_000, MINUTE);
+    activities[60] = transaction(bareHash, activities[60].timestamp, 1n);
+    const fetchPastActivities = createPagedHistory(activities);
     const result = await runQuery(session, {
       operation: 'transactions.detail',
       accountSelector: { kind: 'current' },
       hash: requestedHash,
-    }, {
-      fetchPastActivities: () => Promise.resolve({
-        activities: [transaction(bareHash, Date.parse(NOW), 1n)], hasMore: false,
-      }),
-      fetchActivityDetails,
-    });
+    }, { fetchPastActivities, fetchActivityDetails });
 
     expect(result.operation).toBe('transactions.detail');
     if (result.operation !== 'transactions.detail') return;
+    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual([50, 100]);
     expect(result.transaction).not.toBeNull();
     expect(fetchActivityDetails).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(result)).not.toContain(bareHash);
@@ -962,17 +1101,20 @@ describe('wallet query materializer', () => {
   it('does not case-fold non-hex transaction hashes', async () => {
     const session = sessionWithHost();
     const sourceHash = `A${'b'.repeat(42)}`;
+    const fetchPastActivities = createPagedHistory([
+      transaction(sourceHash, Date.parse(NOW), 1n), ...buildHistory(1_000, MINUTE),
+    ]);
     const result = await runQuery(session, {
       operation: 'transactions.detail',
       accountSelector: { kind: 'current' },
       hash: sourceHash.toLocaleLowerCase('en-US'),
-    }, {
-      fetchPastActivities: () => Promise.resolve({
-        activities: [transaction(sourceHash, Date.parse(NOW), 1n)], hasMore: false,
-      }),
-    });
+    }, { fetchPastActivities });
 
     expect(result).toMatchObject({ operation: 'transactions.detail', transaction: null });
+    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual([50, 100, 200, 400, 500]);
+    expect(result.coverage.status).toBe('partial');
+    expect(result.coverage.limitations).toContain('history_limit');
+    expect(result.coverage).not.toHaveProperty('emptyReason');
   });
 
   it('returns opaque per-account contact bindings and a masked display address', async () => {
@@ -1121,20 +1263,29 @@ describe('wallet query materializer', () => {
     });
   });
 
-  it('revalidates wallet authority immediately after a network read', async () => {
+  it.each([
+    [50, [50]],
+    [100, [50, 100]],
+  ])('revalidates wallet authority immediately after the network read of %i rows', async (
+    changedLimit, reads,
+  ) => {
     const source = host();
     const session = new AgentV2WalletSession();
     session.update(source);
+    const readHistory = createPagedHistory(buildHistory(1_000, MINUTE));
     await expect(runQuery(session, {
       ...transactionsArgs('list'), accountSelector: { kind: 'current' },
     }, {
-      fetchPastActivities: () => {
-        session.update({ ...source, accounts: source.accounts.map((account) => (
-          account.accountId === 'savings' ? { ...account, label: 'Changed Savings' } : account
-        )) });
-        return Promise.resolve({ activities: [], hasMore: false });
+      fetchPastActivities: (accountId, limit, tokenSlug, toTimestamp) => {
+        if (limit === changedLimit) {
+          session.update({ ...source, accounts: source.accounts.map((account) => (
+            account.accountId === 'savings' ? { ...account, label: 'Changed Savings' } : account
+          )) });
+        }
+        return readHistory(accountId, limit, tokenSlug, toTimestamp);
       },
     })).rejects.toMatchObject({ code: 'wallet_context_changed' });
+    expect(readHistory.mock.calls.map(([, limit]) => limit)).toEqual(reads);
   });
 
   it('retries one transport failure and forwards the query signal to activity I/O', async () => {
@@ -1295,6 +1446,48 @@ function transactionsArgs(
     riskMode: 'exclude',
     pageSize: 50,
   };
+}
+
+function buildTransactionFilters(
+  clauses: Extract<AgentWalletDataQueryArgs, { operation: 'transactions.list' }>['filters']['clauses'],
+) {
+  return { schemaVersion: 1 as const, catalogDigest: contractManifest.walletFilterCatalogSha256, clauses };
+}
+
+function buildTimestampClause(fromInclusive: string, toExclusive: string) {
+  return {
+    field: 'transaction.timestamp' as const,
+    operator: 'timestamp_range' as const,
+    range: { rangeKind: 'absolute' as const, fromInclusive, toExclusive, timeZone: 'UTC', resolvedAt: NOW },
+  };
+}
+
+function buildTransactionSourceOutcome(status: string) {
+  return { domain: 'transactions', status, attempts: 1, accountsRequested: 1, accountsIncluded: 1 };
+}
+
+// Mirrors `fetchPastActivities`, which trims the last trace of a full page and reports more history behind it
+function createPagedHistory(activities: ApiActivity[]) {
+  return createHistorySource((limit) => (activities.length >= limit
+    ? { activities: activities.slice(0, limit - 1), hasMore: true }
+    : { activities, hasMore: false }));
+}
+
+// Paging by `toTimestamp` loses rows that share the boundary timestamp, so every read starts from the newest row
+function createHistorySource(read: (limit: number) => { activities: ApiActivity[]; hasMore: boolean }) {
+  return jest.fn((_accountId: string, limit: number, _tokenSlug?: string, toTimestamp?: number) => (
+    toTimestamp === undefined ? Promise.resolve(read(limit)) : Promise.reject(new Error('Unexpected `toTimestamp`'))
+  ));
+}
+
+function buildHistory(count: number, step: number, offset = 0) {
+  return Array.from({ length: count }, (_, index) => transaction(
+    buildTransactionHash(index), Date.parse(NOW) - offset - (index + 1) * step, 1_000_000_000n,
+  ));
+}
+
+function buildTransactionHash(index: number) {
+  return index.toString(16).padStart(64, '0');
 }
 
 function transaction(hash: string, timestamp: number, amount: bigint, incoming = false): ApiActivity {

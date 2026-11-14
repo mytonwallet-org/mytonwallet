@@ -59,6 +59,12 @@ public enum AgentEntryPoint {
         return AgentRootVC(client: preloader.client, preloader: preloader)
     }
 
+    /// A new chat that asks for a support operator once it has loaded, as Contact Support among the starter hints does
+    @MainActor
+    static func makeSupportChatViewController(preloader: AgentPreloader = .shared) -> UIViewController {
+        AgentRootVC(client: preloader.client, preloader: preloader, shouldRequestSupport: true)
+    }
+
     @MainActor
     static func makeNewsChatViewController(
         item: ApiAgentV2NewsFeedItem,
@@ -80,8 +86,7 @@ public enum AgentEntryPoint {
     static func makeNewsChatViewController(eventId: Int, client: AgentNewsFeedClient, preloader: AgentPreloader) async throws -> UIViewController {
         let generation = preloader.sessionGeneration
         let page = try await client.getNewsFeed(
-            lang: LocalizationSupport.shared.langCode, cursor: nil,
-            digestHour: AgentNewsNotificationSettings.shared.digestHour, timeZone: TimeZone.current.identifier
+            lang: LocalizationSupport.shared.langCode, cursor: nil, schedule: .current, view: .all
         )
         guard preloader.sessionGeneration == generation else { throw CancellationError() }
         if let item = page.items.first(where: { $0.eventId == eventId }) {

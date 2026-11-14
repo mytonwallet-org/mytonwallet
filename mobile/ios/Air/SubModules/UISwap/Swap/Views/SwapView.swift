@@ -59,6 +59,8 @@ struct SwapView: View {
                         SwapHintView(hint: hint) {
                             swapModel.performHintAction(hint)
                         }
+                    } else if let text = swapModel.getQuoteHintText() {
+                        WarningView(text: text, kind: .warning)
                     }
                     if let estimateDebugSummary = swapModel.estimateDebugSummary {
                         Text(estimateDebugSummary)

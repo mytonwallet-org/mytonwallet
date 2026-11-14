@@ -9,6 +9,7 @@ import org.junit.Test
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AssetRef
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 class AgentV2PayloadTest {
@@ -38,7 +39,13 @@ class AgentV2PayloadTest {
             ) to
                 """{"kind":"emptyState","surface":"agentTab","hintId":"learn.security","catalogVersion":"agent-starter-hints-v1"}""",
             AgentV2EntryPoint(asset = AgentV2AssetRef("token", "ton", "address")) to
-                """{"kind":"agentTab","asset":{"slug":"token","chain":"ton","tokenAddress":"address"}}"""
+                """{"kind":"agentTab","asset":{"slug":"token","chain":"ton","tokenAddress":"address"}}""",
+            AgentV2EntryPoint.supportRequest(AgentV2SupportRequestSource.STARTER_HINT) to
+                """{"kind":"supportRequest","source":"starterHint"}""",
+            AgentV2EntryPoint.supportRequest(AgentV2SupportRequestSource.HEADER) to
+                """{"kind":"supportRequest","source":"header"}""",
+            AgentV2EntryPoint.supportRequest(AgentV2SupportRequestSource.MENU) to
+                """{"kind":"supportRequest","source":"menu"}"""
         )
         for ((entryPoint, expected) in entryPoints) {
             for (threadId in listOf(null, "thread")) {

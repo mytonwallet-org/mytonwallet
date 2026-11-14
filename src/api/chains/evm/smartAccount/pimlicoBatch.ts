@@ -2,13 +2,16 @@ import {
   concat,
   getBytes,
   hexlify,
+  Interface,
   Wallet,
 } from 'ethers';
 
+import type { EVMChain } from '../../../types';
 import type { EvmMetaTransaction } from './types';
 
 import { logDebugError } from '../../../../util/logs';
 import { normalizeAddress } from '../address';
+import { EVM_CHAIN_IDS } from '../constants';
 import { MODULAR_ACCOUNT_GLOBAL_OWNER_NONCE_KEY, PIMLICO_SINGLETON_PAYMASTER_ADDRESS } from './constants';
 import {
   hashUserOperationV07,
@@ -26,6 +29,9 @@ type PimlicoGaslessEstimateBinding = {
 /** MAv2 `SparseCalldataSegmentLib.RESERVED_VALIDATION_DATA_INDEX`. */
 const MODULAR_ACCOUNT_USER_OP_VALIDATION_SEGMENT_INDEX = 0xff;
 
+/** Max uint256, the approval the diesel backend writes for the paymaster when allowance is missing. */
+const ERC20_UNLIMITED_ALLOWANCE = (1n << 256n) - 1n;
+
 /** SingletonPaymasterV7 ERC-20 mode. The low bit of the mode byte is `allowAllBundlers`. */
 const PIMLICO_ERC20_PAYMASTER_MODE = 1;
 
@@ -42,12 +48,28 @@ const PAYMASTER_UINT128_BYTES = 16;
 const PAYMASTER_UINT256_BYTES = 32;
 const NATIVE_WEI_SCALE = 10n ** 18n;
 
-const PAYMASTER_DEBIT_TOLERANCE = 500_000n; // 0.5 USDC
+const PAYMASTER_DEBIT_TOLERANCE_BY_CHAIN: Partial<Record<EVMChain, bigint>> = {
+  ethereum: 800_000n, // 0.8
+  base: 100_000n, // 0.1
+  bnb: 5n * 10n ** 17n, // 0.5
+  arbitrum: 100_000n, // 0.1
+  optimism: 100_000n, // 0.1
+};
+
+function getPaymasterDebitTolerance(chainId: bigint) {
+  const chain = EVM_CHAIN_IDS[`eip155:${chainId}`]?.chain as EVMChain | undefined;
+
+  return chain ? PAYMASTER_DEBIT_TOLERANCE_BY_CHAIN[chain] : undefined;
+}
 
 const PAYMASTER_DATA_TOKEN_OFFSET = 1 + 1 + PAYMASTER_TIMESTAMP_BYTES + PAYMASTER_TIMESTAMP_BYTES;
 const PAYMASTER_DATA_POST_OP_GAS_OFFSET = PAYMASTER_DATA_TOKEN_OFFSET + PAYMASTER_ADDRESS_BYTES;
 const PAYMASTER_DATA_EXCHANGE_RATE_OFFSET = PAYMASTER_DATA_POST_OP_GAS_OFFSET + PAYMASTER_UINT128_BYTES;
 const PAYMASTER_DATA_OPTIONALS_OFFSET = 1 + ERC20_PAYMASTER_CONFIG_LENGTH;
+
+const erc20ApproveInterface = new Interface([
+  'function approve(address spender, uint256 amount) returns (bool)',
+]);
 
 function createWallet(privateKey: string) {
   return new Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`);
@@ -56,6 +78,37 @@ function createWallet(privateKey: string) {
 /** ModularAccountV2 picks the validation from bits 64-103 of the nonce; 1 is the account's own key, global. */
 function getValidationLocator(nonce: string) {
   return (BigInt(nonce) >> 64n) & 0xFFFFFFFFFFn;
+}
+
+function encodeUnlimitedPaymasterApproval(
+  gasTokenAddress: string,
+  paymasterAddress: string,
+): EvmMetaTransaction {
+  return {
+    to: gasTokenAddress,
+    value: 0n,
+    data: erc20ApproveInterface.encodeFunctionData('approve', [
+      paymasterAddress,
+      ERC20_UNLIMITED_ALLOWANCE,
+    ]),
+  };
+}
+
+/** Exact requested calls, or the same list with the diesel unlimited paymaster approval prepended. */
+function isBoundPimlicoCallData(
+  callData: string,
+  calls: EvmMetaTransaction[],
+  gasTokenAddress: string,
+  paymaster: string,
+) {
+  if (isModularAccountCallData(callData, calls)) {
+    return true;
+  }
+
+  return isModularAccountCallData(callData, [
+    encodeUnlimitedPaymasterApproval(gasTokenAddress, paymaster),
+    ...calls,
+  ]);
 }
 
 /** Matches Modular Account `ValidationLocatorLib.packNonce` / `packSignature` flags. */
@@ -87,7 +140,7 @@ export type PimlicoUserOperationBinding = {
   sender: string;
   calls: EvmMetaTransaction[];
   gasTokenAddress: string;
-  /** Quoted token debit. It must not exceed `PAYMASTER_DEBIT_TOLERANCE`, and neither may the paymaster debit. */
+  /** Quoted token debit. It must not exceed the chain's paymaster debit tolerance, and neither may the paymaster debit. */
   maxTokenCost: bigint;
 };
 
@@ -129,7 +182,12 @@ export function isPimlicoUserOperationBound(
       throw new Error('Pimlico user operation names a paymaster other than the singleton');
     }
 
-    if (!isModularAccountCallData(userOperation.callData, binding.calls)) {
+    if (!isBoundPimlicoCallData(
+      userOperation.callData,
+      binding.calls,
+      binding.gasTokenAddress,
+      paymaster,
+    )) {
       throw new Error('Pimlico user operation calls differ from the requested calls');
     }
 
@@ -138,13 +196,17 @@ export function isPimlicoUserOperationBound(
     }
 
     const debit = getPimlicoPaymasterDebit(userOperation, binding.gasTokenAddress);
+    const debitTolerance = getPaymasterDebitTolerance(binding.chainId);
 
     if (
-      debit > binding.maxTokenCost
-      || binding.maxTokenCost > PAYMASTER_DEBIT_TOLERANCE
-      || debit > PAYMASTER_DEBIT_TOLERANCE
+      debitTolerance === undefined
+      || debit > binding.maxTokenCost
+      || binding.maxTokenCost > debitTolerance
+      || debit > debitTolerance
     ) {
-      throw new Error('Pimlico paymaster debit exceeds 0.5 USDC');
+      throw new Error(
+        `Paymaster debit exceeds the chain tolerance: ${debitTolerance} > ${binding.maxTokenCost}(${debit})`,
+      );
     }
 
     return true;

@@ -81,18 +81,24 @@ const SPRING_DAMPED_FREQUENCY = SPRING_ANGULAR_FREQUENCY * Math.sqrt(1 - SPRING_
 const HEADER_FADE_DISTANCE = 18;
 const COMPOSER_FADE_DISTANCE = 28;
 
-// The news whose cards are on their way, with what waits for them to land
-const landingWaitersByEventId = new Map<number, Set<NoneToVoidFunction>>();
+// The posts whose cards are on their way, with what waits for them to land
+const landingWaitersByPostKey = new Map<string, Set<NoneToVoidFunction>>();
+
+/** Names a discussion's post, the news item's or the digest's, which its card in the feed flies into */
+export function getAgentNewsPostKey(post: { eventId: number } | { id: string }) {
+  return 'eventId' in post ? `news-${post.eventId}` : `digest-${post.id}`;
+}
 
 /**
- * Telegram's message flight: the card lifts off the feed and lands in the chat that opens to discuss it, turning into
- * the post on the way, while the chat slides in. The post's suggestions then come in, as an answer's do.
+ * Telegram's message flight: the card of a news item or a digest lifts off the feed and lands in the chat that opens
+ * to discuss it, turning into the post on the way, while the chat slides in. The post's suggestions then come in, as
+ * an answer's do.
  */
-export function startAgentNewsCardFlight(card: HTMLElement, eventId: number) {
-  // A card still on its way lands in the post of the chat that opened last, so the same news does not fly twice
-  if (landingWaitersByEventId.has(eventId)) return;
+export function startAgentNewsCardFlight(card: HTMLElement, postKey: string) {
+  // A card still on its way lands in the post of the chat that opened last, so the same post does not fly twice
+  if (landingWaitersByPostKey.has(postKey)) return;
 
-  landingWaitersByEventId.set(eventId, new Set());
+  landingWaitersByPostKey.set(postKey, new Set());
   requestMeasure(() => {
     const rect = card.getBoundingClientRect();
     const from: Frame = {
@@ -128,17 +134,17 @@ export function startAgentNewsCardFlight(card: HTMLElement, eventId: number) {
       addExtraClass(card, styles.flightSource);
 
       fly({
-        card, eventId, elements, cardLayer, clip,
+        card, postKey, elements, cardLayer, clip,
       });
     });
   });
 }
 
 function fly({
-  card, eventId, elements, cardLayer, clip,
+  card, postKey, elements, cardLayer, clip,
 }: {
   card: HTMLElement;
-  eventId: number;
+  postKey: string;
   elements: FlightElements;
   cardLayer: HTMLElement;
   clip: ChromeClip;
@@ -154,7 +160,7 @@ function fly({
   animate(() => {
     const now = Date.now();
     elements.radius ??= parseFloat(getComputedStyle(frame).borderTopLeftRadius) || 0;
-    const found = findPost(eventId);
+    const found = findPost(postKey);
     if (found) {
       const rect = found.bubble.getBoundingClientRect();
       if (rect.width && rect.height) {
@@ -185,12 +191,12 @@ function fly({
         requestMutation(() => clipUnderChrome(root, clip, chromeEdges));
         return true;
       }
-      dissolve(eventId, root, card, postMessage);
+      dissolve(postKey, root, card, postMessage);
       return false;
     }
 
     if (now - targetSeenAt > LOST_TARGET_TIMEOUT) {
-      dissolve(eventId, root, card, postMessage);
+      dissolve(postKey, root, card, postMessage);
       return false;
     }
 
@@ -212,7 +218,7 @@ function fly({
 
     requestMutation(() => {
       if (isLanded) {
-        land(eventId, root, card, postMessage!);
+        land(postKey, root, card, postMessage!);
         return;
       }
 
@@ -287,6 +293,7 @@ function measurePicture(bubble: HTMLElement, card: HTMLElement): Picture | undef
 function createLayer(source: HTMLElement, width: number, picture?: Picture) {
   const layer = source.cloneNode(true) as HTMLElement;
   layer.removeAttribute('data-agent-news-event-id');
+  layer.removeAttribute('data-agent-news-digest-id');
   layer.classList.add(styles.flightLayer);
   layer.style.width = `${width}px`;
   const image = layer.querySelector('img');
@@ -344,9 +351,9 @@ function applyFrame(
   });
 }
 
-/** Calls `onLanded` once the news card flying to the post has turned into it, or at once when none is flying */
-export function waitForAgentNewsCardLanding(eventId: number, onLanded: NoneToVoidFunction) {
-  const waiters = landingWaitersByEventId.get(eventId);
+/** Calls `onLanded` once the card flying to the post has turned into it, or at once when none is flying */
+export function waitForAgentNewsCardLanding(postKey: string, onLanded: NoneToVoidFunction) {
+  const waiters = landingWaitersByPostKey.get(postKey);
   if (!waiters) {
     onLanded();
     return undefined;
@@ -358,23 +365,23 @@ export function waitForAgentNewsCardLanding(eventId: number, onLanded: NoneToVoi
   };
 }
 
-export function getIsAgentNewsCardFlying(eventId: number) {
-  return landingWaitersByEventId.has(eventId);
+export function getIsAgentNewsCardFlying(postKey: string) {
+  return landingWaitersByPostKey.has(postKey);
 }
 
 // The post shows at once under the card that turned into it
-function land(eventId: number, root: HTMLElement, card: HTMLElement, postMessage: HTMLElement) {
+function land(postKey: string, root: HTMLElement, card: HTMLElement, postMessage: HTMLElement) {
   root.remove();
   removeExtraClass(postMessage, styles.flightTarget);
   removeExtraClass(card, styles.flightSource);
-  finishFlight(eventId);
+  finishFlight(postKey);
 }
 
-function dissolve(eventId: number, root: HTMLElement, card: HTMLElement, postMessage?: HTMLElement) {
+function dissolve(postKey: string, root: HTMLElement, card: HTMLElement, postMessage?: HTMLElement) {
   requestMutation(() => {
     addExtraClass(root, styles.flightDissolving);
     if (postMessage) removeExtraClass(postMessage, styles.flightTarget);
-    finishFlight(eventId);
+    finishFlight(postKey);
   });
   window.setTimeout(() => {
     requestMutation(() => {
@@ -384,15 +391,15 @@ function dissolve(eventId: number, root: HTMLElement, card: HTMLElement, postMes
   }, DISSOLVE_DURATION);
 }
 
-function finishFlight(eventId: number) {
-  const waiters = landingWaitersByEventId.get(eventId);
-  landingWaitersByEventId.delete(eventId);
+function finishFlight(postKey: string) {
+  const waiters = landingWaitersByPostKey.get(postKey);
+  landingWaitersByPostKey.delete(postKey);
   waiters?.forEach((onLanded) => onLanded());
 }
 
-// The last copy is the chat coming in, should the one going out still show the same news
-function findPost(eventId: number) {
-  const messages = document.querySelectorAll<HTMLElement>(`[data-agent-news-post-event-id="${eventId}"]`);
+// The last copy is the chat coming in, should the one going out still show the same post
+function findPost(postKey: string) {
+  const messages = document.querySelectorAll<HTMLElement>(`[data-agent-news-post-key="${CSS.escape(postKey)}"]`);
   const message = messages[messages.length - 1];
   const bubble = message?.querySelector<HTMLElement>('[data-agent-news-post-bubble]');
   return message && bubble ? { message, bubble } : undefined;

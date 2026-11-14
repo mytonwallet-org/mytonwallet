@@ -1,15 +1,18 @@
-import { ApiTransactionError } from '../../../types';
+import { ApiTransactionError, EvmSmartAccountError } from '../../../types';
 
 import { getEvmProvider } from '../util/client';
 import { getEvmDelegationAddress } from '../approvals';
-import { estimateMaxCostFromPrepareResult, prepareAlchemyCalls } from './alchemyWallet';
-import { estimateBatchUserOpFee } from './batch';
+import { estimateMaxCostFromPrepareResult, prepareAlchemyCalls, signAlchemyPreparedCalls } from './alchemyWallet';
+import { estimateBatchUserOpFee, submitBatchUserOp } from './batch';
 
 jest.mock('../approvals', () => ({ getEvmDelegationAddress: jest.fn() }));
 jest.mock('../util/client', () => ({ getEvmProvider: jest.fn() }));
 jest.mock('./alchemyWallet', () => ({
   estimateMaxCostFromPrepareResult: jest.fn(),
   prepareAlchemyCalls: jest.fn(),
+  signAlchemyPreparedCalls: jest.fn(),
+  sendAlchemyPreparedCalls: jest.fn(),
+  waitForAlchemyCallsConfirmation: jest.fn(),
 }));
 
 const ADDRESS = '0x1111111111111111111111111111111111111111';
@@ -38,5 +41,18 @@ describe('estimateBatchUserOpFee', () => {
     provider.getBalance.mockResolvedValue(VALUE + GAS);
 
     await expect(estimate()).resolves.toEqual({ maxCost: GAS });
+  });
+});
+
+describe('submitBatchUserOp', () => {
+  const submit = (maxCostLimit: bigint) => submitBatchUserOp(
+    'ethereum', 'mainnet', ADDRESS, '0x01', [{ to: ROUTER, value: VALUE }], { needsGasless: false, maxCostLimit },
+  );
+
+  it('refuses to sign an operation prepared above the cost limit', async () => {
+    provider.getBalance.mockResolvedValue(VALUE + GAS);
+
+    await expect(submit(GAS - 1n)).resolves.toEqual({ error: EvmSmartAccountError.UserOperationMismatch });
+    expect(signAlchemyPreparedCalls).not.toHaveBeenCalled();
   });
 });

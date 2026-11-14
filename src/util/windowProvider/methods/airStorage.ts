@@ -26,7 +26,7 @@ export function airStorageClear(): Promise<{ value: boolean }> {
   return notAvailable();
 }
 
-export type AirInstallationSlot = 'play' | 'deeplink';
+export type AirInstallationSlot = 'play' | 'deeplink' | 'app_transaction';
 
 type InstallationSource = {
   channel: string;
@@ -52,6 +52,11 @@ export type InstallationEventV2 = {
 } | {
   sourceTransport: 'deeplink';
   source: InstallationSource;
+} | {
+  sourceTransport: 'app_transaction';
+  collectionStatus: string;
+  originalPurchasedAt: number | null;
+  storeEnvironment: string;
 });
 
 export interface AirInstallationPendingDelivery {
@@ -74,6 +79,7 @@ export function airInstallationSyncWalletAttribution(_legacySourceJson: string):
   technicalKind: 'direct' | 'referral' | null;
   sourceOutcome?: string | null;
   playInstalledAt?: number | null;
+  installationId?: string;
 }> {
   return notAvailable();
 }

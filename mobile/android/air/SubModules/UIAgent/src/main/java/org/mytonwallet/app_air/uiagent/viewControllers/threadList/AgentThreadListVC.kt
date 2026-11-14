@@ -46,6 +46,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -55,7 +58,10 @@ import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.AndroidAgentDictationRecorder
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
+import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_SUPPORT_HINT_ID
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentConsentGate
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentConsentSheetVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHeldDictation
@@ -65,10 +71,12 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewChatVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentPromptChatRequest
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSession
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportRequestConfirmation
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.holdDictationForConsent
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.makeAgentSupportHint
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.showMicrophoneDeniedAlert
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentDustEffect
@@ -127,18 +135,27 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsFeedView
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationSettings
 
 /** A row of the Agent list: the News row, a section's title, or a chat */
 private sealed class AgentThreadListRow : WEquatable<AgentThreadListRow> {
     abstract val key: String
 
-    data class News(val latest: AgentV2NewsFeedItem?, val unreadCount: Int) : AgentThreadListRow() {
+    /** The latest news, or in the Digests view the latest digest, with the count of the new ones */
+    data class News(
+        val latest: AgentV2NewsFeedItem?,
+        val latestDigest: AgentV2NewsFeedDigest?,
+        val unreadCount: Int
+    ) : AgentThreadListRow() {
         override val key = "news"
     }
 
@@ -353,7 +370,13 @@ class AgentThreadListVC(context: Context) :
     // While a question is written: the chats give way to suggestions over the field
     private val composeSuggestions = AgentHintsCell(context).apply {
         visibility = View.GONE
-        onHintTap = { hint, card -> sendComposed(hint.prompt, card) }
+        onHintTap = { hint, card ->
+            if (hint.id == AGENT_SUPPORT_HINT_ID) {
+                presentSupportRequest()
+            } else {
+                sendComposed(hint.prompt, card)
+            }
+        }
     }
 
     // The suggestion whose question grows into a new chat, out of sight until the list shows again
@@ -457,6 +480,7 @@ class AgentThreadListVC(context: Context) :
         model.onError = ::showOperationError
         model.onActivityChange = ::updateActivities
         newsModel.onChange = { updateRows(AgentThreadListChange.DATA) }
+        observeNewsView()
         readState.addListener(readStateListener)
         WalletCore.registerObserver(this)
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateAgentV2::class.java, this)
@@ -754,18 +778,21 @@ class AgentThreadListVC(context: Context) :
     }
 
     private fun updateComposeSuggestions(isAnimated: Boolean) {
-        val shouldShow =
-            (isComposeShown || shouldShowEmptySuggestions) && composeSuggestionsHints.isNotEmpty()
+        val hints = shownComposeHints
+        val shouldShow = (isComposeShown || shouldShowEmptySuggestions) && hints.isNotEmpty()
         composeSuggestions.animate().cancel()
         val isCoverAnimating = composeCoverAnimator?.isRunning == true
         areSuggestionsFollowingCover = false
+        composeSuggestions.isSupportHintEnabled = canRequestSupportFromList
         if (shouldShow) {
-            if (!composeSuggestions.isVisible) {
-                composeSuggestions.configure(
-                    composeSuggestionsHints,
-                    shouldShowEmptyStateIcon = true,
-                    shouldAnimate = false
-                )
+            val wasVisible = composeSuggestions.isVisible
+            // Suggestions that load after Contact Support showed alone take their places before it
+            composeSuggestions.configure(
+                hints,
+                shouldShowEmptyStateIcon = true,
+                shouldAnimate = false
+            )
+            if (!wasVisible) {
                 applySuggestionsShare(0f)
                 composeSuggestions.isVisible = true
             }
@@ -805,6 +832,21 @@ class AgentThreadListVC(context: Context) :
     // Up to five suggestions, cached for a while per language
     private var composeSuggestionsHints: List<AgentHint> = emptyList()
 
+    // Whether the server's suggestions have loaded or failed to, after which Contact Support shows
+    private var hasComposeHintsSettled = false
+
+    // The server's suggestions, then Contact Support, which the client offers outside their limit
+    private val shownComposeHints: List<AgentHint>
+        get() = if (isAgentSupportHandoffDeclared && hasComposeHintsSettled) {
+            composeSuggestionsHints + makeAgentSupportHint()
+        } else {
+            composeSuggestionsHints
+        }
+
+    // Contact Support waits until the list knows the consent and, with consent, until the chats have loaded
+    private val canRequestSupportFromList: Boolean
+        get() = hasConsentResult && (!hasConsent || (model.hasLoaded && !model.hasLoadFailed))
+
     private fun loadComposeHints() {
         val language = LocaleController.activeLanguage.langCode
         composeHintsCache?.takeIf {
@@ -812,6 +854,7 @@ class AgentThreadListVC(context: Context) :
                 SystemClock.elapsedRealtime() - it.loadedAtMs < COMPOSE_HINTS_TTL_MS
         }?.let {
             composeSuggestionsHints = it.hints
+            hasComposeHintsSettled = true
             return
         }
         if (composeHintsJob?.isActive == true) return
@@ -822,10 +865,16 @@ class AgentThreadListVC(context: Context) :
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Throwable) {
+                // Contact Support shows without the suggestions
+                if (!hasComposeHintsSettled) {
+                    hasComposeHintsSettled = true
+                    updateComposeSuggestions(WGlobalStorage.getAreAnimationsActive())
+                }
                 return@launch
             }
             composeHintsCache = ComposeHints(language, hints, SystemClock.elapsedRealtime())
             composeSuggestionsHints = hints
+            hasComposeHintsSettled = true
             updateComposeSuggestions(WGlobalStorage.getAreAnimationsActive())
         }
     }
@@ -995,18 +1044,53 @@ class AgentThreadListVC(context: Context) :
         }
     }
 
+    /** Contact Support asks before it opens the chat support has, or a new chat that calls an operator */
+    private fun presentSupportRequest() {
+        if (!canRequestSupportFromList) return
+        dictation.cancel()
+        AgentSupportRequestConfirmation(hasConsent, ::requestSupport).present(this)
+    }
+
+    // Before consent no chat can have support yet: the chat is chosen from the server's chats, which load once the
+    // user allows the Agent
+    private fun requestSupport() {
+        if (!canRequestSupportFromList) return
+        requestConsent {
+            model.requestSupportThread(::openSupportChat)
+        }
+    }
+
+    private fun openSupportChat(thread: AgentV2ThreadSummary?) {
+        val navigation = navigationController ?: return
+        if (isDestroyed || navigation.viewControllers.lastOrNull() !== this) return
+        composer.hideKeyboard()
+        navigation.push(
+            if (thread != null) {
+                AgentVC(context, thread)
+            } else {
+                AgentVC(
+                    context,
+                    prompt = AgentPromptChatRequest(
+                        getAgentSupportRequestText(),
+                        AgentV2EntryPoint.supportRequest(AgentV2SupportRequestSource.STARTER_HINT)
+                    )
+                )
+            }
+        )
+    }
+
     private fun openNews(cell: AgentNewsCell) {
         closeSwipes(except = null)
         val navigation = navigationController ?: return
         val language = LocaleController.activeLanguage.langCode
         cell.rowView.shouldHoldHighlight = true
+        val isPageInLanguage = newsModel.itemsLanguage == language
         navigation.push(
             AgentNewsFeedVC(
                 context,
                 findThread = threadFinder,
-                initialItems = newsModel.items.takeIf {
-                    newsModel.itemsLanguage == language
-                }.orEmpty()
+                initialItems = newsModel.items.takeIf { isPageInLanguage }.orEmpty(),
+                initialDigests = newsModel.currentDigests.takeIf { isPageInLanguage }.orEmpty()
             )
         ) {
             cell.rowView.shouldHoldHighlight = false
@@ -1129,6 +1213,17 @@ class AgentThreadListVC(context: Context) :
         refresh()
     }
 
+    // The News row shows the latest of the feed's view as soon as it switches
+    private fun observeNewsView() {
+        scope.launch {
+            val settings = AgentNewsNotificationSettings.shared
+            settings.state.map { settings.newsView }.distinctUntilChanged().drop(1).collect {
+                updateRows(AgentThreadListChange.DATA)
+                newsModel.refresh()
+            }
+        }
+    }
+
     // The News load whatever the consent; the chats come with it
     private fun refresh() {
         newsModel.refresh()
@@ -1153,7 +1248,10 @@ class AgentThreadListVC(context: Context) :
     // The News row shows before consent as after it; the chats come with the consent
     private fun buildRows(): List<AgentThreadListRow> = buildList {
         if (!hasConsentResult) return@buildList
-        add(AgentThreadListRow.News(newsModel.latestItem, newsModel.unreadCount))
+        // In the Digests view the row shows the latest digest, or the latest news until a digest has come
+        val isDigestsView = newsModel.newsView == AgentNewsFeedView.Digests
+        val latestDigest = newsModel.latestDigest.takeIf { isDigestsView }
+        add(AgentThreadListRow.News(newsModel.latestItem, latestDigest, newsModel.unreadCount))
         if (!hasConsent || !model.hasLoaded) return@buildList
         val locale = Locale.forLanguageTag(LocaleController.activeLanguage.langCode)
         val now = Date()
@@ -1850,7 +1948,7 @@ class AgentThreadListVC(context: Context) :
         val uses24HourTime = DateFormat.is24HourFormat(context)
         when (val row = rows[indexPath.row]) {
             is AgentThreadListRow.News -> (cellHolder.cell as AgentNewsCell).apply {
-                configure(row.latest, row.unreadCount, uses24HourTime)
+                configure(row.latest, row.latestDigest, row.unreadCount, uses24HourTime)
                 onTap = { openNews(this) }
             }
 

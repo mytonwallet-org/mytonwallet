@@ -45,35 +45,61 @@ extension AgentVC: AgentModelDelegate {
             hasPerformedInitialScroll = false
         }
         let hasStreaming = lastStreamingAssistantID != nil
+        // A question sent while an answer is written waits for it at the chat's end, where it shows without being
+        // brought up
+        let appendedQuestionID = appendedUserMessageID()
+        let waitingUserMessageID = appendedQuestionID.flatMap { model.trailingItemIDs.contains($0) ? $0 : nil }
+        let wasNearBottom = lastKnownNearBottom
         // An answer that takes the place of the typing row on screen grows out of it; other replies cross-fade in
         let replacedTypingRow = makeReplacedTypingRowSource()
-        let crossfade = hasStreaming && replacedTypingRow == nil
+        let crossfade = hasStreaming && replacedTypingRow == nil && waitingUserMessageID == nil
         var didRemoveInitialOpeningInput = false
         if let pinnedUserMessageID, !model.itemIDs.contains(pinnedUserMessageID) {
             didRemoveInitialOpeningInput = pinnedUserMessageID == initialOpeningInputItemID
             self.pinnedUserMessageID = nil
         }
-        let sentUserMessageID = hasStreaming ? nil : appendedUserMessageID()
-        revealsSentMessageFromBottom = sentUserMessageID != nil && lastKnownNearBottom
-        if let sentUserMessageID {
+        updateSupportFollowState()
+        let sentUserMessageID = hasStreaming || waitingUserMessageID != nil ? nil : appendedQuestionID
+        // While support has the chat, a sent message goes to the list's end, as in a messenger, and the list follows
+        // new messages while it is at its end
+        let isSupportActive = model.isSupportActive
+        let isSentToSupport = isSupportActive && sentUserMessageID != nil
+        // The scroll-to-bottom button's signal as the question comes, before the list takes it in
+        revealsSentMessageFromBottom = sentUserMessageID != nil && isNearBottom() && !isSupportActive
+        if isSentToSupport {
+            pinnedUserMessageID = nil
+        } else if let sentUserMessageID {
             pinnedUserMessageID = sentUserMessageID
         }
+        let shouldFollowLatest = isSupportActive && pinnedUserMessageID == nil && (isSentToSupport || wasNearBottom)
+        // The questions that wait move to their places as a row above them goes or comes, as a stopped typing row and
+        // the next answer's do, while a cross-fade takes the whole list into its new rows
+        let waitingRowMinYs = crossfade ? [:] : getWaitingRowScreenMinYs()
+        // The rows above stay where they show, also when the rows that go leave less than a screen to scroll
+        let keepsRowsAboveWaitingOnes = !crossfade && !model.trailingItemIDs.isEmpty
 
+        var waitingAppearanceDuration: TimeInterval = 0
         let didApplyTimeline: () -> Void = { [weak self] in
             guard let self else { return }
             self.collectionView.layoutIfNeeded()
+            self.updatePostSkeleton(isPostInList: true)
 
             if didRemoveInitialOpeningInput {
                 self.hasPerformedInitialScroll = false
             }
             self.performInitialScrollIfNeeded()
+            if waitingUserMessageID != nil {
+                self.followWaitingUserMessage(after: waitingAppearanceDuration, followsChatEnd: wasNearBottom)
+            }
 
             if hasStreaming {
                 self.resizeStreamingRow()
                 return
             }
 
-            if self.lastTypingIndicatorID != nil {
+            if shouldFollowLatest {
+                self.followLatestInSupport(isSent: isSentToSupport)
+            } else if self.lastTypingIndicatorID != nil {
                 self.revealTypingIndicatorIfNeeded()
             } else {
                 self.trimReserveSpacerPreservingOffset()
@@ -89,7 +115,10 @@ extension AgentVC: AgentModelDelegate {
                 completion: didApplyTimeline
             )
         }
-        if pinnedUserMessageID != nil {
+        if keepsRowsAboveWaitingOnes {
+            reserveSpaceForLeavingRows()
+        }
+        if pinnedUserMessageID != nil || keepsRowsAboveWaitingOnes {
             let dateAnchor = previousDateAnchor.flatMap {
                 $0.itemID == pinnedUserMessageID && dateHeaderID(for: $0.itemID) != nil ? $0 : nil
             }
@@ -103,6 +132,13 @@ extension AgentVC: AgentModelDelegate {
             collectionView.layoutIfNeeded()
             startTypingAnswerMorph(replacedTypingRow.source, answerID: replacedTypingRow.answerID)
         }
+        // A question that waits starts turning into its bubble in this pass too, so no frame shows the bubble in place
+        // before it
+        if let waitingUserMessageID {
+            collectionView.layoutIfNeeded()
+            waitingAppearanceDuration = startWaitingUserMessageAppearance(waitingUserMessageID)
+        }
+        moveWaitingRows(from: waitingRowMinYs)
     }
 
     /// The typing row on screen whose place an answer is taking, pictured as it shows now where it shows, in the window,
@@ -191,6 +227,8 @@ extension AgentVC: AgentModelDelegate {
             && pinnedUserMessageID == nil
             && !hasActiveStreamingMessage
             && isNearBottom()
+        // An answer that ends, as a Stop ends it while it writes, can change its height over the questions that wait
+        let waitingRowMinYs = isStreamingFinalize ? getWaitingRowScreenMinYs() : [:]
 
         if !hasChangedNewsPostCells,
            (isStreamingUpdate || isStreamingFinalize),
@@ -198,6 +236,7 @@ extension AgentVC: AgentModelDelegate {
            let itemID = ids.first,
            updateVisibleCell(itemID: itemID) {
             resizeStreamingRow()
+            moveWaitingRows(from: waitingRowMinYs)
             if preservesBottomAfterFinalResize {
                 revealLastItemIfNeeded(animated: !isRevealingStreamedText(itemID: itemID))
             }
@@ -205,6 +244,7 @@ extension AgentVC: AgentModelDelegate {
             return
         }
 
+        let shouldFollowLatest = model.isSupportActive && pinnedUserMessageID == nil && isNearBottom()
         let existingIDs = Set(snapshotMessageIDs())
         let idsToUpdate = ids.filter { existingIDs.contains($0) }
         var snapshot = dataSource.snapshot()
@@ -223,6 +263,9 @@ extension AgentVC: AgentModelDelegate {
             if !isStreamingUpdate && !isStreamingFinalize && !self.hasActiveStreamingMessage {
                 self.trimReserveSpacerPreservingOffset()
             }
+            if shouldFollowLatest {
+                self.followLatestInSupport(isSent: false)
+            }
             self.updateScrollToBottomButtonVisibility(animated: true)
         }
     }
@@ -237,13 +280,17 @@ extension AgentVC: AgentModelDelegate {
     }
 
     func agentModelDidUpdateState() {
+        leaveEditingOnceSupportHasChat()
+        updateSupportFollowState()
         loadingOlderIndicator.setLoading(model.isLoadingOlderMessages)
         updateLoadError()
+        updatePostSkeleton()
         updateThinkingGlow()
         refreshNavigationTitle(animated: true)
         updateComposerPlaceholder()
         updateSendButtonState()
         refreshNavigationItemMenu()
+        updateSupportHint()
         updateOpeningConsentView()
         updateVisibleTypingIndicator()
         updateAccessibilityStatus()
@@ -288,6 +335,21 @@ extension AgentVC: AgentModelDelegate {
     }
 
     func agentModelWillRevealSentUserMessage(_ userMessageID: AgentItemID, then completion: @escaping () -> Void) {
+        // The scroll-to-bottom button's signal, read before the scroll to the latest row stops, which counts as being
+        // at the chat's end
+        let isFollowingChatEnd = isNearBottom()
+        if model.isSupportActive {
+            pendingSentSource = nil
+            pendingSentTextPicture = nil
+            pinnedUserMessageID = nil
+            // A question that waited is already in the chat, which follows it only from the chat's end
+            guard model.revealingWaitingMessageID != userMessageID || isFollowingChatEnd else {
+                completion()
+                return
+            }
+            followLatestInSupport(isSent: true, then: completion)
+            return
+        }
         collectionView.isScrollingToLatest = false
         isRevealingSentUserMessage = true
         pinnedUserMessageID = userMessageID
@@ -297,13 +359,37 @@ extension AgentVC: AgentModelDelegate {
         }
 
         collectionView.layoutIfNeeded()
+        // A question that waited goes once the answer before it ends: its bubble is already in the chat, which brings
+        // it up as it does a question just sent while the user follows the chat's end. Scrolled away from the end, the
+        // chat stays where it is. The question is pinned all the same, so what comes under it keeps the rows on screen
+        // in place rather than taking the chat down.
+        if model.revealingWaitingMessageID == userMessageID {
+            revealsSentMessageFromBottom = false
+            guard isFollowingChatEnd else {
+                finish()
+                return
+            }
+            bringSentUserMessageUp(userMessageID, isShownInPlace: true, then: finish)
+            return
+        }
         // A question that left the field, or a tapped suggestion, turns into its bubble as Telegram's send does
         let source = takeSentSource()
         let textPicture = takeSentTextPicture()
-        if revealsSentMessageFromBottom, let rows = getSentRowsShownInPlace(for: userMessageID) {
+        let isFirstQuestion = dateHeaderID(for: userMessageID).map { $0 == model.itemIDs.first } ?? false
+        // At the chat's end, a question that lands under what shows, as in a chat opened at its end, comes into sight
+        // there as the chat's end follows it
+        let roomOffsetY = revealsSentMessageFromBottom && !isFirstQuestion
+            && getSentRowsShownInPlace(for: userMessageID) == nil
+            ? getOffsetYShowingSentUserMessage(userMessageID, occlusionBottomInset: occlusionBottomInset)
+            : nil
+        if revealsSentMessageFromBottom,
+           let rows = getSentRowsShownInPlace(for: userMessageID, atOffsetY: roomOffsetY) {
             // As on Android, the question first appears where it lands, as a suggestion's question takes the
             // suggestions' place, and the chat brings it up a moment later
             revealsSentMessageFromBottom = false
+            if roomOffsetY != nil {
+                makeRoom(forSentUserMessage: userMessageID)
+            }
             let suggestionMorph = source.flatMap { startSuggestionMorph(from: $0, to: userMessageID) }
             let appearanceDuration: TimeInterval
             if UIAccessibility.isReduceMotionEnabled {
@@ -343,8 +429,7 @@ extension AgentVC: AgentModelDelegate {
             return
         }
 
-        let isFirstQuestion = dateHeaderID(for: userMessageID).map { $0 == model.itemIDs.first } ?? false
-        if revealsSentMessageFromBottom && !isFirstQuestion {
+        if roomOffsetY != nil {
             revealLastItemSettlingRowHeights()
         }
         revealsSentMessageFromBottom = false
@@ -363,6 +448,47 @@ extension AgentVC: AgentModelDelegate {
             revealSentMessageWithoutMorph(userMessageID)
         }
         bringSentUserMessageUp(userMessageID, isShownInPlace: isMorphing, then: finish)
+    }
+
+    /// A question sent while an answer is written, or before its discussion's thread exists, turns into its bubble at the
+    /// chat's end, as a question just sent does where it shows. It stays there until the answer ends or the thread
+    /// exists, and the question goes. Returns how long it takes to turn into its bubble.
+    private func startWaitingUserMessageAppearance(_ userMessageID: AgentItemID) -> TimeInterval {
+        let source = takeSentSource()
+        guard UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled,
+              let indexPath = messageIndexPath(for: userMessageID),
+              let cell = collectionView.cellForItem(at: indexPath) as? AgentMessageCell,
+              cell.messageID == userMessageID else { return 0 }
+        cell.layoutIfNeeded()
+        if let source, case .text(let picture) = source.kind {
+            AgentSentMessageMorph.animate(
+                cell.sentAppearanceView,
+                target: cell.sentTextView,
+                from: picture,
+                at: source.frame,
+                in: view
+            )
+            return AgentSentMessageMorph.duration
+        }
+        // A tapped suggestion turns into the bubble, as it does for a question that goes at once
+        if let source, case .suggestion = source.kind, startSuggestionMorph(from: source, to: userMessageID) != nil {
+            return AgentSuggestionMorph.duration
+        }
+        AgentSentMessageAppearance.animate(cell.sentAppearanceView)
+        return AgentSentMessageAppearance.duration
+    }
+
+    /// Once the waiting question has turned into its bubble, after `delay`, the chat follows it down when it was at its
+    /// end
+    private func followWaitingUserMessage(after delay: TimeInterval, followsChatEnd: Bool) {
+        // After the pass that keeps the chat's rows in place, which would take a scroll in it back
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            if followsChatEnd {
+                revealLastItemIfNeeded(animated: true)
+            }
+            updateScrollToBottomButtonVisibility(animated: true)
+        }
     }
 
     private func startSuggestionMorph(
@@ -411,8 +537,11 @@ extension AgentVC: AgentModelDelegate {
     }
 
     /// The rows a sent question adds, itself and a date line over it, when they show whole on screen right under a row
-    /// that is on screen too
-    private func getSentRowsShownInPlace(for userMessageID: AgentItemID) -> [IndexPath]? {
+    /// that is on screen too, with the list at `offsetY`, or where it stands
+    private func getSentRowsShownInPlace(
+        for userMessageID: AgentItemID,
+        atOffsetY offsetY: CGFloat? = nil
+    ) -> [IndexPath]? {
         guard let indexPath = messageIndexPath(for: userMessageID) else { return nil }
         let firstIndexPath = dateHeaderID(for: userMessageID).flatMap(messageIndexPath(for:)) ?? indexPath
         guard firstIndexPath.item > 0,
@@ -420,10 +549,41 @@ extension AgentVC: AgentModelDelegate {
                   at: IndexPath(item: firstIndexPath.item - 1, section: firstIndexPath.section)
               )?.frame,
               let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return nil }
-        let visible = visibleContentRect()
+        let currentOffsetY = collectionView.contentOffset.y
+        let visible = visibleContentRect().offsetBy(dx: 0, dy: (offsetY ?? currentOffsetY) - currentOffsetY)
         guard previousFrame.maxY > visible.minY, previousFrame.minY < visible.maxY,
               frame.maxY <= visible.maxY + 0.5 else { return nil }
         return (firstIndexPath.item...indexPath.item).map { IndexPath(item: $0, section: indexPath.section) }
+    }
+
+    /// Where the list shows the sent question's bottom just above `occlusion`, the height covering the list's bottom,
+    /// as the chat's end shows its last row
+    private func getOffsetYShowingSentUserMessage(
+        _ userMessageID: AgentItemID,
+        occlusionBottomInset occlusion: CGFloat
+    ) -> CGFloat? {
+        guard let indexPath = messageIndexPath(for: userMessageID),
+              let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return nil }
+        return clampedContentOffsetY(frame.maxY - collectionView.bounds.height + occlusion)
+    }
+
+    /// Scrolls the list up on the chat's list spring until the sent question shows whole above the field, as its text
+    /// flies into its bubble, which follows it there. The question stops above the field as it stood when the question
+    /// came: the keyboard the question closes meanwhile leaves the rows of a question about to be brought up in place.
+    /// The scroll counts as one to the chat's end, so the scroll-to-bottom button stays away. With Reduce Motion or
+    /// animations off the list is there at once.
+    private func makeRoom(forSentUserMessage userMessageID: AgentItemID) {
+        guard UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled, view.window != nil else {
+            revealLastItemSettlingRowHeights()
+            return
+        }
+        let occlusion = occlusionBottomInset
+        collectionView.isScrollingToLatest = true
+        listScrollAnimator.scroll(to: { [weak self] in
+            self?.getOffsetYShowingSentUserMessage(userMessageID, occlusionBottomInset: occlusion)
+        }) { [weak self] _ in
+            self?.collectionView.isScrollingToLatest = false
+        }
     }
 
     /// Scrolls the sent question to where it stays while its answer comes, or brings it in from below when the chat
@@ -433,6 +593,8 @@ extension AgentVC: AgentModelDelegate {
         isShownInPlace: Bool,
         then finish: @escaping () -> Void
     ) {
+        // A scroll that made room for the question at the chat's end goes on to its place here
+        collectionView.isScrollingToLatest = false
         applyMinimalArrivalReserveSpacerHeight(for: userMessageID)
         collectionView.layoutIfNeeded()
         guard let indexPath = messageIndexPath(for: userMessageID),

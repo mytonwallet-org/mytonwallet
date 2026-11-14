@@ -11,27 +11,34 @@
 
   font-size: 0.9375rem;
   line-height: 1.25rem;
-  color: var(--color-black);
+  color: var(--color-gray-1);
 }
 
-// A settings row with its menu: the name, and at its end the hour and the menu's caret
+// The hour's row and its wheel under it, in one block, as Settings' rows
+.timeSection {
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  border-radius: var(--border-radius-default);
+  background-color: var(--color-background-first);
+}
+
+// The row, as Settings' Base Currency: the name, and at its end the hour, in the accent while its wheel is open
 .timeRow {
   cursor: var(--custom-cursor, pointer);
 
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   align-items: center;
 
   width: 100%;
   min-height: 3rem;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
   border: none;
-  border-radius: var(--border-radius-default);
 
   font: inherit;
   text-align: start;
 
-  background-color: var(--color-background-first);
+  background-color: transparent;
   outline: none;
 
   @include mixins.transition(background-color 150ms);
@@ -66,34 +73,19 @@
 .timeValue {
   unicode-bidi: isolate;
 
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.25rem;
   color: var(--color-gray-3);
   white-space: nowrap;
+
+  @include mixins.transition(color 150ms);
+
+  @media (pointer: coarse) {
+    font-size: 1rem;
+  }
 }
 
-.timeArrow {
-  margin-inline-start: -0.25rem;
-  font-size: 1rem;
-  color: var(--color-gray-3);
-}
-
-// As a settings block's description
-.timeZone {
-  margin: 0.5rem 0 1.5rem;
-  padding: 0 0.5rem;
-
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.125rem;
-  color: var(--color-gray-2);
-}
-
-// The hours hang from the row's end exactly, and the menu is wide enough for a finger
-.hourMenu {
-  --offset-x-value: 0;
-  --offset-y-value: 0;
-
-  min-width: 8rem !important;
+.timeValueActive {
+  color: var(--color-accent);
 }

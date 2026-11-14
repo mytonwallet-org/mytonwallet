@@ -4,7 +4,10 @@ import React, { memo, useMemo } from '../../../lib/teact/teact';
 import type { ApiSwapHint } from '../../../api/types';
 import type { TradeDirection, UserSwapToken } from '../../../global/types';
 
+import { Big } from '../../../lib/big.js';
 import buildClassName from '../../../util/buildClassName';
+import { formatCurrency, formatCurrencySimple } from '../../../util/formatNumber';
+import { toNativeDigits } from '../../../util/nativeDigits';
 import { openUrl } from '../../../util/openUrl';
 
 import useLang from '../../../hooks/useLang';
@@ -15,6 +18,7 @@ import styles from './SwapHint.module.scss';
 interface OwnProps {
   hint: ApiSwapHint;
   tokens?: UserSwapToken[];
+  tokenIn?: UserSwapToken;
   /** The token being received */
   tokenOut?: UserSwapToken;
   /** On the Buy / Sell screen the hint speaks of an exchange and has its own look */
@@ -28,6 +32,7 @@ interface OwnProps {
 function SwapHint({
   hint,
   tokens,
+  tokenIn,
   tokenOut,
   tradeDirection,
   className,
@@ -46,6 +51,29 @@ function SwapHint({
       onIntermediateClick(intermediateToken.slug);
     }
   });
+
+  if (hint.type === 'oneToOne' || hint.type === 'betterRate' || hint.type === 'betterRateMinimum') {
+    let message: TeactNode;
+    if (hint.type === 'oneToOne') {
+      if (!tokenIn) return undefined;
+      const minimum = Big(hint.minimumAmount).round(2, Big.roundUp);
+      const value = toNativeDigits(formatCurrency(minimum, tokenIn.symbol));
+      message = lang('$swap_one_to_one', { value });
+    } else if (hint.type === 'betterRateMinimum') {
+      const value = toNativeDigits(formatCurrencySimple(hint.minimumAmount, hint.symbol));
+      message = lang('$swap_better_rate_minimum', { value });
+    } else {
+      message = lang('Better rate is available if you add %amount% %symbol% for network fee.', {
+        amount: Big(hint.additionalAmount).prec(2, Big.roundUp).toFixed(),
+        symbol: hint.symbol,
+      });
+    }
+    return (
+      <div className={buildClassName(styles.root, tradeDirection && styles.trade, className)}>
+        <span className={styles.message}>{message}</span>
+      </div>
+    );
+  }
 
   let title: TeactNode;
   let message: TeactNode;

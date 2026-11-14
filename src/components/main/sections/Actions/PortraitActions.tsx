@@ -4,6 +4,7 @@ import { getActions } from '../../../../global';
 import type { StakingStateStatus } from '../../../../util/staking';
 
 import buildClassName from '../../../../util/buildClassName';
+import getTestId from '../../../../util/getTestId';
 import { vibrate } from '../../../../util/haptics';
 import {
   handleSendMenuItemClick, SEND_CONTEXT_MENU_ITEMS, SEND_CONTEXT_MENU_ITEMS_WITHOUT_SELL,
@@ -84,6 +85,7 @@ function PortraitActions({
         <Button
           isSimple
           className={styles.button}
+          testId={getTestId('header_action_fund')}
           onClick={handleAddBuyClick}
         >
           <i className={buildClassName(styles.buttonIcon, 'icon-action-add')} aria-hidden />
@@ -101,6 +103,7 @@ function PortraitActions({
               {...buttonProps}
               isSimple
               className={buildClassName(styles.button, isMenuOpen && styles.buttonActive)}
+              testId={getTestId('header_action_send')}
               onClick={handleStartTransfer}
               ref={buttonProps.ref as ElementRef<HTMLButtonElement>}
             >
@@ -113,6 +116,7 @@ function PortraitActions({
           <Button
             isSimple
             className={styles.button}
+            testId={getTestId('header_action_swap')}
             onClick={handleStartSwap}
           >
             <i className={buildClassName(styles.buttonIcon, 'icon-action-swap')} aria-hidden />
@@ -123,6 +127,7 @@ function PortraitActions({
           <Button
             isSimple
             className={buildClassName(styles.button, stakingStatus !== 'inactive' && styles.button_purple)}
+            testId={getTestId('header_action_earn')}
             onClick={handleEarnClick}
           >
             <i className={buildClassName(styles.buttonIcon, 'icon-action-earn')} aria-hidden />

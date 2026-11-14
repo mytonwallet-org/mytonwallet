@@ -103,23 +103,32 @@ public class JSWebViewBridge: UIViewController {
     // Token deltas must reach stores in delivery order, including JSON decoding
     private let updateQueue: DispatchQueue
     private let storage: JSBridgeStorage
+    private let installations: AppInstallationStore
 
     public override init(nibName: String? = nil, bundle: Bundle? = nil) {
         updateQueue = DispatchQueue(label: "onUpdate", qos: .userInitiated)
         storage = JSBridgeStorage()
+        installations = .shared
         super.init(nibName: nibName, bundle: bundle)
     }
 
     required public init?(coder: NSCoder) {
         updateQueue = DispatchQueue(label: "onUpdate", qos: .userInitiated)
         storage = JSBridgeStorage()
+        installations = .shared
         super.init(coder: coder)
     }
 
-    init(storage: JSBridgeStorage, updateQueue: DispatchQueue, webView: WKWebView? = nil) {
+    init(
+        storage: JSBridgeStorage,
+        updateQueue: DispatchQueue,
+        webView: WKWebView? = nil,
+        installations: AppInstallationStore = .shared
+    ) {
         self.storage = storage
         self.updateQueue = updateQueue
         self.webView = webView
+        self.installations = installations
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -511,6 +520,21 @@ public class JSWebViewBridge: UIViewController {
     }
 }
 
+extension JSWebViewBridge {
+    private func wakeInstallationDelivery() {
+        guard let webView else { return }
+        Task {
+            do {
+                _ = try await webView.callAsyncJavaScript(
+                    "window.airBridge?.handleInstallationStateChange?.()", arguments: [:], contentWorld: .page
+                )
+            } catch {
+                log.error("installation delivery was not woken: \(error, .public)")
+            }
+        }
+    }
+}
+
 extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate class
     public func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
@@ -694,6 +718,20 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                             }
                         }))
                         
+                    case "airInstallationGetPending":
+                        let installations = self.installations
+                        Task { @MainActor [weak self] in
+                            if await installations.collectIfNeeded() { self?.wakeInstallationDelivery() }
+                        }
+                        await completeNativeCallOk(result: installations.pendingDeliveries())
+
+                    case "airInstallationAcknowledge":
+                        let isAcknowledged = self.installations.acknowledge(
+                            slot: data?["arg0"] as? String ?? "",
+                            acknowledgementJSON: data?["arg1"] as? String ?? ""
+                        )
+                        await completeNativeCallOk(result: isAcknowledged)
+
                     default:
                         fatalError("nativeCall (\(methodName)) not defined.")
                     }

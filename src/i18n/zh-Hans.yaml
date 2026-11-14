@@ -620,6 +620,7 @@ Buy crypto or choose another token to sell.: 购买加密货币或选择其他�
 Your balances are small. Add funds or choose another token to swap.: 您的余额较少。请充值或选择其他代币进行交换。
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: 要购买 %buy_token%，请先购买 %token%，再将其交换为 %buy_token%。
 Open %provider% to swap this pair in the browser.: 打开 %provider%，在浏览器中交换此交易对。
+"Better rate is available if you add %amount% %symbol% for network fee.": "如果添加 %amount% %symbol% 用于支付网络费用，即可获得更优惠的汇率。"
 Buy %token%: 购买 %token%
 Open %provider%: 打开 %provider%
 Cannot load widget: 无法加载小部件
@@ -1317,8 +1318,8 @@ $agent_consent_allow_button: 允许助手
 $agent_consent_feature_answers: 获取有关 %app_name%、代币和钱包活动的答案。
 $agent_consent_feature_actions: 准备支持的操作，例如发送、接收和质押。
 $agent_consent_feature_context: 使用钱包上下文，让答案可以引用相关资产和地址。
-$agent_consent_disclosure_text: 点按“允许助手”即表示你允许 %app_name% 将你的助手消息和相关钱包上下文发送给 %app_name% Agent (agent.mywallet.io) 以及我们的第三方 AI 提供商 Anthropic Claude API，以处理你的请求。钱包上下文可能包括钱包地址、余额、代币、活动和请求操作详情。数据仅用于提供助手回复并准备你请求的操作。
-$agent_consent_search_disclosure_text: 进行网页搜索时，只有搜索查询可能会发送给 Serper；钱包上下文和聊天记录不会发送。
+$agent_consent_disclosure_text: 点按“允许助手”即表示你允许 %app_name% 将你的助手消息和相关钱包上下文发送给 %app_name% Agent (agent.mywallet.io) 以及我们的第三方 AI 提供商 OpenAI 和 Anthropic，以处理你的请求。钱包上下文可能包括钱包地址、余额、代币、活动和请求操作详情。使用语音输入时，你的录音会发送给 Inworld，必要时也会通过 OpenRouter 发送给 ElevenLabs，以转换为文字。数据仅用于提供助手回复并准备你请求的操作。
+$agent_consent_search_disclosure_text: 进行网页搜索时，只有搜索查询会发送给 OpenAI，必要时也会发送给 Serper；钱包上下文和聊天记录不会发送。
 $settings_token_change_threshold: 涨跌幅阈值
 $settings_token_change_threshold_description: 隐藏低于所选阈值的 24 小时涨跌幅。
 $settings_token_change_threshold_off: 关闭
@@ -1376,14 +1377,29 @@ $agent_prompt_token_price: "分析 %token% 的价格。"
 $agent_hint_capabilities_title: 你能做什么？
 $agent_hint_portfolio_title: 投资组合表现
 $agent_hint_portfolio_prompt: 分析我的投资组合表现。
-$agent_hint_swap_title: 代币兑换如何运作
+$agent_hint_swap_title: 代币兑换如何运作？
 $agent_hint_swap_prompt: 解释代币兑换的运作方式。
-$agent_hint_staking_title: 什么是质押
+$agent_hint_staking_title: 什么是质押？
 $agent_hint_staking_prompt: 从零开始解释质押，就好像我以前从未接触过加密货币一样。
-$agent_hint_security_title: 钱包安全
+$agent_hint_security_title: 如何保护我的钱包？
 $agent_hint_security_prompt: 请教我如何保护我的钱包安全。
 $agent_hint_receive_title: 接收代币
 $agent_hint_receive_prompt: 请帮我接收代币。
+$agent_hint_assets_title: 显示我的资产
+$agent_hint_total_title: 我总共有多少？
+$agent_hint_spending_title: 我这周花在了哪些地方？
+$agent_hint_last_transfer_title: 显示我最近一笔转账
+$agent_hint_fund_title: 如何为钱包充值？
+$agent_hint_market_today_title: 今天市场怎么样？
+$agent_hint_news_today_title: 今日要闻
+$agent_hint_bitcoin_title: 比特币怎么了？
+$agent_hint_price_title: 0.5 ETH 值多少钱？
+$agent_hint_staking_yield_title: 哪里收益更高？
+$agent_hint_staking_options_title: 有哪些质押选项？
+$agent_hint_multisend_title: 如何向多人发送？
+$agent_hint_action_swap_title: 兑换代币
+$agent_hint_action_send_title: 发送加密货币
+$agent_hint_action_stake_title: 开始质押
 $agent_notice_content_over_budget: 结果过大，无法全部显示。
 $agent_notice_web_search_no_results: 未找到与您的请求相符的信息。
 $agent_error_session: 您的助手会话已过期。请重新打开助手并重试。
@@ -2128,8 +2144,7 @@ News: "新闻"
 Crypto Market News: "加密市场新闻"
 $agent_news_new: "新消息"
 $agent_news_open_source: "打开来源"
-$agent_news_source: "来源：%sources%"
-$agent_news_sources: "来源：%sources%"
+$agent_news_sources: "来源"
 $agent_news_unavailable: "新闻暂时不可用"
 $agent_news_read_more: "了解更多"
 $agent_news_discuss: "讨论"
@@ -2140,6 +2155,8 @@ $agent_news_ask_placeholder: "询问这条新闻"
 $agent_news_quote_accessibility: "MyPulse 新闻：%headline%"
 $agent_news_unread_count:
   otherValue: "%count% 条未读新闻"
+$agent_news_unread_digests_count:
+  otherValue: "%count% 份未读摘要"
 Explorer mode: 浏览器模式
 Open a link to a wallet, transfer, token or collectible to see its details here.: 打开钱包、转账、代币或收藏品的链接，即可在此查看详情。
 
@@ -2399,7 +2416,7 @@ $agent_chats_unavailable: "无法加载聊天"
 "View your assets and activity": "查看资产与活动记录"
 "Ask AI and follow the news": "向 AI 提问并关注新闻"
 $underlying_stock: '%symbol% 股票'
-$agent_support_requested: "您已请求支持。客服人员将在此回复"
+$agent_support_requested: "您已请求支持。客服人员将在此回复，通常只需几分钟"
 $agent_support_operator_joined: "客服已加入聊天：%name%"
 $agent_support_closed_operator: "客服已关闭请求。接下来由助手回复"
 $agent_support_closed_inactivity: "请求因 48 小时无人回复而关闭。接下来由助手回复"
@@ -2419,20 +2436,38 @@ $send_only_chain_and_token: 仅向此地址发送 %symbol%、%tokenSymbol% 或�
 $agent_digest_unavailable: "此摘要已不可用"
 $agent_digest_title: "今日要闻"
 $agent_digest_meta:
-  otherValue: "%count% 条新闻 · %time%"
+  otherValue: "%count% 条新闻"
 $agent_digest_more:
   otherValue: "还有 %count% 条新闻，在信息流上方"
+$agent_digest_more_count:
+  otherValue: "还有 %count% 条新闻"
 $agent_digest_settings_title: "摘要与通知"
 $agent_digest_settings_text: "信息流每天会出现一次摘要，汇总当天要闻。"
 $agent_digest_time: "摘要时间"
-$agent_digest_time_zone: "按手机所在时区。"
+$agent_digest_time_hint: "即使关闭通知，摘要也会在此时间出现在信息流中。"
 $agent_digest_notifications_off: "关闭"
-$agent_digest_notifications_off_hint: "摘要仅显示在信息流中"
 $agent_digest_notifications_daily: "每日摘要"
-$agent_digest_notifications_daily_hint: "%time% 推送一条通知，汇总要闻"
+$agent_digest_notifications_daily_hint: "每天 %time% 推送一条通知，汇总当天要闻。"
 $agent_digest_notifications_every: "每条新闻"
-$agent_digest_notifications_every_hint: "每条新闻单独通知"
-$agent_digest_post_header: "MyPulse · 摘要 · %time%"
 $agent_digest_sheet_title: "每日摘要"
-$agent_digest_device_time_zone: "按此设备所在时区。"
 $agent_dictation_microphone_denied_device: "请在设备设置中允许访问麦克风以使用语音输入。"
+"$perps_funding_usdc_fees": "您需要在 Arbitrum 上拥有至少 %minUSDC% USDC 才能开仓：%amount% USDC，另加 %fees% USDC 费用。"
+"$perps_funding_usdc_increase_fees": "您需要在 Arbitrum 上拥有至少 %minUSDC% USDC 才能增加此仓位：%amount% USDC，另加 %fees% USDC 费用。"
+"PerpsOrderNotPlaced": "订单未下达。为此转入的USDC仍保留在Hyperliquid余额中。"
+$agent_feedback_support_liked_toast: "谢谢！你的评价将发送给支持团队。"
+$agent_feedback_support_disliked_toast: "支持团队会查看这条回复。"
+$agent_support_request_message: "我想和人工客服交流"
+$agent_support_contact: "联系客服"
+$agent_support_confirm_title: "呼叫客服？"
+$agent_support_confirm_text: "客服人员将查看此聊天和您的钱包地址，并在此回复。"
+$agent_support_confirm_text_no_wallet: "客服人员将查看此聊天，并在此回复。"
+$agent_support_confirm_action: "呼叫"
+$agent_support_rate_limited: "您今天已经联系过客服三次。请明天再试，或在 Telegram 上联系 @mysupport。"
+$agent_news_digests_empty: "暂无摘要"
+$agent_news_view_all: "全部新闻"
+$agent_news_view_digests: "摘要"
+$agent_digest_hours: "小时"
+$agent_digest_minutes: "分钟"
+$swap_one_to_one: 金额达到 %value% 即可享受更优汇率（1:1）。
+$swap_better_rate_minimum: "从 %value% 起可享受更优汇率。"
+$agent_daily_limit_resets_at: "已达到助手每日使用上限。将于 %time% 重置。"

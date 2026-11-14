@@ -2,6 +2,7 @@ import { getActions } from '../../../../../global';
 
 import type { DropdownItem } from '../../../../ui/Dropdown';
 
+import getTestId from '../../../../../util/getTestId';
 import { vibrate } from '../../../../../util/haptics';
 
 export type MenuHandler = 'rename' | 'customize' | 'remove';
@@ -10,10 +11,12 @@ export const WALLET_CONTEXT_MENU_ITEMS: DropdownItem<MenuHandler>[] = [{
   name: 'Rename',
   fontIcon: 'menu-rename',
   value: 'rename',
+  testId: getTestId('wallet_name_menu_rename'),
 }, {
   name: 'Customize',
   fontIcon: 'menu-magic',
   value: 'customize',
+  testId: getTestId('wallet_name_menu_customize'),
 }, {
   name: 'Remove',
   fontIcon: 'menu-trash',

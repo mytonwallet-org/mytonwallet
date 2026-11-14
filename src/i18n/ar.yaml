@@ -602,6 +602,7 @@ Buy crypto or choose another token to sell.: اشترِ عملات مشفرة أ
 Your balances are small. Add funds or choose another token to swap.: أرصدتك منخفضة. أضف رصيدًا أو اختر رمزًا آخر للتبديل.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: لشراء %buy_token%، اشترِ %token% أولًا، ثم بدّله مقابل %buy_token%.
 Open %provider% to swap this pair in the browser.: افتح %provider% لتبديل هذا الزوج في المتصفح.
+"Better rate is available if you add %amount% %symbol% for network fee.": "يتوفر سعر صرف أفضل إذا أضفت %amount% %symbol% لتغطية رسوم الشبكة."
 Buy %token%: شراء %token%
 Open %provider%: فتح %provider%
 Cannot load widget: لا يمكن تحميل القطعة
@@ -1290,8 +1291,8 @@ $agent_consent_allow_button: السماح للوكيل
 $agent_consent_feature_answers: احصل على إجابات حول %app_name% والرموز المميزة ونشاط المحفظة.
 $agent_consent_feature_actions: قم بإعداد الإجراءات المدعومة مثل الإرسال والاستلام والتخزين.
 $agent_consent_feature_context: استخدم سياق المحفظة حتى تتمكن الإجابات من الرجوع إلى الأصول والعناوين ذات الصلة.
-$agent_consent_disclosure_text: من خلال النقر على "السماح للوكيل"، فإنك تسمح لـ %app_name% بإرسال رسائل الوكيل وسياق المحفظة ذات الصلة إلى وكيل %app_name% (agent.mywallet.io) وAnthropic Claude API، موفر الذكاء الاصطناعي التابع لجهة خارجية، لمعالجة طلباتك. قد يتضمن سياق المحفظة عناوين المحفظة والأرصدة والرموز المميزة والنشاط وتفاصيل الإجراء المطلوب. يتم استخدام البيانات فقط لتوفير استجابات الوكيل وإعداد الإجراءات التي تطلبها.
-$agent_consent_search_disclosure_text: عند البحث على الويب، قد تُرسل عبارات البحث فقط إلى Serper؛ ولا يُرسل سياق المحفظة أو سجل المحادثة.
+$agent_consent_disclosure_text: من خلال النقر على "السماح للوكيل"، فإنك تسمح لـ %app_name% بإرسال رسائل الوكيل وسياق المحفظة ذات الصلة إلى وكيل %app_name% (agent.mywallet.io) وإلى موفري الذكاء الاصطناعي التابعين لجهات خارجية لدينا، OpenAI وAnthropic، لمعالجة طلباتك. قد يتضمن سياق المحفظة عناوين المحفظة والأرصدة والرموز المميزة والنشاط وتفاصيل الإجراء المطلوب. عند استخدام الإدخال الصوتي، يُرسل تسجيلك إلى Inworld، وعند الحاجة إلى ElevenLabs عبر OpenRouter، لتحويله إلى نص. يتم استخدام البيانات فقط لتوفير استجابات الوكيل وإعداد الإجراءات التي تطلبها.
+$agent_consent_search_disclosure_text: عند البحث على الويب، تُرسل عبارات البحث فقط إلى OpenAI، وعند الحاجة إلى Serper؛ ولا يُرسل سياق المحفظة أو سجل المحادثة.
 $settings_token_change_threshold: حدّ التغيّر %
 $settings_token_change_threshold_description: يخفي تغيّرات النسبة المئوية خلال 24 ساعة التي تقل عن الحد المحدد.
 $settings_token_change_threshold_off: إيقاف
@@ -1349,14 +1350,29 @@ $agent_prompt_token_price: "حلّل سعر %token%."
 $agent_hint_capabilities_title: ماذا يمكنك أن تفعل؟
 $agent_hint_portfolio_title: أداء المحفظة
 $agent_hint_portfolio_prompt: حلل أداء محفظتي.
-$agent_hint_swap_title: كيف تعمل المبادلات
+$agent_hint_swap_title: كيف تعمل المبادلات؟
 $agent_hint_swap_prompt: اشرح كيف تعمل مبادلات الرموز.
-$agent_hint_staking_title: ما هو التخزين
+$agent_hint_staking_title: ما هو التخزين؟
 $agent_hint_staking_prompt: اشرح التخزين من البداية، كما لو أنني لم أستخدم العملات المشفرة من قبل.
-$agent_hint_security_title: أمان المحفظة
+$agent_hint_security_title: كيف أحمي محفظتي؟
 $agent_hint_security_prompt: أرني كيف أحافظ على أمان محفظتي.
 $agent_hint_receive_title: استقبال الرموز
 $agent_hint_receive_prompt: ساعدني على استقبال الرموز.
+$agent_hint_assets_title: اعرض أصولي
+$agent_hint_total_title: كم إجمالي رصيدي؟
+$agent_hint_spending_title: على ماذا أنفقت هذا الأسبوع؟
+$agent_hint_last_transfer_title: اعرض آخر تحويل لي
+$agent_hint_fund_title: كيف أشحن محفظتي؟
+$agent_hint_market_today_title: ماذا يحدث في السوق اليوم؟
+$agent_hint_news_today_title: أهم أخبار اليوم
+$agent_hint_bitcoin_title: ما الذي يحدث مع البيتكوين؟
+$agent_hint_price_title: كم سعر 0.5 ETH؟
+$agent_hint_staking_yield_title: أين العائد أعلى؟
+$agent_hint_staking_options_title: ما خيارات التخزين المتاحة؟
+$agent_hint_multisend_title: كيف أرسل إلى عدة أشخاص؟
+$agent_hint_action_swap_title: مبادلة الرموز
+$agent_hint_action_send_title: إرسال العملات المشفرة
+$agent_hint_action_stake_title: بدء التخزين
 $agent_notice_content_over_budget: النتيجة كبيرة جدًا لعرضها بالكامل.
 $agent_notice_web_search_no_results: تعذّر العثور على معلومات مطابقة لطلبك.
 $agent_error_session: انتهت صلاحية جلسة الوكيل الخاصة بك. أعد فتح الوكيل وحاول مرة أخرى.
@@ -2142,8 +2158,7 @@ News: "الأخبار"
 Crypto Market News: "أخبار سوق العملات المشفرة"
 $agent_news_new: "الجديد"
 $agent_news_open_source: "فتح المصدر"
-$agent_news_source: "المصدر: %sources%"
-$agent_news_sources: "المصادر: %sources%"
+$agent_news_sources: "المصادر"
 $agent_news_unavailable: "الأخبار غير متاحة حاليًا"
 $agent_news_read_more: "قراءة المزيد"
 $agent_news_discuss: "ناقش"
@@ -2159,6 +2174,13 @@ $agent_news_unread_count:
   fewValue: "%count% أخبار غير مقروءة"
   manyValue: "%count% خبرًا غير مقروء"
   otherValue: "%count% خبر غير مقروء"
+$agent_news_unread_digests_count:
+  zeroValue: "لا ملخصات غير مقروءة"
+  oneValue: "ملخص واحد غير مقروء"
+  twoValue: "ملخصان غير مقروءين"
+  fewValue: "%count% ملخصات غير مقروءة"
+  manyValue: "%count% ملخصًا غير مقروء"
+  otherValue: "%count% ملخص غير مقروء"
 Explorer mode: وضع المستكشف
 Open a link to a wallet, transfer, token or collectible to see its details here.: افتح رابطًا لمحفظة أو تحويل أو توكن أو مقتنى لعرض تفاصيله هنا.
 
@@ -2418,7 +2440,7 @@ $agent_chats_unavailable: "تعذر تحميل المحادثات"
 "View your assets and activity": "اعرض أصولك ونشاطك"
 "Ask AI and follow the news": "اسأل الذكاء الاصطناعي وتابع الأخبار"
 $underlying_stock: 'سهم %symbol%'
-$agent_support_requested: "طلبت المساعدة من الدعم. سيرد أحد الموظفين هنا"
+$agent_support_requested: "طلبت المساعدة من الدعم. سيرد أحد الموظفين هنا، عادةً خلال بضع دقائق"
 $agent_support_operator_joined: "انضم الدعم إلى المحادثة: %name%"
 $agent_support_closed_operator: "أغلق الدعم الطلب. سيتولى الوكيل الرد من الآن"
 $agent_support_closed_inactivity: "أُغلق الطلب بعد 48 ساعة دون ردود. سيتولى الوكيل الرد من الآن"
@@ -2438,29 +2460,51 @@ $send_only_chain_and_token: أرسل فقط %symbol%، %tokenSymbol% أو الأ
 $agent_digest_unavailable: "هذا الملخص لم يعد متاحًا"
 $agent_digest_title: "أبرز أخبار اليوم"
 $agent_digest_meta:
-  zeroValue: "لا أخبار · %time%"
-  oneValue: "خبر واحد · %time%"
-  twoValue: "خبران · %time%"
-  fewValue: "%count% أخبار · %time%"
-  manyValue: "%count% خبرًا · %time%"
-  otherValue: "%count% خبر · %time%"
+  zeroValue: "لا أخبار"
+  oneValue: "خبر واحد"
+  twoValue: "خبران"
+  fewValue: "%count% أخبار"
+  manyValue: "%count% خبرًا"
+  otherValue: "%count% خبر"
 $agent_digest_more:
   oneValue: "وخبر آخر — تجده أعلى في الموجز"
   twoValue: "وخبران آخران — تجدهما أعلى في الموجز"
   fewValue: "و%count% أخبار أخرى — تجدها أعلى في الموجز"
   manyValue: "و%count% خبرًا آخر — تجدها أعلى في الموجز"
   otherValue: "و%count% خبر آخر — تجدها أعلى في الموجز"
+$agent_digest_more_count:
+  oneValue: "وخبر آخر"
+  twoValue: "وخبران آخران"
+  fewValue: "و%count% أخبار أخرى"
+  manyValue: "و%count% خبرًا آخر"
+  otherValue: "و%count% خبر آخر"
 $agent_digest_settings_title: "الملخص والإشعارات"
 $agent_digest_settings_text: "مرة واحدة يوميًا يظهر في الموجز ملخص لأبرز أخبار اليوم."
 $agent_digest_time: "وقت الملخص"
-$agent_digest_time_zone: "حسب المنطقة الزمنية لهاتفك."
+$agent_digest_time_hint: "يظهر الملخص في الموجز في هذا الوقت، حتى عند إيقاف الإشعارات."
 $agent_digest_notifications_off: "متوقفة"
-$agent_digest_notifications_off_hint: "سيظهر الملخص في الموجز فقط"
 $agent_digest_notifications_daily: "ملخص يومي"
-$agent_digest_notifications_daily_hint: "في %time%، أبرز الأخبار في إشعار واحد"
+$agent_digest_notifications_daily_hint: "إشعار واحد في %time% بأبرز أخبار اليوم."
 $agent_digest_notifications_every: "كل خبر"
-$agent_digest_notifications_every_hint: "إشعار منفصل لكل خبر"
-$agent_digest_post_header: "MyPulse · ملخص · %time%"
 $agent_digest_sheet_title: "الملخص اليومي"
-$agent_digest_device_time_zone: "حسب المنطقة الزمنية لهذا الجهاز."
 $agent_dictation_microphone_denied_device: "اسمح بالوصول إلى الميكروفون من إعدادات الجهاز لتتمكن من الإملاء."
+"$perps_funding_usdc_fees": "تحتاج إلى ما لا يقل عن %minUSDC% USDC على Arbitrum لفتح مركز: %amount% USDC بالإضافة إلى %fees% USDC رسومًا."
+"$perps_funding_usdc_increase_fees": "تحتاج إلى ما لا يقل عن %minUSDC% USDC على Arbitrum لزيادة هذا المركز: %amount% USDC بالإضافة إلى %fees% USDC رسومًا."
+"PerpsOrderNotPlaced": "لم يتم وضع الأمر. يبقى USDC المحوَّل له في رصيدك على Hyperliquid."
+$agent_feedback_support_liked_toast: "شكرًا! سيصل تقييمك إلى فريق الدعم."
+$agent_feedback_support_disliked_toast: "سيراجع فريق الدعم هذا الرد."
+$agent_support_request_message: "أريد التحدث مع شخص حقيقي"
+$agent_support_contact: "التواصل مع الدعم"
+$agent_support_confirm_title: "هل تريد استدعاء موظف الدعم؟"
+$agent_support_confirm_text: "سيطّلع موظف الدعم على هذه المحادثة وعناوين محفظتك وسيرد هنا."
+$agent_support_confirm_text_no_wallet: "سيطّلع موظف الدعم على هذه المحادثة وسيرد هنا."
+$agent_support_confirm_action: "استدعاء"
+$agent_support_rate_limited: "لقد تواصلت مع الدعم ثلاث مرات اليوم. حاول مجددًا غدًا أو راسل @mysupport على تيليجرام."
+$agent_news_digests_empty: "لا توجد ملخصات بعد"
+$agent_news_view_all: "كل الأخبار"
+$agent_news_view_digests: "الملخصات"
+$agent_digest_hours: "الساعات"
+$agent_digest_minutes: "الدقائق"
+$swap_one_to_one: يتوفر سعر صرف أفضل (1:1) ابتداءً من %value%.
+$swap_better_rate_minimum: "يتوفر سعر أفضل ابتداءً من %value%."
+$agent_daily_limit_resets_at: "تم بلوغ الحد اليومي للوكيل. يُعاد تعيينه في %time%."

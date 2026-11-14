@@ -15,6 +15,7 @@ import android.view.Choreographer
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import androidx.core.graphics.createBitmap
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -27,9 +28,34 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCel
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsPostCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentPreDrawBinding
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
+
+/** A card of the News feed that flies into its discussion's post: a news item's or a digest's */
+internal interface AgentNewsFlightSource {
+    /** The card's bubble without its tail, and where it is in the window */
+    fun makeFlightSnapshot(): Pair<Bitmap, Rect>?
+
+    /** Hides the card while its picture flies into the discussion, so the feed does not show it twice */
+    fun setFlightSourceHidden(isHidden: Boolean)
+}
+
+/** [bubble]'s picture without the tail its start padding holds, and its frame in the window */
+internal fun makeAgentBubbleFlightSnapshot(bubble: View): Pair<Bitmap, Rect>? {
+    val width = bubble.width - bubble.paddingLeft - bubble.paddingRight
+    if (width <= 0 || bubble.height <= 0) return null
+    val bitmap = createBitmap(width, bubble.height)
+    val canvas = Canvas(bitmap)
+    canvas.translate(-bubble.paddingLeft.toFloat(), 0f)
+    bubble.draw(canvas)
+    val location = bubble.getLocationInWindow()
+    val left = location.x + bubble.paddingLeft
+    return bitmap to Rect(left, location.y, left + width, location.y + bubble.height)
+}
 
 /**
- * Flies a news card from the feed into a new discussion's post.
+ * Flies a news or digest card from the feed into a new discussion's post.
  *
  * As soon as the chat sliding in lays the post out, the card leaves the place it had on screen and flies onto the
  * post, turning into it on the way: it lifts toward the viewer with a shadow, leans into its flight in perspective, and

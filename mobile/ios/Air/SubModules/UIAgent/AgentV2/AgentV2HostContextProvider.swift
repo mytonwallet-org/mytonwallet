@@ -25,6 +25,8 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         case deferredForRun
     }
 
+    /// The host lets an operator answer in the chat, which the support entry points need
+    nonisolated static let supportsSupportHandoff = true
     /// Every network the app supports, in its own order
     nonisolated private static let supportedChains: [ApiChain] = getSupportedChains()
     nonisolated private static let maxCatalogAssets = 10_000
@@ -44,6 +46,11 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
     var isRunActive: @MainActor () -> Bool = { false }
     var onAuthorityContextInvalidated: @MainActor () -> Void = {}
     var onAuthorityContextPublished: @MainActor () -> Void = {}
+
+    /// The authority is being published, as after an account change, and isn't current until it is
+    var isRepublishingAuthorityContext: Bool {
+        lifecycleState.isStarted && !isAuthorityContextCurrent
+    }
 
     init(
         client: AgentV2Client,
@@ -340,7 +347,8 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
                 supportsWalletDirectory: true,
                 supportsMessageEdit: false,
                 supportsRegenerate: true,
-                supportsSendRecipientWithoutAsset: true
+                supportsSendRecipientWithoutAsset: true,
+                supportsSupportHandoff: Self.supportsSupportHandoff
             ),
             lang: input.lang,
             baseCurrency: input.baseCurrency,

@@ -29,5 +29,14 @@ export function resolveSwapAsset(
   bySlug: Record<string, ApiSwapAsset> | Record<string, ApiTokenWithPrice>,
   anyId: string,
 ) {
-  return bySlug[anyId] ?? Object.values(bySlug).find(({ tokenAddress }) => tokenAddress === anyId);
+  return bySlug[anyId] ?? Object.values(bySlug).find(({ tokenAddress }) => (
+    tokenAddress === anyId || getIsSameEvmAddress(tokenAddress, anyId)
+  ));
+}
+
+function getIsSameEvmAddress(left: string | undefined, right: string) {
+  return left !== undefined
+    && left.startsWith('0x')
+    && right.startsWith('0x')
+    && left.toLowerCase() === right.toLowerCase();
 }

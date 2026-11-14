@@ -108,6 +108,8 @@ const LIKE_ICON_CENTER = { x: 312, y: 185 };
 const CORNER_CENTER = { x: 340, y: 438 };
 const LIKED_TOAST = getTranslation('$agent_feedback_liked_toast');
 const DISLIKED_TOAST = getTranslation('$agent_feedback_disliked_toast');
+const SUPPORT_LIKED_TOAST = getTranslation('$agent_feedback_support_liked_toast');
+const SUPPORT_DISLIKED_TOAST = getTranslation('$agent_feedback_support_disliked_toast');
 
 const flightObservers: MutationObserver[] = [];
 const partRecordings: { stop: () => string[] }[] = [];
@@ -735,6 +737,29 @@ describe('the toast explaining a first reaction', () => {
     expect(getToasts()).toEqual([]);
   });
 
+  it.each([
+    ['like', false, LIKED_TOAST, SUPPORT_LIKED_TOAST],
+    ['dislike', false, DISLIKED_TOAST, SUPPORT_DISLIKED_TOAST],
+    ['like', true, SUPPORT_LIKED_TOAST, LIKED_TOAST],
+    ['dislike', true, SUPPORT_DISLIKED_TOAST, DISLIKED_TOAST],
+  ] as const)('explains %s once for each author (operator first: %s)', async (
+    feedback, isOperatorFirst, firstToast, secondToast,
+  ) => {
+    const global = globalState.getGlobal();
+    globalState.setGlobal({ ...global, settings: { ...global.settings, animationLevel: 0 } });
+
+    await rateInCloud(root, undefined, feedback, isOperatorFirst);
+    expect(getToasts()).toEqual([firstToast]);
+    await rateInCloud(root, undefined, feedback, !isOperatorFirst);
+    expect(getToasts()).toEqual([firstToast, secondToast]);
+    expect(globalState.getGlobal().settings.shownAgentFeedbackToasts).toEqual({ [feedback]: true });
+    expect(globalState.getGlobal().settings.shownAgentSupportFeedbackToasts).toEqual({ [feedback]: true });
+
+    await rateInCloud(root, undefined, feedback, isOperatorFirst);
+    await rateInCloud(root, undefined, feedback, !isOperatorFirst);
+    expect(getToasts()).toEqual([firstToast, secondToast]);
+  });
+
   it('explains nothing for a withdrawn reaction, or for a rating from the server or history', async () => {
     TeactDOM.render(renderAnswer(1, 'like'), root);
     await pause(20);
@@ -773,16 +798,17 @@ function renderCloud(
 // waits for the reaction to reach it. The answer's menu closed just before takes the press once it has faded out.
 async function rateInCloud(
   root: HTMLElement, feedback: AgentAnswerFeedbackV2 | undefined, value: AgentAnswerFeedbackV2,
+  isOperator = false,
 ) {
   const onRate = jest.fn().mockResolvedValue(() => true);
-  TeactDOM.render(renderAnswer(1, feedback, onRate), root);
+  TeactDOM.render(renderAnswer(1, feedback, onRate, isOperator), root);
   await pause(CLOSE_DURATION);
   await openMenu(root);
   expect(getCloudButtons()).toHaveLength(2);
 
   getCloudButtons()[value === 'like' ? 0 : 1].click();
   expect(onRate).toHaveBeenCalledWith(1, feedback === value ? undefined : value);
-  TeactDOM.render(renderAnswer(1, feedback === value ? undefined : value, onRate), root);
+  TeactDOM.render(renderAnswer(1, feedback === value ? undefined : value, onRate, isOperator), root);
   expect(await waitFor(() => !document.querySelector('[data-agent-feedback-cloud]'))).toBe(true);
   expect(await waitFor(() => !getIsAgentFeedbackFlying(1))).toBe(true);
 }
@@ -790,7 +816,10 @@ async function rateInCloud(
 // The toasts start afresh, with the first reactions in `shown` explained already
 function setShownToasts(shown: Partial<Record<AgentAnswerFeedbackV2, boolean>> | undefined) {
   const global = globalState.getGlobal();
-  globalState.setGlobal({ ...global, settings: { ...global.settings, shownAgentFeedbackToasts: shown } });
+  globalState.setGlobal({
+    ...global,
+    settings: { ...global.settings, shownAgentFeedbackToasts: shown, shownAgentSupportFeedbackToasts: undefined },
+  });
   shownToasts.length = 0;
 }
 
@@ -802,9 +831,12 @@ function getNoMessageBottom() {
   return undefined;
 }
 
-function renderAnswer(id: number, feedback?: AgentAnswerFeedbackV2, onRate = jest.fn().mockResolvedValue(() => true)) {
+function renderAnswer(
+  id: number, feedback?: AgentAnswerFeedbackV2, onRate = jest.fn().mockResolvedValue(() => true), isOperator = false,
+) {
   const message: AgentMessage = {
     id, text: 'You hold 12 TON', timestamp: 0, isOutgoing: false, isComplete: true, feedback,
+    operator: isOperator ? { name: 'Support' } : undefined,
   };
 
   return <MessageBubble key={id} message={message} isDisabled={false} onRate={onRate} />;
@@ -853,7 +885,7 @@ async function openMenu(root: HTMLElement) {
 }
 
 function dispatchMenuOpen(root: HTMLElement) {
-  root.querySelector('[data-agent-static-text]')!
+  root.querySelector('.bubble')!
     .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 200, clientY: 300 }));
 }
 

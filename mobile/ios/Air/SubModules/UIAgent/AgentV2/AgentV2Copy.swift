@@ -69,10 +69,21 @@ enum AgentV2Copy {
         return DisplayError(text: lang("$agent_error_generic"))
     }
 
+    @MainActor
+    static func error(_ code: ApiAgentV2ErrorCode, resetAt: Date?) -> String {
+        guard code == .userQuotaExhausted, let resetAt, resetAt > Date() else { return error(code) }
+        return langFormat(
+            "$agent_daily_limit_resets_at",
+            BaseAgentModel.formattedTime(resetAt, locale: LocalizationSupport.shared.locale)
+        )
+    }
+
     static func error(_ code: ApiAgentV2ErrorCode) -> String {
         switch code {
         case .clientUpdateRequired:
             lang("$agent_error_update_required")
+        case .supportEscalationRateLimited:
+            lang("$agent_support_rate_limited")
         case .deviceTokenMissing, .deviceTokenInvalid, .deviceTokenExpired, .profileIdInvalid, .profileDeleted:
             lang("$agent_error_session")
         case .userQuotaExhausted:

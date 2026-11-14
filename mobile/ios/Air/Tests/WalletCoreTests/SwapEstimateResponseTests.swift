@@ -54,7 +54,8 @@ struct SwapEstimateResponseTests {
           "swapFee": "0",
           "swapFeePercent": 0,
           "ourFee": "0",
-          "ourFeePercent": 0
+          "ourFeePercent": 0,
+          "hint": { "type": "betterRate", "additionalAmount": "0.01", "symbol": "GRAM" }
         }
         """)
 
@@ -64,6 +65,9 @@ struct SwapEstimateResponseTests {
         }
         #expect(estimate.dexLabel == nil)
         #expect(estimate.dexRouterLabel == "dedust-router-v2")
+        #expect(estimate.hint?.type == "betterRate")
+        #expect(estimate.hint?.additionalAmount == "0.01")
+        #expect(estimate.hint?.symbol == "GRAM")
     }
 
     @Test
@@ -78,7 +82,8 @@ struct SwapEstimateResponseTests {
           "toAmount": "100",
           "swapFee": "0.1",
           "fromMin": "0.01",
-          "fromMax": "10"
+          "fromMax": "10",
+          "hint": { "type": "oneToOne", "minimumAmount": "30" }
         }
         """)
 
@@ -89,6 +94,7 @@ struct SwapEstimateResponseTests {
         #expect(estimate.cexLabel == .nearIntents)
         #expect(estimate.fromMin == 0.01)
         #expect(estimate.fromMax == 10)
+        #expect(estimate.hint?.minimumAmount == "30")
     }
 
     @Test

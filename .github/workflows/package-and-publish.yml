@@ -1076,12 +1076,8 @@ jobs:
   ios-release:
     name: Release iOS app (${{ matrix.app_variant }})
     needs: detect-changes
-    # The archive is the job and it scales with cores; the TestFlight upload that follows it does
-    # not. On the 3-core M1 tier the split was 399s of archive against 89s of upload inside a 633s
-    # run, so the ceiling on any core upgrade is the archive alone. An xlarge minute costs $0.102
-    # against $0.062, which means this tier only pays for itself below ~61% of the old wall time;
-    # above that it is buying latency, not saving money.
-    runs-on: xcode-27-xlarge
+    # xcode-27-xlarge does not finish this job fast enough to pay for a minute priced 1.65x higher.
+    runs-on: xcode-27
     environment: production
     # The mytonwallet variant takes 30+ minutes on slow runners; v26.7.1 needed 3 attempts against a 30-minute cap
     timeout-minutes: 45
@@ -1351,6 +1347,7 @@ jobs:
           IOS_METADATA_PATH: ${{ vars.IOS_METADATA_PATH }}
           IOS_GRAM_METADATA_PATH: ${{ vars.IOS_GRAM_METADATA_PATH }}
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
+          IOS_UPLOAD_ON_LINUX: ${{ vars.IOS_UPLOAD_ON_LINUX }}
         run: |
           set -euo pipefail
 
@@ -1400,7 +1397,7 @@ jobs:
           fi
 
       - name: Upload the TestFlight distribution handoff
-        if: env.PUBLISH_REPO == ''
+        if: env.PUBLISH_REPO == '' && hashFiles('mobile/ios/App/testflight-upload.ipa') == ''
         uses: actions/upload-artifact@v4
         with:
           name: ios-testflight-handoff-${{ matrix.app_variant }}
@@ -1409,6 +1406,20 @@ jobs:
           # Long enough to re-run the distributing job by itself the next day, which is the whole
           # point of it being a separate job: a failure there must not cost another macOS build.
           retention-days: 7
+
+      # Every job after this one reads a handoff as a binary Apple already holds, so a build left
+      # for the Linux upload travels as pending and becomes a handoff only once that upload succeeds.
+      - name: Upload the build for the Linux upload job
+        if: env.PUBLISH_REPO == '' && hashFiles('mobile/ios/App/testflight-upload.ipa') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-testflight-pending-${{ matrix.app_variant }}
+          path: |
+            mobile/ios/App/testflight-handoff.json
+            mobile/ios/App/testflight-upload.ipa
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
 
   # The second half of the TestFlight release. Once the binary is in App Store Connect, what is
   # left - waiting out Apple's processing, writing the build notes, submitting to the external
@@ -1553,11 +1564,132 @@ jobs:
               });
             }
 
+  ios-upload-plan:
+    name: Find the iOS builds to upload
+    needs:
+      - detect-changes
+      - ios-release
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    if: ${{ !cancelled() && needs.ios-release.result != 'skipped' && vars.PUBLISH_REPO == '' && vars.IOS_UPLOAD_ON_LINUX == 'true' }}
+    outputs:
+      variants: ${{ steps.plan.outputs.variants }}
+    steps:
+      - name: List the variants that left a build to upload
+        id: plan
+        uses: actions/github-script@v9
+        env:
+          VARIANTS: ${{ needs.detect-changes.outputs.ios-variants }}
+        with:
+          script: |
+            const names = new Set();
+            const pages = github.paginate.iterator(github.rest.actions.listWorkflowRunArtifacts, {
+              ...context.repo,
+              run_id: context.runId,
+              per_page: 100,
+            });
+            for await (const page of pages) {
+              for (const artifact of page.data) {
+                if (!artifact.expired) names.add(artifact.name);
+              }
+            }
+            const variants = JSON.parse(process.env.VARIANTS).filter((variant) => names.has(`ios-testflight-pending-${variant}`));
+            core.setOutput('variants', JSON.stringify(variants));
+
+  ios-upload-linux:
+    name: Upload iOS build (${{ matrix.app_variant }})
+    needs: ios-upload-plan
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    if: ${{ !cancelled() && needs.ios-upload-plan.result == 'success' && needs.ios-upload-plan.outputs.variants != '[]' }}
+    # Holds the packaging job's line that one run per variant reaches App Store Connect at a time, in
+    # a group of its own: one shared with the build would let a queued upload evict a queued build.
+    concurrency:
+      group: ios-upload-${{ github.ref }}-${{ matrix.app_variant }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        app_variant: ${{ fromJSON(needs.ios-upload-plan.outputs.variants) }}
+    env:
+      APP_VARIANT: ${{ matrix.app_variant }}
+      IS_RELEASE_CANDIDATE: ${{ startsWith(github.ref, 'refs/heads/release/') && '1' || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the build to upload
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-testflight-pending-${{ matrix.app_variant }}
+          path: mobile/ios/App
+
+      - name: Configure iOS variant
+        env:
+          IOS_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          IOS_PREVIEW_TESTFLIGHT_GROUP: ${{ vars.IOS_PREVIEW_TESTFLIGHT_GROUP }}
+          IOS_GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: bash deploy/configure_ios_variant.sh >> "$GITHUB_ENV"
+
+      - name: Use Ruby and install dependencies
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: true
+          working-directory: mobile
+
+      - name: "iOS: Upload to App Store Connect"
+        env:
+          IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          IOS_GRAM_AUTH_KEY_BASE64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
+          IOS_AUTH_KEY_ID: ${{ vars.IOS_AUTH_KEY_ID }}
+          IOS_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+          IOS_GRAM_AUTH_KEY_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
+          IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+
+          cd mobile/ios/App
+          AUTH_KEY_BASE64="$IOS_AUTH_KEY_BASE64"
+          ASC_KEY_ID="${IOS_AUTH_KEY_ID:-}"
+          ASC_ISSUER_ID="${IOS_AUTH_KEY_ISSUER_ID:-}"
+
+          if [ "$APP_VARIANT" = "gram" ]; then
+            AUTH_KEY_BASE64="${IOS_GRAM_AUTH_KEY_BASE64:-$IOS_AUTH_KEY_BASE64}"
+            ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
+            ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
+          fi
+
+          if [ -z "$AUTH_KEY_BASE64" ]; then
+            echo "::error::Missing App Store Connect auth key for $APP_VARIANT"
+            exit 1
+          fi
+
+          echo -n "$AUTH_KEY_BASE64" | base64 --decode > ./AuthKey.p8
+          if [ -n "$ASC_KEY_ID" ]; then
+            export APP_STORE_CONNECT_KEY_ID="$ASC_KEY_ID"
+          fi
+          if [ -n "$ASC_ISSUER_ID" ]; then
+            export APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
+          fi
+
+          bundle exec fastlane upload_ipa
+
+      - name: Upload the TestFlight distribution handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-testflight-handoff-${{ matrix.app_variant }}
+          path: mobile/ios/App/testflight-handoff.json
+          if-no-files-found: error
+          retention-days: 7
+
   ios-distribute-plan:
     name: Find the iOS builds to distribute
     needs:
       - detect-changes
       - ios-release
+      - ios-upload-linux
     runs-on: ubuntu-slim
     timeout-minutes: 5
     # Reads the run even when a variant failed, which is what the packaging job's fail-fast: false

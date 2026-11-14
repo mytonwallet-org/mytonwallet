@@ -4,6 +4,7 @@ import { getActions } from '../../global';
 import type { ApiSite } from '../../api/types';
 
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useScrolledState from '../../hooks/useScrolledState';
@@ -36,6 +37,7 @@ function SiteList({ isActive, categoryId, sites }: OwnProps) {
     <div
       onScroll={handleContentScroll}
       className={buildClassName(styles.root, 'custom-scroll')}
+      data-testid={isActive ? getTestId('explore_site_list') : undefined}
     >
       <CategoryHeader id={categoryId} withNotch={isScrolled} />
       <div className={styles.list}>
@@ -43,6 +45,7 @@ function SiteList({ isActive, categoryId, sites }: OwnProps) {
           <Site
             key={`${site.url}-${site.name}`}
             site={site}
+            testId={getTestId('explore_site_row')}
           />
         ))}
       </div>

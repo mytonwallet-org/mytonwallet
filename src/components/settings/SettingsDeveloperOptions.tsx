@@ -18,6 +18,7 @@ import {
   selectSeasonalThemeOverride,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { callApi } from '../../api';
 
 import useFlag from '../../hooks/useFlag';
@@ -271,7 +272,11 @@ function SettingsDeveloperOptions({
         )}
 
         <div className={buildClassName(styles.settingsBlock)}>
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleDownloadLogs}>
+          <div
+            className={buildClassName(styles.item, styles.item_small)}
+            data-testid={getTestId('debug_view_logs')}
+            onClick={handleDownloadLogs}
+          >
             {
               !CAN_DOWNLOAD_LOGS
                 ? (

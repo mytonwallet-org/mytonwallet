@@ -1,3 +1,5 @@
+import ContextMenuKit
+import Kingfisher
 import XCTest
 import UIKit
 @testable import UIAgent
@@ -604,7 +606,7 @@ final class AgentMediaViewerTests: XCTestCase {
         defer { window.isHidden = true }
         let item = makeNewsItem(7, imageURL: "invalid-news-image://7")
         let viewer = try XCTUnwrap(AgentNewsPictureViewer.present(
-            posts: [.init(content: AgentNewsFeedCardCell.makeContent(for: item), date: .now, image: makePicture())],
+            posts: [.init(content: AgentNewsFeedCardCell.makeContent(for: item), date: .now, image: makePicture(), locale: "en")],
             index: 0,
             in: window,
             openSource: { _ in },
@@ -615,8 +617,8 @@ final class AgentMediaViewerTests: XCTestCase {
         XCTAssertEqual(AgentChatNavigation.buttonSize, MediaViewerButtonGroup.itemSize)
         let header = viewer.headerView
         let footer = viewer.footerView
-        let groups = [header.backGroup, footer.leadingGroup, footer.trailingGroup]
-        XCTAssertEqual(groups.map(\.buttons.count), [1, 1, 2])
+        let groups = [header.backGroup, header.menuGroup, footer.leadingGroup, footer.trailingGroup]
+        XCTAssertEqual(groups.map(\.buttons.count), [1, 1, 1, 1])
         for group in groups {
             group.layoutIfNeeded()
             XCTAssertEqual(group.bounds.size, CGSize(width: 44 * CGFloat(group.buttons.count), height: 44))
@@ -634,7 +636,7 @@ final class AgentMediaViewerTests: XCTestCase {
         }
         // The footer's symbols are drawn at their own size, the 18 pt regular one Telegram's footer icons match
         let configuration = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
-        let names = ["square.and.arrow.up", "arrow.up.right.square", "doc.on.doc"]
+        let names = ["square.and.arrow.up", "doc.on.doc"]
         for (button, name) in zip(footer.leadingGroup.buttons + footer.trailingGroup.buttons, names) {
             let glyph = try XCTUnwrap(button.imageView?.frame)
             let size = try XCTUnwrap(UIImage(systemName: name, withConfiguration: configuration)?.size)
@@ -737,16 +739,143 @@ final class AgentMediaViewerTests: XCTestCase {
         XCTAssertTrue(viewer.headerView.titleGlass.isMaterialized)
     }
 
-    /// A news picture shows its post as Telegram's gallery shows a message: the date on the capsule, without the source,
-    /// the headline and the body as the caption, and the post's menu as the footer's buttons, Share at the leading end
+    /// A digest whose headlines have pictures leads each row with a square: the picture, a target of its own that opens
+    /// the digest's pictures that load, captioned with their headlines, or the News mark, which opens the row. Without
+    /// pictures the rows keep their bullets.
+    func testDigestHeadlinePicturesOpenTheViewerApartFromTheirRows() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let window = makeKeyWindow(showing: UIViewController())
+        defer { window.isHidden = true }
+        let imageKeys = [1, 3].map { "https://example.invalid/digest-\($0)-\(UUID().uuidString).png" }
+        for key in imageKeys { try await ImageCache.default.store(makePicture(), forKey: key, toDisk: false) }
+        defer { for key in imageKeys { ImageCache.default.removeImage(forKey: key, fromDisk: false, completionHandler: nil) } }
+        let imageUrls = [imageKeys[0], nil, imageKeys[1], "invalid-news-image://4"]
+        let cell = AgentNewsDigestCardCell(frame: CGRect(x: 0, y: 0, width: 375, height: 700))
+        window.rootViewController?.view.addSubview(cell)
+        cell.configure(with: try makeDigest(imageUrls: imageUrls))
+        let view = try XCTUnwrap(findDescendants(of: cell).compactMap { $0 as? AgentNewsDigestHeadlinesView }.first)
+        var openedEventIds: [Int] = []
+        cell.headlineAction = { openedEventIds.append($0) }
+        try await waitUntil { view.thumbnails.allSatisfy { $0.isShowingPicture || $0.hasFailed } }
+        cell.layoutIfNeeded()
+
+        XCTAssertTrue(view.hasThumbnails)
+        XCTAssertEqual(view.thumbnails.map(\.headline.eventId), [1, 3, 4])
+        XCTAssertEqual(view.thumbnails.map(\.hasFailed), [false, false, true])
+        // The News mark stands in for the picture of a headline without one and of one whose picture fails
+        let rows = view.headlineButtons
+        let marks = rows.map { findDescendants(of: $0).compactMap { $0 as? AgentNewsIconView }.filter { !$0.isHidden }.count }
+        XCTAssertEqual(marks, [0, 1, 0, 1])
+        // Every headline's text stands 12 pt past its 40 pt square
+        XCTAssertEqual(findHeadlineLabels(in: view).map { $0.convert($0.bounds, to: view).minX }, [52, 52, 52, 52])
+        let picture = view.thumbnails[1].imageView
+        XCTAssertEqual(picture.convert(picture.bounds, to: view).size, CGSize(width: 40, height: 40))
+        XCTAssertEqual(picture.layer.cornerCurve, .continuous)
+
+        // A tap on a picture keeps to it, and one on the News mark opens the row
+        func hit(_ target: UIView) -> UIView? {
+            view.hitTest(target.convert(CGPoint(x: target.bounds.midX, y: target.bounds.midY), to: view), with: nil)
+        }
+        XCTAssertTrue(hit(view.thumbnails[1].button) === view.thumbnails[1].button)
+        let mark = try XCTUnwrap(findDescendants(of: rows[1]).compactMap { $0 as? AgentNewsIconView }.first)
+        let markTarget = try XCTUnwrap(hit(mark) as? UIControl)
+        XCTAssertTrue(markTarget === rows[1])
+        markTarget.sendActions(for: .touchUpInside)
+        XCTAssertEqual(openedEventIds, [2])
+
+        view.thumbnails[1].button.sendActions(for: .touchUpInside)
+        let viewer = try XCTUnwrap(window.subviews.compactMap { $0 as? MediaViewer }.first)
+        defer { viewer.removeFromSuperview() }
+        XCTAssertEqual(viewer.currentIndex, 1)
+        XCTAssertEqual(viewer.counterText, L10n.agentWalletPageIndicator(current: 2, total: 2))
+        // Each page is captioned with its own headline alone, without a news post's actions and sources
+        XCTAssertEqual(viewer.pictures.map(\.title), ["Headline 1", "Headline 3"])
+        XCTAssertEqual(viewer.pictures.map(\.url?.absoluteString), imageKeys)
+        XCTAssertEqual(viewer.pictures.map { $0.details?.caption?.string }, ["Headline 1", "Headline 3"])
+        XCTAssertTrue(viewer.pictures.allSatisfy { $0.details?.actions.isEmpty == true && $0.details?.menu == nil })
+        XCTAssertEqual(viewer.footerView.captionTextView.attributedText.string, "Headline 3")
+        XCTAssertTrue(viewer.footerView.leadingGroup.buttons.isEmpty)
+        XCTAssertTrue(viewer.footerView.trailingGroup.buttons.isEmpty)
+        XCTAssertTrue(viewer.headerView.menuGroup.isHidden)
+        XCTAssertEqual(openedEventIds, [2])
+
+        // A digest without pictures keeps its bullets
+        cell.prepareForReuse()
+        cell.configure(with: try makeDigest(imageUrls: [nil, nil]))
+        cell.layoutIfNeeded()
+        XCTAssertFalse(view.hasThumbnails)
+        XCTAssertTrue(view.thumbnails.isEmpty)
+        XCTAssertFalse(findDescendants(of: view).contains { $0 is AgentNewsIconView })
+        XCTAssertEqual(findHeadlineLabels(in: view).map { $0.convert($0.bounds, to: view).minX }, [16, 16])
+    }
+
+    /// VoiceOver opens a digest's picture once it has loaded through an action named after it and its headline: on the
+    /// feed card's row and among the actions of the digest's post, apart from opening the row
+    func testDigestPicturesOpenFromAccessibilityActionsOnceLoaded() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let window = makeKeyWindow(showing: UIViewController())
+        defer { window.isHidden = true }
+        let imageKeys = [1, 3].map { "https://example.invalid/digest-actions-\($0)-\(UUID().uuidString).png" }
+        for key in imageKeys { try await ImageCache.default.store(makePicture(), forKey: key, toDisk: false) }
+        defer { for key in imageKeys { ImageCache.default.removeImage(forKey: key, fromDisk: false, completionHandler: nil) } }
+        let digest = try makeDigest(imageUrls: [imageKeys[0], nil, imageKeys[1], "invalid-news-image://4"])
+        func pictureActionName(_ eventId: Int) -> String { "\(lang("Picture")), Headline \(eventId)" }
+        func findViewer() throws -> MediaViewer { try XCTUnwrap(window.subviews.compactMap { $0 as? MediaViewer }.first) }
+
+        let cell = AgentNewsDigestCardCell(frame: CGRect(x: 0, y: 0, width: 375, height: 700))
+        window.rootViewController?.view.addSubview(cell)
+        cell.configure(with: digest)
+        var openedEventIds: [Int] = []
+        cell.headlineAction = { openedEventIds.append($0) }
+        let view = try XCTUnwrap(findDescendants(of: cell).compactMap { $0 as? AgentNewsDigestHeadlinesView }.first)
+        try await waitUntil { view.thumbnails.allSatisfy { $0.isShowingPicture || $0.hasFailed } }
+        // Only the rows whose pictures loaded have the action
+        XCTAssertEqual(
+            view.headlineButtons.map { $0.accessibilityCustomActions?.map(\.name) ?? [] },
+            [[pictureActionName(1)], [], [pictureActionName(3)], []]
+        )
+        let rowAction = try XCTUnwrap(view.headlineButtons[2].accessibilityCustomActions?.first)
+        XCTAssertEqual(rowAction.actionHandler?(rowAction), true)
+        let viewer = try findViewer()
+        XCTAssertEqual(viewer.currentIndex, 1)
+        XCTAssertEqual(viewer.pictures.map(\.title), ["Headline 1", "Headline 3"])
+        viewer.removeFromSuperview()
+        XCTAssertEqual(openedEventIds, [])
+
+        let post = AgentNewsPostView()
+        window.rootViewController?.view.addSubview(post)
+        var openedFromPost: [Int] = []
+        post.onDigestHeadlineTap = { openedFromPost.append($0) }
+        post.configure(with: .init(digest: ApiAgentV2ThreadDigestCard(
+            id: digest.id, windowEnd: digest.deliveredAt, total: digest.total, top: digest.top
+        )), isHeaderVisible: true)
+        let postHeadlines = try XCTUnwrap(findDescendants(of: post).compactMap { $0 as? AgentNewsDigestHeadlinesView }.first)
+        try await waitUntil { postHeadlines.thumbnails.allSatisfy { $0.isShowingPicture || $0.hasFailed } }
+        let actions = post.accessibilityContentElement.accessibilityCustomActions ?? []
+        XCTAssertEqual(actions.map(\.name), [
+            lang("More actions"), "Headline 1", pictureActionName(1), "Headline 2", "Headline 3", pictureActionName(3), "Headline 4",
+        ])
+        let postAction = try XCTUnwrap(actions.first { $0.name == pictureActionName(1) })
+        XCTAssertEqual(postAction.actionHandler?(postAction), true)
+        let postViewer = try findViewer()
+        XCTAssertEqual(postViewer.currentIndex, 0)
+        XCTAssertEqual(postViewer.pictures.map(\.title), ["Headline 1", "Headline 3"])
+        postViewer.removeFromSuperview()
+        XCTAssertEqual(openedFromPost, [])
+    }
+
+    /// A news picture shows its post as Telegram's gallery shows a message: the date on the capsule, the headline and the
+    /// body as the caption, Share at the footer's leading end and Copy at its trailing one, and the post's sources in a
+    /// menu at the header's trailing end
     func testNewsPictureShowsItsPostAroundIt() async throws {
         let window = makeKeyWindow(showing: UIViewController())
         defer { window.isHidden = true }
         let item = makeNewsItem(7, imageURL: "invalid-news-image://7")
         let date = AgentV2DateParser.date(item.deliveredAt)
-        var openedSources: [Int] = []
+        var openedSources: [String] = []
+        let content = AgentNewsFeedCardCell.makeContent(for: item)
         let viewer = try XCTUnwrap(AgentNewsPictureViewer.present(
-            posts: [.init(content: AgentNewsFeedCardCell.makeContent(for: item), date: date, image: makePicture())],
+            posts: [.init(content: content, date: date, image: makePicture(), locale: "en")],
             index: 0,
             in: window,
             openSource: { openedSources.append($0) },
@@ -760,17 +889,27 @@ final class AgentMediaViewerTests: XCTestCase {
         let caption = viewer.footerView.captionTextView.attributedText.string
         XCTAssertEqual(caption, "Headline 7\nNews body 7.")
         XCTAssertEqual(viewer.footerView.leadingGroup.buttons.map(\.accessibilityLabel), [lang("Share")])
-        XCTAssertEqual(
-            viewer.footerView.trailingGroup.buttons.map(\.accessibilityLabel),
-            [lang("$agent_news_open_source"), lang("Copy")]
-        )
+        XCTAssertEqual(viewer.footerView.trailingGroup.buttons.map(\.accessibilityLabel), [lang("Copy")])
         XCTAssertNil(viewer.counterText)
+        let header = viewer.headerView
+        XCTAssertFalse(header.menuGroup.isHidden)
+        XCTAssertEqual(header.menuGroup.buttons.map(\.accessibilityLabel), [lang("$agent_news_sources")])
+        viewer.layoutIfNeeded()
+        let menuFrame = header.convert(header.menuGroup.frame, to: viewer)
+        XCTAssertEqual(menuFrame.maxX, viewer.bounds.width - viewer.safeAreaInsets.right - 16, accuracy: 0.5)
+        XCTAssertEqual(menuFrame.minY, header.convert(header.backGroup.frame, to: viewer).minY, accuracy: 0.5)
 
-        // Open Source leaves the viewer for the source
+        // The menu lists the sources; one opens its link as the viewer fades
+        let configuration = try XCTUnwrap(header.makeMenuConfiguration?())
+        let actions = configuration.rootPage.items.compactMap { item -> ContextMenuAction? in
+            if case .action(let action) = item { return action }
+            return nil
+        }
+        XCTAssertEqual(actions.map(\.title), content.sources.map(\.name))
         var isClosed = false
         viewer.onClose = { isClosed = true }
-        viewer.footerView.trailingGroup.performAction(at: 0)
-        XCTAssertEqual(openedSources, [0])
+        try XCTUnwrap(actions.first?.handler)()
+        XCTAssertEqual(openedSources, [try XCTUnwrap(content.sources.first?.url)])
         try await waitUntil { isClosed && viewer.superview == nil }
     }
 
@@ -829,6 +968,23 @@ final class AgentMediaViewerTests: XCTestCase {
         let taps = recognizers.compactMap { $0 as? UITapGestureRecognizer }
         XCTAssertEqual(taps.count, 1)
         XCTAssertEqual(taps.first?.numberOfTouchesRequired, 1)
+    }
+
+    private func findHeadlineLabels(in view: AgentNewsDigestHeadlinesView) -> [UILabel] {
+        view.headlineButtons.compactMap { row in
+            findDescendants(of: row).compactMap { $0 as? UILabel }.first { $0.text == row.accessibilityLabel }
+        }
+    }
+
+    private func makeDigest(imageUrls: [String?]) throws -> ApiAgentV2NewsFeedDigest {
+        let top = imageUrls.enumerated().map { index, imageUrl -> [String: Any] in
+            var headline: [String: Any] = ["eventId": index + 1, "headline": "Headline \(index + 1)"]
+            headline["imageUrl"] = imageUrl
+            return headline
+        }
+        return try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: JSONSerialization.data(withJSONObject: [
+            "id": "en:2026-11-08T18:00:00.000Z", "deliveredAt": "2026-11-08T18:00:00.000Z", "total": top.count, "top": top,
+        ]))
     }
 
     private func waitUntil(_ condition: () -> Bool) async throws {

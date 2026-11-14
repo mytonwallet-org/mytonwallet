@@ -103,7 +103,7 @@ class SendTokenVC(context: Context, private val selectedChain: MBlockchain? = nu
     }
 
     private val searchContainer = WFrameLayout(context)
-    private val searchEditText = WSearchEditText(context)
+    private val searchEditText = WSearchEditText(context).apply { id = R.id.token_picker_search }
     private var query: String? = null
 
     override fun setupViews() {

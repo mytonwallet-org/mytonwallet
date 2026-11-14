@@ -48,7 +48,7 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
     /// Whether a tap has hidden the bars
     public private(set) var isChromeHidden = false
 
-    private let pictures: [Picture]
+    let pictures: [Picture]
     private let sourceProvider: SourceProvider
     private let pagerView = UIScrollView()
     private var pages: [Int: Page] = [:]
@@ -272,6 +272,7 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
     private func updateChromeContent(direction: MediaViewerAnimatedLabel.Direction, animated: Bool) {
         let details = pictures[currentIndex].details
         headerView.configure(counter: counterText, date: details?.date, direction: direction, animated: animated)
+        headerView.configureMenu(details?.menu)
         footerView.configure(with: details)
         setNeedsLayout()
     }
@@ -492,6 +493,30 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
             self.flightHostView.layer.mask = nil
         }
     }
+
+    /// Closes the viewer for a screen that opens over the list: it fades out as that screen comes in, without its
+    /// picture flying back into the list
+    public func closeFading() {
+        guard !isClosing else { return }
+        isClosing = true
+        hiddenSource?.alpha = 1
+        let finish = { [weak self] in
+            guard let self else { return }
+            self.removeSurfaceCopy()
+            self.removeFromSuperview()
+            self.onClose?()
+        }
+        guard !UIAccessibility.isReduceMotionEnabled else {
+            finish()
+            return
+        }
+        UIView.animate(withDuration: Self.fadingCloseDuration, delay: 0, options: [.beginFromCurrentState, .curveEaseOut]) {
+            self.alpha = 0
+        } completion: { _ in finish() }
+    }
+
+    /// As long as the in-app browser takes to come up over the list
+    private static let fadingCloseDuration: TimeInterval = 0.35
 
     /// Closes the viewer, into the list's picture of the current page while it is on screen
     public func close(throwingBy velocityY: CGFloat = 0) {

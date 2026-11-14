@@ -23,6 +23,16 @@ interface IApiToken {
     val label: String?
         get() = null
 
+    /** Backend/display fractional digits for the token amount; absent means derive or default. */
+    val precision: Int?
+        get() = null
+
+    val amountPrecision: Int
+        get() = org.mytonwallet.app_air.walletbasecontext.utils.AssetPrecision.amountPrecision(
+            precision,
+            null
+        )
+
     val mBlockchain
         get() = chain?.let { MBlockchain.valueOfOrNull(it) }
 
@@ -89,9 +99,16 @@ data class ApiTokenWithPrice(
     val customPayloadApiUrl: String? = null,
     val codeHash: String? = null,
     override val label: String? = null,
+    override val precision: Int? = null,
     val priceUsd: Double?,
     val percentChange24h: Double?
 ) : IApiToken {
+
+    override val amountPrecision: Int
+        get() = org.mytonwallet.app_air.walletbasecontext.utils.AssetPrecision.amountPrecision(
+            precision,
+            priceUsd
+        )
 
     val price: Double?
         get() {

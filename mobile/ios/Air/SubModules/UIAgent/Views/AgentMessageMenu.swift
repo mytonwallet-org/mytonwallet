@@ -15,6 +15,8 @@ enum AgentMessageMenu {
         style.maxWidth = 250
         style.sourceSpacing = 7
         style.horizontalAlignment = isCentered ? .center : isOutgoing ? .trailing : .leading
+        // Rows without an icon, as a news post's sources, start under the separator's start
+        style.alignsPlainTitlesWithSeparators = true
         return style
     }
 

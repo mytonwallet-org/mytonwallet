@@ -2,7 +2,8 @@ import type { LangCode } from '../../global/types';
 import type {
   ApiPerpsActivityPageRequest, ApiPerpsBuildWithdrawalRequest, ApiPerpsEstimatePositionRequest,
   ApiPerpsExecutePositionResult, ApiPerpsGetPositionsResult, ApiPerpsLimits, ApiPerpsListedAsset, ApiPerpsMarketAsset,
-  ApiPerpsOpenPositionRequest, ApiPerpsPositionSide, ApiPerpsWithdrawPermit, ApiPriceHistoryPeriod, OnApiUpdate,
+  ApiPerpsOpenPositionRequest, ApiPerpsPositionSide, ApiPerpsTradeActivity, ApiPerpsWithdrawPermit,
+  ApiPriceHistoryPeriod, OnApiUpdate,
 } from '../types';
 import type {
   ApiPerpsAccountPosition,
@@ -24,6 +25,7 @@ import { parseAccountId } from '../../util/account';
 import { getChainConfig } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { logDebugError } from '../../util/logs';
+import { pause } from '../../util/schedulers';
 import withCacheAsync from '../../util/withCacheAsync';
 import { chains } from '../chains';
 import {
@@ -37,6 +39,8 @@ import {
   PERPS_BALANCE_WITHDRAWAL_ASSET_ID,
   PERPS_CCTP_DEPOSIT_CHAIN,
   PERPS_CCTP_FORWARD_FEE_USDC,
+  PERPS_TRADE_LOOKUP_INTERVAL_MS,
+  PERPS_TRADE_WINDOW_MS,
 } from '../common/perps';
 import { normalizePerpsActivityPage } from '../common/perpsActivities';
 import { getPerpsAssetsFetchedAt } from '../common/perpsAssets';
@@ -91,6 +95,17 @@ import {
   initPerpsPositions,
   requestPerpsPositionsRefresh,
 } from './perpsPositions';
+
+/** The backend's largest page. The window an operation's trade falls in holds far fewer trades. */
+const PERPS_TRADE_LOOKUP_PAGE_SIZE = 100;
+/**
+ * Trade times come from Hyperliquid's clock and an operation's window from the device's. A trade this close outside
+ * the window still keeps the operation from being settled as not placed.
+ */
+const PERPS_TRADE_CLOCK_MARGIN_MS = 2 * 60_000;
+
+/** An operation's trade, or `'notPlaced'` once its window has closed without one. */
+type PerpsOperationTrade = ApiPerpsTradeActivity | 'notPlaced';
 
 const quotes = new Map<string, ApiPerpsQuote>();
 const balanceAccountIds = new Set<string>();
@@ -656,7 +671,7 @@ export async function perpsExecuteReviewedOrder(
   }
   if (quote.kind === 'unchanged') throw new Error('PerpsUnchanged');
   if (hasUnresolvedOperation(accountId, quote)) throw new Error('PerpsOperationPending');
-  await wallet(accountId, true);
+  const { address } = await wallet(accountId, true);
   // Recheck after wallet resolution: another account may have claimed this operation ID.
   const concurrent = readExistingOperation(accountId, operationId);
   if (concurrent) return concurrent;
@@ -698,7 +713,6 @@ export async function perpsExecuteReviewedOrder(
     if (!availability.isAvailable) throw new Error(availability.reason);
     if (quote.wireAssetIndex !== getPerpsWireAssetIndex(asset)) throw new Error('PerpsReviewChanged');
     assertPerpsBalanceCovers(quote, asset, readPerpsSpendableUsdc(snapshot.spendableUsdcByDex, asset.dex));
-    let submittedOrderSize: string | undefined;
     const hooks = {
       validateBuild: (build: Parameters<typeof validatePerpsReviewedBuild>[2]) => {
         validatePerpsReviewedBuild(quote, asset, build);
@@ -709,7 +723,7 @@ export async function perpsExecuteReviewedOrder(
           throw new Error('PerpsReviewChanged');
         }
         const orders = build.action?.orders;
-        if (Array.isArray(orders) && typeof orders[0]?.s === 'string') submittedOrderSize = orders[0].s;
+        if (Array.isArray(orders) && typeof orders[0]?.s === 'string') operation.submittedOrderSize = orders[0].s;
       },
       onSubmitting: () => {
         started = true;
@@ -763,8 +777,7 @@ export async function perpsExecuteReviewedOrder(
         ? 'completed'
         : 'unknown';
     }
-    if (!operation.error && operation.filledSize && submittedOrderSize
-      && Big(operation.filledSize).lt(submittedOrderSize)) {
+    if (!operation.error && isPerpsPartialFill(operation, operation.filledSize)) {
       operation.error = 'PerpsPartialFill';
     }
     operation.stage = 'finished';
@@ -774,10 +787,21 @@ export async function perpsExecuteReviewedOrder(
       : error instanceof Error ? error.message : String(error);
     const signatureRejected = isRejectedExchangeSignature(operation);
     // A rejected order that deposits nothing moved no funds. Deposits and uncertain withdrawals still need recovery.
-    operation.state = !started || signatureRejected
+    const state = !started || signatureRejected
       || (rejected && !depositsFromWallet && operation.stage !== 'withdrawal') ? 'failed' : 'unknown';
     if (signatureRejected) operation.error = `PerpsOrderRejected: ${operation.error}`;
-    if (operation.state === 'failed' && started) operation.stage = 'finished';
+    // The backend carries on with an order whose request a proxy ended, so its trade decides the outcome.
+    const trade = state === 'unknown' && (quote.kind === 'open' || quote.kind === 'increase')
+      && isPerpsRequestInTransit(error)
+      ? await waitForPerpsOperationTrade(address, operation, quote.side)
+      : undefined;
+    if (trade === 'notPlaced') {
+      settlePerpsOperationAsNotPlaced(operation);
+    } else if (!trade || !completePerpsOperationWithTrade(operation, trade)) {
+      operation.state = state;
+      if (state === 'failed' && started) operation.stage = 'finished';
+      logDebugError('perpsExecuteReviewedOrder', operation.kind, state, operation.error, operation.orderStatus);
+    }
   } finally {
     publishOperation(operation);
     balanceRefreshRequests.runCallbacks(accountId, 'arbitrum');
@@ -786,13 +810,17 @@ export async function perpsExecuteReviewedOrder(
   return { ...operation };
 }
 
-/** Read-only recovery; absence of an order ID never authorizes an automatic retry. */
+/**
+ * Read-only recovery; absence of an order ID never authorizes an automatic retry. An unknown open or increase
+ * completes once its trade appears in the account's activity, or fails once its window closed without one. Any other
+ * uncertain outcome stays unresolved.
+ */
 export async function perpsReconcileOperation(
   accountId: string,
   saved: ApiPerpsOperation,
 ): Promise<ApiPerpsOperation> {
   if (saved.accountId !== accountId) throw new Error('PerpsInvalidOperation');
-  await wallet(accountId);
+  const { address } = await wallet(accountId);
   const operation = operations.get(saved.id) ?? {
     ...saved,
     state: saved.state === 'running' ? ('unknown' as const) : saved.state,
@@ -802,7 +830,20 @@ export async function perpsReconcileOperation(
   }
   if (operation.state === 'running') return { ...operation };
   operations.set(operation.id, operation);
-  // Restore the lock, but leave uncertain outcomes unresolved until backend reconciliation exists.
+  if (operation.state === 'unknown' && (operation.kind === 'open' || operation.kind === 'increase')) {
+    const trade = await findPerpsOperationTrade(address, operation).catch((err: unknown) => {
+      logDebugError('perpsReconcileOperation', err);
+      return undefined;
+    });
+    // Another reconciliation can have settled the record, or the user acknowledged it, during the read.
+    if (trade === 'notPlaced' && operation.state === 'unknown') {
+      settlePerpsOperationAsNotPlaced(operation);
+      requestPerpsPositionsRefresh(accountId);
+    } else if (trade && trade !== 'notPlaced' && operation.state === 'unknown'
+      && completePerpsOperationWithTrade(operation, trade)) {
+      requestPerpsPositionsRefresh(accountId);
+    }
+  }
   return { ...operation };
 }
 
@@ -819,7 +860,111 @@ export async function perpsAcknowledgeOperation(
   if (operation.state === 'running' || operation.state === 'partial') throw new Error('PerpsOperationPending');
   if (operation.state === 'unknown') operation.acknowledgedAt ??= Date.now();
   operations.set(operation.id, operation);
+  // The original order may have changed the positions since they were last read.
+  requestPerpsPositionsRefresh(accountId);
   return { ...operation };
+}
+
+/** A request that failed on its way, which the backend may still be carrying out. */
+function isPerpsRequestInTransit(error: unknown): boolean {
+  if (error instanceof ApiServerError) {
+    return error.statusCode === undefined || [408, 502, 503, 504].includes(error.statusCode);
+  }
+  return error instanceof TypeError || (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name));
+}
+
+/** Looks for the trade of an open or increase until it is found or its window has closed. */
+async function waitForPerpsOperationTrade(
+  address: string, operation: ApiPerpsOperation, side: ApiPerpsPositionSide,
+): Promise<PerpsOperationTrade | undefined> {
+  while (true) {
+    const isLastRead = Date.now() > operation.createdAt + PERPS_TRADE_WINDOW_MS;
+    const trade = await findPerpsOperationTrade(address, operation, side).catch((err: unknown) => {
+      logDebugError('waitForPerpsOperationTrade', err);
+      return undefined;
+    });
+    if (trade || isLastRead) return trade;
+    await pause(PERPS_TRADE_LOOKUP_INTERVAL_MS);
+  }
+}
+
+/**
+ * The trade an open or increase placed: the one with its order ID when that is known, otherwise the earliest trade of
+ * its kind in its market that `isPerpsTradeAvailableTo` allows. `'notPlaced'` when an operation without an order ID
+ * has a closed window and no trade that could be its own, even allowing for clock differences. Undefined while unclear.
+ */
+async function findPerpsOperationTrade(
+  address: string, operation: ApiPerpsOperation, side?: ApiPerpsPositionSide,
+): Promise<PerpsOperationTrade | undefined> {
+  const windowEnd = operation.createdAt + PERPS_TRADE_WINDOW_MS;
+  const response = await perpsGetActivities({
+    addressByChain: { hyperliquid: address },
+    startTime: Math.max(0, operation.createdAt - PERPS_TRADE_CLOCK_MARGIN_MS),
+    endTime: windowEnd + PERPS_TRADE_CLOCK_MARGIN_MS,
+    limit: PERPS_TRADE_LOOKUP_PAGE_SIZE,
+  });
+  const snapshot = response.activitiesByChain.hyperliquid;
+  if (!snapshot || snapshot.address?.toLowerCase() !== address.toLowerCase() || !Array.isArray(snapshot.activities)) {
+    throw new Error('PerpsIncompleteData');
+  }
+  // A full page can leave out the trade
+  if (snapshot.nextCursor) return undefined;
+  const candidates = snapshot.activities.filter((trade) => trade.assetId === operation.assetId
+    && trade.kind === operation.kind && (side === undefined || trade.side === side)
+    && isPerpsTradeUnclaimed(operation, trade));
+  const trade = candidates.filter((candidate) => isPerpsTradeAvailableTo(operation, candidate))
+    .sort((a, b) => a.timestamp - b.timestamp)[0];
+  if (trade) return trade;
+  return operation.orderId === undefined && !candidates.length && Date.now() > windowEnd ? 'notPlaced' : undefined;
+}
+
+/**
+ * Whether `trade` can be the one `operation` placed: made within its window and claimed by no other operation. Trading
+ * stays locked from the operation's start until it settles or the user acknowledges it, so no other order of this app
+ * can have made a trade in that window, even when the operation that did is not restored.
+ */
+function isPerpsTradeAvailableTo(operation: ApiPerpsOperation, trade: ApiPerpsTradeActivity): boolean {
+  return isPerpsTradeUnclaimed(operation, trade)
+    && trade.timestamp >= operation.createdAt && trade.timestamp <= getPerpsTradeWindowEnd(operation);
+}
+
+function isPerpsTradeUnclaimed(operation: ApiPerpsOperation, trade: ApiPerpsTradeActivity): boolean {
+  return trade.orderId !== undefined
+    && (operation.orderId === undefined || trade.orderId === operation.orderId)
+    && ![...operations.values()].some((other) => other.id !== operation.id && other.orderId === trade.orderId);
+}
+
+/** The window ends `PERPS_TRADE_WINDOW_MS` after the start, or at an acknowledgement, after which other orders follow. */
+function getPerpsTradeWindowEnd(operation: ApiPerpsOperation): number {
+  const end = operation.createdAt + PERPS_TRADE_WINDOW_MS;
+  return operation.acknowledgedAt === undefined ? end : Math.min(end, operation.acknowledgedAt);
+}
+
+/** The backend gives up on an order once its window has passed, so one with no trade by then was never placed. */
+function settlePerpsOperationAsNotPlaced(operation: ApiPerpsOperation) {
+  operation.state = 'failed';
+  operation.stage = 'finished';
+  operation.error = 'PerpsOrderNotPlaced';
+}
+
+/**
+ * Completes an open or increase with its trade unless another operation claimed the trade or the user acknowledged
+ * the operation before it was made, both of which can happen while the trade is read. Returns whether it completed.
+ */
+function completePerpsOperationWithTrade(operation: ApiPerpsOperation, trade: ApiPerpsTradeActivity): boolean {
+  if (!isPerpsTradeAvailableTo(operation, trade)) return false;
+  operation.orderId = trade.orderId;
+  operation.orderStatus = 'filled';
+  operation.filledSize = trade.size ?? operation.filledSize;
+  operation.positionSize = (trade.kind === 'open' ? trade.size : trade.positionSizeAfter) ?? operation.positionSize;
+  operation.state = 'completed';
+  operation.stage = 'finished';
+  operation.error = isPerpsPartialFill(operation, operation.filledSize) ? 'PerpsPartialFill' : undefined;
+  return true;
+}
+
+function isPerpsPartialFill(operation: ApiPerpsOperation, filledSize?: string): boolean {
+  return Boolean(filledSize && operation.submittedOrderSize && Big(filledSize).lt(operation.submittedOrderSize));
 }
 
 function hasRunningOperation(accountId: string): boolean {

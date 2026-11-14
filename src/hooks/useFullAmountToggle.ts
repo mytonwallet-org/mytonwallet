@@ -1,3 +1,4 @@
+import { DEFAULT_ASSET_AMOUNT_PRECISION } from '../util/assetPrecision';
 import { formatNumber } from '../util/formatNumber';
 import useFlag from './useFlag';
 import useLastCallback from './useLastCallback';
@@ -6,12 +7,16 @@ import useLastCallback from './useLastCallback';
  * Splits an amount into its whole and fraction parts, rounded to a short form by default. A click on the amount
  * switches it to the full precision of the token and back.
  */
-export default function useFullAmountToggle(value: string, decimals: number) {
+export default function useFullAmountToggle(
+  value: string,
+  decimals: number,
+  fractionDigits = DEFAULT_ASSET_AMOUNT_PRECISION,
+) {
   const [isFullAmount, showFullAmount, hideFullAmount] = useFlag();
 
   const [wholePart, fractionPart] = (isFullAmount
     ? formatNumber(value, decimals, undefined, true)
-    : formatNumber(value)
+    : formatNumber(value, fractionDigits)
   ).split('.');
 
   // The mask reveal takes the first tap, so the full amount comes on the second one, and the third one

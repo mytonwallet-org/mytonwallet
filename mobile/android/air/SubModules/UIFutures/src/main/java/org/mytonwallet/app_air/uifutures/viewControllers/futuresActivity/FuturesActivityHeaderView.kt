@@ -26,12 +26,13 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsListedAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsSide
 
 @SuppressLint("ViewConstructor")
 class FuturesActivityHeaderView(
     context: Context,
-    image: String?,
+    asset: MApiPerpsListedAsset?,
     private val side: MApiPerpsSide,
     badgeText: String,
     private val amount: Double,
@@ -78,7 +79,7 @@ class FuturesActivityHeaderView(
             toCenterX(amountView)
             toBottom(amountView)
         }
-        image?.let { iconView.set(Content.ofUrl(it)) }
+        asset?.image?.let { iconView.set(Content.ofUrl(it, asset.isRwaStock)) }
         updateTheme()
     }
 

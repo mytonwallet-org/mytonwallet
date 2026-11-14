@@ -31,6 +31,11 @@ type OwnProps = {
   maxHeight?: string;
   noScrollRestore?: boolean;
   noScrollRestoreOnTop?: boolean;
+  /**
+   * The scroll restore keeps the first item in sight where it stood, so that items changing below it move nothing on
+   * screen, rather than the item at the edge the list last scrolled to
+   */
+  shouldRestoreByShownItem?: boolean;
   noFastList?: boolean;
   cacheBuster?: any;
   beforeChildren?: TeactNode;
@@ -67,6 +72,7 @@ const InfiniteScroll: FC<OwnProps> = ({
   // Used to turn off restoring scroll position (e.g. for frequently re-ordered chat or user lists)
   noScrollRestore = false,
   noScrollRestoreOnTop = false,
+  shouldRestoreByShownItem = false,
   noFastList,
   // Used to re-query `listItemElements` if rendering is delayed by transition
   cacheBuster,
@@ -93,6 +99,10 @@ const InfiniteScroll: FC<OwnProps> = ({
     currentAnchorTop?: number;
     /** The scroll `currentAnchorTop` was measured at */
     currentAnchorScrollTop?: number;
+    /** The first item in sight, with `shouldRestoreByShownItem` */
+    shownItem?: HTMLDivElement;
+    /** Where `shownItem` stands in the scrolled content, which a scroll leaves as it is */
+    shownItemOffset?: number;
     lastScrollTop?: number;
     wheelDirection?: ScrollDirection;
     wheelDirectionResetTimer?: ReturnType<typeof setTimeout>;
@@ -181,18 +191,16 @@ const InfiniteScroll: FC<OwnProps> = ({
     requestForcedReflow(() => {
       let newScrollTop: number | undefined;
       let newAnchorTop: number | undefined;
+      const items = Array.from(listItemElements);
 
-      if (state.currentAnchor && Array.from(listItemElements).includes(state.currentAnchor)) {
+      if (state.currentAnchor && items.includes(state.currentAnchor)) {
         const { scrollTop } = scrollContainer;
         newAnchorTop = state.currentAnchor.getBoundingClientRect().top;
-        // An anchor measured at another scroll, one that has not reached the scroll handler yet or one the change made
-        // by shortening the list, tells no place to keep the items at. They stay where they are, and it is measured again.
-        if (state.currentAnchorScrollTop === undefined || scrollTop === state.currentAnchorScrollTop) {
-          newScrollTop = scrollTop + (newAnchorTop - state.currentAnchorTop!);
-        } else {
-          state.currentAnchorTop = newAnchorTop;
-          state.currentAnchorScrollTop = scrollTop;
-        }
+        // A scroll since the anchor was measured, one whose event has not come yet or one a shorter list forced,
+        // moves the anchor on screen by the distance scrolled. The rest of its shift comes from the change, which the
+        // restore undoes.
+        const scrolledDistance = scrollTop - state.currentAnchorScrollTop!;
+        newScrollTop = scrollTop + (newAnchorTop - (state.currentAnchorTop! - scrolledDistance));
       } else {
         const nextAnchor = listItemElements[0];
         if (nextAnchor) {
@@ -202,7 +210,16 @@ const InfiniteScroll: FC<OwnProps> = ({
         }
       }
 
+      const { shownItem } = state;
+      if (shouldRestoreByShownItem && shownItem && items.includes(shownItem)) {
+        const shownItemOffset = getScrollSpaceTop(shownItem, scrollContainer);
+        newScrollTop = scrollContainer.scrollTop + (shownItemOffset - state.shownItemOffset!);
+        state.shownItemOffset = shownItemOffset;
+      }
+
       if (withAbsolutePositioning || noScrollRestore) {
+        // The next restore keeps in place the item in sight now, wherever the items changed meanwhile have moved it
+        if (shouldRestoreByShownItem) rememberShownItem(scrollContainer);
         return undefined;
       }
 
@@ -225,10 +242,23 @@ const InfiniteScroll: FC<OwnProps> = ({
     });
   }, [
     items, itemSelector, noScrollRestore, noScrollRestoreOnTop, cacheBuster, withAbsolutePositioning,
-    scrollContainerClosest, shouldTrackScrollDirection,
+    scrollContainerClosest, shouldTrackScrollDirection, shouldRestoreByShownItem,
   ]);
 
+  const rememberShownItem = useLastCallback((scrollContainer: HTMLDivElement) => {
+    const state = stateRef.current;
+    const shownItem = state.listItemElements && findFirstShownItem(state.listItemElements, scrollContainer);
+    state.shownItem = shownItem;
+    state.shownItemOffset = shownItem && getScrollSpaceTop(shownItem, scrollContainer);
+  });
+
   const handleScroll = useLastCallback((e: UIEvent<HTMLDivElement>) => {
+    if (shouldRestoreByShownItem) {
+      rememberShownItem(scrollContainerClosest
+        ? containerRef.current!.closest<HTMLDivElement>(scrollContainerClosest)!
+        : containerRef.current!);
+    }
+
     if (loadMoreForwards && loadMoreBackwards) {
       const state = stateRef.current;
       const {
@@ -418,4 +448,23 @@ export default InfiniteScroll;
  */
 function getScrollSpaceTop(element: HTMLElement, scrollContainer: HTMLElement) {
   return element.getBoundingClientRect().top - scrollContainer.getBoundingClientRect().top + scrollContainer.scrollTop;
+}
+
+/** The first of the items, which stand in order down the list, that reaches below the container's top, or the last */
+function findFirstShownItem(items: NodeListOf<HTMLDivElement>, scrollContainer: HTMLElement) {
+  if (!items.length) return undefined;
+
+  const { top } = scrollContainer.getBoundingClientRect();
+  let low = 0;
+  let high = items.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (items[middle].getBoundingClientRect().bottom > top) {
+      high = middle;
+    } else {
+      low = middle + 1;
+    }
+  }
+
+  return items[low];
 }

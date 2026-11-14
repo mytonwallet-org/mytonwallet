@@ -35,6 +35,108 @@ final class AgentThreadListUITests: XCTestCase {
         }
     }
 
+    func testThreadCellLabelsAChatWithSupportBeforeItsPreview() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let cell = AgentThreadCell(frame: CGRect(x: 0, y: 0, width: 402, height: 88))
+        let supportLabel = lang("$agent_support_label")
+        let cases: [(ApiAgentV2ThreadSupport.State?, AgentSupportPresentation.LabelStyle?)] = [
+            (.operator, .active), (.waiting, .muted), (.closed, nil), (nil, nil)
+        ]
+
+        for (state, style) in cases {
+            cell.configure(with: try makeThreadListItem(
+                title: "Transfer", preview: "Where is my transfer?", support: state.map { .init(state: $0) }
+            ))
+
+            XCTAssertEqual(cell.supportLabelStyle, style)
+            XCTAssertEqual(cell.supportLabelView.isHidden, style == nil)
+            XCTAssertEqual(
+                cell.accessibilityLabel?.hasPrefix("Transfer, \(supportLabel), Where is my transfer?"),
+                style != nil
+            )
+        }
+    }
+
+    /// Contact Support confirmed before consent waits for the server's chats; opening News meanwhile drops it, so no
+    /// support chat comes over the screen the user went to
+    func testContactSupportWaitingForTheChatsIsDroppedOnceTheListIsLeft() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.heldResponseCount = 1
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        var hasConsent = false
+        var sheets: [UIAlertController] = []
+        var supportChatCount = 0
+        let newsFeed = UIViewController()
+        let controller = AgentThreadListVC(
+            model: model,
+            loadConsent: { hasConsent },
+            acceptConsent: { hasConsent = true },
+            makeThreadChat: { _, _ in UIViewController() },
+            makeNewChat: { _ in UIViewController() },
+            makeSupportChat: {
+                supportChatCount += 1
+                return UIViewController()
+            },
+            hasWalletAccount: { true },
+            presentConfirmation: { alert, _ in sheets.append(alert) },
+            makeNewsFeed: { _ in newsFeed },
+            loadSuggestions: { [] }
+        )
+        let navigation = ThreadListTestNavigationController(rootViewController: controller)
+        let window = makeKeyWindow(showing: navigation)
+        defer { window.isHidden = true }
+        let suggestions = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentHintsSectionView }.first)
+        try await waitUntil { self.descendants(suggestions).contains { $0.accessibilityIdentifier == "agent_support_hint" } }
+        let support = try XCTUnwrap(descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }.last)
+        support.sendActions(for: .touchUpInside)
+        performAlertAction(titled: lang("$agent_support_confirm_action"), in: try XCTUnwrap(sheets.last))
+        let sheet = try await waitForConsentSheet(over: controller, in: self)
+        sheet.consentView.onContinue?()
+        try await waitUntil { client.pendingResponse != nil && presentation.presentedViewController(of: controller) == nil }
+
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        controller.collectionView(collection, didSelectItemAt: IndexPath(item: 0, section: 0))
+        try await waitUntil { navigation.topViewController === newsFeed }
+        client.pendingResponse?.resume(returning: client.response)
+        client.pendingResponse = nil
+        try await waitUntil { model.serverListState == .loaded }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(supportChatCount, 0)
+        XCTAssertTrue(navigation.topViewController === newsFeed)
+    }
+
+    func testContactSupportHintShowsBeforeTheSuggestionsLoad() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let model = AgentThreadListModel(client: try ThreadListUIClient(), newsClient: ThreadListNewsClient())
+        let hint = AgentHint(id: "hint:0", title: "Suggestion", subtitle: "Learn", prompt: "Tell me the news")
+        var pendingSuggestions: CheckedContinuation<[AgentHint], Never>?
+        let controller = AgentThreadListVC(
+            model: model,
+            loadConsent: { false },
+            acceptConsent: {},
+            loadSuggestions: { await withCheckedContinuation { pendingSuggestions = $0 } }
+        )
+        let window = makeKeyWindow(showing: ThreadListTestNavigationController(rootViewController: controller))
+        defer {
+            pendingSuggestions?.resume(returning: [])
+            window.isHidden = true
+        }
+        let suggestions = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentHintsSectionView }.first)
+        func titles() -> [String?] {
+            descendants(suggestions).compactMap { ($0 as? AgentSuggestionButton)?.accessibilityLabel }
+        }
+
+        // Contact Support shows while the suggestions load, and they come before it
+        try await waitUntil { pendingSuggestions != nil }
+        XCTAssertEqual(titles(), [lang("$agent_support_contact")])
+        pendingSuggestions?.resume(returning: [hint])
+        pendingSuggestions = nil
+        try await waitUntil { titles().count == 2 }
+        XCTAssertEqual(titles(), ["Suggestion", lang("$agent_support_contact")])
+    }
+
     func testEmptyThreadCellShowsNewChatWithoutPreview() throws {
         _ = WalletResourcesBundle.bundle.load()
         let cell = AgentThreadCell(frame: CGRect(x: 0, y: 0, width: 402, height: 88))
@@ -259,6 +361,45 @@ final class AgentThreadListUITests: XCTestCase {
         XCTAssertEqual(openedSummaryKinds, [true, false])
     }
 
+    /// A toast, such as the denied microphone's, stands above the question field, as the chat's toasts stand above its
+    /// composer
+    func testToastStandsAboveTheQuestionField() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let model = AgentThreadListModel(client: try ThreadListUIClient(), newsClient: ThreadListNewsClient())
+        let controller = AgentThreadListVC(model: model, loadConsent: { false }, acceptConsent: {}, loadSuggestions: { [] })
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = ThreadListTestNavigationController(rootViewController: controller)
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        window.layoutIfNeeded()
+
+        controller.showToast(ToastConfig(style: .overlay, message: "Toast", duration: 5, transition: .scale))
+        let toastView = try XCTUnwrap(controller.view.subviews.compactMap { $0 as? ToastView }.first)
+        controller.view.layoutIfNeeded()
+        let fieldTop = controller.bottomBar.convert(controller.bottomBar.fieldFrame, to: controller.view).minY
+        XCTAssertEqual(toastView.frame.maxY, fieldTop - AgentVCLayout.toastSpacingToComposer, accuracy: 0.5)
+    }
+
+    /// While the root that hosts the question field has it away from the list's window, a toast rests above the safe
+    /// area instead of on the field
+    func testToastRestsAboveTheSafeAreaWhileTheHostedFieldIsAway() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let model = AgentThreadListModel(client: try ThreadListUIClient(), newsClient: ThreadListNewsClient())
+        let controller = AgentThreadListVC(model: model, loadConsent: { false }, acceptConsent: {}, loadSuggestions: { [] })
+        controller.setBottomBarHostedExternally(true)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = ThreadListTestNavigationController(rootViewController: controller)
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        window.layoutIfNeeded()
+        XCTAssertNil(controller.bottomBar.window)
+
+        controller.showToast(ToastConfig(style: .overlay, message: "Toast", duration: 5, transition: .scale))
+        let toastView = try XCTUnwrap(controller.view.subviews.compactMap { $0 as? ToastView }.first)
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(toastView.frame.maxY, controller.view.safeAreaLayoutGuide.layoutFrame.maxY - 12, accuracy: 0.5)
+    }
+
     func testListSelectionAndNewQuestionShareNavigation() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let client = try ThreadListUIClient()
@@ -374,6 +515,39 @@ final class AgentThreadListUITests: XCTestCase {
         try await waitUntil { model.items.count == 1 }
 
         XCTAssertEqual(consentLoads, 2)
+    }
+
+    /// The top tabs mount the list into a hidden page before it is chosen, already in the window: there it loads News
+    /// once, and the refresh timer runs only while the list is on screen
+    func testListPreparedOutOfSightRefreshesOnlyWhileOnScreen() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let newsClient = ThreadListNewsClient()
+        let list = AgentThreadListVC(
+            model: AgentThreadListModel(client: try ThreadListUIClient(), newsClient: newsClient),
+            loadConsent: { true },
+            acceptConsent: {},
+            loadSuggestions: { [] },
+            refreshInterval: 0.05
+        )
+        let pager = WPagerViewController(pages: [
+            .init(id: "wallet", makeViewController: { UIViewController() }),
+            .init(id: "agent", makeViewController: { list }),
+        ], preloadsPages: true)
+        let window = makeKeyWindow(showing: pager)
+        defer { window.isHidden = true }
+
+        try await waitUntil { list.viewIfLoaded?.window != nil && newsClient.requests.count == 1 }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(newsClient.requests.count, 1, "Out of sight the list keeps the News it loaded")
+
+        pager.select(index: 1, animated: false)
+        try await waitUntil { newsClient.requests.count >= 4 }
+
+        pager.select(index: 0, animated: false)
+        try await Task.sleep(for: .milliseconds(100))
+        let requestCount = newsClient.requests.count
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(newsClient.requests.count, requestCount, "Nor does it refresh once it has left the screen")
     }
 
     /// A reset of the accounts deletes the consent: the app forgets that it knew it, and a list on screen through the
@@ -570,6 +744,149 @@ final class AgentThreadListUITests: XCTestCase {
         XCTAssertEqual(accepts, 1)
     }
 
+    /// Contact Support follows the suggestions. Before consent it asks for consent after the sheet, then waits for the
+    /// server's chats, not the SDK's copy, and opens the chat support has that was active last; a list that fails to
+    /// load drops it. With consent and no chat support has, it opens a new chat that asks for support.
+    func testContactSupportHintWaitsForTheServersChatsAndOpensTheChatSupportHas() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.cachedItems = [try makeSupportListItem(id: "cached-support", minute: 58, state: .operator)]
+        client.response = try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: JSONSerialization.data(withJSONObject: [
+            "protocolVersion": 2,
+            "threads": try [
+                makeSupportListItem(id: "ordinary", minute: 59, state: nil),
+                makeSupportListItem(id: "operator-support", minute: 40, state: .operator),
+                makeSupportListItem(id: "waiting-support", minute: 50, state: .waiting),
+                makeSupportListItem(id: "closed-support", minute: 57, state: .closed),
+            ].map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) }
+        ]))
+        client.listError = ThreadListUITestError.unavailable
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        let hint = AgentHint(id: "hint:0", title: "Suggestion", subtitle: "Learn", prompt: "Tell me the news")
+        var hasConsent = false
+        var openedThreadIds: [String] = []
+        var supportChatCount = 0
+        var sheets: [UIAlertController] = []
+        let controller = AgentThreadListVC(
+            model: model,
+            loadConsent: { hasConsent },
+            acceptConsent: { hasConsent = true },
+            makeThreadChat: { thread, _ in
+                openedThreadIds.append(thread.id)
+                return UIViewController()
+            },
+            makeNewChat: { _ in UIViewController() },
+            makeSupportChat: {
+                supportChatCount += 1
+                return UIViewController()
+            },
+            hasWalletAccount: { true },
+            presentConfirmation: { alert, _ in sheets.append(alert) },
+            makeNewsFeed: { _ in UIViewController() },
+            loadSuggestions: { [hint] }
+        )
+        let navigation = ThreadListTestNavigationController(rootViewController: controller)
+        let window = makeKeyWindow(showing: navigation)
+        defer { window.isHidden = true }
+        let suggestions = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentHintsSectionView }.first)
+        try await waitUntil { self.descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }.count == 2 }
+        let buttons = descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }
+        XCTAssertEqual(buttons.map(\.accessibilityLabel), ["Suggestion", lang("$agent_support_contact")])
+        let support = try XCTUnwrap(buttons.last)
+        XCTAssertEqual(support.accessibilityIdentifier, "agent_support_hint")
+        XCTAssertTrue(support.isEnabled, "Without consent, the hint waits for no chats")
+
+        // Allowed in the sheet, the request waits for the list, which fails: nothing opens, then or later
+        support.sendActions(for: .touchUpInside)
+        let noWallet = try XCTUnwrap(sheets.last)
+        XCTAssertEqual(noWallet.title, lang("$agent_support_confirm_title"))
+        XCTAssertEqual(noWallet.message, lang("$agent_support_confirm_text_no_wallet"))
+        performAlertAction(titled: lang("$agent_support_confirm_action"), in: noWallet)
+        let sheet = try await waitForConsentSheet(over: controller, in: self)
+        sheet.consentView.onContinue?()
+        try await waitUntil { model.hasLoaded && !model.isLoading && client.queries.count == 1 }
+        try await waitUntil { presentation.presentedViewController(of: controller) == nil }
+        XCTAssertFalse(support.isEnabled, "With consent, the hint waits for the server's chats")
+        client.listError = nil
+        await model.refresh()
+        try await waitUntil { model.serverListState == .loaded && support.isEnabled }
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertTrue(openedThreadIds.isEmpty)
+        XCTAssertEqual(supportChatCount, 0)
+
+        // The SDK's copy stands in while the server's list comes, and the request waits for the server's list
+        let freshModel = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        hasConsent = false
+        let freshController = AgentThreadListVC(
+            model: freshModel,
+            loadConsent: { hasConsent },
+            acceptConsent: { hasConsent = true },
+            makeThreadChat: { thread, _ in
+                openedThreadIds.append(thread.id)
+                return UIViewController()
+            },
+            makeNewChat: { _ in UIViewController() },
+            makeSupportChat: {
+                supportChatCount += 1
+                return UIViewController()
+            },
+            hasWalletAccount: { true },
+            presentConfirmation: { alert, _ in sheets.append(alert) },
+            makeNewsFeed: { _ in UIViewController() },
+            loadSuggestions: { [] }
+        )
+        window.rootViewController = ThreadListTestNavigationController(rootViewController: freshController)
+        let freshSuggestions = try XCTUnwrap(descendants(freshController.view).compactMap { $0 as? AgentHintsSectionView }.first)
+        try await waitUntil { self.descendants(freshSuggestions).contains { $0.accessibilityIdentifier == "agent_support_hint" } }
+        let freshSupport = try XCTUnwrap(descendants(freshSuggestions).compactMap { $0 as? AgentSuggestionButton }.last)
+        client.heldResponseCount = 1
+        freshSupport.sendActions(for: .touchUpInside)
+        performAlertAction(titled: lang("$agent_support_confirm_action"), in: try XCTUnwrap(sheets.last))
+        let freshSheet = try await waitForConsentSheet(over: freshController, in: self)
+        freshSheet.consentView.onContinue?()
+        try await waitUntil { freshModel.isShowingCachedThreads && client.pendingResponse != nil }
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertTrue(openedThreadIds.isEmpty, "The SDK's copy doesn't choose the chat")
+        client.pendingResponse?.resume(returning: client.response)
+        client.pendingResponse = nil
+        try await waitUntil { !openedThreadIds.isEmpty }
+        XCTAssertEqual(openedThreadIds, ["waiting-support"])
+        XCTAssertEqual(supportChatCount, 0)
+
+        // With consent and no chat support has, a new chat asks for support, and the sheet tells of the addresses
+        try await waitUntil { freshController.navigationController?.transitionCoordinator == nil }
+        freshController.navigationController?.popToRootViewController(animated: false)
+        client.response = try makeThreadListResponse(count: 1)
+        await freshModel.refresh()
+        try await waitUntil { freshModel.supportThread == nil && freshSupport.isEnabled }
+        freshSupport.sendActions(for: .touchUpInside)
+        let withAddresses = try XCTUnwrap(sheets.last)
+        XCTAssertEqual(withAddresses.message, lang("$agent_support_confirm_text"))
+        performAlertAction(titled: lang("$agent_support_confirm_action"), in: withAddresses)
+        try await waitUntil { supportChatCount == 1 }
+        XCTAssertEqual(openedThreadIds, ["waiting-support"])
+    }
+
+    private func makeSupportListItem(
+        id: String,
+        minute: Int,
+        state: ApiAgentV2ThreadSupport.State?
+    ) throws -> ApiAgentV2ThreadListItem {
+        let date = String(format: "2026-10-19T10:%02d:00Z", minute)
+        var thread: [String: Any] = [
+            "id": id, "revision": 1, "createdAt": "2026-10-19T09:00:00Z", "updatedAt": date, "lastActivityAt": date,
+            "messageCount": 2, "title": id,
+        ]
+        if let state {
+            thread["support"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(ApiAgentV2ThreadSupport(state: state)))
+        }
+        return try JSONDecoder().decode(
+            ApiAgentV2ThreadListItem.self,
+            from: JSONSerialization.data(withJSONObject: ["thread": thread, "preview": "Message"])
+        )
+    }
+
     func testNewsCellShowsFallbackAndUnreadCounterWithoutThreadActions() throws {
         _ = WalletResourcesBundle.bundle.load()
         let cell = AgentNewsCell(frame: CGRect(x: 0, y: 0, width: 402, height: 92))
@@ -655,6 +972,29 @@ final class AgentThreadListUITests: XCTestCase {
         cell.configure(latestNews: nil, unreadCount: 0)
         XCTAssertTrue(badge.isHidden)
         XCTAssertFalse(cell.accessibilityLabel?.contains(item.headline) == true)
+        XCTAssertFalse(cell.accessibilityLabel?.contains(L10n.agentNewsUnreadCount(count: 2)) == true)
+    }
+
+    /// In the Digests view the News row shows the latest digest's first headline at the digest's time, and VoiceOver
+    /// reads the unread digests
+    func testNewsCellShowsTheLatestDigest() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let cell = AgentNewsCell(frame: CGRect(x: 0, y: 0, width: 402, height: 92))
+        let digest = try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: Data("""
+        {"id":"en:2026-10-22T06:00:00Z","deliveredAt":"2026-10-22T06:00:00Z","total":12,"top":[
+        {"eventId":1,"headline":"First headline","imageUrl":"https://example.com/first.png"},
+        {"eventId":2,"headline":"Second headline","imageUrl":"https://example.com/second.png"}]}
+        """.utf8))
+        let now = AgentV2DateParser.date("2026-10-23T12:00:00Z")
+        cell.configure(latestDigest: digest, unreadCount: 2, now: now)
+        cell.layoutIfNeeded()
+        let time = AgentThreadDateFormatting.formatRowTimestamp(
+            for: digest.deliveredAt, shouldShowDateWhenNotToday: true, relativeTo: now
+        )
+        XCTAssertEqual(cell.previewLabel.text, "First headline")
+        XCTAssertEqual(cell.timeLabel.text, time)
+        XCTAssertEqual(cell.unreadMark, .count("2"))
+        XCTAssertTrue(cell.accessibilityLabel?.contains(L10n.agentNewsUnreadDigestsCount(count: 2)) == true)
         XCTAssertFalse(cell.accessibilityLabel?.contains(L10n.agentNewsUnreadCount(count: 2)) == true)
     }
 
@@ -1136,8 +1476,9 @@ final class AgentThreadListUITests: XCTestCase {
         defer { window.isHidden = true }
         let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
         let suggestions = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentHintsSectionView }.first)
+        // Contact Support follows the suggestions
         try await waitUntil {
-            !model.isLoading && self.descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }.count == hints.count
+            !model.isLoading && self.descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }.count == hints.count + 1
         }
         XCTAssertTrue(suggestions.isHidden)
         XCTAssertEqual(collection.alpha, 1)
@@ -1155,7 +1496,7 @@ final class AgentThreadListUITests: XCTestCase {
         let barFrame = controller.bottomBar.convert(controller.bottomBar.bounds, to: controller.view)
         XCTAssertEqual(suggestions.frame.maxY, barFrame.minY - 26, accuracy: 0.5)
         let buttons = descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }
-        XCTAssertEqual(buttons.map(\.accessibilityLabel), hints.map(\.title))
+        XCTAssertEqual(buttons.map(\.accessibilityLabel), hints.map(\.title) + [lang("$agent_support_contact")])
 
         buttons[1].sendActions(for: .touchUpInside)
         XCTAssertEqual(newQuestion, hints[1].prompt)
@@ -1820,8 +2161,13 @@ final class AgentThreadListUITests: XCTestCase {
         return try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: data)
     }
 
-    private func makeThreadListItem(title: String?, preview: String?, isPinned: Bool = false) throws -> ApiAgentV2ThreadListItem {
-        let thread: [String: Any] = [
+    private func makeThreadListItem(
+        title: String?,
+        preview: String?,
+        isPinned: Bool = false,
+        support: ApiAgentV2ThreadSupport? = nil
+    ) throws -> ApiAgentV2ThreadListItem {
+        var thread: [String: Any] = [
             "id": "portfolio-thread",
             "revision": 1,
             "createdAt": "2026-10-19T10:00:00Z",
@@ -1831,6 +2177,9 @@ final class AgentThreadListUITests: XCTestCase {
             "isPinned": isPinned,
             "title": title as Any? ?? NSNull()
         ]
+        if let support {
+            thread["support"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(support))
+        }
         let data = try JSONSerialization.data(withJSONObject: [
             "thread": thread,
             "preview": preview as Any? ?? NSNull()

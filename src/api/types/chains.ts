@@ -274,6 +274,16 @@ export interface ChainSdk<T extends ApiChain> {
   /** True when this DEX swap is submitted as a batch. */
   resolveSwapNeedsBatch(accountId: string, needsApprove?: boolean): MaybePromise<boolean>;
 
+  /**
+   * The diesel of a DEX swap selling `tokenAddress` when the wallet cannot pay `nativeFee`, the quoted network fee.
+   * Only for chains whose backend swap quote carries no diesel; the others return `DIESEL_NOT_AVAILABLE`.
+   */
+  estimateSwapDiesel(
+    accountId: string,
+    tokenAddress: string,
+    nativeFee: bigint,
+  ): MaybePromise<ApiFetchEstimateDieselResult>;
+
   //
   // Wallet info
   //

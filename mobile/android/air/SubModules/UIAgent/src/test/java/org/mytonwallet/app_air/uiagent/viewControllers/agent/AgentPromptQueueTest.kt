@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mytonwallet.app_air.uiagent.agentV2.AgentV2AuthorityBinding
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 
 class AgentPromptQueueTest {
@@ -19,7 +20,12 @@ class AgentPromptQueueTest {
             catalogVersion = "agent-starter-hints-v1"
         )
         var ready = false
-        val accept: (List<AgentMessage>, AgentV2EntryPoint) -> Boolean = { messages, entryPoint ->
+        val accept: (
+            List<AgentMessage>,
+            AgentV2EntryPoint,
+            String?,
+            AgentV2AuthorityBinding?
+        ) -> Boolean = { messages, entryPoint, _, _ ->
             if (ready) accepted.add(messages to entryPoint)
             ready
         }

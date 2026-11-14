@@ -64,9 +64,7 @@ function SwapActivityInfo({
       return undefined;
     }
 
-    const terms = {
-      native: networkFee,
-    };
+    const terms = activity.extra?.isGasless ? { token: networkFee } : { native: networkFee };
 
     return (
       <TransactionFee

@@ -1,55 +1,98 @@
-import { useEffect, useMemo, useState } from '../../lib/teact/teact';
+import { useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
+import { getGlobal } from '../../global';
 
-import type { AgentStarterHintIdV2 } from '../../api/agentV2/protocol/types';
-import type { AgentHint, LangCode } from '../../global/types';
+import type { AgentThreadListItemV2 } from '../../api/agentV2/protocol/types';
+import type { AgentV2HintWalletState, AgentV2StarterHints } from '../../api/agentV2/types';
+import type { AgentHint, GlobalState } from '../../global/types';
+import type { ChatSelection } from '../../util/agent/agentV2LocalState';
 import type { LangFn } from '../../util/langProvider';
+import type { AgentV2ChatTarget } from '../agent/hooks/useAgentV2Messages';
 
+import { getIsAgentV2SupportEntryVisible } from '../../global/agentV2/uiCapabilities';
+import {
+  selectAccountStakingStates,
+  selectCurrentAccountId,
+  selectCurrentAccountTokens,
+} from '../../global/selectors';
+import { calculateFullBalance } from '../../util/calculateFullBalance';
 import { callApi } from '../../api';
-import { getAgentV2HintCopy } from './agentV2Copy';
+import { mapAgentV2StarterHints } from './agentV2Copy';
+import { findAgentV2SupportThread } from './useAgentV2ThreadList';
 
-// The suggestions of a language are kept this long, as on mobile
-const CACHE_DURATION = 10 * 60 * 1000;
-const MAX_SUGGESTIONS = 5;
+import useSyncEffect from '../../hooks/useSyncEffect';
 
-let cache: { langCode: LangCode; ids: AgentStarterHintIdV2[]; loadedAt: number } | undefined;
+interface AgentV2StarterHintsView {
+  starterHints: AgentV2StarterHints;
+  hints: AgentHint[];
+}
 
 /**
- * The questions suggested for a new chat while the user composes one under the chat list. They are loaded while
- * `isEnabled`, and again as `shouldRefresh` turns on once they are out of date.
+ * The questions suggested for a new chat while the user composes one under the chat list. Each time they are shown,
+ * one hint of each group is picked anew, and the pick stays while they are on screen and as they leave.
  */
-export default function useAgentSuggestions(lang: LangFn, isEnabled: boolean, shouldRefresh: boolean) {
-  const langCode = lang.code ?? 'en';
-  const [ids, setIds] = useState(() => getCachedIds(langCode));
+export default function useAgentSuggestions(lang: LangFn, isShown: boolean) {
+  const [pick, setPick] = useState<{ showingId: number; starterHints: AgentV2StarterHints }>();
+  const showingIdRef = useRef(0);
+  // A new showing drops the previous pick at once, before its own comes
+  useSyncEffect(() => {
+    if (isShown) showingIdRef.current += 1;
+  }, [isShown]);
 
   useEffect(() => {
-    if (!isEnabled) return undefined;
+    if (!isShown) return undefined;
 
-    const cachedIds = getCachedIds(langCode);
-    if (cachedIds) {
-      setIds(cachedIds);
-      return undefined;
-    }
-
+    const showingId = showingIdRef.current;
     let isCurrent = true;
-    void callApi('getAgentV2Hints', langCode).then((response) => {
-      // A failed load keeps the suggestions shown
-      if (!response) return;
-
-      const loadedIds = response.items.slice(0, MAX_SUGGESTIONS).map(({ id }) => id);
-      cache = { langCode, ids: loadedIds, loadedAt: Date.now() };
-      if (isCurrent) setIds(loadedIds);
-    }).catch(() => undefined);
+    void loadAgentV2StarterHints().then((starterHints) => {
+      // A failed load shows no hints
+      if (isCurrent) setPick(starterHints && { showingId, starterHints });
+    });
 
     return () => {
       isCurrent = false;
     };
-  }, [isEnabled, langCode, shouldRefresh]);
+  }, [isShown]);
 
-  return useMemo<AgentHint[] | undefined>(() => ids?.map((id) => ({
-    id, langCode, ...getAgentV2HintCopy(id, lang),
-  })), [ids, lang, langCode]);
+  const starterHints = pick?.showingId === showingIdRef.current ? pick.starterHints : undefined;
+  return useMemo<AgentV2StarterHintsView | undefined>(() => starterHints && {
+    starterHints,
+    hints: mapAgentV2StarterHints(starterHints.items, lang),
+  }, [lang, starterHints]);
 }
 
-function getCachedIds(langCode: LangCode) {
-  return cache?.langCode === langCode && Date.now() - cache.loadedAt < CACHE_DURATION ? cache.ids : undefined;
+/** Picks the starter hints for the active account, by its balance once the balance is known */
+export function loadAgentV2StarterHints() {
+  const walletState = selectAgentV2HintWalletState(getGlobal());
+  return walletState
+    ? callApi('getAgentV2StarterHints', walletState)
+    : callApi('getAgentV2StarterHints');
+}
+
+function selectAgentV2HintWalletState(global: GlobalState): AgentV2HintWalletState | undefined {
+  const accountId = selectCurrentAccountId(global);
+  const tokens = selectCurrentAccountTokens(global);
+  if (!accountId || !tokens) return undefined;
+
+  const { primaryValue } = calculateFullBalance(
+    tokens, selectAccountStakingStates(global, accountId), global.currencyRates[global.settings.baseCurrency],
+  );
+  return primaryValue === '0' ? 'empty' : 'funded';
+}
+
+export function requestAgentV2Support(
+  items: readonly AgentThreadListItemV2[],
+  openChat: (target: AgentV2ChatTarget, options?: Pick<ChatSelection, 'shouldRequestSupport'>) => void,
+) {
+  if (!getCanRequestAgentV2SupportFromList(items)) return false;
+  const thread = findAgentV2SupportThread(items);
+  if (thread) {
+    openChat({ kind: 'thread', threadId: thread.id });
+    return true;
+  }
+  openChat({ kind: 'new' }, { shouldRequestSupport: true });
+  return true;
+}
+
+export function getCanRequestAgentV2SupportFromList(items?: readonly AgentThreadListItemV2[]) {
+  return items !== undefined && getIsAgentV2SupportEntryVisible();
 }

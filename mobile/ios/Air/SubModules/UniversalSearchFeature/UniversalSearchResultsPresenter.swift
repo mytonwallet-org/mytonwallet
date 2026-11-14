@@ -108,12 +108,12 @@ public struct UniversalSearchResultsPresenter {
         if resolvingHit != nil {
             topHit = nil
         } else if snapshot.query.isMultiword {
-            topHit = resolvedHits.first {
+            topHit = Self.preferringTokenOverFutures(resolvedHits.filter {
                 $0.hit.rank.relevanceBand >= .term
                     && $0.hit.match.matchedTermCount == $0.hit.match.totalTermCount
-            }
+            })
         } else {
-            topHit = resolvedHits.first
+            topHit = Self.preferringTokenOverFutures(resolvedHits)
         }
         let remainingHits = resolvedHits.filter { $0.hit.id != topHit?.hit.id }
         var sections: [UniversalSearchSection] = []
@@ -151,6 +151,7 @@ public struct UniversalSearchResultsPresenter {
             ("tokens", lang("Tokens and Stocks"), [.token, .stock]),
             ("collectibles", lang("Collectibles"), [.collectible, .collection]),
             ("apps", lang("Apps"), [.application]),
+            ("futures", lang("Futures"), [.futuresMarket]),
             ("wallets", lang("Wallets"), [.wallet]),
             ("actions", lang("Actions"), [.walletAction]),
             ("settings", lang("Settings"), [.setting]),
@@ -375,6 +376,18 @@ public struct UniversalSearchResultsPresenter {
         return results
     }
 
+    /// A futures market gives the top hit to a token or stock matching the query as a word or better, even one
+    /// that matches it less exactly, such as Wrapped BTC for `btc` beside the BTC market
+    private static func preferringTokenOverFutures(_ candidates: [ResolvedHit]) -> ResolvedHit? {
+        guard let first = candidates.first, first.hit.document.kind == .futuresMarket else {
+            return candidates.first
+        }
+        return candidates.first {
+            ($0.hit.document.kind == .token || $0.hit.document.kind == .stock)
+                && $0.hit.rank.relevanceBand >= .term
+        } ?? first
+    }
+
     private func topHitTitle(for document: SearchDocument) -> String {
         switch document.kind {
         case .token:
@@ -387,6 +400,8 @@ public struct UniversalSearchResultsPresenter {
             lang("Collection")
         case .application:
             lang("App")
+        case .futuresMarket:
+            lang("Futures")
         case .wallet where document.signals.traits.contains(.external):
             lang("View Wallet")
         case .wallet:
@@ -511,6 +526,8 @@ public struct UniversalSearchResultsPresenter {
             resolveCollection(document, context: context)
         case .application:
             resolveApplication(document)
+        case .futuresMarket:
+            resolveFuturesMarket(document, context: context)
         case .wallet:
             if document.signals.traits.contains(.external),
                document.attributeValue(for: WalletCoreSearchAttributeKey.accountID) == nil {
@@ -701,6 +718,48 @@ public struct UniversalSearchResultsPresenter {
         return UniversalSearchResolvedResult(
             item: item,
             route: .token(accountID: accountID, token: token)
+        )
+    }
+
+    private static func resolveFuturesMarket(
+        _ document: SearchDocument,
+        context: UniversalSearchContext
+    ) -> UniversalSearchResolvedResult? {
+        guard let accountID = context.scopeID,
+              let account = AccountStore.accountsById[accountID],
+              PerpsAvailability.canRead(account),
+              let assetID = document.attributeValue(for: WalletCoreSearchAttributeKey.futuresAssetID),
+              let asset = PerpsStore.shared.asset(id: assetID) else {
+            return nil
+        }
+
+        let token = PerpsFormatting.token(asset)
+        let position = PerpsStore.shared.snapshots[accountID]?.positions.first { $0.assetId == assetID }
+        let icon = UniversalSearchIcon { iconView in
+            iconView.config(
+                with: token,
+                isStaking: false,
+                isWalletView: false,
+                stakingAccessory: nil,
+                shouldShowChain: false
+            )
+        }
+        let item = UniversalSearchItem(
+            id: document.id.rawValue,
+            content: .token(UniversalSearchTokenResult(
+                icon: icon,
+                title: token.displayName(strippingLabelWhenShown: true),
+                badge: token.isRwaStock ? token.label : nil,
+                price: PerpsFormatting.money(asset.context.markPx),
+                amount: position.map {
+                    "\(lang($0.side == .long ? "Long" : "Short")) \($0.raw.leverage.value)x"
+                } ?? asset.symbol,
+                balanceValue: position.map { PerpsFormatting.money($0.equity) }
+            ))
+        )
+        return UniversalSearchResolvedResult(
+            item: item,
+            route: .futuresMarket(accountID: accountID, assetID: assetID)
         )
     }
 

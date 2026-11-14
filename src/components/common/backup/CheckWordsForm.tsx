@@ -3,6 +3,7 @@ import { getActions } from '../../../global';
 
 import renderText from '../../../global/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
+import getTestId from '../../../util/getTestId';
 import { shuffle } from '../../../util/iteratees';
 import { toNativeDigits } from '../../../util/nativeDigits';
 import { SEC } from '../../../api/constants';
@@ -158,8 +159,8 @@ function CheckWordsForm({
       </p>
 
       <div className={formClassName} dir="ltr">
-        {checkIndexes?.map((index) => (
-          <div key={index} className={styles.wordRow}>
+        {checkIndexes?.map((index, i) => (
+          <div key={index} className={styles.wordRow} data-testid={getTestId(`word_check_row_${i + 1}`)}>
             <div className={buildClassName(
               styles.rowLabel,
               showValidation && validationResults[index] && styles.correct,
@@ -184,6 +185,7 @@ function CheckWordsForm({
                       shouldShowResult && isCorrect && styles.wordCorrect,
                       shouldShowResult && !isCorrect && styles.wordError,
                     )}
+                    data-testid={getTestId('word_check_option')}
                     aria-pressed={isSelected}
                     disabled={showValidation}
                     onClick={!showValidation ? () => handleWordSelect(word, index) : undefined}
@@ -209,6 +211,7 @@ function CheckWordsForm({
       <div className={styles.buttonWrapper}>
         <Button
           isPrimary
+          testId={getTestId('word_check_continue')}
           isLoading={showValidation}
           isDisabled={!isAllWordsSelected}
           className={styles.footerButton}

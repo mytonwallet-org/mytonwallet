@@ -8,6 +8,7 @@ import {
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { vibrate } from '../../util/haptics';
 import {
   IS_LEGACY_APP_HOST, IS_NEW_WALLET_CREATION_HIDDEN,
@@ -139,6 +140,7 @@ function AuthStart({
               {!IS_NEW_WALLET_CREATION_HIDDEN && (
                 <Button
                   isPrimary
+                  testId={getTestId('intro_create_wallet')}
                   className={styles.btn}
                   isLoading={isLoading}
                   onClick={!isLoading ? startCreatingWallet : undefined}
@@ -148,6 +150,7 @@ function AuthStart({
               )}
               <Button
                 isText
+                testId={getTestId('intro_import_wallet')}
                 isDisabled={isLoading}
                 className={buildClassName(styles.btn, styles.btn_text)}
                 onClick={!isLoading ? openAuthImportWalletModal : undefined}

@@ -627,6 +627,7 @@ Buy crypto or choose another token to sell.: Купіть криптовалют
 Your balances are small. Add funds or choose another token to swap.: На ваших балансах мало коштів. Поповніть баланс або виберіть інший токен для обміну.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: Щоб купити %buy_token%, спочатку купіть %token%, а потім обміняйте на %buy_token%.
 Open %provider% to swap this pair in the browser.: Відкрийте %provider%, щоб обміняти цю пару в браузері.
+"Better rate is available if you add %amount% %symbol% for network fee.": "Щоб обміняти за вигіднішим курсом, додайте %amount% %symbol% на комісію мережі."
 Buy %token%: Купити %token%
 Open %provider%: Відкрити %provider%
 Cannot load widget: Неможливо завантажити віджет
@@ -1348,8 +1349,8 @@ $agent_consent_allow_button: Дозволити агенту
 $agent_consent_feature_answers: Отримуйте відповіді про %app_name%, токени й активність гаманця.
 $agent_consent_feature_actions: Підготовуйте підтримувані дії, як-от надсилання, отримання та стейкінг.
 $agent_consent_feature_context: Використовуйте контекст гаманця, щоб відповіді могли враховувати релевантні активи та адреси.
-$agent_consent_disclosure_text: Натискаючи «Дозволити агенту», ви дозволяєте %app_name% надсилати ваші повідомлення агенту та релевантний контекст гаманця до %app_name% Agent (agent.mywallet.io) і Anthropic Claude API, нашого стороннього постачальника ШІ, для обробки ваших запитів. Контекст гаманця може містити адреси гаманця, баланси, токени, активність і деталі запитаних дій. Дані використовуються лише для надання відповідей агента та підготовки дій, які ви запитуєте.
-$agent_consent_search_disclosure_text: Для пошуку в інтернеті Serper можуть передаватися лише пошукові запити; контекст гаманця та історія чату не передаються.
+$agent_consent_disclosure_text: Натискаючи «Дозволити агенту», ви дозволяєте %app_name% надсилати ваші повідомлення агенту та релевантний контекст гаманця до %app_name% Agent (agent.mywallet.io) і наших сторонніх постачальників ШІ — OpenAI та Anthropic — для обробки ваших запитів. Контекст гаманця може містити адреси гаманця, баланси, токени, активність і деталі запитаних дій. Під час голосового введення запис надсилається до Inworld і за потреби до ElevenLabs через OpenRouter для розпізнавання тексту. Дані використовуються лише для надання відповідей агента та підготовки дій, які ви запитуєте.
+$agent_consent_search_disclosure_text: Для пошуку в інтернеті до OpenAI і за потреби до Serper передаються лише пошукові запити; контекст гаманця та історія чату не передаються.
 $settings_token_change_threshold: Поріг зміни у %
 $settings_token_change_threshold_description: Приховує зміни за 24 години, що нижчі за вибраний поріг.
 $settings_token_change_threshold_off: Вимкнено
@@ -1407,14 +1408,29 @@ $agent_prompt_token_price: "Проаналізуй ціну %token%."
 $agent_hint_capabilities_title: Що ти вмієш?
 $agent_hint_portfolio_title: Показники портфеля
 $agent_hint_portfolio_prompt: Проаналізуйте ефективність мого портфеля.
-$agent_hint_swap_title: Як працюють свопи
+$agent_hint_swap_title: Як працюють свопи?
 $agent_hint_swap_prompt: Поясніть, як працює обмін токенами.
-$agent_hint_staking_title: Що таке стейкинг
+$agent_hint_staking_title: Що таке стейкинг?
 $agent_hint_staking_prompt: Пояснюйте стейкинг з нуля, ніби я ніколи раніше не користувався криптовалютою.
-$agent_hint_security_title: Безпека гаманця
+$agent_hint_security_title: Як захистити гаманець?
 $agent_hint_security_prompt: Покажи мені, як безпечно тримати мій гаманець.
 $agent_hint_receive_title: Отримання токенів
 $agent_hint_receive_prompt: Допоможіть мені отримати токени.
+$agent_hint_assets_title: Покажи мої активи
+$agent_hint_total_title: Скільки в мене всього?
+$agent_hint_spending_title: На що я витрачав за тиждень?
+$agent_hint_last_transfer_title: Покажи останній переказ
+$agent_hint_fund_title: Як поповнити гаманець?
+$agent_hint_market_today_title: Що сьогодні на ринку?
+$agent_hint_news_today_title: Головні новини за добу
+$agent_hint_bitcoin_title: Що відбувається з біткоїном?
+$agent_hint_price_title: Скільки коштує 0,5 ETH?
+$agent_hint_staking_yield_title: Де вища дохідність?
+$agent_hint_staking_options_title: Які варіанти стейкингу доступні?
+$agent_hint_multisend_title: Як надіслати кільком людям?
+$agent_hint_action_swap_title: Обміняти токени
+$agent_hint_action_send_title: Надіслати крипту
+$agent_hint_action_stake_title: Почати стейкинг
 $agent_notice_content_over_budget: Результат занадто великий для повного відображення.
 $agent_notice_web_search_no_results: Не вдалося знайти відповідну інформацію за вашим запитом.
 $agent_error_session: Ваш сеанс агента закінчився. Відкрийте агента знову та спробуйте ще раз.
@@ -2177,8 +2193,7 @@ News: "Новини"
 Crypto Market News: "Новини крипторинку"
 $agent_news_new: "Нові"
 $agent_news_open_source: "Відкрити джерело"
-$agent_news_source: "Джерело: %sources%"
-$agent_news_sources: "Джерела: %sources%"
+$agent_news_sources: "Джерела"
 $agent_news_unavailable: "Новини зараз недоступні"
 $agent_news_read_more: "Докладніше"
 $agent_news_discuss: "Обговорити"
@@ -2192,6 +2207,11 @@ $agent_news_unread_count:
   fewValue: "%count% непрочитані новини"
   manyValue: "%count% непрочитаних новин"
   otherValue: "%count% непрочитаної новини"
+$agent_news_unread_digests_count:
+  oneValue: "%count% непрочитане зведення"
+  fewValue: "%count% непрочитані зведення"
+  manyValue: "%count% непрочитаних зведень"
+  otherValue: "%count% непрочитаного зведення"
 Explorer mode: Режим дослідника
 Open a link to a wallet, transfer, token or collectible to see its details here.: Відкрийте посилання на гаманець, переказ, токен або NFT, щоб переглянути тут деталі.
 
@@ -2451,7 +2471,7 @@ $agent_chats_unavailable: "Не вдалося завантажити чати"
 "View your assets and activity": "Переглядайте активи та історію операцій"
 "Ask AI and follow the news": "Запитуйте ШІ та стежте за новинами"
 $underlying_stock: 'Акція %symbol%'
-$agent_support_requested: "Ви покликали підтримку. Оператор відповість тут"
+$agent_support_requested: "Ви покликали підтримку. Оператор відповість тут — зазвичай це займає пару хвилин"
 $agent_support_operator_joined: "До чату приєдналася підтримка: %name%"
 $agent_support_closed_operator: "Підтримка закрила звернення. Далі відповідає агент"
 $agent_support_closed_inactivity: "Звернення закрито: 48 годин без відповіді. Далі відповідає агент"
@@ -2471,26 +2491,47 @@ $send_only_chain_and_token: Надсилайте на цю адресу лише
 $agent_digest_unavailable: "Це зведення більше недоступне"
 $agent_digest_title: "Головне за добу"
 $agent_digest_meta:
-  oneValue: "%count% новина · %time%"
-  fewValue: "%count% новини · %time%"
-  manyValue: "%count% новин · %time%"
-  otherValue: "%count% новини · %time%"
+  oneValue: "%count% новина"
+  fewValue: "%count% новини"
+  manyValue: "%count% новин"
+  otherValue: "%count% новини"
 $agent_digest_more:
   oneValue: "і ще %count% новина — вони вище в стрічці"
   fewValue: "і ще %count% новини — вони вище в стрічці"
   manyValue: "і ще %count% новин — вони вище в стрічці"
   otherValue: "і ще %count% новини — вони вище в стрічці"
+$agent_digest_more_count:
+  oneValue: "і ще %count% новина"
+  fewValue: "і ще %count% новини"
+  manyValue: "і ще %count% новин"
+  otherValue: "і ще %count% новини"
 $agent_digest_settings_title: "Зведення та сповіщення"
 $agent_digest_settings_text: "Раз на добу в стрічці з’являється зведення — головні новини за день."
 $agent_digest_time: "Час зведення"
-$agent_digest_time_zone: "За часовим поясом телефона."
+$agent_digest_time_hint: "Зведення з’явиться в стрічці в цей час, навіть якщо сповіщення вимкнені."
 $agent_digest_notifications_off: "Вимкнені"
-$agent_digest_notifications_off_hint: "Зведення буде лише в стрічці"
 $agent_digest_notifications_daily: "Зведення раз на день"
-$agent_digest_notifications_daily_hint: "О %time%, головні новини одним сповіщенням"
+$agent_digest_notifications_daily_hint: "Одне сповіщення о %time% з головними новинами дня."
 $agent_digest_notifications_every: "Кожна новина"
-$agent_digest_notifications_every_hint: "Окреме сповіщення про кожну новину"
-$agent_digest_post_header: "MyPulse · зведення · %time%"
 $agent_digest_sheet_title: "Щоденне зведення"
-$agent_digest_device_time_zone: "За часовим поясом цього пристрою."
 $agent_dictation_microphone_denied_device: "Дозвольте доступ до мікрофона в налаштуваннях пристрою, щоб диктувати."
+"$perps_funding_usdc_fees": "Щоб відкрити позицію, потрібно щонайменше %minUSDC% USDC в Arbitrum: %amount% USDC і %fees% USDC на комісії."
+"$perps_funding_usdc_increase_fees": "Щоб збільшити цю позицію, потрібно щонайменше %minUSDC% USDC в Arbitrum: %amount% USDC і %fees% USDC на комісії."
+"PerpsOrderNotPlaced": "Ордер не було розміщено. USDC, переказані для нього, залишаються на балансі Hyperliquid."
+$agent_feedback_support_liked_toast: "Дякуємо! Оцінку буде передано команді підтримки."
+$agent_feedback_support_disliked_toast: "Команда підтримки розгляне цю відповідь."
+$agent_support_request_message: "Хочу поговорити з живою людиною"
+$agent_support_contact: "Зв’язатися з підтримкою"
+$agent_support_confirm_title: "Покликати оператора?"
+$agent_support_confirm_text: "Оператор підтримки побачить цей чат і адреси гаманця та відповість тут."
+$agent_support_confirm_text_no_wallet: "Оператор підтримки побачить цей чат і відповість тут."
+$agent_support_confirm_action: "Покликати"
+$agent_support_rate_limited: "Сьогодні ви вже тричі зверталися до підтримки. Спробуйте завтра або напишіть @mysupport у Telegram."
+$agent_news_digests_empty: "Зведень поки немає"
+$agent_news_view_all: "Усі новини"
+$agent_news_view_digests: "Зведення"
+$agent_digest_hours: "Години"
+$agent_digest_minutes: "Хвилини"
+$swap_one_to_one: Вигідніший курс (1:1) доступний від %value%.
+$swap_better_rate_minimum: "Вигідніший курс доступний від %value%."
+$agent_daily_limit_resets_at: "Денний ліміт агента вичерпано. Оновиться о %time%."

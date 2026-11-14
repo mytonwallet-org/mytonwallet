@@ -5,15 +5,25 @@ import { ApiTransactionDraftError, ApiTransactionError } from '../../types';
 import { fetchEvmWallet } from './util/account';
 import { getEvmProvider } from './util/client';
 import { fetchStoredChainAccount } from '../../common/accounts';
+import { getTokenByAddress } from '../../common/tokens';
+import { estimateBatchUserOpFee, submitBatchUserOp } from './smartAccount/batch';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
-import { checkTransactionDraft, submitGasfullTransfer } from './transfer';
+import {
+  checkTransactionDraft,
+  estimateEvmSwapDiesel,
+  fetchEstimateDiesel,
+  submitGasfullTransfer,
+  submitGaslessTransfer,
+} from './transfer';
 import { getErc20Balance, getWalletBalance } from './wallet';
 
 jest.mock('./util/client', () => ({ getEvmProvider: jest.fn() }));
 jest.mock('./util/account', () => ({ fetchEvmWallet: jest.fn() }));
 jest.mock('./wallet', () => ({ getWalletBalance: jest.fn(), getErc20Balance: jest.fn() }));
 jest.mock('../../common/accounts', () => ({ fetchStoredChainAccount: jest.fn() }));
+jest.mock('../../common/tokens', () => ({ getTokenByAddress: jest.fn() }));
 jest.mock('./auth', () => ({ fetchPrivateKeyString: jest.fn(), getSignerFromPrivateKey: jest.fn() }));
+jest.mock('./smartAccount/batch', () => ({ estimateBatchUserOpFee: jest.fn(), submitBatchUserOp: jest.fn() }));
 jest.mock('../../../util/logs', () => ({ logDebugError: jest.fn() }));
 
 const ACCOUNT_ID = '0-mainnet';
@@ -21,6 +31,9 @@ const CHAIN = 'base';
 const WALLET = '0x11a43b91414b2c7083888d8f4e963988ddee12a3';
 const RECIPIENT = '0x93fa28647b06ab40554d6905e4e9d8e8bb24380c';
 const USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+const ARBITRUM = 'arbitrum';
+const ARBITRUM_USDC = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
+const DIESEL_FEE = 40_000n;
 const GAS_LIMIT = 50_000n;
 const MAX_FEE_PER_GAS = 10n;
 const FEE = GAS_LIMIT * MAX_FEE_PER_GAS;
@@ -126,5 +139,186 @@ describe('submitGasfullTransfer', () => {
     jest.mocked(getWalletBalance).mockResolvedValue(FEE + 1_000n);
 
     expect(await submitGasfullTransfer(CHAIN, nativeTransfer)).toEqual({ txId: '0xtx', msgHashForCexSwap: '0xtx' });
+  });
+});
+
+describe('gasless transfer', () => {
+  const transfer = {
+    accountId: ACCOUNT_ID,
+    toAddress: RECIPIENT,
+    tokenAddress: ARBITRUM_USDC,
+    amount: 1_000n,
+    allowGasless: true,
+  };
+
+  beforeEach(() => {
+    jest.mocked(getWalletBalance).mockResolvedValue(0n);
+    jest.mocked(getErc20Balance).mockResolvedValue(1_000_000n);
+    jest.mocked(getTokenByAddress).mockReturnValue({ isGaslessEnabled: true } as never);
+    jest.mocked(estimateBatchUserOpFee).mockResolvedValue({ maxCost: DIESEL_FEE });
+    jest.mocked(submitBatchUserOp).mockResolvedValue({
+      txHash: '0xuserop', userOpHash: '0xop', success: true,
+    });
+  });
+
+  it('prices a token transfer in the token when ETH cannot cover gas', async () => {
+    const result = await checkTransactionDraft(ARBITRUM, transfer, signal);
+
+    expect(result.error).toBeUndefined();
+    expect(result.diesel).toMatchObject({
+      status: 'available', amount: DIESEL_FEE, nativeAmount: 0n, remainingFee: 0n, realFee: DIESEL_FEE,
+    });
+    expect(result.explainedFee).toMatchObject({
+      isGasless: true,
+      canTransferFullBalance: false,
+      realFee: { terms: { token: DIESEL_FEE, native: 0n }, nativeSum: 0n },
+      fullFee: { terms: { token: DIESEL_FEE, native: 0n }, nativeSum: 0n },
+    });
+    expect(estimateBatchUserOpFee).toHaveBeenCalledWith(
+      ARBITRUM,
+      'mainnet',
+      WALLET,
+      [expect.objectContaining({ to: ARBITRUM_USDC, value: 0n })],
+      { needsGasless: true, gasToken: ARBITRUM_USDC },
+    );
+  });
+
+  it('keeps the native fee when the wallet can pay gas', async () => {
+    jest.mocked(getWalletBalance).mockResolvedValue(FEE);
+
+    const result = await checkTransactionDraft(ARBITRUM, transfer, signal);
+
+    expect(estimateBatchUserOpFee).not.toHaveBeenCalled();
+    expect(result.explainedFee?.isGasless).toBe(false);
+    expect(result.explainedFee?.fullFee?.nativeSum).toBe(FEE);
+  });
+
+  it('keeps the native fee when the token is not gasless', async () => {
+    jest.mocked(getTokenByAddress).mockReturnValue({ isGaslessEnabled: false } as never);
+
+    const result = await checkTransactionDraft(ARBITRUM, transfer, signal);
+
+    expect(estimateBatchUserOpFee).not.toHaveBeenCalled();
+    expect(result.error).toBe(ApiTransactionDraftError.InsufficientBalance);
+    expect(result.explainedFee?.isGasless).toBe(false);
+  });
+
+  it('keeps the native fee when the wallet already holds a meaningful ETH balance', async () => {
+    jest.mocked(getWalletBalance).mockResolvedValue(10n ** 18n);
+    estimateGas.mockResolvedValue(2n * 10n ** 17n);
+
+    const result = await checkTransactionDraft(ARBITRUM, transfer, signal);
+
+    expect(estimateBatchUserOpFee).not.toHaveBeenCalled();
+    expect(result.error).toBe(ApiTransactionDraftError.InsufficientBalance);
+    expect(result.explainedFee?.isGasless).toBe(false);
+  });
+
+  it('reports the token shortfall and still prices the diesel fee', async () => {
+    jest.mocked(getErc20Balance).mockResolvedValue(1_000n);
+    jest.mocked(estimateBatchUserOpFee).mockResolvedValue({ maxCost: 200n });
+
+    const result = await checkTransactionDraft(ARBITRUM, { ...transfer, amount: 900n }, signal);
+
+    expect(result.error).toBe(ApiTransactionDraftError.InsufficientBalance);
+    expect(result.explainedFee?.isGasless).toBe(true);
+    expect(result.explainedFee?.fullFee?.terms.token).toBe(200n);
+  });
+
+  it('quotes diesel after the node rejects the gas estimate for an empty wallet', async () => {
+    const insufficientFunds = Object.assign(new Error('insufficient funds'), { code: 'INSUFFICIENT_FUNDS' });
+    estimateGas.mockRejectedValue(insufficientFunds);
+
+    const result = await checkTransactionDraft(ARBITRUM, transfer, signal);
+
+    expect(result.explainedFee?.isGasless).toBe(true);
+    expect(estimateBatchUserOpFee).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not offer diesel to a view-only wallet', async () => {
+    jest.mocked(fetchStoredChainAccount).mockResolvedValue({
+      type: 'view', byChain: { [ARBITRUM]: { address: WALLET } },
+    } as never);
+
+    const result = await checkTransactionDraft(ARBITRUM, transfer, signal);
+
+    expect(estimateBatchUserOpFee).not.toHaveBeenCalled();
+    expect(result.explainedFee?.isGasless).toBe(false);
+  });
+
+  it('returns the same diesel quote without a recipient', async () => {
+    const diesel = await fetchEstimateDiesel(ARBITRUM, ACCOUNT_ID, ARBITRUM_USDC);
+
+    expect(diesel).toMatchObject({ status: 'available', amount: DIESEL_FEE, realFee: DIESEL_FEE });
+    expect(estimateBatchUserOpFee).toHaveBeenCalledWith(
+      ARBITRUM,
+      'mainnet',
+      WALLET,
+      [expect.objectContaining({ to: ARBITRUM_USDC })],
+      { needsGasless: true, gasToken: ARBITRUM_USDC },
+    );
+  });
+
+  it('submits the token transfer as a gasless user operation', async () => {
+    const result = await submitGaslessTransfer(ARBITRUM, { ...transfer, dieselAmount: DIESEL_FEE });
+
+    expect(result).toEqual({ txId: '0xuserop', msgHashForCexSwap: '0xuserop' });
+    expect(submitBatchUserOp).toHaveBeenCalledWith(
+      ARBITRUM,
+      'mainnet',
+      WALLET,
+      '0x01',
+      [expect.objectContaining({
+        to: ARBITRUM_USDC,
+        data: erc20.encodeFunctionData('transfer', [RECIPIENT, 1_000n]),
+      })],
+      { needsGasless: true, gasToken: ARBITRUM_USDC },
+    );
+  });
+
+  it('quotes diesel for a swap whose native fee exceeds a balance above the transfer ceiling', async () => {
+    jest.mocked(getWalletBalance).mockResolvedValue(10n ** 18n);
+
+    const diesel = await estimateEvmSwapDiesel(ARBITRUM, ACCOUNT_ID, ARBITRUM_USDC, 2n * 10n ** 18n);
+
+    expect(diesel).toMatchObject({ status: 'available', amount: DIESEL_FEE * 3n / 2n, realFee: DIESEL_FEE });
+  });
+
+  it('offers no swap diesel when the token balance covers the transfer probe but not the swap margin', async () => {
+    jest.mocked(getWalletBalance).mockResolvedValue(0n);
+    jest.mocked(getErc20Balance).mockResolvedValue(DIESEL_FEE * 5n / 4n);
+
+    const diesel = await estimateEvmSwapDiesel(ARBITRUM, ACCOUNT_ID, ARBITRUM_USDC, FEE);
+
+    expect(diesel).toMatchObject({ status: 'not-available' });
+  });
+
+  it('skips the token balance and paymaster quote of a swap whose native fee the wallet covers', async () => {
+    jest.mocked(getWalletBalance).mockResolvedValue(FEE);
+
+    const diesel = await estimateEvmSwapDiesel(ARBITRUM, ACCOUNT_ID, ARBITRUM_USDC, FEE);
+
+    expect(diesel).toMatchObject({ status: 'not-available' });
+    expect(getErc20Balance).not.toHaveBeenCalled();
+    expect(estimateBatchUserOpFee).not.toHaveBeenCalled();
+  });
+
+  it('reads no balance for a swap selling a token that is not gasless', async () => {
+    jest.mocked(getTokenByAddress).mockReturnValue({ isGaslessEnabled: false } as never);
+
+    const diesel = await estimateEvmSwapDiesel(ARBITRUM, ACCOUNT_ID, ARBITRUM_USDC, FEE);
+
+    expect(diesel).toMatchObject({ status: 'not-available' });
+    expect(getWalletBalance).not.toHaveBeenCalled();
+    expect(getErc20Balance).not.toHaveBeenCalled();
+  });
+
+  it('refuses a gasless send the token balance cannot cover with the paymaster fee', async () => {
+    jest.mocked(getErc20Balance).mockResolvedValue(1_000n);
+
+    const result = await submitGaslessTransfer(ARBITRUM, { ...transfer, amount: 900n, dieselAmount: DIESEL_FEE });
+
+    expect(result).toEqual({ error: ApiTransactionError.InsufficientBalance });
+    expect(submitBatchUserOp).not.toHaveBeenCalled();
   });
 });

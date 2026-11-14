@@ -119,6 +119,7 @@ export function getPerpsBalanceFundingRequirements(
 ): ApiPerpsFundingRequirements {
   return {
     requiredUsdc: '0',
+    requiredBridgeFeeUsdc: '0',
     requiredGasUsdc: '0',
     requiredEth: '0',
     requiredEthUsd: '0',
@@ -215,6 +216,7 @@ export function getPerpsFundingRequirements(params: PerpsDraftAmountContext & {
   const totalUsdc = Big(requiredUsdc).plus(requiredGasUsdc);
   return {
     requiredUsdc,
+    requiredBridgeFeeUsdc: deposits ? String(PERPS_CCTP_FORWARD_FEE_USDC) : '0',
     requiredGasUsdc,
     requiredEth,
     requiredEthUsd,

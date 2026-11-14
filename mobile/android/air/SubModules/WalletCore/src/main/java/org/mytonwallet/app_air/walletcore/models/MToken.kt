@@ -5,6 +5,7 @@ import java.math.BigInteger
 import java.math.RoundingMode
 import java.util.Objects
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.utils.AssetPrecision
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -69,8 +70,16 @@ class MToken internal constructor(json: TokenFields) :
             percentChange24hReal
         }
     var priceUsd: Double = json.optDouble("priceUsd")
+    override var precision: Int? = json.optNullableInt("precision")
     val isFromBackend: Boolean = json.optBoolean("isFromBackend")
     val type: String = json.optString("type")
+
+    /** Fractional digits for displaying this token amount (`0` / `2` / `4`). */
+    override val amountPrecision: Int
+        get() = AssetPrecision.amountPrecision(
+            precision,
+            priceUsd.takeIf { it.isFinite() }
+        )
     override val keywords: List<String>? = json.optStrings("keywords")
     val cmcSlug: String? = json.optString("cmcSlug").ifBlank { null }
     var color: String? = json.optString("color").ifBlank { null }
@@ -113,6 +122,7 @@ class MToken internal constructor(json: TokenFields) :
             put("tokenAddress", tokenAddress)
             if (percentChange24hReal.isFinite()) put("percentChange24h", percentChange24hReal)
             if (priceUsd.isFinite()) put("priceUsd", priceUsd)
+            precision?.let { put("precision", it) }
             put("isPopular", isPopular)
             put("chain", chain)
             put("isFromBackend", isFromBackend)
@@ -136,7 +146,7 @@ class MToken internal constructor(json: TokenFields) :
         val hash = Objects.hash(
             decimals, slug, symbol, name, localizedName, image, tokenAddress, isPopular, chain,
             isFromBackend, type, keywords, cmcSlug, color, isGaslessEnabled, isStarsEnabled,
-            isTiny, customPayloadApiUrl, codeHash, label
+            isTiny, customPayloadApiUrl, codeHash, label, precision
         ).toLong()
         return (hash * 31 + percentChange24hReal.toRawBits()) * 31 + priceUsd.toRawBits()
     }

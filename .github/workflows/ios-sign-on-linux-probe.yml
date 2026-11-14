@@ -1,0 +1,301 @@
+name: iOS signing probe on Linux
+
+# One-off: answers whether a Preview build signed by rcodesign on Linux passes App Store Connect
+# and installs from TestFlight. It is removed once that verdict is in.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-sign-on-linux-probe
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+# The setup steps come from Package and publish, and the SDK build bakes these values into the bundle,
+# so they mirror its env; an empty PUBLISH_REPO keeps the copied steps off the publishing path.
+env:
+  APP_VARIANT: mytonwallet
+  PUBLISH_REPO: ''
+  IS_RELEASE_CANDIDATE: ''
+  PROXY_HOSTS: ${{ vars.PROXY_HOSTS }}
+  STAKING_POOLS: ${{ vars.STAKING_POOLS }}
+  BRILLIANT_API_BASE_URL: ${{ vars.BRILLIANT_API_BASE_URL }}
+  SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
+  DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
+  WALLET_CONNECT_PROJECT_ID: ${{ vars.WALLET_CONNECT_PROJECT_ID }}
+  WALLET_CONNECT_PAY_APP_ID: ${{ vars.WALLET_CONNECT_PAY_APP_ID }}
+  AGENT_API_URL: ${{ vars.AGENT_API_URL }}
+
+jobs:
+  # Release run 6755 is past GitHub's 30-day re-run window, so its tenth-attempt slot is never taken again,
+  # and each probe run steps one release run further back from it, so no two probes share a number.
+  plan:
+    name: Pick the probe build number
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.pick.outputs.version }}
+      build: ${{ steps.pick.outputs.build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pick the probe build number
+        id: pick
+        env:
+          ANCHOR_RELEASE_RUN: 6755
+        run: |
+          set -euo pipefail
+          # The production environment also admits release/* and deploy/*, whose code this probe must not sign.
+          if [ "$GITHUB_REF" != refs/heads/master ]; then
+            echo "::error::The signing probe runs from master only, not $GITHUB_REF"
+            exit 1
+          fi
+          run=$((ANCHOR_RELEASE_RUN - GITHUB_RUN_NUMBER + 1))
+          echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+          echo "build=$((3300 + run * 10 + 9))" >> "$GITHUB_OUTPUT"
+          echo "probe build takes the tenth-attempt slot of release run $run"
+
+  archive:
+    name: Build Preview without signing
+    needs: plan
+    runs-on: xcode-27
+    environment: production
+    timeout-minutes: 45
+    env:
+      GYM_DERIVED_DATA_PATH: ${{ github.workspace }}/.derived-data
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      IOS_REQUIRED_SDK: "27.1"
+      PROBE_VERSION: ${{ needs.plan.outputs.version }}
+      PROBE_BUILD: ${{ needs.plan.outputs.build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Xcode 27.1 toolchain
+        run: |
+          set -euo pipefail
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::Xcode 27.1 is missing from this runner image: $DEVELOPER_DIR"
+            exit 1
+          fi
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphoneos --show-sdk-version)
+          if [ "$sdk" != "$IOS_REQUIRED_SDK" ]; then
+            echo "::error::Expected iOS SDK $IOS_REQUIRED_SDK, found $sdk"
+            exit 1
+          fi
+
+      - name: Configure iOS variant
+        env:
+          IOS_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          IOS_PREVIEW_TESTFLIGHT_GROUP: ${{ vars.IOS_PREVIEW_TESTFLIGHT_GROUP }}
+          IOS_GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: bash deploy/configure_ios_variant.sh >> "$GITHUB_ENV"
+
+      - name: Install Preview Firebase configuration
+        if: env.IOS_BUILD_CHANNEL == 'preview'
+        env:
+          IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64: ${{ secrets.IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64" ]; then
+            echo "::error::Missing IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64 for org.mytonwallet.app.preview"
+            exit 1
+          fi
+          config=mobile/ios/App/App/Resources/MyTonWalletPreview/GoogleService-Info.plist
+          mkdir -p "$(dirname "$config")"
+          printf '%s' "$IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64" | base64 --decode > "$config"
+          if [ "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$config")" != "$IOS_APP_IDENTIFIER" ]; then
+            echo "::error::Preview Firebase configuration must be registered for $IOS_APP_IDENTIFIER"
+            exit 1
+          fi
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build and sync mobile project
+        run: |
+          defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+
+          if [ "$APP_VARIANT" = "gram" ]; then
+            if [ -z "$PUBLISH_REPO" ]; then
+              APP_ENV=staging npm run mobile:build:sdk
+            else
+              APP_ENV=production npm run mobile:build:sdk
+            fi
+          elif [ -z "$PUBLISH_REPO" ]; then
+            npm run mobile:build:staging
+          else
+            npm run mobile:build:production
+          fi
+
+      - name: Archive Preview without signing
+        run: |
+          set -euo pipefail
+          if [ -z "$BRILLIANT_API_BASE_URL" ]; then
+            echo "::error::BRILLIANT_API_BASE_URL is required for the Preview widget"
+            exit 1
+          fi
+
+          sudo xcode-select --switch "$DEVELOPER_DIR"
+          xcodebuild -downloadPlatform iOS || true
+          sudo xcodebuild -runFirstLaunch || true
+          xcodebuild -downloadComponent MetalToolchain
+
+          echo "probe build $PROBE_VERSION ($PROBE_BUILD)"
+          xcodebuild archive \
+            -workspace mobile/ios/App/App.xcworkspace \
+            -scheme "$IOS_SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$GYM_DERIVED_DATA_PATH" \
+            -archivePath "$RUNNER_TEMP/Preview.xcarchive" \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="$PROBE_VERSION" \
+            CURRENT_PROJECT_VERSION="$PROBE_BUILD" \
+            WIDGET_API_BASE_URL="$BRILLIANT_API_BASE_URL"
+
+          mkdir -p "$RUNNER_TEMP/probe"
+          (cd "$RUNNER_TEMP/Preview.xcarchive/Products/Applications" && tar -cf "$RUNNER_TEMP/probe/app.tar" ./*.app)
+
+      # A tar keeps the executable bits and symlinks of the bundle, which an artifact alone drops.
+      - name: Upload the unsigned build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-sign-probe
+          path: ${{ runner.temp }}/probe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  sign:
+    name: Sign on Linux and upload
+    needs: [plan, archive]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the unsigned build
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-sign-probe
+          path: ${{ runner.temp }}/probe
+
+      - name: Install rcodesign
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          name=apple-codesign-0.29.0-x86_64-unknown-linux-musl
+          curl -fsSLO "https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/$name.tar.gz"
+          echo "dbe85cedd8ee4217b64e9a0e4c2aef92ab8bcaaa41f20bde99781ff02e600002  $name.tar.gz" | sha256sum -c -
+          tar -xzf "$name.tar.gz"
+          echo "RCODESIGN=$RUNNER_TEMP/$name/rcodesign" >> "$GITHUB_ENV"
+
+      - name: Configure iOS variant
+        env:
+          IOS_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          IOS_PREVIEW_TESTFLIGHT_GROUP: ${{ vars.IOS_PREVIEW_TESTFLIGHT_GROUP }}
+          IOS_GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: bash deploy/configure_ios_variant.sh >> "$GITHUB_ENV"
+
+      - name: Write the probe handoff
+        env:
+          PROBE_VERSION: ${{ needs.plan.outputs.version }}
+          PROBE_BUILD: ${{ needs.plan.outputs.build }}
+        run: |
+          jq -n --arg app "$IOS_APP_IDENTIFIER" --arg group "$IOS_TESTFLIGHT_GROUP" --arg version "$PROBE_VERSION" --arg build "$PROBE_BUILD" \
+            '{app_identifier: $app, testflight_group: $group, version: $version, build_number: $build, changelog: "Linux signing probe"}' \
+            > "$RUNNER_TEMP/probe/probe-handoff.json"
+
+      - name: Sign the build
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PREVIEW_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_BASE64 }}
+          IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in IOS_CERTIFICATE_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PREVIEW_PROVISION_PROFILE_BASE64 \
+            IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64 IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64 TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is empty"
+              exit 1
+            fi
+          done
+
+          signing="$RUNNER_TEMP/signing"
+          mkdir -m 700 "$signing"
+          printf '%s' "$IOS_CERTIFICATE_BASE64" | base64 --decode > "$signing/certificate.p12"
+          printf '%s' "$IOS_CERTIFICATE_PASSWORD" > "$signing/password"
+          printf '%s' "$IOS_PREVIEW_PROVISION_PROFILE_BASE64" | base64 --decode > "$signing/app.mobileprovision"
+          printf '%s' "$IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode > "$signing/widget.mobileprovision"
+          printf '%s' "$IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64" | base64 --decode > "$signing/notification.mobileprovision"
+
+          P12_PATH="$signing/certificate.p12" P12_PASSWORD_FILE="$signing/password" \
+            APP_PROFILE="$signing/app.mobileprovision" WIDGET_PROFILE="$signing/widget.mobileprovision" \
+            NOTIFICATION_PROFILE="$signing/notification.mobileprovision" ENTITLEMENTS_DIR=mobile/ios/App/Entitlements \
+            bash deploy/ios_sign_probe/sign_ipa.sh "$RUNNER_TEMP/probe/app.tar" "$RUNNER_TEMP/probe/probe.ipa"
+          rm -rf "$signing"
+
+      - name: Use Ruby and install dependencies
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: true
+          working-directory: mobile
+
+      - name: "iOS: Upload to App Store Connect"
+        env:
+          IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          IOS_GRAM_AUTH_KEY_BASE64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
+          IOS_AUTH_KEY_ID: ${{ vars.IOS_AUTH_KEY_ID }}
+          IOS_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+          IOS_GRAM_AUTH_KEY_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
+          IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
+          IOS_IPA_HANDOFF: ${{ runner.temp }}/probe/probe.ipa
+          IOS_TESTFLIGHT_HANDOFF: ${{ runner.temp }}/probe/probe-handoff.json
+        run: |
+          set -euo pipefail
+
+          cd mobile/ios/App
+          AUTH_KEY_BASE64="$IOS_AUTH_KEY_BASE64"
+          ASC_KEY_ID="${IOS_AUTH_KEY_ID:-}"
+          ASC_ISSUER_ID="${IOS_AUTH_KEY_ISSUER_ID:-}"
+
+          if [ "$APP_VARIANT" = "gram" ]; then
+            AUTH_KEY_BASE64="${IOS_GRAM_AUTH_KEY_BASE64:-$IOS_AUTH_KEY_BASE64}"
+            ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
+            ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
+          fi
+
+          if [ -z "$AUTH_KEY_BASE64" ]; then
+            echo "::error::Missing App Store Connect auth key for $APP_VARIANT"
+            exit 1
+          fi
+
+          echo -n "$AUTH_KEY_BASE64" | base64 --decode > ./AuthKey.p8
+          if [ -n "$ASC_KEY_ID" ]; then
+            export APP_STORE_CONNECT_KEY_ID="$ASC_KEY_ID"
+          fi
+          if [ -n "$ASC_ISSUER_ID" ]; then
+            export APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
+          fi
+
+          bundle exec fastlane upload_ipa | tee "$RUNNER_TEMP/upload.log"
+          # A re-run of a probe run that already uploaded, or a release run that once reached its tenth
+          # attempt, holds this number, and the uploader would then report that binary instead of this one.
+          if grep -q 'ended in SKIPPED' "$RUNNER_TEMP/upload.log"; then
+            echo "::error::App Store Connect already holds this build number; dispatch a new probe run, which takes the next one"
+            exit 1
+          fi

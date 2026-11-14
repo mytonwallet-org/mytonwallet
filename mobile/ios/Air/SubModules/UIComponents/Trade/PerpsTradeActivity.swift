@@ -18,6 +18,8 @@ public struct PerpsTradeActivity: Identifiable {
     public var date: String { formatDate(relativeTo: .now) }
     public var amount: PerpsValue
     public var detail: String
+    /// An order that failed, which made no trade.
+    public private(set) var isFailed = false
 
     public init(id: String, event: ApiPerpsFillEvent, title: String, badge: String, date: String,
                 amount: PerpsValue, detail: String) {
@@ -32,7 +34,6 @@ public struct PerpsTradeActivity: Identifiable {
 
     public init(fill: ApiPerpsFill, asset: ApiPerpsAsset) {
         let symbol = asset.symbol
-        let direction = lang(fill.positionSide == .long ? "Long" : "Short")
         id = fill.id
         event = fill.eventKind
         title = switch fill.eventKind {
@@ -42,15 +43,41 @@ public struct PerpsTradeActivity: Identifiable {
         case .closed: L10n.perpsActivityClosed(asset: symbol)
         case .liquidated: L10n.perpsActivityLiquidated(asset: symbol)
         }
-        badge = if let leverage = fill.leverage, leverage > 0 {
-            L10n.perpsLeverageDirection(leverage: leverage.formatted(.number.locale(.forNumberFormatters)), direction: direction)
-        } else {
-            direction
-        }
+        badge = Self.badge(side: fill.positionSide, leverage: fill.leverage)
         // The venue records traded notional, but not the collateral a past trade added.
         amount = fill.eventKind.realizesProfitLoss ? PerpsFormatting.profitLoss(fill.netPnl) : .init(PerpsFormatting.money(fill.notional))
         detail = lang(fill.eventKind.realizesProfitLoss ? "Profit and Loss" : "Trade Size")
         dateValue = .timestamp(Date(timeIntervalSince1970: Double(fill.time) / 1000))
+    }
+
+    /// Hyperliquid keeps no record of a failed order, so its row comes from the operation this device submitted.
+    public init(failedOrder operation: ApiPerpsOperation, asset: ApiPerpsAsset) {
+        id = Self.failedOrderPrefix + operation.id
+        event = switch operation.kind {
+        case "open": .opened
+        case "increase": .increased
+        case "close": .closed
+        default: .reduced
+        }
+        title = PerpsFormatting.operationTitle(operation, symbol: asset.symbol)
+        badge = operation.reviewedQuote.map { Self.badge(side: $0.side, leverage: $0.leverage) } ?? ""
+        amount = .init(lang("Failed"), tone: .negative)
+        detail = ""
+        dateValue = .timestamp(Date(timeIntervalSince1970: Double(operation.createdAt) / 1000))
+        isFailed = true
+    }
+
+    /// The operation behind a row of `init(failedOrder:asset:)`.
+    public static func failedOrderOperationID(activityID: String) -> String? {
+        activityID.hasPrefix(failedOrderPrefix) ? String(activityID.dropFirst(failedOrderPrefix.count)) : nil
+    }
+
+    private static let failedOrderPrefix = "failed-order:"
+
+    private static func badge(side: ApiPerpsPositionSide, leverage: Int?) -> String {
+        let direction = lang(side == .long ? "Long" : "Short")
+        guard let leverage, leverage > 0 else { return direction }
+        return L10n.perpsLeverageDirection(leverage: leverage.formatted(.number.locale(.forNumberFormatters)), direction: direction)
     }
 
     func formatDate(
@@ -76,11 +103,11 @@ public final class PerpsTradeActivityCell: ActivitySummaryCell, ActivityDateDisp
         self.activity = activity
         let amount = NSAttributedString(string: activity.amount.text, attributes: [.foregroundColor: activity.amount.tone.uiColor])
         let liquidated = activity.event == .liquidated
+        let symbol = activity.isFailed ? "xmark" : activity.event == .opened || activity.event == .increased ? "arrow.up" : "arrow.down"
         let glyph = liquidated ? UIImage.airBundle("PerpsActivityLiquidated")
-            : UIImage(systemName: activity.event == .opened || activity.event == .increased ? "arrow.up" : "arrow.down",
-                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))!
+            : UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))!
         configure(title: activity.title, badge: activity.badge, date: activity.date, amount: amount, detail: activity.detail,
-                  image: glyph, gradientColors: liquidated ? UIColor.air.redGradient : UIColor.air.blueGradient,
+                  image: glyph, gradientColors: liquidated || activity.isFailed ? UIColor.air.redGradient : UIColor.air.blueGradient,
                   accessibilityIdentifier: accessibilityPrefix + activity.id, canSelect: true, isStale: isStale)
     }
 

@@ -5,6 +5,7 @@ import { APP_NAME } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { IS_ANDROID, IS_IOS } from '../../util/windowEnvironment';
 
 import useLang from '../../hooks/useLang';
@@ -125,10 +126,22 @@ function GramAuthStart({ isActive, hasAccounts, isLoading }: OwnProps & StatePro
         <div className={styles.footer}>
           <TextDivider className={styles.divider}>{lang('or use web version')}</TextDivider>
           <div className={styles.actions}>
-            <Button isPrimary className={styles.action} isLoading={isLoading} onClick={startCreatingWallet}>
+            <Button
+              isPrimary
+              testId={getTestId('intro_create_wallet')}
+              className={styles.action}
+              isLoading={isLoading}
+              onClick={startCreatingWallet}
+            >
               {lang('Create New Wallet')}
             </Button>
-            <Button isText className={styles.action} isDisabled={isLoading} onClick={openAuthImportWalletModal}>
+            <Button
+              isText
+              testId={getTestId('intro_import_wallet')}
+              className={styles.action}
+              isDisabled={isLoading}
+              onClick={openAuthImportWalletModal}
+            >
               {lang('Import Existing Wallet')}
             </Button>
           </div>

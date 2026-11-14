@@ -2,20 +2,31 @@ import React, {
   memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
 import { removeExtraClass, toggleExtraClass } from '../../lib/teact/teact-dom';
-import { getActions } from '../../global';
+import { getActions, withGlobal } from '../../global';
 
 import type {
   AgentNewsFeedItemV2,
+  AgentNewsFeedLocaleV2,
   AgentThreadListItemV2,
   AgentThreadSummaryV2,
 } from '../../api/agentV2/protocol/types';
+import type { GlobalState } from '../../global/types';
 import type { ChatSelection, FeedSelection } from '../../util/agent/agentV2LocalState';
 import type { AgentConversationSessionStore } from '../agent/AgentConversationShell';
+import type { AgentV2StarterHintEntryPoint } from '../agent/hooks/agentV2RunController';
 import type { AgentV2ChatTarget } from '../agent/hooks/useAgentV2Messages';
 
 import { IS_EXTENSION } from '../../config';
 import { requestMeasure } from '../../lib/fasterdom/fasterdom';
-import { forgetRecentAgentChat, getAgentV2LocalState } from '../../util/agent/agentV2LocalState';
+import { getIsAgentV2SupportEntryVisible } from '../../global/agentV2/uiCapabilities';
+import { getAgentNewsFeedLocale } from '../../util/agent/agentNewsFeedLocale';
+import {
+  dropAgentV2BackgroundQueue,
+  forgetAgentV2ThreadDeletion,
+  forgetRecentAgentChat,
+  getAgentV2LocalState,
+  holdAgentV2BackgroundQueue,
+} from '../../util/agent/agentV2LocalState';
 import { subscribeToAgentV2RuntimeReady } from '../../util/agentV2Updates';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { pause } from '../../util/schedulers';
@@ -27,12 +38,15 @@ import { callApi } from '../../api';
 import { getIsAgentV2ThreadStarted } from '../../api/agentV2/threadStarted';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
 import { getSnapEffectKind, getSnapGapCloseDelay } from '../agent/helpers/snapEffect';
-import { startAgentNewsCardFlight } from './agentNewsCardFlight';
-import { buildAgentNewsPreviewCard } from './agentNewsFeedItems';
+import { getAgentNewsPostKey, startAgentNewsCardFlight } from './agentNewsCardFlight';
+import { buildAgentNewsPreviewCard, getChatTargetNewsLocale } from './agentNewsFeedItems';
+import { getAgentNewsFeedView, setAgentNewsFeedView, subscribeToAgentNewsFeedView } from './agentNewsFeedView';
 import { getAgentThreadUnreadStart, markAgentThreadHidden, markAgentThreadShown } from './agentThreadReadState';
 import useAgentNewsFeed from './useAgentNewsFeed';
+import { getCanRequestAgentV2SupportFromList, requestAgentV2Support } from './useAgentSuggestions';
 import useAgentV2ThreadList from './useAgentV2ThreadList';
 
+import useFlag from '../../hooks/useFlag';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -40,6 +54,7 @@ import useAgentLayoutSwitch from '../agent/hooks/useAgentLayoutSwitch';
 
 import Transition from '../ui/Transition';
 import AgentNewsFeed from './AgentNewsFeed';
+import AgentSupportRequestModal from './AgentSupportRequestModal';
 import AgentThreadList from './AgentThreadList';
 import AgentV2Classic from './AgentV2Classic';
 import { AgentV2ConsentSheet } from './AgentV2Conversation';
@@ -53,17 +68,27 @@ interface OwnProps {
   onScroll?: (event: React.UIEvent<HTMLDivElement>) => void;
 }
 
+interface StateProps {
+  hasWallet: boolean;
+  newsDiscussionRequest?: GlobalState['agentNewsDiscussionRequest'];
+}
+
 /**
- * The screens of the stack, bottom to top: the chat list; a chat or the news feed pushed over it; the discussion of a
- * news item pushed over the feed
+ * The screens of the stack, bottom to top: the chat list, then those pushed over it, each over the one before: a chat
+ * or the news feed; a discussion over the feed; the discussion of a digest's headline over the digest's discussion
  */
 enum StackLevel {
   List,
-  Pushed,
-  OverFeed,
+  First,
+  Second,
+  Third,
 }
 
-const STACK_LEVEL_COUNT = 3;
+type ChatOpeningOptions = Pick<
+  ChatSelection, 'initialMessage' | 'initialHintEntryPoint' | 'shouldRequestSupport' | 'newsEventId' | 'newsDigestId'
+>;
+
+const STACK_LEVEL_COUNT = 4;
 // A swipe that starts on a table or a code block of an answer scrolls it
 const SWIPE_EXCLUDED_SELECTOR = '[data-agent-v2-message-role] pre, [data-agent-v2-message-role] table';
 // The platform's own push on Android, as on its other screens; the iOS-like layers elsewhere, as on iPad
@@ -76,17 +101,22 @@ const RETURN_FOCUS_FRAMES = 10;
 // The longest the consent sheet waits for the keyboard to go, past the window's size updates, which come 250 ms apart
 const KEYBOARD_HIDE_TIMEOUT_MS = 600;
 
-function AgentV2Chats({ isActive, onScroll }: OwnProps) {
+function AgentV2Chats({
+  isActive, onScroll, hasWallet, newsDiscussionRequest,
+}: OwnProps & StateProps) {
   const localState = useRef(getAgentV2LocalState()).current;
-  const { showError, switchToWallet } = getActions();
+  const { showError, switchToWallet, clearAgentNewsDiscussionRequest } = getActions();
   const lang = useLang();
   const stackRef = useRef<HTMLDivElement>();
-  // Continues from the chat kept across a remount, so that the next chat gets a key of its own
-  const chatKeyRef = useRef(localState.openChatOnMount?.key ?? 0);
+  // Continues from the chats kept across a remount, so that the next chat gets a key of its own
+  const chatKeyRef = useRef(Math.max(localState.openChatOnMount?.key ?? 0, localState.openParentChatOnMount?.key ?? 0));
   const feedKeyRef = useRef(localState.openFeedOnMount?.key ?? 0);
   const [isConsentAccepted, setIsConsentAccepted] = useState(takeSwitchedLayoutConsent);
   const [chat, setChat] = useState<ChatSelection | undefined>(() => localState.openChatOnMount);
+  // The digest's discussion under the discussion of one of its headlines, which Back returns to
+  const [parentChat, setParentChat] = useState<ChatSelection | undefined>(() => localState.openParentChatOnMount);
   const [feed, setFeed] = useState<FeedSelection | undefined>(() => localState.openFeedOnMount);
+  const [newsView, setNewsView] = useState(getAgentNewsFeedView);
   const [renamingThread, setRenamingThread] = useState<AgentThreadSummaryV2 | undefined>();
   const [deletingThread, setDeletingThread] = useState<AgentThreadSummaryV2 | undefined>();
   const [deletingOpeningChatKey, setDeletingOpeningChatKey] = useState<number>();
@@ -97,7 +127,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   // The chats whose rows turn to dust in the list while their deletion runs
   const [dissolvingThreadIds, setDissolvingThreadIds] = useState<ReadonlySet<string>>(NO_THREAD_IDS);
   // The screens a swipe back left, which come back if the swipe is cancelled
-  const swipedScreensRef = useRef<{ chat?: ChatSelection; feed?: FeedSelection }>();
+  const swipedScreensRef = useRef<{ chat?: ChatSelection; parentChat?: ChatSelection; feed?: FeedSelection }>();
   // After going back, the focus moves to the element that opened the closed screen: a chat's row or the News row in
   // the list, or the news card in the feed whose discussion was closed
   const returnFocusRef = useRef<{ level: StackLevel; selector: string }>();
@@ -106,9 +136,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   // The chats the Agent answered in while open here, as news discussions the user has written in
   const [answeredThreadIds, setAnsweredThreadIds] = useState<Set<string>>(() => new Set());
   // Before consent the feed and its discussions open as they do after it, and chats wait for it
-  const activeLevel = feed
-    ? (chat ? StackLevel.OverFeed : StackLevel.Pushed)
-    : (chat ? StackLevel.Pushed : StackLevel.List);
+  const activeLevel: StackLevel = [feed, parentChat, chat].filter(Boolean).length;
   const canGoBack = activeLevel !== StackLevel.List;
   // Telegram's own swipe would close the Mini App in place of the swipe back
   const { disableSwipeToClose, enableSwipeToClose } = useTelegramMiniAppSwipeToClose(isActive && canGoBack);
@@ -122,11 +150,18 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   });
   // The feed needs no consent, only the SDK, which answers once the list knows the consent
   const newsFeed = useAgentNewsFeed({
+    view: newsView,
     isEnabled: isConsentAccepted !== undefined,
     isActive,
     langCode: lang.code ?? 'en',
     isFeedVisible: isActive && Boolean(feed) && !chat,
   });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAgentNewsFeedView(setNewsView);
+    setNewsView(getAgentNewsFeedView());
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     localState.openChatOnMount = chat && rememberChat(chat);
@@ -135,8 +170,12 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   }, [chat, localState]);
 
   useEffect(() => {
+    localState.openParentChatOnMount = parentChat && rememberChat(parentChat);
+  }, [parentChat, localState]);
+
+  useEffect(() => {
     localState.openFeedOnMount = feed;
-    if (!feed) localState.feedSessionOnMount = undefined;
+    if (!feed) localState.feedSessionsOnMount = undefined;
   }, [feed, localState]);
 
   useAgentLayoutSwitch(() => {
@@ -151,18 +190,29 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     },
   }), [chatKey, localState]);
   // The feed opens again where it was, as a chat does, as the app switches layouts, and as the user comes back to it from
-  // a discussion, as on mobile
+  // a discussion, as on mobile. Each view keeps its own place while the feed is open, so a switch back returns there; a
+  // view not shown yet opens as the feed does.
   const feedKey = feed?.key;
-  const feedSession = useMemo<AgentConversationSessionStore | undefined>(() => (feedKey === undefined ? undefined : {
-    // Read as the feed mounts, which it does again under a discussion that goes away
-    get initial() {
-      return localState.feedSessionOnMount?.feedKey === feedKey ? localState.feedSessionOnMount.session : undefined;
-    },
-    save: (session) => {
-      if (localState.openFeedOnMount?.key === feedKey) localState.feedSessionOnMount = { feedKey, session };
-    },
-    shouldKeepPlaceOffScreen: true,
-  }), [feedKey, localState]);
+  const feedSession = useMemo<AgentConversationSessionStore | undefined>(() => {
+    if (feedKey === undefined) return undefined;
+    return {
+      // Read as the feed mounts, which it does again under a discussion that goes away
+      get initial() {
+        const kept = localState.feedSessionsOnMount;
+        return kept?.feedKey === feedKey ? kept.sessions[newsView] : undefined;
+      },
+      save: (session) => {
+        if (localState.openFeedOnMount?.key !== feedKey) return;
+        const kept = localState.feedSessionsOnMount;
+        const sessions = kept?.feedKey === feedKey ? kept.sessions : {};
+        localState.feedSessionsOnMount = { feedKey, sessions: { ...sessions, [newsView]: session } };
+      },
+      shouldKeepPlaceOffScreen: true,
+      subscribeToLeave: (onLeave) => subscribeToAgentNewsFeedView((view) => {
+        if (view !== newsView) onLeave();
+      }),
+    };
+  }, [feedKey, localState, newsView]);
 
   // The app takes the agent's background while the section is on screen
   useLayoutEffect(() => {
@@ -191,7 +241,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
 
   function createChat(
     target: AgentV2ChatTarget,
-    options: Pick<ChatSelection, 'initialMessage' | 'newsEventId'> = {},
+    options: ChatOpeningOptions = {},
   ): ChatSelection {
     chatKeyRef.current += 1;
     const threadId = target.kind === 'thread' ? target.threadId : undefined;
@@ -207,7 +257,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
 
   const openChat = useLastCallback((
     target: AgentV2ChatTarget,
-    options: Pick<ChatSelection, 'initialMessage' | 'newsEventId'> = {},
+    options: ChatOpeningOptions = {},
   ) => {
     setChat(createChat(target, options));
   });
@@ -224,11 +274,29 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
       return;
     }
 
-    setChat(undefined);
-    // The feed under a discussion comes back where it was left, with the focus on the news the discussion is about
-    if (feed && chat.newsEventId !== undefined) {
+    // A headline's discussion gives way to its digest's, with the focus on the headline
+    if (parentChat) {
+      setChat(parentChat);
+      setParentChat(undefined);
       returnFocusRef.current = {
-        level: StackLevel.Pushed,
+        level: activeLevel - 1,
+        selector: `[data-agent-chat-key="${parentChat.key}"] [data-agent-news-digest-headline="${chat.newsEventId}"]`,
+      };
+      return;
+    }
+
+    setChat(undefined);
+    // The feed under a discussion comes back where it was left, with the focus on the digest's headline that opened
+    // the discussion, or on the news it is about
+    if (feed && chat.newsDigestId !== undefined) {
+      returnFocusRef.current = {
+        level: StackLevel.First,
+        selector: `[data-agent-news-digest-id="${CSS.escape(chat.newsDigestId)}"] `
+          + `[data-agent-news-digest-headline="${chat.newsEventId}"]`,
+      };
+    } else if (feed && chat.newsEventId !== undefined) {
+      returnFocusRef.current = {
+        level: StackLevel.First,
         selector: `[data-agent-news-event-id="${chat.newsEventId}"] [data-agent-news-discuss]`,
       };
     } else if (!feed && chat.threadId) {
@@ -282,7 +350,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   const handleSwipeBack = useLastCallback(() => {
     if (!canGoBack) return;
 
-    swipedScreensRef.current = { chat, feed };
+    swipedScreensRef.current = { chat, parentChat, feed };
     disableSwipeToClose();
     goBack();
   });
@@ -292,6 +360,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     swipedScreensRef.current = undefined;
     if (swipedScreens) {
       setChat(swipedScreens.chat);
+      setParentChat(swipedScreens.parentChat);
       setFeed(swipedScreens.feed);
     }
     enableSwipeToClose();
@@ -314,8 +383,10 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     openChat({ kind: 'thread', threadId });
   });
 
-  const handleStartChat = useLastCallback((text: string, isInPlace: boolean) => {
-    openChat({ kind: 'new' }, { initialMessage: text });
+  const handleStartChat = useLastCallback((
+    text: string, isInPlace: boolean, hintEntryPoint?: AgentV2StarterHintEntryPoint,
+  ) => {
+    openChat({ kind: 'new' }, { initialMessage: text, initialHintEntryPoint: hintEntryPoint });
     setIsInPlacePush(isInPlace);
   });
 
@@ -348,73 +419,152 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   });
 
   const handleOpenNewsDiscussion = useLastCallback((
-    eventId: number, item?: AgentNewsFeedItemV2, cardElement?: HTMLElement,
+    eventId: number, item?: AgentNewsFeedItemV2, cardElement?: HTMLElement, digestId?: string,
   ) => {
     // Taps on the feed while a discussion slides in over it are ignored
     if (chat || !newsFeed.locale) return;
 
+    openNewsDiscussion(eventId, newsFeed.locale, item, cardElement, digestId);
+  });
+
+  function openNewsDiscussion(
+    eventId: number,
+    locale: AgentNewsFeedLocaleV2,
+    item?: AgentNewsFeedItemV2,
+    cardElement?: HTMLElement,
+    digestId?: string,
+  ) {
     const discussion = item?.discussion;
     const threadId = discussion?.threadId;
     const isContinued = Boolean(threadId && continuedThreadIds.has(threadId));
     // The card flies into a discussion the user has not written in, which starts with the news post alone. The
     // feed's copy of the news shows that post, under its name and date, from the first frame, as it lands.
     if (cardElement && !isContinued && getCanAnimate()) {
-      startAgentNewsCardFlight(cardElement, eventId);
+      startAgentNewsCardFlight(cardElement, getAgentNewsPostKey({ eventId }));
     }
     const preview = item && !isContinued ? buildAgentNewsPreviewCard(item) : undefined;
     // A listed discussion opens by its thread; other discussions resolve through their news identity
     if (threadId && findListThread(threadId)) {
-      openChat({ kind: 'thread', threadId, preview, isNews: true }, { newsEventId: eventId });
+      openChat(
+        { kind: 'thread', threadId, preview, isNews: true, newsLocale: locale },
+        { newsEventId: eventId, newsDigestId: digestId },
+      );
       return;
     }
     openChat({
       kind: 'news',
-      news: { eventId, locale: newsFeed.locale },
+      news: { eventId, locale },
       preview,
-    }, { newsEventId: eventId });
-  });
+      ...(item && !discussion && { shouldDeferCreation: true, discussionNaming: item.discussionNaming }),
+    }, { newsEventId: eventId, newsDigestId: digestId });
+  }
 
   const handleOpenDiscussion = useLastCallback((item: AgentNewsFeedItemV2, cardElement?: HTMLElement) => {
     handleOpenNewsDiscussion(item.eventId, item, cardElement);
   });
 
-  const handleOpenDigestNews = useLastCallback((eventId: number) => {
-    const item = newsFeed.items?.find((entry) => entry.kind === 'news' && entry.eventId === eventId);
-    handleOpenNewsDiscussion(eventId, item?.kind === 'news' ? item : undefined);
+  const handleOpenDigestNews = useLastCallback((eventId: number, digestId: string) => {
+    handleOpenNewsDiscussion(eventId, findFeedNewsItem(eventId), undefined, digestId);
   });
 
-  const handleOpenDigestDiscussion = useLastCallback((id: string) => {
+  // A headline of the digest's post opens its news item's discussion over the digest's, as on iOS and Android
+  const handleOpenPostDigestNews = useLastCallback((eventId: number, digestId: string) => {
+    if (!chat || parentChat) return;
+
+    setParentChat(chat);
+    openNewsDiscussion(eventId, getDiscussionLocale(), findFeedNewsItem(eventId), undefined, digestId);
+  });
+
+  // A news link opens its discussion in place of the one on screen, over the feed if it is open, as Discuss does
+  const openRequestedNewsDiscussion = useLastCallback((eventId: number) => {
+    if (chat?.newsEventId === eventId && !parentChat) return;
+
+    setParentChat(undefined);
+    openNewsDiscussion(eventId, getDiscussionLocale(), findFeedNewsItem(eventId));
+  });
+
+  useEffect(() => {
+    if (!isActive || !newsDiscussionRequest) return;
+
+    clearAgentNewsDiscussionRequest({ request: newsDiscussionRequest });
+    openRequestedNewsDiscussion(newsDiscussionRequest.eventId);
+  }, [clearAgentNewsDiscussionRequest, isActive, newsDiscussionRequest, openRequestedNewsDiscussion]);
+
+  // A discussion opens also before the feed loads, or when it fails to, so the language can't wait for it
+  function getDiscussionLocale() {
+    return newsFeed.locale ?? getAgentNewsFeedLocale(lang.code ?? 'en');
+  }
+
+  function findFeedNewsItem(eventId: number) {
+    const item = newsFeed.allItems?.find((entry) => entry.kind === 'news' && entry.eventId === eventId);
+    return item?.kind === 'news' ? item : undefined;
+  }
+
+  const handleOpenDigestDiscussion = useLastCallback((id: string, cardElement?: HTMLElement) => {
     if (chat) return;
     const digest = newsFeed.items?.find((entry) => entry.kind === 'digest' && entry.id === id);
     const threadId = digest?.discussion?.threadId;
+    const isContinued = Boolean(threadId && continuedThreadIds.has(threadId));
+    // As a news card, the digest flies into the post of a discussion the user has not written in
+    if (cardElement && !isContinued && getCanAnimate()) {
+      startAgentNewsCardFlight(cardElement, getAgentNewsPostKey({ id }));
+    }
+    // The discussion shows the digest's post from the feed's copy of it until its thread comes
+    const digestPreview = digest?.kind === 'digest' && !isContinued ? {
+      id, windowEnd: digest.deliveredAt, total: digest.total, top: digest.top,
+    } : undefined;
     if (threadId && findListThread(threadId)) {
-      openChat({ kind: 'thread', threadId, isNews: true });
+      openChat({
+        kind: 'thread', threadId, isNews: true, digestPreview,
+      });
       return;
     }
-    openChat({ kind: 'digest', digest: { id } });
+    openChat({
+      kind: 'digest',
+      digest: { id },
+      digestPreview,
+      ...(digest?.kind === 'digest' && !digest.discussion && {
+        shouldDeferCreation: true, discussionNaming: digest.discussionNaming,
+      }),
+    });
   });
 
   // A chat reports its thread by its key, so a chat sliding away cannot rename the one that replaced it. A chat that a
   // swipe back is taking away keeps the thread in case the swipe is cancelled and the chat comes back.
-  const handleThreadResolved = useLastCallback((key: number, threadId: string) => {
+  const handleThreadResolved = useLastCallback((key: number, threadId: string, target?: AgentV2ChatTarget) => {
     if (pendingDeletionKeys.has(key)) return;
 
     const swipedScreens = swipedScreensRef.current;
-    const swipedChat = swipedScreens?.chat?.key === key ? swipedScreens.chat : undefined;
-    const selection = chat?.key === key ? chat : swipedChat;
+    const selection = [chat, parentChat, swipedScreens?.chat, swipedScreens?.parentChat]
+      .find((screen) => screen?.key === key);
+    const resolvedTarget = target ?? selection?.target;
+    if (resolvedTarget?.kind === 'news') newsFeed.markDiscussion(resolvedTarget.news.eventId, { threadId });
+    if (resolvedTarget?.kind === 'digest') newsFeed.markDigestDiscussion(resolvedTarget.digest.id, { threadId });
     if (!selection) return;
 
-    if (swipedChat) swipedScreensRef.current = { ...swipedScreens, chat: { ...swipedChat, threadId } };
-    setChat((current) => (current?.key === key ? { ...current, threadId } : current));
-    if (selection.target.kind === 'news') newsFeed.markDiscussion(selection.target.news.eventId, { threadId });
-    if (selection.target.kind === 'digest') newsFeed.markDigestDiscussion(selection.target.digest.id, { threadId });
+    const resolveThread = (screen?: ChatSelection) => (screen?.key === key ? { ...screen, threadId } : screen);
+    if (swipedScreens) {
+      swipedScreensRef.current = {
+        ...swipedScreens, chat: resolveThread(swipedScreens.chat), parentChat: resolveThread(swipedScreens.parentChat),
+      };
+    }
+    setChat(resolveThread);
+    setParentChat(resolveThread);
   });
 
   const handleInitialMessageSent = useLastCallback((key: number) => {
     if (localState.openChatOnMount?.key === key) {
-      localState.openChatOnMount = { ...localState.openChatOnMount, initialMessage: undefined };
+      localState.openChatOnMount = {
+        ...localState.openChatOnMount,
+        initialMessage: undefined,
+        initialHintEntryPoint: undefined,
+        shouldRequestSupport: undefined,
+      };
     }
-    setChat((current) => (current?.key === key ? { ...current, initialMessage: undefined } : current));
+    setChat((current) => (current?.key === key
+      ? {
+        ...current, initialMessage: undefined, initialHintEntryPoint: undefined, shouldRequestSupport: undefined,
+      } : current));
   });
 
   // The "New" line stays at the same message when the chat mounts again, as after the app switches layouts
@@ -475,6 +625,30 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
       if (consentActionRef.current === action) setIsConsentSheetOpen(true);
     });
   });
+
+  // Contact Support under the list asks before it opens the chat support has, or a new chat that calls it. Before
+  // consent no chat can have support yet; the chat is chosen from the list that loads once the user allows the Agent.
+  const listItems = isConsentAccepted ? items : NO_THREADS;
+  const canRequestSupport = isConsentAccepted !== undefined && !hasLoadFailed
+    && getCanRequestAgentV2SupportFromList(listItems);
+  const [isSupportRequestOpen, openSupportRequest, closeSupportRequest] = useFlag();
+  const [isSupportRequestPending, setIsSupportRequestPending] = useState(false);
+  const confirmSupportRequest = useLastCallback(() => {
+    if (!canRequestSupport) return;
+    requestConsent(() => setIsSupportRequestPending(true));
+  });
+  useEffect(() => {
+    if (!isSupportRequestPending || !isConsentAccepted) return;
+    // A list that failed to load drops the request, so that no chat opens on a later retry
+    if (hasLoadFailed) {
+      setIsSupportRequestPending(false);
+      return;
+    }
+    // Cached rows may miss the chat support has, so the request waits for the server's list
+    if (!items || isCacheShown) return;
+    setIsSupportRequestPending(false);
+    requestAgentV2Support(items, openChat);
+  }, [hasLoadFailed, isCacheShown, isConsentAccepted, isSupportRequestPending, items, openChat]);
 
   const handleConsentClose = useLastCallback(() => {
     const onDecline = consentDeclineRef.current;
@@ -565,16 +739,23 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   async function deleteThread(id: string) {
     if (deletingThreadIds.has(id)) return;
 
+    holdAgentV2BackgroundQueue(id);
     deletingThreadIds.add(id);
     setDissolvingThreadIds((current) => new Set([...current, id]));
     // The chat's place holds while most of its dust drifts off, so the chats that stay don't run into it
     const closesGapAt = Date.now() + getSnapGapCloseDelay(getSnapEffectKind(getCanAnimate()));
     const result = await callApi('deleteAgentV2Thread', id).catch(() => undefined);
-    if (result?.ok) await pause(Math.max(0, closesGapAt - Date.now()));
+    if (result?.ok) {
+      dropAgentV2BackgroundQueue(id);
+      await pause(Math.max(0, closesGapAt - Date.now()));
+    }
     deletingThreadIds.delete(id);
     if (result?.ok) handleThreadDeleted(id);
     setDissolvingThreadIds((current) => new Set([...current].filter((threadId) => threadId !== id)));
-    if (!result?.ok) showError({ error: 'An error occurred' });
+    if (!result?.ok) {
+      forgetAgentV2ThreadDeletion(id);
+      showError({ error: 'An error occurred' });
+    }
   }
 
   // Runs after the request, against the chat shown by then
@@ -582,6 +763,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     forgetRecentAgentChat(threadId);
     removeThread(threadId);
     newsFeed.removeDiscussion(threadId);
+    if (parentChat?.threadId === threadId) setParentChat(undefined);
     if (chat?.threadId === threadId) goBack();
   });
 
@@ -591,12 +773,19 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
 
   function renderChat(selection: ChatSelection, isScreenActive: boolean) {
     return (
-      <div key={`chat-${selection.key}`} className={styles.chat} inert={!isScreenActive}>
+      <div
+        key={`chat-${selection.key}`}
+        className={styles.chat}
+        inert={!isScreenActive}
+        data-agent-chat-key={selection.key}
+      >
         <AgentV2Classic
           isActive={isActive && isScreenActive}
           chatKey={selection.key}
           target={selection.target}
           initialMessage={selection.initialMessage}
+          initialHintEntryPoint={selection.initialHintEntryPoint}
+          shouldRequestSupport={selection.shouldRequestSupport}
           initialThread={selection.thread}
           unreadStart={selection.unreadStart}
           isUnreadStateUnknown={selection.isUnreadStateUnknown}
@@ -611,6 +800,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
           onThreadLoaded={selection.key === chatKey ? handleThreadLoaded : undefined}
           onThreadNotFound={selection.key === chatKey ? handleThreadNotFound : undefined}
           onAnswerChange={handleAnswerChange}
+          onOpenDigestNews={selection.key === chatKey ? handleOpenPostDigestNews : undefined}
           onDelete={handleChatDelete}
           hasConsent={Boolean(isConsentAccepted)}
           onRequestConsent={requestConsent}
@@ -624,9 +814,14 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     return (
       <div key={`feed-${selection.key}`} className={styles.chat} inert={!isScreenActive}>
         <AgentNewsFeed
+          key={newsView}
+          view={newsView}
+          onViewChange={setAgentNewsFeedView}
           isActive={isActive && isScreenActive}
           items={newsFeed.items}
+          locale={newsFeed.locale}
           unreadEventId={newsFeed.unreadEventId}
+          unreadDigestId={newsFeed.unreadDigestId}
           hasMore={newsFeed.hasMore}
           isLoading={newsFeed.isLoading}
           isLoadingMore={newsFeed.isLoadingMore}
@@ -649,7 +844,8 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     return (
       <AgentThreadList
         isActive={isActive && isScreenActive}
-        items={isConsentAccepted ? items : NO_THREADS}
+        isAgentActive={isActive}
+        items={listItems}
         isUserChange={isUserChange}
         dissolvingThreadIds={dissolvingThreadIds}
         hasMore={hasMore}
@@ -658,12 +854,15 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
         isRetrying={isRetrying}
         activityLangKeys={activityLangKeys}
         latestNewsItem={newsFeed.latestItem}
+        latestNewsDigest={newsFeed.latestDigest}
         newsUnreadCount={newsFeed.unreadCount}
         isDictationHeld={!isConsentAccepted}
         onSelect={handleSelect}
         onOpenNews={handleOpenNews}
         onStartChat={handleStartChat}
         onRequestConsent={requestConsent}
+        onRequestSupport={getIsAgentV2SupportEntryVisible() ? openSupportRequest : undefined}
+        canRequestSupport={canRequestSupport}
         onLoadMore={loadMore}
         onRetry={retry}
         onRename={setRenamingThread}
@@ -676,19 +875,18 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   // The screen of each level; a level that is not shown keeps the one it showed last, which an outgoing screen
   // needs for its animation
   function renderScreen(isScreenActive: boolean, _isFrom: boolean, level: StackLevel) {
-    switch (level) {
-      case StackLevel.List:
-        return (
-          <div className={styles.listLevel}>
-            {renderList(isScreenActive)}
-          </div>
-        );
-      case StackLevel.Pushed:
-        if (feed) return renderFeed(feed, isScreenActive);
-        return chat && renderChat(chat, isScreenActive);
-      case StackLevel.OverFeed:
-        return chat && renderChat(chat, isScreenActive);
+    if (level === StackLevel.List) {
+      return (
+        <div className={styles.listLevel}>
+          {renderList(isScreenActive)}
+        </div>
+      );
     }
+    if (feed && level === StackLevel.First) return renderFeed(feed, isScreenActive);
+
+    const chats = parentChat ? [parentChat, chat] : [chat];
+    const selection = chats[level - (feed ? StackLevel.Second : StackLevel.First)];
+    return selection && renderChat(selection, isScreenActive);
   }
 
   return (
@@ -698,7 +896,9 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
           name={isInPlacePush ? 'fade' : STACK_TRANSITION_NAME}
           activeKey={activeLevel}
           renderCount={STACK_LEVEL_COUNT}
-          shouldCleanup
+          // The digest's discussion stays under its headline's, where it was left, as the feed under a discussion
+          // comes back from its session
+          shouldCleanup={!parentChat}
           cleanupExceptionKey={StackLevel.List}
           withSwipeControl
           className={styles.stack}
@@ -711,6 +911,14 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
         isAllowing={isAllowingConsent}
         onAllow={handleConsentAllow}
         onClose={handleConsentClose}
+      />
+      <AgentSupportRequestModal
+        isOpen={isSupportRequestOpen}
+        // The server sends the operator no addresses without consent or a wallet
+        hasWalletAddresses={Boolean(isConsentAccepted) && hasWallet}
+        canConfirm={canRequestSupport}
+        onClose={closeSupportRequest}
+        onConfirm={confirmSupportRequest}
       />
       <RenameAgentChatModal
         thread={renamingThread}
@@ -727,7 +935,10 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   );
 }
 
-export default memo(AgentV2Chats);
+export default memo(withGlobal<OwnProps>((global): StateProps => ({
+  hasWallet: Boolean(global.currentAccountId),
+  newsDiscussionRequest: global.agentNewsDiscussionRequest,
+}))(AgentV2Chats));
 
 /** Calls `callback` once the on-screen keyboard has gone, or at once without one, waiting no longer than it takes */
 function openAfterKeyboard(callback: NoneToVoidFunction) {
@@ -765,18 +976,25 @@ function takeSwitchedLayoutConsent() {
 
 /** A chat reopens by its thread once known, keeping a question until it is sent */
 function rememberChat({
-  key, target, threadId, thread, initialMessage, newsEventId, unreadStart, isUnreadStateUnknown,
+  key, target, threadId, thread, initialMessage, initialHintEntryPoint, shouldRequestSupport, newsEventId, newsDigestId,
+  unreadStart, isUnreadStateUnknown,
 }: ChatSelection): ChatSelection {
   // A news discussion stays one on the thread it resolved, so that it loads before consent again
   const isNews = target.kind === 'news' || target.kind === 'digest' || (target.kind === 'thread' && target.isNews)
     || Boolean(thread?.news || thread?.digest);
+  const newsLocale = getChatTargetNewsLocale(target);
   return {
     key,
-    target: threadId ? { kind: 'thread', threadId, ...(isNews && { isNews }) } : target,
+    target: threadId
+      ? { kind: 'thread', threadId, ...(isNews && { isNews }), ...(newsLocale && { newsLocale }) }
+      : target,
     threadId,
     thread,
     initialMessage,
+    initialHintEntryPoint,
+    shouldRequestSupport,
     newsEventId,
+    newsDigestId,
     unreadStart,
     isUnreadStateUnknown,
   };

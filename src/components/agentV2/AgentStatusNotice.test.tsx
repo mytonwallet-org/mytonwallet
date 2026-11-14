@@ -2,6 +2,7 @@ import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
 import { pause } from '../../util/schedulers';
+import { formatAgentTime } from '../agent/helpers/agentDateFormat';
 
 import {
   AgentComposerStatus,
@@ -85,23 +86,26 @@ describe('Agent V2 failure and composer status notices', () => {
     expect(root.querySelector('[aria-live="off"]')).not.toBeNull();
   });
 
-  it('tells the daily quota on one line, as in the design', async () => {
+  it('tells the daily quota reset time on one status line', async () => {
+    const resetAt = Date.now() + 3_600_000;
     TeactDOM.render(
       <AgentComposerStatus
         status={{
           kind: 'userQuota',
           mode: 'blocked',
           quota: {
-            limit: 20, used: 20, remaining: 0, resetAt: new Date(Date.now() + 3_600_000).toISOString(),
+            limit: 20, used: 20, remaining: 0, resetAt: new Date(resetAt).toISOString(),
           },
-          resetAt: Date.now() + 3_600_000,
+          resetAt,
         }}
       />,
       root,
     );
     await pause(20);
 
-    expect(root.querySelector('[role="status"]')!.textContent).toBe('$agent_daily_limit_reached');
+    expect(root.querySelectorAll('[role="status"]')).toHaveLength(1);
+    expect(root.querySelector('[role="status"]')!.textContent)
+      .toBe(`$agent_daily_limit_resets_at:${formatAgentTime('en', resetAt)}`);
   });
 
   it('offers no Retry while a limit holds', async () => {

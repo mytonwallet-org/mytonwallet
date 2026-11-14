@@ -186,7 +186,7 @@ describe('follow-up motion in the chat', () => {
     row = document.createElement('div');
     buttons = [0, 1, 2].map((index) => {
       const button = document.createElement('button');
-      button.className = 'followupButton followupArrow';
+      button.className = 'followupButton';
       button.dataset.agentFollowupId = `followup-${index}`;
       button.style.borderTopLeftRadius = '80px';
       const label = document.createElement('span');
@@ -251,7 +251,6 @@ describe('follow-up motion in the chat', () => {
     });
     // The pill's glass, without its title and arrow
     expect(source.pill.childElementCount).toBe(0);
-    expect(source.pill.classList.contains('followupArrow')).toBe(false);
     expect(source.title.textContent).toBe('Explain this update 1');
 
     const bubble = document.createElement('div');

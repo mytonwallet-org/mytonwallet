@@ -7,6 +7,7 @@ import type { StakingStateStatus } from '../../../../util/staking';
 
 import { ANIMATED_STICKER_TINY_ICON_PX } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
+import { getAssetAmountPrecision } from '../../../../util/assetPrecision';
 import buildClassName from '../../../../util/buildClassName';
 import { calcChangeValue } from '../../../../util/calcChangeValue';
 import { DAY, formatFullDay } from '../../../../util/dateFormat';
@@ -111,6 +112,7 @@ function Token({
     decimals,
     label,
   } = token;
+  const amountPrecision = getAssetAmountPrecision(token);
 
   const lang = useLang();
   const { isPortrait } = useDeviceScreen();
@@ -306,7 +308,7 @@ function Token({
               rows={2}
               cellSize={8}
             >
-              <AnimatedCounter text={formatCurrency(renderedAmount, symbol)} />
+              <AnimatedCounter text={formatCurrency(renderedAmount, symbol, amountPrecision)} />
             </SensitiveData>
             <i className={styles.dot} aria-hidden />
             <AnimatedCounter text={formatCurrency(price, shortBaseSymbol, undefined, true)} />
@@ -443,7 +445,7 @@ function Token({
               isVesting && vestingStatus === 'readyToUnfreeze' && styles.secondaryValue_vestingUnfreeze,
             )}
           >
-            <AnimatedCounter text={formatCurrency(renderedAmount, symbol)} />
+            <AnimatedCounter text={formatCurrency(renderedAmount, symbol, amountPrecision)} />
           </SensitiveData>
           <SensitiveData
             isActive={isSensitiveDataHidden}

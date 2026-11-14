@@ -212,6 +212,8 @@ public struct ApiPerpsLeverageEstimate: Codable, Sendable, Equatable {
 
 public struct ApiPerpsFundingRequirements: Codable, Sendable, Equatable {
     public var requiredUsdc: String
+    /// The bridge fee that `requiredUsdc` includes.
+    public var requiredBridgeFeeUsdc: String?
     /// Paymaster cost in USDC when the deposit is gasless. `"0"` when the wallet pays gas in ETH.
     public var requiredGasUsdc: String
     public var requiredEth: String
@@ -298,6 +300,8 @@ public struct ApiPerpsOperation: Codable, Sendable, Equatable, Identifiable {
     public var depositTxHash: String?
     public var acknowledgedAt: Int64?
     public var orderId: Int64?
+    /// Kept so that reconciling a restored record can tell a partial fill.
+    public var submittedOrderSize: String?
     public var orderStatus: String?
     public var filledSize: String?
     public var positionSize: String?
@@ -316,6 +320,8 @@ public struct ApiPerpsOperation: Codable, Sendable, Equatable, Identifiable {
     public var needsReconciliation: Bool { !["completed", "failed"].contains(state) }
     public var blocksTrading: Bool { needsReconciliation && !(state == "unknown" && acknowledgedAt != nil) }
     public var isBalanceWithdrawal: Bool { kind == Self.balanceWithdrawalKind }
+    /// A submitted order that failed. An order refused before submission never reached Hyperliquid.
+    public var isFailedOrder: Bool { state == "failed" && stage != "preparing" && !isBalanceWithdrawal }
     /// The order filled, and Hyperliquid refused to send its proceeds, which stay on the Hyperliquid balance.
     public var isWithdrawalRejected: Bool { !isBalanceWithdrawal && error?.hasPrefix("PerpsWithdrawalRejected") == true }
 

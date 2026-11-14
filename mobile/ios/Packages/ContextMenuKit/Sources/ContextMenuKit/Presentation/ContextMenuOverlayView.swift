@@ -56,8 +56,11 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     private let relocationClipView = UIView()
     let relocationScrollView = UIScrollView()
     private let relocationContentView = UIView()
-    /// How far the replica moves from the source, fixed by the first layout
+    /// How far the replica moves from the source: as the first layout places it, and further up while a taller page
+    /// of the panel would go past the bottom limit, as a system menu moves its preview up for a taller submenu
     private(set) var relocationOffset: CGFloat?
+    /// The offset of the first layout, which the replica comes back to as the panel's page gets shorter again
+    private var openingRelocationOffset: CGFloat?
     /// The portal source's frame as the menu opens, which the replica keeps while the menu is open
     private var relocationPortalFrame: CGRect?
     /// Shows the source's parts under the bars while the source is hidden and its replica moves
@@ -459,14 +462,21 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         let sourceAccessoryFrame = sourceAccessoryPlacement?.frame
         let attachmentRect = sourceAccessoryFrame.map { sourceRect.union($0) } ?? sourceRect
         let isFirstLayout = self.relocationOffset == nil
-        let offset = self.relocationOffset ?? Self.getMinimalRelocationOffset(
+        let fittingOffset = Self.getMinimalRelocationOffset(
             attachmentRect: attachmentRect,
             panelHeight: panelSize.height,
             sourceSpacing: style.sourceSpacing,
             topLimit: topLimit,
             bottomLimit: bottomLimit
         )
+        let openingOffset = self.openingRelocationOffset ?? fittingOffset
+        self.openingRelocationOffset = openingOffset
+        let offset = min(openingOffset, fittingOffset)
         self.relocationOffset = offset
+        // The replica moves with the panel in the page transition's animation
+        if !isFirstLayout, let portalView, let portalSourceView {
+            self.layoutRelocatedPortalView(portalView, sourceView: portalSourceView)
+        }
 
         let relocatedSourceRect = sourceRect.offsetBy(dx: 0.0, dy: offset)
         let relocatedAttachmentRect = attachmentRect.offsetBy(dx: 0.0, dy: offset)

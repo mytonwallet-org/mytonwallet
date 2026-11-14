@@ -148,6 +148,11 @@
     background-color: var(--color-interactive-drop-down-menu-active) !important;
   }
 
+  // The item whose submenu shows beside the menu
+  &_expanded {
+    background-color: var(--color-interactive-drop-down-menu-hover) !important;
+  }
+
   &_with_icon {
     padding-block: 0.6875rem;
     padding-inline: 0.75rem 1rem;
@@ -289,6 +294,29 @@
   &::before {
     display: none;
   }
+}
+
+// A submenu's item ends with a chevron toward the menu beside it
+.subMenuChevron {
+  flex-shrink: 0;
+  align-self: center;
+
+  margin-inline: auto -0.25rem;
+
+  font-size: 1rem;
+  color: var(--color-gray-3);
+
+  @include mixins.rtl-mirror();
+}
+
+// The menu beside an item, sized to its items; its width is at most `SUB_MENU_MAX_WIDTH_PX` in `DropdownMenu`
+.subMenuBubble {
+  --offset-x-value: 0;
+  --offset-y-value: 0;
+
+  width: max-content;
+  min-width: 10rem;
+  max-width: 15rem;
 }
 
 .delimiterAfter:not(:last-child) {

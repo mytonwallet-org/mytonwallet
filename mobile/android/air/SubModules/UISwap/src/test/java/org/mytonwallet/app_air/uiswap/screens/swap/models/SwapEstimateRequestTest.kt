@@ -61,6 +61,7 @@ class SwapEstimateRequestTest {
 
         assertTrue(request.usesUnifiedQuote)
         assertEquals("0xrecipient", request.estimateRequestDex.toAddress)
+        assertEquals("1", request.estimateRequestDex.nativeBalance)
         assertEquals(true, request.estimateRequestDex.isFromAmountMax)
     }
 
@@ -85,6 +86,7 @@ class SwapEstimateRequestTest {
         )
 
         assertFalse(request.usesUnifiedQuote)
+        assertNull(request.estimateRequestCex.nativeBalance)
     }
 
     @Test

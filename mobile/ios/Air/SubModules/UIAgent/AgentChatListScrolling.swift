@@ -78,7 +78,7 @@ extension AgentChatListScrolling {
     }
 
     /// The offset that puts the bottom of the row at `indexPath` just above what covers the list's bottom
-    private func getBottomOffsetY(of indexPath: IndexPath) -> CGFloat? {
+    func getBottomOffsetY(of indexPath: IndexPath) -> CGFloat? {
         guard let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return nil }
         return clampedContentOffsetY(frame.maxY - collectionView.bounds.height + occlusionBottomInset)
     }

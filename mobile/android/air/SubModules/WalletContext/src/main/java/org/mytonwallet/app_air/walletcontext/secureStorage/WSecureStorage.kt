@@ -9,6 +9,7 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.helpers.credentialsHelper.LegacyNativeBiometric
 import org.mytonwallet.app_air.walletcontext.installationStorage.WalletAttributionMigration
+import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkInstallationStorage
 
 object WSecureStorage {
     private var secureStorage: WSecureStorageProvider? = null
@@ -109,6 +110,7 @@ object WSecureStorage {
     private val storageLock = Any()
     fun deleteAllWalletValues() {
         WalletAttributionMigration.beforeClear()
+        WSdkInstallationStorage.beforeWalletClear()
         synchronized(storageOperationLock) {
             storageExecutor.submit {
                 synchronized(storageLock) {
@@ -191,6 +193,7 @@ object WSecureStorage {
 
     fun clearStorage() {
         WalletAttributionMigration.beforeClear()
+        WSdkInstallationStorage.beforeWalletClear()
         synchronized(storageOperationLock) {
             storageExecutor.submit {
                 synchronized(storageLock) {

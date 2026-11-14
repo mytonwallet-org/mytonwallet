@@ -1,5 +1,6 @@
 import type { ApiChain, ApiSubmitGasfullTransferOptions, ApiSwapHistoryItem } from '../types';
 
+import { ARBITRUM_USDC_MAINNET, BASE_USDC_MAINNET, TON_USDT_MAINNET } from '../../config';
 import { buildLocalTxId } from '../../util/activities';
 import {
   activitiesFromBackendRows,
@@ -11,15 +12,21 @@ import {
   wallet2,
 } from '../../../tests/helpers/swapReconcilerFixtures';
 import { projectSwapActivities } from '../common/activities/swapReconciler';
+import { setEnvironment } from '../environment';
 import { ApiServerError } from '../errors';
-import { fetchSwaps, initSwap, swapCexCreateTransaction, swapCexSubmit, swapEstimate, swapSubmit } from './swap';
+import {
+  fetchSwaps, initSwap, swapBuildTransfer, swapCexCreateTransaction, swapCexSubmit,
+  swapEstimate, swapGetPairs, swapSubmit,
+} from './swap';
 
 jest.mock('../chains', () => ({
   __esModule: true,
   default: {
     base: {
+      buildOnchainSwapTransfer: jest.fn().mockResolvedValue({ id: 'vt-swap', chain: 'base' }),
       submitGasfullTransfer: jest.fn().mockResolvedValue({ txId: '0xbase-deposit' }),
       resolveSwapNeedsBatch: jest.fn((_accountId: string, needsApprove?: boolean) => !!needsApprove),
+      estimateSwapDiesel: jest.fn(),
     },
     ton: {
       resolveSwapNeedsBatch: jest.fn((_accountId: string, needsApprove?: boolean) => !!needsApprove),
@@ -68,7 +75,12 @@ jest.mock('./other', () => ({
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const chains = require('../chains').default as {
-  base: { submitGasfullTransfer: jest.Mock; resolveSwapNeedsBatch: jest.Mock };
+  base: {
+    buildOnchainSwapTransfer: jest.Mock;
+    submitGasfullTransfer: jest.Mock;
+    resolveSwapNeedsBatch: jest.Mock;
+    estimateSwapDiesel: jest.Mock;
+  };
   ton: { submitOnchainSwapTransfer: jest.Mock; resolveSwapNeedsBatch: jest.Mock };
 };
 
@@ -89,7 +101,9 @@ const { getSwapItemSlug, patchSwapItem, swapGetHistoryItem } = require('../commo
 };
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { callBackendPost } = require('../common/backend') as { callBackendPost: jest.Mock };
+const { callBackendGet, callBackendPost } = require('../common/backend') as {
+  callBackendGet: jest.Mock; callBackendPost: jest.Mock;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getBackendConfigCache } = require('../common/cache') as { getBackendConfigCache: jest.Mock };
@@ -203,6 +217,64 @@ describe('swap estimate hints', () => {
       needsBatch: true,
     });
     expect(resolveSwapNeedsBatch).toHaveBeenCalledWith('account-mainnet', false);
+  });
+
+  describe('diesel', () => {
+    const response = {
+      route: 'dex' as const,
+      chain: 'base' as const,
+      from: `base:${BASE_USDC_MAINNET.tokenAddress}`,
+      to: 'base:native',
+      fromAmount: '1',
+      toAmount: '0.0003',
+      dieselStatus: 'not-available' as const,
+      networkFee: '0.001',
+    };
+
+    beforeEach(() => {
+      getSwapItemSlug.mockReturnValue(BASE_USDC_MAINNET.slug);
+    });
+
+    it('fills the diesel of a quote whose native fee the wallet cannot pay', async () => {
+      chains.base.estimateSwapDiesel.mockResolvedValueOnce({
+        status: 'available', amount: 15_582n, nativeAmount: 0n, remainingFee: 0n, realFee: 10_388n,
+      });
+      callBackendPost.mockResolvedValue(response);
+
+      expect(await swapEstimate('account-mainnet', { from: response.from, to: response.to, fromAmount: '1' }))
+        .toEqual({ ...response, needsBatch: false, dieselStatus: 'available', dieselFee: '0.015582' });
+      expect(getSwapItemSlug).toHaveBeenCalledWith(response.from, 'base');
+      expect(chains.base.estimateSwapDiesel).toHaveBeenCalledWith(
+        'account-mainnet', BASE_USDC_MAINNET.tokenAddress, 10n ** 15n,
+      );
+    });
+
+    it('keeps the quote gasfull when the chain has no diesel for it', async () => {
+      chains.base.estimateSwapDiesel.mockResolvedValueOnce({
+        status: 'not-available', nativeAmount: 0n, remainingFee: 0n, realFee: 0n,
+      });
+      callBackendPost.mockResolvedValue(response);
+
+      expect(await swapEstimate('account-mainnet', { from: response.from, to: response.to, fromAmount: '1' }))
+        .toEqual({ ...response, needsBatch: false });
+    });
+
+    it('keeps the quote gasfull when the diesel quote fails', async () => {
+      chains.base.estimateSwapDiesel.mockRejectedValueOnce(new Error('RPC unavailable'));
+      callBackendPost.mockResolvedValue(response);
+
+      expect(await swapEstimate('account-mainnet', { from: response.from, to: response.to, fromAmount: '1' }))
+        .toEqual({ ...response, needsBatch: false });
+    });
+
+    it('keeps the diesel the backend quoted', async () => {
+      const quoted = { ...response, dieselStatus: 'available' as const, dieselFee: '0.02' };
+      callBackendPost.mockResolvedValue(quoted);
+
+      expect(await swapEstimate('account-mainnet', { from: response.from, to: response.to, fromAmount: '1' }))
+        .toEqual({ ...quoted, needsBatch: false });
+      expect(chains.base.estimateSwapDiesel).not.toHaveBeenCalled();
+    });
   });
 
   it('returns below-minimum Changelly limits without retrying or switching to exact out', async () => {
@@ -525,5 +597,103 @@ describe('fetchSwaps', () => {
       [deposit.id, 'completed', true],
     ].sort());
     expect(visible(result.patch.upsert).map(({ id }) => id)).toEqual(['2545651::backend-swap']);
+  });
+});
+
+describe('SDK-owned execution quote boundary', () => {
+  const owner = '0x1111111111111111111111111111111111111111';
+  const recipient = '0x2222222222222222222222222222222222222222';
+  const request = {
+    from: BASE_USDC_MAINNET.tokenAddress, to: ARBITRUM_USDC_MAINNET.tokenAddress,
+    fromAddress: owner, toAddress: recipient, fromAmount: '100', slippage: 1,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getSwapItemSlug.mockImplementation(jest.requireActual('../common/swap').getSwapItemSlug);
+    fetchStoredAccount.mockResolvedValue({
+      byChain: { base: { address: owner }, arbitrum: { address: recipient } },
+    });
+    fetchStoredWallet.mockResolvedValue({ version: 'W5' });
+    getBackendConfigCache.mockResolvedValue({ swapVersion: 3 });
+    callBackendPost.mockImplementation((path: string) => Promise.resolve(path === '/swap/estimate' ? {
+      route: 'dex', chain: 'base', dexRouterLabel: 'layerzero',
+      from: `base:${BASE_USDC_MAINNET.tokenAddress}`, to: `arbitrum:${ARBITRUM_USDC_MAINNET.tokenAddress}`,
+      fromAmount: '100', toAmount: '99', toMinAmount: '98', slippage: 1,
+      ourFee: '0', ourFeeMode: 'included', networkFee: '0.001', realNetworkFee: '0.001',
+      vtNativeFeeBudget: '0.004', swapFee: '0', swapFeePercent: 0, impact: 0,
+    } : { route: 'dex', chain: 'base', id: 'vt-swap', transaction: '{}' }));
+  });
+
+  it('uses the existing app contract without selected-slug fields or an estimate handle', async () => {
+    const estimate = await swapEstimate('account', { ...request, nativeBalance: '9.007199254740993123' });
+    if (!('route' in estimate) || estimate.route !== 'dex') throw new Error('Expected DEX quote');
+    expect(estimate).not.toHaveProperty('vtNativeFeeBudget');
+    expect(estimate).not.toHaveProperty('estimateId');
+    expect(estimate).not.toHaveProperty('ourFeeMode');
+    expect(estimate).toMatchObject({
+      ourFee: '0',
+    });
+    await swapBuildTransfer('account', 'enclave', {
+      ...request, dexRouterLabel: estimate.dexRouterLabel,
+      networkFee: estimate.realNetworkFee, ourFee: estimate.ourFee, toMinAmount: estimate.toMinAmount,
+    });
+    expect(callBackendPost).toHaveBeenCalledWith('/swap/estimate', {
+      from: `base:${BASE_USDC_MAINNET.tokenAddress}`, to: `arbitrum:${ARBITRUM_USDC_MAINNET.tokenAddress}`,
+      fromAddress: owner, toAddress: recipient, fromAmount: '100', slippage: 1, swapVersion: 3,
+      walletVersion: undefined, historyAddress: undefined, nativeBalance: '9.007199254740993123',
+    }, expect.any(Object));
+    expect(callBackendPost).toHaveBeenCalledWith('/swap/buildTransaction', {
+      from: `base:${BASE_USDC_MAINNET.tokenAddress}`, to: `arbitrum:${ARBITRUM_USDC_MAINNET.tokenAddress}`,
+      fromAddress: owner, toAddress: recipient, fromAmount: '100', slippage: 1,
+      dexRouterLabel: 'layerzero', networkFee: '0.001', ourFee: '0', toMinAmount: '98',
+      vtNativeFeeBudget: '0.004', walletVersion: 'W5', swapVersion: 3, isMsgHashMode: true,
+    }, { authToken: 'backend-auth-token' });
+    expect(chains.base.buildOnchainSwapTransfer).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: 'account', request: expect.objectContaining({
+        from: request.from, to: request.to, ourFee: '0',
+      }),
+    }));
+  });
+
+  it('preserves precise client balances, zero and omitted fields in the HTTP body', async () => {
+    setEnvironment({});
+    const originalFetch = globalThis.fetch;
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true, status: 200, json: () => Promise.resolve({ error: 'Pair not found' }),
+    });
+    globalThis.fetch = fetchMock;
+    try {
+      const backend = jest.requireActual<typeof import('../common/backend')>('../common/backend');
+      const ton = { from: TON_USDT_MAINNET.tokenAddress, to: 'TON', fromAddress: 'ton-wallet', toAmount: '1.25' };
+      const base = { ...request, from: `base:${BASE_USDC_MAINNET.tokenAddress}`, to: 'arbitrum:native' };
+      const cases = [
+        [{ ...ton, nativeBalance: '0.262988684', toncoinBalance: '0.262988684', shouldTryDiesel: true }],
+        [{ ...base, nativeBalance: '9.007199254740993123' }],
+        [{ ...base, nativeBalance: '0' }],
+        [base],
+        // eslint-disable-next-line no-null/no-null
+        [{ ...base, nativeBalance: null }, base],
+        [{ ...base, fromAddress: undefined, cexLabel: 'changelly' }],
+        [{ ...ton, toncoinBalance: '0.262988684', shouldTryDiesel: true }],
+      ] as const;
+
+      for (const [input, expected = input] of cases) {
+        callBackendPost.mockImplementationOnce(backend.callBackendPost);
+        await swapEstimate('account', input as Parameters<typeof swapEstimate>[1]);
+
+        const [url, init] = fetchMock.mock.lastCall!;
+        expect(new URL(url).pathname).toBe('/swap/estimate');
+        expect(init.method).toBe('POST');
+        expect(JSON.parse(init.body)).toEqual({ ...JSON.parse(JSON.stringify(expected)), swapVersion: 3 });
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('qualifies discovery by the selected asset without an executor capability argument', async () => {
+    await swapGetPairs(BASE_USDC_MAINNET.tokenAddress);
+    expect(callBackendGet).toHaveBeenCalledWith('/swap/pairs', { asset: `base:${BASE_USDC_MAINNET.tokenAddress}` });
   });
 });

@@ -30,6 +30,7 @@ struct BuyWithCardHeader: View {
                     .imageScale(.small)
                     .frame(minWidth: 200)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("buy_card_currency")
             }
             .contextMenuSource {
                 makeMenuConfiguration(selection: model.selectedCurrency)

@@ -4,6 +4,7 @@ import { getActions } from '../../../global';
 
 import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../../config';
 import buildClassName from '../../../util/buildClassName';
+import getTestId from '../../../util/getTestId';
 import { ANIMATED_STICKERS_PATHS } from '../../ui/helpers/animatedAssets';
 
 import useFlag from '../../../hooks/useFlag';
@@ -68,6 +69,7 @@ function SecretWordsContent({
       <div className={customButtonWrapperClassName || styles.buttonWrapper}>
         <Button
           isPrimary
+          testId={getTestId('create_check')}
           onClick={onSubmit}
           className={styles.footerButton}
         >
@@ -76,6 +78,7 @@ function SecretWordsContent({
         {canSkipMnemonicCheck && (
           <Button
             isText
+            testId={getTestId('create_skip_check')}
             className={styles.footerButton}
             onClick={showWarning}
           >
@@ -99,7 +102,12 @@ function SecretWordsContent({
           <Button isPrimary onClick={hideWarning} className={modalStyles.buttonFullWidth}>
             {lang('Go back to Words')}
           </Button>
-          <Button isDestructive onClick={handleSkipCheckMnemonic} className={modalStyles.buttonFullWidth}>
+          <Button
+            isDestructive
+            onClick={handleSkipCheckMnemonic}
+            className={modalStyles.buttonFullWidth}
+            testId={getTestId('create_skip_confirm')}
+          >
             {lang('I’m sure. Continue')}
           </Button>
         </div>

@@ -68,3 +68,15 @@
     transform: rotate(9deg);
   }
 }
+
+// Contact Support's headset leads its label, as the arrow leads a follow-up's, in the label's first color
+.supportIcon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  color: #005DAF;
+
+  :global(html.theme-dark) & {
+    color: #6DADE6;
+  }
+}

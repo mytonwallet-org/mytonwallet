@@ -3,6 +3,7 @@ import React, { memo } from '../../../../lib/teact/teact';
 import { AccountSelectorState } from '../../../../global/types';
 
 import buildClassName from '../../../../util/buildClassName';
+import getTestId from '../../../../util/getTestId';
 import { AccountTab } from './constants';
 
 import useLang from '../../../../hooks/useLang';
@@ -17,6 +18,7 @@ interface OwnProps {
   tab: AccountTab;
   renderingState: AccountSelectorState;
   withBorder: boolean;
+  isActive?: boolean;
   onAddWallet: NoneToVoidFunction;
   onReorderDone: NoneToVoidFunction;
 }
@@ -25,6 +27,7 @@ function AccountSelectorFooter({
   tab,
   renderingState,
   withBorder,
+  isActive,
   onAddWallet,
   onReorderDone,
 }: OwnProps) {
@@ -40,13 +43,19 @@ function AccountSelectorFooter({
       <Transition
         activeKey={activeKey}
         name="semiFade"
+        // The previous slide stays mounted, so the id goes on the single container instead of the button
+        testId={isActive ? getTestId('wallets_primary_button') : undefined}
       >
         {isReorderMode ? (
           <Button isPrimary className={styles.footerButton} onClick={onReorderDone}>
             {lang('Done')}
           </Button>
         ) : (
-          <Button isPrimary className={styles.footerButton} onClick={onAddWallet}>
+          <Button
+            isPrimary
+            className={styles.footerButton}
+            onClick={onAddWallet}
+          >
             <i className={buildClassName(styles.plusIcon, 'icon-plus')} aria-hidden />
             {lang(title)}
           </Button>

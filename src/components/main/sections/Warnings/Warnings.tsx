@@ -1,7 +1,5 @@
-import React, { memo } from '../../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../../global';
-
-import { SettingsState } from '../../../../global/types';
+import React, { memo, useRef } from '../../../../lib/teact/teact';
+import { withGlobal } from '../../../../global';
 
 import { IS_EXPLORER, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
 import {
@@ -12,84 +10,63 @@ import {
 } from '../../../../global/selectors';
 import { IS_ANDROID, IS_ELECTRON, IS_IOS, IS_LEGACY_APP_HOST } from '../../../../util/windowEnvironment';
 
-import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
-import useLang from '../../../../hooks/useLang';
-import useLastCallback from '../../../../hooks/useLastCallback';
+import useHeightChange from '../../../../hooks/useHeightChange';
 
 import BackupWarning from './BackupWarning';
-import LegacyDomainWarning from './LegacyDomainWarning';
+import DeprecatedWebsiteWarning from './DeprecatedWebsiteWarning';
 import RenewDomainWarning from './RenewDomainWarning';
 import ScamWalletWarning from './ScamWalletWarning';
 import SecurityWarning from './SecurityWarning';
 
 import styles from './Warnings.module.scss';
 
-type OwnProps = {
-  onOpenBackupWallet: () => void;
-};
+interface OwnProps {
+  onOpenBackupWallet: NoneToVoidFunction;
+  onHeightChange: (prevHeight: number, nextHeight: number) => void;
+}
 
-type StateProps = {
-  isTestnet?: boolean;
+interface StateProps {
   isBackupRequired: boolean;
   isViewMode: boolean;
   isMnemonicAccount: boolean;
-};
+}
 
 const IS_UNSAFE_WEB = !IS_ELECTRON && !IS_EXTENSION && !IS_IOS && !IS_ANDROID && !IS_TELEGRAM_APP;
 
 function Warnings({
   isBackupRequired,
-  isTestnet,
   isViewMode,
   isMnemonicAccount,
   onOpenBackupWallet,
+  onHeightChange,
 }: OwnProps & StateProps) {
-  const { openSettingsWithState } = getActions();
-  const { isPortrait } = useDeviceScreen();
-  const lang = useLang();
+  const ref = useRef<HTMLDivElement>();
 
-  const handleOpenDeveloperMenu = useLastCallback(() => {
-    openSettingsWithState({ state: SettingsState.Developer });
-  });
+  useHeightChange(ref, onHeightChange);
 
   return (
-    <>
-      {isTestnet && (
-        <div className={isPortrait ? styles.portraitContainer : styles.container}>
-          <button
-            type="button"
-            className={styles.testnetWarning}
-            disabled={IS_EXPLORER}
-            onClick={handleOpenDeveloperMenu}
-          >
-            {lang('Testnet Version')}
-          </button>
-        </div>
-      )}
-
+    <div ref={ref} className={styles.warnings}>
       {IS_LEGACY_APP_HOST && (
-        <LegacyDomainWarning isMnemonicAccount={isMnemonicAccount} onOpenBackupWallet={onOpenBackupWallet} />
+        <DeprecatedWebsiteWarning isMnemonicAccount={isMnemonicAccount} onOpenBackupWallet={onOpenBackupWallet} />
       )}
-
       {!isViewMode && (
         <>
-          <BackupWarning isRequired={isBackupRequired} onOpenBackupWallet={onOpenBackupWallet} />
           <RenewDomainWarning />
           <ScamWalletWarning />
+          <BackupWarning isRequired={isBackupRequired} onOpenBackupWallet={onOpenBackupWallet} />
         </>
       )}
-      {/* On the legacy host, "install the native app" only competes with the migration notice above */}
+      {/* On the legacy host, the native-app notice competes with the migration notice */}
       {IS_UNSAFE_WEB && !IS_EXPLORER && !IS_LEGACY_APP_HOST && <SecurityWarning />}
-    </>
+    </div>
   );
 }
 
 export default memo(
-  withGlobal(
+  withGlobal<OwnProps>(
     (global): StateProps => {
       return {
         isBackupRequired: Boolean(selectCurrentAccountState(global)?.isBackupRequired),
-        isTestnet: global.settings.isTestnet,
         isViewMode: selectIsCurrentAccountViewMode(global),
         isMnemonicAccount: selectIsMnemonicAccount(global),
       };

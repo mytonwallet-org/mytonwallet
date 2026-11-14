@@ -334,6 +334,20 @@ describe('native durable acceptance', () => {
     await expect(acceptInstallAttribution(snapshot, storage)).resolves.toBe(true);
     expect(storage._map.get('installAttribution')).toEqual(snapshot);
   });
+  it('leaves an Android claim to the native sync, which carries the installation id', async () => {
+    mockGetEnvironment.mockReturnValue({ isIosApp: false, isAndroidApp: true, isElectron: false });
+    try {
+      mockCallBackendPost.mockReset().mockResolvedValue({ ok: true });
+      const storage = makeStorage();
+      const snapshot = { channel: 'partner', attributionKind: 'utm' as const };
+      await expect(acceptInstallAttribution(snapshot, storage)).resolves.toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(storage._map.get('installAttribution')).toEqual(snapshot);
+      expect(mockCallBackendPost).not.toHaveBeenCalled();
+    } finally {
+      mockGetEnvironment.mockReturnValue({ isIosApp: false, isAndroidApp: false, isElectron: false });
+    }
+  });
 });
 
 it('distinguishes Play technical referral from an explicit referral source', async () => {

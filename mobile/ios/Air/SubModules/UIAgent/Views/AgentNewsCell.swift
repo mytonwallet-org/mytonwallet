@@ -33,7 +33,7 @@ final class AgentNewsIconView: UIView {
 }
 
 /// The News row: the latest headline with its picture, its date in the list's date style and Telegram's counter of the
-/// unread news
+/// unread news, or in the Digests view of the unread digests
 final class AgentNewsCell: AgentThreadRowCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -46,28 +46,58 @@ final class AgentNewsCell: AgentThreadRowCell {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// The most unread news the counter shows; more show the unread dot
+    /// The most unread items the counter shows; more show the unread dot
     private static let unreadCountMax = 10
 
     func configure(latestNews: ApiAgentV2NewsFeedItem?, unreadCount: Int, now: Date = .now) {
-        let time = latestNews.map {
-            AgentThreadDateFormatting.formatRowTimestamp(for: $0.deliveredAt, shouldShowDateWhenNotToday: true, relativeTo: now)
-        }
+        configure(
+            headline: latestNews?.headline,
+            imageUrl: latestNews?.imageUrl,
+            time: Self.formatTime(latestNews?.deliveredAt, now: now),
+            unreadCount: unreadCount,
+            unreadDescription: unreadCount > 0 ? L10n.agentNewsUnreadCount(count: unreadCount) : nil
+        )
+    }
+
+    /// The row of the Digests view: the latest digest's first headline with its picture, the digest's time and the
+    /// counter of the unread digests
+    func configure(latestDigest: ApiAgentV2NewsFeedDigest, unreadCount: Int, now: Date = .now) {
+        configure(
+            headline: latestDigest.top.first?.headline,
+            imageUrl: latestDigest.top.first?.imageUrl,
+            time: Self.formatTime(latestDigest.deliveredAt, now: now),
+            unreadCount: unreadCount,
+            unreadDescription: unreadCount > 0 ? L10n.agentNewsUnreadDigestsCount(count: unreadCount) : nil
+        )
+    }
+
+    private func configure(
+        headline: String?,
+        imageUrl: String?,
+        time: String?,
+        unreadCount: Int,
+        unreadDescription: String?
+    ) {
         setTexts(
             title: lang("News"),
-            preview: latestNews?.headline ?? lang("Crypto Market News"),
+            preview: headline ?? lang("Crypto Market News"),
             time: time
         )
-        setPreviewImage(url: latestNews?.imageUrl.flatMap(URL.init(string:)))
+        setPreviewImage(url: imageUrl.flatMap(URL.init(string:)))
         if unreadCount > Self.unreadCountMax {
             unreadMark = .dot
         } else {
             unreadMark = unreadCount > 0 ? .count(formatBigIntText(BigInt(unreadCount), tokenDecimals: 0)) : nil
         }
-        let unreadDescription = unreadCount > 0 ? L10n.agentNewsUnreadCount(count: unreadCount) : nil
         accessibilityLabel = [titleLabel.text, previewLabel.text, timeLabel.text, unreadDescription]
             .compactMap { $0?.nilIfEmpty }
             .joined(separator: ", ")
+    }
+
+    private static func formatTime(_ deliveredAt: String?, now: Date) -> String? {
+        deliveredAt.map {
+            AgentThreadDateFormatting.formatRowTimestamp(for: $0, shouldShowDateWhenNotToday: true, relativeTo: now)
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import org.mytonwallet.app_air.uiagent.agentV2.AgentV2AuthorityBinding
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2ChatActivityGroup
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadActivityTracker
@@ -44,9 +45,24 @@ object AgentSession {
             )
         }.also { it.refreshThreadIfNeeded(thread) }
 
+    internal val pendingDiscussions = AgentPendingDiscussions(
+        CoroutineScope(SupervisorJob() + Dispatchers.Main),
+        acquireOpening = { thread, opening ->
+            acquireOpening(
+                thread,
+                opening.messages,
+                opening.entryPoint,
+                opening.followupText,
+                opening.messageAuthority
+            )
+        },
+        release = ::release
+    )
+
     /** The chats closed lately stop staying loaded, as when the wallet's accounts are reset */
     internal fun forgetRecentChats() {
         sessions.forgetRecent()
+        pendingDiscussions.forgetLeft()
     }
 
     /** A model [create] makes goes with its last owner, as its maker owns its lifetime */
@@ -56,16 +72,20 @@ object AgentSession {
     internal fun acquireOpening(
         thread: AgentV2ThreadSummary,
         initialMessages: List<AgentMessage>,
-        entryPoint: AgentV2EntryPoint
+        entryPoint: AgentV2EntryPoint,
+        followupText: String? = null,
+        messageAuthority: AgentV2AuthorityBinding? = null
     ): AgentVM = sessions.acquire(thread.id, keepsRecent = true) {
         AgentVM(
             scrollPositions[thread.id],
             initialThread = thread,
             initialMessages = initialMessages,
-            initialOpeningEntryPoint = entryPoint
+            initialOpeningEntryPoint = entryPoint,
+            initialOpeningFollowupText = followupText,
+            initialOpeningAuthority = messageAuthority
         )
     }.also {
-        it.acceptOpening(initialMessages, entryPoint)
+        it.acceptOpening(initialMessages, entryPoint, followupText, messageAuthority)
     }
 
     fun release(viewModel: AgentVM) {
@@ -73,10 +93,19 @@ object AgentSession {
         sessions.release(threadId, viewModel)
     }
 
-    /** Deletion stops the model even if the server refuses, so reopening must build a new one. */
+    /** A deletion keeps the model and its queue until the server confirms it */
     internal fun deleteChat(viewModel: AgentVM, onFailure: (Throwable) -> Unit) {
-        sessions.evict(viewModel.currentThread.id, viewModel)
-        viewModel.deleteChat(onFailure)
+        viewModel.deleteChat(onFailure) {
+            sessions.evict(viewModel.currentThread.id, viewModel)
+        }
+    }
+
+    /**
+     * A chat deleted from the list sends nothing more: one left, with questions queued or kept for
+     * reopening, stops at once, and one still open stops once it is left
+     */
+    internal fun dropDeletedChat(threadId: String) {
+        sessions.dropDeleted(threadId)
     }
 
     /** The chat of [threadId] while it is loaded */
@@ -107,7 +136,14 @@ internal class AgentThreadSessions<Model : Any>(
     private val recentLimit: Int = 0,
     private val canKeep: (Model) -> Boolean = { true }
 ) {
-    private class Entry<Model>(val model: Model, val keepsRecent: Boolean, var ownerCount: Int = 1)
+    private class Entry<Model>(
+        val model: Model,
+        val keepsRecent: Boolean,
+        var ownerCount: Int = 1
+    ) {
+        // Its thread was deleted, so it goes once no one owns it, though it has work under way
+        var isDeleted = false
+    }
 
     private val entries = mutableMapOf<String, Entry<Model>>()
 
@@ -131,6 +167,10 @@ internal class AgentThreadSessions<Model : Any>(
         if (entry.model !== model || entry.ownerCount == 0) return
         entry.ownerCount--
         if (entry.ownerCount != 0) return
+        if (entry.isDeleted) {
+            drop(threadId, entry)
+            return
+        }
         recent.remove(threadId)
         if (recentLimit > 0 && entry.keepsRecent && canKeep(model)) {
             recent.add(threadId)
@@ -151,6 +191,17 @@ internal class AgentThreadSessions<Model : Any>(
         setIdleHandler(model, null)
         entries.remove(threadId)
         recent.remove(threadId)
+    }
+
+    /**
+     * A thread deleted elsewhere: its model goes at once when no one owns it, though it has work
+     * under way or is kept for reopening, and otherwise once its last owner leaves
+     */
+    fun dropDeleted(threadId: String) {
+        val entry = entries[threadId] ?: return
+        recent.remove(threadId)
+        entry.isDeleted = true
+        if (entry.ownerCount == 0) drop(threadId, entry)
     }
 
     /** The models kept for recent threads go as they would have when their last owner left */
@@ -176,6 +227,10 @@ internal class AgentThreadSessions<Model : Any>(
         ) {
             return
         }
+        drop(threadId, entry)
+    }
+
+    private fun drop(threadId: String, entry: Entry<Model>) {
         setIdleHandler(entry.model, null)
         entries.remove(threadId)
         destroy(entry.model)

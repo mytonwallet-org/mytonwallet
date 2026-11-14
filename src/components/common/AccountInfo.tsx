@@ -16,6 +16,7 @@ import { getOrderedAccountChains } from '../../util/chain';
 import { getTelegramAvatarUrlFromDomain } from '../../util/dns';
 import { formatAccountAddresses } from '../../util/formatAccountAddress';
 import { formatCurrency } from '../../util/formatNumber';
+import getTestId from '../../util/getTestId';
 import isViewAccount from '../../util/isViewAccount';
 
 import CustomCardPreview from '../main/modals/accountSelector/CustomCardPreview';
@@ -67,7 +68,7 @@ function AccountInfo({
       />
 
       <div className={styles.titleRow}>
-        <span className={styles.title}>{currentAccount.title}</span>
+        <span className={styles.title} data-testid={getTestId('settings_wallet_name')}>{currentAccount.title}</span>
 
         {balanceData && (
           <SensitiveData

@@ -22,7 +22,7 @@ import {
   selectIsEnclaveSessionValid,
   selectIsHardwareAccount,
 } from '../../selectors';
-import { switchAccount } from './auth';
+import { getIsAccountSwitchCurrent, switchAccount } from './auth';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
@@ -76,7 +76,7 @@ function cancelWalletConnectPayOperation(global: GlobalState) {
 }
 
 async function apiUpdateWalletConnectPayOperation(
-  payload: { accountId: string },
+  payload: { accountId: string; promiseId: string },
   getState: (global: GlobalState) => { promiseId?: string },
   close: NoneToVoidFunction,
   clearState: (global: GlobalState) => GlobalState,
@@ -87,13 +87,18 @@ async function apiUpdateWalletConnectPayOperation(
   const { accountId } = payload;
   const { promiseId: currentPromiseId } = getState(global);
 
-  await switchAccount(global, accountId);
+  const switchId = await switchAccount(global, accountId);
 
-  if (currentPromiseId) {
+  if (currentPromiseId && getIsAccountSwitchCurrent(switchId)) {
     close();
     const closeDuration = getIsPortrait() ? CLOSE_DURATION_PORTRAIT : CLOSE_DURATION;
 
     await pause(closeDuration + ANIMATION_END_DELAY);
+  }
+
+  if (!getIsAccountSwitchCurrent(switchId)) {
+    void callApi('cancelWalletConnectPay', payload.promiseId, 'Canceled by the user');
+    return false;
   }
 
   global = getGlobal();
@@ -102,6 +107,8 @@ async function apiUpdateWalletConnectPayOperation(
   global = updateState(global);
 
   setGlobal(global);
+
+  return true;
 }
 
 addActionHandler('apiUpdateWalletConnectPayLoading', (global, actions, { accountId }) => {
@@ -162,7 +169,7 @@ addActionHandler('apiUpdateWalletConnectPaySignTransaction', async (global, acti
     shouldHideTransfers,
   } = payload;
 
-  await apiUpdateWalletConnectPayOperation(
+  const isInstalled = await apiUpdateWalletConnectPayOperation(
     payload,
     (g) => g.currentWalletConnectPay,
     actions.closeWalletConnectPay,
@@ -186,7 +193,7 @@ addActionHandler('apiUpdateWalletConnectPaySignTransaction', async (global, acti
     }),
   );
 
-  beginWalletConnectPayPasswordEntry(actions);
+  if (isInstalled) beginWalletConnectPayPasswordEntry(actions);
 });
 
 addActionHandler('apiUpdateWalletConnectPaySignData', async (global, actions, payload) => {
@@ -203,7 +210,7 @@ addActionHandler('apiUpdateWalletConnectPaySignData', async (global, actions, pa
     approveValidUntil,
   } = payload;
 
-  await apiUpdateWalletConnectPayOperation(
+  const isInstalled = await apiUpdateWalletConnectPayOperation(
     payload,
     (g) => g.currentWalletConnectPay,
     actions.closeWalletConnectPay,
@@ -226,7 +233,7 @@ addActionHandler('apiUpdateWalletConnectPaySignData', async (global, actions, pa
     }),
   );
 
-  beginWalletConnectPayPasswordEntry(actions);
+  if (isInstalled) beginWalletConnectPayPasswordEntry(actions);
 });
 
 addActionHandler('submitWalletConnectPaySignTransaction', withEnclaveSessionRelease(async (

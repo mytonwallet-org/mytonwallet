@@ -110,12 +110,12 @@ internal object AgentReactionEmojiSwap {
 }
 
 /**
- * The toast after the user's first like and first dislike on this install, each once ever, whichever account or chat
- * it is in: [isShown] and [markShown] keep which have shown
+ * The toast after the user's first like and dislike on this install, once each for agent and operator replies,
+ * whichever account or chat it is in: [isShown] and [markShown] keep which have shown
  */
 internal class AgentReactionToasts(
-    private val isShown: (AgentAnswerFeedback) -> Boolean,
-    private val markShown: (AgentAnswerFeedback) -> Unit
+    private val isShown: (AgentAnswerFeedback, isOperator: Boolean) -> Boolean,
+    private val markShown: (AgentAnswerFeedback, isOperator: Boolean) -> Unit
 ) {
     // The toast each answer's latest choice waits for, by the answer's id
     private val awaited = mutableMapOf<String, Awaited>()
@@ -128,11 +128,12 @@ internal class AgentReactionToasts(
     fun await(
         messageId: String,
         chosen: AgentAnswerFeedback?,
+        isOperator: Boolean = false,
         show: (AgentAnswerFeedback, key: String) -> Unit
     ): Awaited? {
         awaited.remove(messageId)
-        if (chosen == null || isShown(chosen)) return null
-        return Awaited(messageId, chosen, show).also { awaited[messageId] = it }
+        if (chosen == null || isShown(chosen, isOperator)) return null
+        return Awaited(messageId, chosen, isOperator, show).also { awaited[messageId] = it }
     }
 
     /**
@@ -142,6 +143,7 @@ internal class AgentReactionToasts(
     inner class Awaited(
         private val messageId: String,
         private val feedback: AgentAnswerFeedback,
+        private val isOperator: Boolean,
         private val show: (AgentAnswerFeedback, key: String) -> Unit
     ) {
         private var isLanded = false
@@ -164,13 +166,20 @@ internal class AgentReactionToasts(
         private fun showIfDue() {
             if (!isLanded || !isSaved || awaited[messageId] !== this) return
             awaited.remove(messageId)
-            if (isShown(feedback)) return
-            markShown(feedback)
+            if (isShown(feedback, isOperator)) return
+            markShown(feedback, isOperator)
             show(
                 feedback,
-                when (feedback) {
-                    AgentAnswerFeedback.LIKE -> "\$agent_feedback_liked_toast"
-                    AgentAnswerFeedback.DISLIKE -> "\$agent_feedback_disliked_toast"
+                if (isOperator) {
+                    when (feedback) {
+                        AgentAnswerFeedback.LIKE -> "\$agent_feedback_support_liked_toast"
+                        AgentAnswerFeedback.DISLIKE -> "\$agent_feedback_support_disliked_toast"
+                    }
+                } else {
+                    when (feedback) {
+                        AgentAnswerFeedback.LIKE -> "\$agent_feedback_liked_toast"
+                        AgentAnswerFeedback.DISLIKE -> "\$agent_feedback_disliked_toast"
+                    }
                 }
             )
         }

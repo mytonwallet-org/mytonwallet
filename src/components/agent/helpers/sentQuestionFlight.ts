@@ -6,7 +6,14 @@ import { animate } from '../../../util/animation';
 import buildClassName from '../../../util/buildClassName';
 import { compositeCssColors, parseCssColor } from '../../../util/colors';
 import { lerp } from '../../../util/math';
-import { copyTextStyle, createTextPicture, getBezierProgress } from './agentMotion';
+import {
+  cacheWhileConnected,
+  copyTextStyle,
+  createTextPicture,
+  getBezierProgress,
+  getBorderRadii,
+  getLayerRect,
+} from './agentMotion';
 
 import styles from '../SentQuestionFlight.module.scss';
 
@@ -76,12 +83,17 @@ const EASE_OUT: BezierCurve = {
 const APPEARANCE_SHARE = 0.4;
 // The bubble's end starts this far past where it lands, Telegram's 4 dp, in px
 const BUBBLE_END_OVERHANG = 4;
-// A picture older than this is not the sent question's any more
-const PICTURE_LIFETIME = 1000;
+// A picture older than this is not the sent question's any more. It outlives the wait of a chat that opens with the
+// question for the question to show, `QUESTION_WAIT` of `agentOpeningQuestion.ts`, by the time the flight takes to
+// measure the layout once the question shows.
+const PICTURE_LIFETIME = 1200;
 // The list's longest scroll, the most the text waits in the field for a bubble the list brings up from under it
 const FIELD_HOLD_LIMIT = 600;
 // A bubble under the field that has not risen for this long is not being brought up by the list
 const STILL_BUBBLE_WAIT = 60;
+// The most a flight waits where it starts for its time to be known, as for the transition of a screen it is stretched
+// over to start
+const DURATION_WAIT_LIMIT = 500;
 // Telegram sends a longer message without its transition, the bubble showing in its place, as Android does here too
 const MAX_FLIGHT_LINES = 10;
 
@@ -158,13 +170,16 @@ export function removeSentTextPicture({ element }: SentTextPicture) {
  * Telegram's send: the question's bubble comes out of the field. Its background grows from the field's box into the
  * bubble as it comes in, its start keeping its padding from the text and its end past the tail nearly in place, while
  * the field's text moves onto the bubble's text, taking its size and colour, and gives way to it. The flight follows
- * the bubble wherever the list shows it meanwhile, as when the list takes the question up, which `getBubble` finds in
- * each frame, and the bubble stays out of sight until the flight ends and the bubble takes its place at once. The text
- * only ever rises out of the field: while the list brings the bubble up from under the field, the text waits in the
- * field until the bubble has come over it, and a bubble left under the field is aimed at on the field's line. The
- * flight passes under the field once it is past it: it is clipped from the layer's bottom up to `getClipLine`, as it
- * goes across. Stretched over a longer `duration`, as a screen's transition, it keeps its curves and the share of its
- * time the bubble takes to come in, and `onEnd` follows its end.
+ * the bubble wherever the list shows it meanwhile, as when the list takes the question up, which `getBubble` finds
+ * again whenever the bubble found has left the document, and the bubble stays out of sight until the flight ends and
+ * the bubble takes its place at once. The text only ever rises out of the field: while the list brings the bubble up
+ * from under the field, the text waits in the field until the bubble has come over it, and a bubble left under the
+ * field is aimed at on the field's line. The flight passes under the field once it is past it: it is clipped from the
+ * layer's bottom up to the top of the field's row, which `getFieldRow` finds, as it goes across. Stretched over a
+ * longer `duration`, as a screen's transition, it keeps its curves and the share of its time the bubble takes to come
+ * in, and `onEnd` follows its end. A `duration` given as a function is read as the flight's time starts, and the
+ * flight waits where it starts while it gives none, as while that transition has yet to start, for
+ * `DURATION_WAIT_LIMIT` at most.
  *
  * It reads the layout, so it is called in a measure phase, and returns the flight to start in a mutation, which returns
  * what ends it where it stands. A picture that is gone or too old, a bubble without its text, or one of more than
@@ -176,8 +191,8 @@ export function measureSentQuestionFlight(
   text: HTMLElement,
   getBubble: () => HTMLElement | undefined,
   layer: HTMLElement,
-  getClipLine: () => number | undefined,
-  duration = SENT_QUESTION_FLIGHT_DURATION,
+  getFieldRow: () => Element | undefined,
+  duration: number | (() => number | undefined) = SENT_QUESTION_FLIGHT_DURATION,
   onEnd?: NoneToVoidFunction,
 ) {
   const {
@@ -210,12 +225,12 @@ export function measureSentQuestionFlight(
     },
     fontSize: bubbleFontSize,
   };
-  const radii = [
-    bubbleStyle.borderTopLeftRadius, bubbleStyle.borderTopRightRadius,
-    bubbleStyle.borderBottomRightRadius, bubbleStyle.borderBottomLeftRadius,
-  ].map((radius) => parseFloat(radius) || 0);
+  const radii = getBorderRadii(bubbleStyle).map((radius) => parseFloat(radius) || 0);
   const fieldColor = parseCssColor(picture.color);
   const bubbleColor = parseCssColor(textStyle.color);
+  const findBubble = cacheWhileConnected(getBubble);
+  const findFieldRow = cacheWhileConnected(getFieldRow);
+  const getClipLine = () => findFieldRow()?.getBoundingClientRect().top;
   let clipLine = getClipLine();
 
   const flight = document.createElement('div');
@@ -260,11 +275,19 @@ export function measureSentQuestionFlight(
     bubbleText.style.opacity = String(appearance);
   }
 
+  // The flight's time starts once it is known, or once the flight has waited for it as long as it may
+  function startClock(now: number, waitedFor: number) {
+    const time = typeof duration === 'number' ? duration : duration();
+    if (time === undefined && waitedFor < DURATION_WAIT_LIMIT) return undefined;
+
+    return { startedAt: now, duration: time ?? SENT_QUESTION_FLIGHT_DURATION };
+  }
+
   return () => {
     let isFinished = false;
     let firstFrameAt: number | undefined;
     let risenAt: number | undefined;
-    let startedAt: number | undefined;
+    let clock: { startedAt: number; duration: number } | undefined;
     let hiddenBubble: HTMLElement | undefined;
 
     function hideBubble(shownBubble: HTMLElement) {
@@ -300,7 +323,7 @@ export function measureSentQuestionFlight(
 
       const now = Date.now();
       const previousTop = target.frame.top;
-      const shownBubble = getBubble();
+      const shownBubble = findBubble();
       const shownBody = shownBubble?.getBoundingClientRect();
       layerRect = layer.getBoundingClientRect();
       if (shownBody && shownBody.width >= 1 && shownBody.height >= 1) {
@@ -314,8 +337,8 @@ export function measureSentQuestionFlight(
       if (risenAt === undefined || target.frame.top < previousTop) risenAt = now;
       const isBubbleAwaited = target.frame.top > start.field.top && now - risenAt < STILL_BUBBLE_WAIT
         && now - firstFrameAt < FIELD_HOLD_LIMIT;
-      if (startedAt === undefined && !isBubbleAwaited) startedAt = now;
-      const fraction = startedAt === undefined ? 0 : Math.min(1, (now - startedAt) / duration);
+      if (!clock && !isBubbleAwaited) clock = startClock(now, now - firstFrameAt);
+      const fraction = clock ? Math.min(1, (now - clock.startedAt) / clock.duration) : 0;
       const state = getSentFlightState(start, target, fraction, isRtl);
 
       requestMutation(() => {
@@ -384,13 +407,4 @@ function getLineCount(body: DOMRect, style: CSSStyleDeclaration) {
 // The field's colour gone `share` of the way to the bubble's
 function mixColors(from: RgbaColor, to: RgbaColor, share: number) {
   return compositeCssColors(from, [{ ...to, alpha: to.alpha * share }]);
-}
-
-function getLayerRect(rect: DOMRect, layerRect: DOMRect): MotionRect {
-  return {
-    left: rect.left - layerRect.left,
-    top: rect.top - layerRect.top,
-    width: rect.width,
-    height: rect.height,
-  };
 }

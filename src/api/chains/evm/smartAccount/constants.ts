@@ -25,17 +25,46 @@ export const PIMLICO_SINGLETON_PAYMASTER_ADDRESS = '0x777777777777AeC03fd955926D
 /** ModularAccountV2 global owner validation entity id (nonce prefix `0x01 << 64`). */
 export const MODULAR_ACCOUNT_GLOBAL_OWNER_NONCE_KEY = 1n;
 
-/** ERC-20 token used to pay Pimlico gas on each chain (must be supported by Pimlico on that chain). */
+/** ERC-20 tokens that can pay Pimlico gas on each chain */
 export const PIMLICO_GAS_TOKEN_BY_NETWORK_AND_CHAIN: Partial<
-  Record<ApiNetwork, Partial<Record<EVMChain, string>>>
+  Record<ApiNetwork, Partial<Record<EVMChain, readonly string[]>>>
 > = {
   mainnet: {
-    arbitrum: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    ethereum: [
+      '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
+      '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
+    ],
+    base: [
+      '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
+      '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', // Bridged USDT
+    ],
+    bnb: [
+      '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // USDC
+      '0x55d398326f99059fF775485246999027B3197955', // USDT
+    ],
+    arbitrum: [
+      '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC
+      '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', // USDT0
+    ],
+    // Pimlico lists neither USDC nor USDT on these chains.
+    hyperliquid: [],
+    robinhood: [],
+    arc: [],
+    optimism: [
+      '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', // USDC
+      '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', // Bridged USDT
+    ],
   },
 };
 
-export function getPimlicoGasTokenAddress(network: ApiNetwork, chain: EVMChain): string | undefined {
-  return PIMLICO_GAS_TOKEN_BY_NETWORK_AND_CHAIN[network]?.[chain];
+export function getPimlicoGasTokenAddresses(network: ApiNetwork, chain: EVMChain): readonly string[] {
+  return PIMLICO_GAS_TOKEN_BY_NETWORK_AND_CHAIN[network]?.[chain] ?? [];
+}
+
+export function isPimlicoGasToken(network: ApiNetwork, chain: EVMChain, tokenAddress: string) {
+  const needle = tokenAddress.toLowerCase();
+
+  return getPimlicoGasTokenAddresses(network, chain).some((address) => address.toLowerCase() === needle);
 }
 
 export function getEvmChainId(network: ApiNetwork, chain: EVMChain): bigint | undefined {

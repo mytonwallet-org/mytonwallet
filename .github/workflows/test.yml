@@ -17,6 +17,7 @@ jobs:
         with:
           ruby-version: '3.2'
       - run: ruby mobile/ios/App/fastlane/tests/preview_distribution_test.rb
+      - run: ruby mobile/ios/App/fastlane/tests/build_upload_test.rb
 
   # Decides which costly jobs below the change can affect: the Mac localization check runs only when
   # its own inputs move, and the web jobs only when a pull request touches what they read.
@@ -186,13 +187,45 @@ jobs:
           xcrun swiftc --version
           python -m unittest discover -s mobile/ios/Air/scripts/strings -p 'test_*.py' -v
 
+  # No concurrency group: a superseded run waits out its window, then skips the tests
+  settle-simple-tests:
+    name: Wait for a quiet window
+    permissions:
+      contents: read
+      pull-requests: read
+    needs: detect-changes
+    if: ${{ github.event_name == 'pull_request' && needs.detect-changes.outputs.web != 'false' }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    outputs:
+      current: ${{ steps.head.outputs.current }}
+    steps:
+      - name: Checkout the settle module
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            dev/ciSettle.mjs
+            .github/ci-settle.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Wait and check the pull request head
+        id: head
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { settlePullRequest } = await import(`${process.env.GITHUB_WORKSPACE}/dev/ciSettle.mjs`);
+            core.setOutput('current', await settlePullRequest({ github, context, core, job: 'simpleTests' }));
+
   test:
     name: Simple tests
     permissions:
       contents: read
-    needs: detect-changes
-    # A failed detection leaves the output empty, and that runs the job
-    if: ${{ !cancelled() && needs.detect-changes.outputs.web != 'false' }}
+    needs: [detect-changes, settle-simple-tests]
+    # A failed detection leaves the output empty, and that runs the job; so does a failed wait
+    if: >-
+      ${{ !cancelled() && needs.detect-changes.outputs.web != 'false'
+      && (needs.settle-simple-tests.result != 'success' || needs.settle-simple-tests.outputs.current == 'true') }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
@@ -226,6 +259,9 @@ jobs:
 
       - name: Test web change detection
         run: npm run test:web-untouched
+
+      - name: Test the CI quiet window
+        run: node --test dev/ciSettleTests.mjs
 
       - name: Test the PR title check
         run: npm run test:pr-title
@@ -274,7 +310,9 @@ jobs:
 
       - name: Install Chromium
         if: ${{ needs.detect-changes.outputs.agent-v2-e2e != 'false' || needs.detect-changes.outputs.web-funnel-storage != 'false' }}
-        run: npx --no-install playwright install --with-deps chromium
+        # The runner image ships every shared library Chromium needs, so the step stays off `apt`
+        timeout-minutes: 3
+        run: npx --no-install playwright install chromium
 
       - name: Test Web funnel IndexedDB concurrency
         if: ${{ needs.detect-changes.outputs.web-funnel-storage != 'false' }}

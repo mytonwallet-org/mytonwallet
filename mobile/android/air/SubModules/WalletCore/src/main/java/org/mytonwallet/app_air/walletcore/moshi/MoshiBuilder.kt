@@ -15,7 +15,9 @@ import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAddressAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAttributeAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.ReturnStrategyAdapter
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2DiscussionNamingAdapter
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
@@ -302,6 +304,7 @@ class MoshiBuilder {
 }
 
 internal fun Moshi.Builder.addAgentV2Adapters(): Moshi.Builder = this
+    .add(AgentV2NewsFeedItem.DiscussionNaming::class.java, AgentV2DiscussionNamingAdapter)
     .add(
         PolymorphicJsonAdapterFactory.of(AgentV2MessageContent::class.java, "kind")
             .withSubtype(AgentV2MessageContent.Markdown::class.java, "markdown")

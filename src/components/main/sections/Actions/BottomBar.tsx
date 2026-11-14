@@ -9,6 +9,7 @@ import { selectCurrentAccountSettings } from '../../../../global/selectors';
 import { ACCENT_COLORS } from '../../../../util/accentColor/constants';
 import buildClassName from '../../../../util/buildClassName';
 import buildStyle from '../../../../util/buildStyle';
+import getTestId from '../../../../util/getTestId';
 import { getNavigationTabShift, resolveNavigationTabOrder } from '../../../../util/navigationTabOrder';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
@@ -231,6 +232,7 @@ const TabButton = memo(({
         !isDragged && shouldAnimateShift && styles.shifting,
       )}
       style={shift ? `transform: translateX(${shift}px)` : undefined}
+      testId={getTestId(tab === 'settings' ? 'tab_settings_button' : `tab_${tab}`)}
       onClick={handleClick}
     >
       <AnimatedIconWithPreview

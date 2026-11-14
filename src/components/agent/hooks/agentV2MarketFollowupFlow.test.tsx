@@ -91,7 +91,7 @@ describe('Agent V2 market analysis follow-up flow', () => {
               messages: [],
             },
           });
-        case 'getAgentV2Hints':
+        case 'getAgentV2StarterHints':
         case 'getAgentV2Availability':
         case 'getAgentV2UserQuota':
           return Promise.resolve(undefined);

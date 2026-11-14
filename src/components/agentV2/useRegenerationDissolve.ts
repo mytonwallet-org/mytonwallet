@@ -39,7 +39,8 @@ export default function useRegenerationDissolve(messages: AgentMessage[], isRunA
 
 /**
  * The messages a regeneration removed: the regenerated answer and everything after it, once the messages no longer
- * have it and every message before it is still there
+ * have it and every message before it is still there. The list turns everything from the answer on to dust, so a
+ * message after it that stays, as a question queued meanwhile, leaves them to go without it.
  */
 export function getRegenerationRemovedIds(
   previousMessages: readonly AgentMessage[],
@@ -53,5 +54,7 @@ export function getRegenerationRemovedIds(
     if (messages[index]?.id !== previousMessages[index].id) return undefined;
   }
 
-  return previousMessages.slice(targetIndex).map(({ id }) => id);
+  const removedIds = previousMessages.slice(targetIndex).map(({ id }) => id);
+  const keptIds = new Set(messages.map(({ id }) => id));
+  return removedIds.some((id) => keptIds.has(id)) ? undefined : removedIds;
 }

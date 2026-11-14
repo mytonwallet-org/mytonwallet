@@ -3,6 +3,7 @@ import React, { memo } from '../../lib/teact/teact';
 import type { MarketToken } from './helpers/buildMarketSections';
 
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { getIsRwaStockToken } from '../../util/tokens';
 
 import useLastCallback from '../../hooks/useLastCallback';
@@ -26,7 +27,12 @@ function TokenRow({ token, onClick }: OwnProps) {
   });
 
   return (
-    <button type="button" className={buildClassName(styles.row, styles.interactive)} onClick={handleClick}>
+    <button
+      type="button"
+      className={buildClassName(styles.row, styles.interactive)}
+      data-testid={getTestId('market_row')}
+      onClick={handleClick}
+    >
       <TokenIcon token={apiToken} size="large" withChainIcon={withChainIcon} />
       <span className={styles.rowText}>
         <span className={styles.rowTitle}>

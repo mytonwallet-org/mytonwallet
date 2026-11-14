@@ -28,6 +28,11 @@ final class AgentV2HostSnapshotTests: XCTestCase {
         let result = await AgentV2HostContextProvider.makeSnapshot(input: input)
         let captured = try XCTUnwrap(result.accounts.first)
         XCTAssertEqual(result.activeAccountId, account.id)
+        // The SDK tells the Agent it can hand the chat over to support
+        let capabilities = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(result.uiCapabilities)) as? [String: Any]
+        )
+        XCTAssertEqual(capabilities["supportsSupportHandoff"] as? Bool, true)
         XCTAssertEqual(captured.holdings.first?.balance, "1.234")
         XCTAssertEqual(captured.holdings.first?.asset.name, "CapturedToken")
         XCTAssertEqual(captured.holdings.first?.visibility, "visible")

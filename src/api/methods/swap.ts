@@ -9,6 +9,7 @@ import type {
   ApiSwapBuildTransactionRequest,
   ApiSwapBuildTransactionResponse,
   ApiSwapCexLabel,
+  ApiSwapDexEstimateResponse,
   ApiSwapEstimateRequest,
   ApiSwapEstimateRequestErrors,
   ApiSwapEstimateResponse,
@@ -19,11 +20,14 @@ import type {
   ApiWalletByChain,
   OnApiUpdate,
 } from '../types';
+import type { ChainSdk } from '../types/chains';
 import { SWAP_ROUTERS_UNAVAILABLE_ERROR } from '../types/swap';
 
 import { SWAP_API_VERSION } from '../../config';
 import { buildLocalTxId } from '../../util/activities';
-import { getIsSupportedChain } from '../../util/chain';
+import { getChainConfig, getIsSupportedChain } from '../../util/chain';
+import { fromDecimal, toDecimal } from '../../util/decimals';
+import { getDieselTokenAmount, isDieselAvailable } from '../../util/fee/transferFee';
 import { omit, unique } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { getChainBySlug } from '../../util/tokens';
@@ -44,7 +48,14 @@ import {
   swapGetHistoryItem,
   swapItemToActivity,
 } from '../common/swap';
+import {
+  getSwapAssetId,
+  normalizeSwapAssetSelection,
+  prepareSwapBuildRequest,
+  rememberSwapExecutionQuote,
+} from '../common/swapExecutionQuote';
 import { traceSwapQuote } from '../common/swapQuoteTrace';
+import { getTokenBySlug } from '../common/tokens';
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
 import { publishSignedMfaRequest, registerMfaConfirmationHandler } from './mfa';
@@ -76,7 +87,7 @@ export async function swapBuildTransfer(
   const { version } = await fetchStoredWallet(accountId, 'ton');
   request.walletVersion = version;
 
-  const buildResponse = await swapBuild(authToken, request);
+  const buildResponse = await swapBuild(authToken, prepareSwapBuildRequest(accountId, request));
 
   if (buildResponse.route !== 'dex' || !buildResponse.chain) {
     throw new Error('Unexpected non-DEX response for swapBuildTransfer');
@@ -313,7 +324,8 @@ export async function swapEstimate(
 
     stage('http');
     const answer = await callBackendPost<ApiSwapEstimateResponse | ApiSwapEstimateRequestErrors>('/swap/estimate', {
-      ...request,
+      ...normalizeSwapAssetSelection(request),
+      nativeBalance: request.nativeBalance ?? undefined,
       swapVersion: swapVersion ?? SWAP_API_VERSION,
       walletVersion,
       historyAddress,
@@ -344,17 +356,53 @@ export async function swapEstimate(
 
     const chain = getIsSupportedChain(estimate.chain) ? estimate.chain : getChainBySlug(estimate.from);
     const sdk = getIsSupportedChain(chain) ? chains[chain] : undefined;
-    // LI.FI sends a direct source-chain transaction unless canonical Permit2 setup is required.
-    // Uniswap's delegate/batch rule does not apply to that transaction request.
-    stage('batch');
-    const needsBatch = estimate.dexRouterLabel === 'lifi'
-      ? !!estimate.needsApprove
-      : sdk
-        ? await sdk.resolveSwapNeedsBatch(accountId, estimate.needsApprove)
-        : !!estimate.needsApprove;
+    stage('chain');
+    const [needsBatch, diesel] = await Promise.all([
+      // LI.FI and LayerZero send a direct source-chain transaction unless an approval is required, which they batch.
+      // Uniswap's delegate/batch rule does not apply to that transaction request.
+      estimate.dexRouterLabel === 'layerzero' || estimate.dexRouterLabel === 'lifi'
+        ? !!estimate.needsApprove
+        : sdk
+          ? sdk.resolveSwapNeedsBatch(accountId, estimate.needsApprove)
+          : !!estimate.needsApprove,
+      sdk && estimate.dieselStatus === 'not-available'
+        ? quoteSwapDiesel(accountId, chain, sdk, estimate)
+        : undefined,
+    ]);
 
-    return { ...estimate, needsBatch };
+    return rememberSwapExecutionQuote(accountId, request, { ...estimate, needsBatch, ...diesel });
   });
+}
+
+/** The diesel of a DEX quote whose native fee the wallet cannot pay, for a chain whose backend quote has none */
+async function quoteSwapDiesel(
+  accountId: string,
+  chain: ApiChain,
+  sdk: ChainSdk<ApiChain>,
+  estimate: ApiSwapDexEstimateResponse,
+) {
+  const token = getTokenBySlug(getSwapItemSlug(estimate.from, chain));
+  if (!token?.tokenAddress) return undefined;
+
+  try {
+    const { nativeToken } = getChainConfig(chain);
+    const diesel = await sdk.estimateSwapDiesel(
+      accountId,
+      token.tokenAddress,
+      fromDecimal(estimate.networkFee, nativeToken.decimals),
+    );
+    if (!isDieselAvailable(diesel)) return undefined;
+
+    return {
+      dieselStatus: diesel.status,
+      dieselFee: toDecimal(getDieselTokenAmount(diesel), token.decimals),
+    };
+  } catch (err) {
+    // The diesel is optional, so its failure keeps the backend quote
+    logDebugError('quoteSwapDiesel', err);
+
+    return undefined;
+  }
 }
 
 export async function swapBuild(
@@ -364,7 +412,7 @@ export async function swapBuild(
   const { swapVersion } = await getBackendConfigCache();
 
   return callBackendPost('/swap/buildTransaction', {
-    ...omit(request, ['needsBatch']),
+    ...omit(normalizeSwapAssetSelection(request), ['needsBatch']),
     swapVersion: swapVersion ?? SWAP_API_VERSION,
     isMsgHashMode: true,
   }, {
@@ -394,7 +442,11 @@ export function swapGetAssetsText(): Promise<string> {
 }
 
 export function swapGetPairs(symbolOrTokenAddress: string): Promise<ApiSwapPairAsset[]> {
-  return callBackendGet('/swap/pairs', { asset: symbolOrTokenAddress });
+  const token = getTokenBySlug(getSwapItemSlug(symbolOrTokenAddress));
+  const asset = token && getChainConfig(token.chain).chainStandard === 'ethereum'
+    ? getSwapAssetId(token)
+    : symbolOrTokenAddress;
+  return callBackendGet('/swap/pairs', { asset });
 }
 
 export function swapCexValidateAddress(params: { slug: string; address: string; cexLabel?: ApiSwapCexLabel }): Promise<{

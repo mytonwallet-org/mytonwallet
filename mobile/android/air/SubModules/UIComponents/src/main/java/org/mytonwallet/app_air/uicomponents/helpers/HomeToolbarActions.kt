@@ -66,6 +66,25 @@ object HomeToolbarActions {
             throw IllegalArgumentException("$item is not an action")
     }
 
+    fun getToolbarIconRes(item: MToolbarItem): Int = when (item) {
+        MToolbarItem.BUY -> R.drawable.ic_toolbar_buy
+
+        MToolbarItem.FUND -> R.drawable.ic_toolbar_fund
+
+        MToolbarItem.TRADE -> R.drawable.ic_toolbar_trade
+
+        MToolbarItem.SELL -> R.drawable.ic_toolbar_sell
+
+        MToolbarItem.SEND -> R.drawable.ic_toolbar_send
+
+        MToolbarItem.EARN -> R.drawable.ic_toolbar_earn
+
+        MToolbarItem.SCAN -> R.drawable.ic_qr_code_scan_18_24
+
+        MToolbarItem.SEARCH, MToolbarItem.ACCOUNTS, MToolbarItem.ACTIONS ->
+            throw IllegalArgumentException("$item is not an action")
+    }
+
     fun isAvailable(item: MToolbarItem, account: MAccount?): Boolean {
         if (account?.isViewOnly != true) return true
         return when (item) {

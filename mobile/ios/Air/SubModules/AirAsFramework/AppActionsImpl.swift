@@ -699,6 +699,12 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
 
+    static func showPerpsMarket(accountId: String, assetId: String) {
+        guard PerpsAvailability.canRead(AccountContext(accountId: accountId).account),
+              let origin = topWViewController()?.navigationController?.topViewController else { return }
+        PerpsCoordinator(accountId: accountId).showMarket(assetId, from: origin)
+    }
+
     static func showMarket() {
         rootContainerRouter.showTab(.market)
     }

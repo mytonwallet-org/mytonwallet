@@ -15,6 +15,7 @@ import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
+import getTestId from '../../util/getTestId';
 import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { getIsNewStakeAllowed } from '../../util/staking';
@@ -257,6 +258,7 @@ function StakeModal({
               <ModalHeader
                 title={lang('Add Stake')}
                 titleClassName={styles.modalTitle}
+                titleTestId={getTestId('stake_title')}
                 onClose={cancelStaking}
               />
               {hasMultipleAccounts && accountId && (

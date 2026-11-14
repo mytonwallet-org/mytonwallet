@@ -76,7 +76,7 @@ test('an empty opening checks both Arbitrum funding minimums without requiring a
   expect(getPerpsFundingRequirements({
     ...params, draft: { ...params.draft, amount: '' }, availableUsdc: '0', availableEth: '0',
   })).toEqual({
-    requiredUsdc: '10.2', requiredGasUsdc: '0', requiredEth: '0', requiredEthUsd: '0',
+    requiredUsdc: '10.2', requiredBridgeFeeUsdc: '0.2', requiredGasUsdc: '0', requiredEth: '0', requiredEthUsd: '0',
     usdcBalance: '0', availableCollateral: '0', ethBalance: '0', needsUsdc: true, needsEth: false,
   });
 });
@@ -117,7 +117,7 @@ test('funding checks honor backend minimums, the current draft and exact boundar
     .toMatchObject({ needsUsdc: false, needsEth: false });
   const position = normalizePerpsPosition(params.accountId, asset, raw);
   expect(getPerpsFundingRequirements({ ...empty, position, draft: { ...params.draft, editing: true, amount: '110' } }))
-    .toMatchObject({ requiredUsdc: '15.2', needsUsdc: true });
+    .toMatchObject({ requiredUsdc: '15.2', requiredBridgeFeeUsdc: '0.2', needsUsdc: true });
 });
 
 test.each([
@@ -126,7 +126,9 @@ test.each([
   const position = normalizePerpsPosition(params.accountId, asset, raw);
   expect(getPerpsFundingRequirements({
     ...params, position, availableUsdc: '0', availableEth: '0', draft: { ...params.draft, editing: true, ...change },
-  })).toMatchObject({ requiredUsdc: '0', requiredEth: '0', needsUsdc: false, needsEth: false });
+  })).toMatchObject({
+    requiredUsdc: '0', requiredBridgeFeeUsdc: '0', requiredEth: '0', needsUsdc: false, needsEth: false,
+  });
 });
 
 test('funding requirements share fraction interpretation with order preparation', () => {
@@ -842,7 +844,8 @@ describe('balance funding', () => {
     ['a HIP-3 book at 10×', { ...asset, dex: 'xyz', wireAssetIndex: 110005 }, 10, '193.050193'],
   ] as const)('the most a balance funds on %s leaves trading-fee headroom', (_, market, leverage, available) => {
     expect(getPerpsBalanceFundingRequirements(market, leverage, '200')).toEqual({
-      requiredUsdc: '0', requiredGasUsdc: '0', requiredEth: '0', requiredEthUsd: '0', usdcBalance: '200',
+      requiredUsdc: '0', requiredBridgeFeeUsdc: '0', requiredGasUsdc: '0', requiredEth: '0', requiredEthUsd: '0',
+      usdcBalance: '200',
       availableCollateral: available, ethBalance: '0', needsUsdc: false, needsEth: false,
     });
     const maximum = resolvePerpsDraft({ ...balance, asset: market,

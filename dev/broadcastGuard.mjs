@@ -9,24 +9,9 @@ import { pathToFileURL } from 'node:url';
 
 const HOST = '127.0.0.1';
 const CONTROL_PORT = 8790;
-const DEFAULT_UPSTREAMS = [
-  { env: ['TONCENTER_MAINNET_URL'], port: 8791, target: 'https://toncenter.mytonwallet.org', chain: 'ton' },
-  { env: ['TONAPIIO_MAINNET_URL'], port: 8792, target: 'https://tonapiio.mytonwallet.org', chain: 'ton' },
-  { env: ['TRON_MAINNET_API_URL'], port: 8793, target: 'https://tronapi.mytonwallet.org', chain: 'tron' },
-  {
-    env: ['SOLANA_MAINNET_RPC_URL', 'SOLANA_MAINNET_API_URL'],
-    port: 8794,
-    target: 'https://solanaapi.mytonwallet.org',
-    chain: 'solana',
-  },
-  { env: ['EVM_MAINNET_RPC_URL'], port: 8795, target: 'https://evmapi.mytonwallet.org', chain: 'evm' },
-  { env: ['UTXO_MAINNET_RPC_URL'], port: 8796, target: 'https://utxoapi.mytonwallet.org', chain: 'utxo' },
-  { env: ['BRILLIANT_API_BASE_URL'], port: 8797, target: 'https://api.mywallet.io', chain: 'backend' },
-  // Read-only, proxied so fixtures can show the Portfolio tab's empty and error states
-  {
-    env: ['PORTFOLIO_API_URL'], envPath: '/api', port: 8799, target: 'https://api-portfolio.mywallet.io', chain: 'portfolio',
-  },
-];
+// The app also reports sessions and install attribution to this backend, so a test run must never reach production
+const DEFAULT_BACKEND_URL = 'https://api-beta.mytonwallet.org';
+const DEFAULT_UPSTREAMS = getDefaultUpstreams(process.env);
 const TON_SEND_METHODS = new Set(['sendBoc', 'sendBocReturnHash', 'sendBocReturnHashNoError']);
 const TON_SEND_PATH = /\/api\/v2\/sendBoc|\/api\/v3\/message$|\/v2\/blockchain\/message$/i;
 // Any other path that names a send is refused on every host, whatever its form or method
@@ -74,7 +59,22 @@ const HOP_BY_HOP_HEADERS = new Set([
 const BODYLESS_METHODS = new Set(['GET', 'HEAD']);
 const JSON_HEADERS = { 'content-type': 'application/json', 'access-control-allow-origin': '*' };
 const EMULATION_WAIT_MS = 20000;
+// Parallel test cases read the same wallet at once and trip the upstreams' rate limits
+const RATE_LIMIT_RETRIES = 3;
+const RATE_LIMIT_MAX_WAIT_MS = 4000;
+// Only a local test app gets CORS from the guard; any other page keeps the upstream's own policy
+const LOCAL_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+// The upstream's expose list stays, so the app reads headers such as `X-Snapshot-At`
+const REPLACED_CORS_HEADERS = new Set(['access-control-allow-origin', 'access-control-allow-credentials']);
 const EMULATION_PATH = '/api/emulate/v1/emulateTrace';
+// Parallel cases reading the same wallet share one upstream answer instead of tripping its rate limit
+const DEFAULT_READ_CACHE_MS = 2000;
+// Emulations and estimates depend on the payload and the current chain state, so they are never shared
+const UNCACHED_READ = /emulat|simulat|estimat/i;
+// Toncenter v3 reads carry a unique `_` to defeat the WebView cache
+const READ_CACHE_IGNORED_PARAMS = ['_'];
+// Upstreams may echo the origin into CORS headers or answer per API key, so these split cached answers
+const READ_CACHE_KEY_HEADERS = ['origin', 'authorization', 'x-api-key'];
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.includes('--env')) {
   // For a build on another machine than the guard, such as CI, where every shard runs its own guard
@@ -88,6 +88,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.incl
     fixturesDir: process.env.BROADCAST_GUARD_FIXTURES_DIR ?? path.join(import.meta.dirname, '../maestro/fixtures'),
     recordDir: process.env.BROADCAST_GUARD_RECORD_DIR,
     recordPaths: process.env.BROADCAST_GUARD_RECORD_PATHS,
+    readCacheMs: Number(process.env.BROADCAST_GUARD_READ_CACHE_MS || DEFAULT_READ_CACHE_MS),
   });
   console.log('Build the app with:\n');
   console.log(guard.envLines.join('\n'));
@@ -102,9 +103,11 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.incl
  * Fixtures set through the control port answer matching reads instead of the upstream, so a case can show the app
  * any state; `POST /fixtures?load=<name>` adds the ones in `<fixturesDir>/<name>.json`. With `recordDir`, real
  * answers to `recordPaths` are saved there to start fixtures from.
+ * With `readCacheMs`, identical chain reads in flight or answered successfully within that time reach the upstream
+ * once, with the exceptions listed in `maestro/WRITING_FLOWS.md`; a cache hit saves no recording.
  */
 export async function startBroadcastGuard({
-  upstreams, controlPort, logPath, tonEmulatorUrl, fixturesDir, recordDir, recordPaths,
+  upstreams, controlPort, logPath, tonEmulatorUrl, fixturesDir, recordDir, recordPaths, readCacheMs,
 }) {
   const broadcasts = [];
   const proxiedCounts = {};
@@ -154,9 +157,10 @@ export async function startBroadcastGuard({
 
   const envLines = [];
   for (const upstream of upstreams) {
+    const readCache = readCacheMs > 0 ? createReadCache(readCacheMs) : undefined;
     const server = await listen(upstream.port, (req, res) => {
       proxiedCounts[upstream.chain] = (proxiedCounts[upstream.chain] ?? 0) + 1;
-      void handleProxyRequest(upstream, req, res, { record, fixtures, saveResponse });
+      void handleProxyRequest(upstream, req, res, { record, fixtures, saveResponse, readCache });
     });
     servers.push(server);
     envLines.push(...getEnvLines([{ ...upstream, port: server.address().port }]));
@@ -178,8 +182,20 @@ export async function startBroadcastGuard({
   };
 }
 
-async function handleProxyRequest(upstream, req, res, { record, fixtures, saveResponse }) {
+async function handleProxyRequest(upstream, req, res, { record, fixtures, saveResponse, readCache }) {
   try {
+    // A browser app is served from another local port, and an upstream allows CORS only for its own origins
+    if (req.method === 'OPTIONS' && getIsLocalOrigin(req.headers.origin)) {
+      res.writeHead(204, {
+        ...getCorsHeaders(req.headers.origin),
+        'access-control-allow-methods': 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS',
+        'access-control-allow-headers': req.headers['access-control-request-headers'] || '*',
+        'access-control-max-age': '600',
+      });
+      res.end();
+      return;
+    }
+
     const body = await readBody(req);
     // Joined to the origin rather than resolved, so a `//other-host/` target cannot pick the upstream
     const url = new URL(`${new URL(upstream.target).origin}${req.url.startsWith('/') ? '' : '/'}${req.url}`);
@@ -255,13 +271,23 @@ async function handleProxyRequest(upstream, req, res, { record, fixtures, saveRe
       return;
     }
 
-    const onResponse = (status, responseBody) => saveResponse(upstream, req, url, status, responseBody);
+    // A backend write may record something, such as attribution or a report, so a rate-limited one is not resent
+    const canRetry = upstream.chain !== 'backend' || BODYLESS_METHODS.has(req.method);
+    const onResponse = (status, responseBody) => {
+      // A read the upstream refused leaves the app loading, so the log shows which host and path it was
+      if (status >= 400) console.error(`${upstream.chain} ${req.method} ${url.pathname.slice(0, 80)}: HTTP ${status}`);
+      saveResponse(upstream, req, url, status, responseBody);
+    };
+    // Backend answers also vary by `X-App-*` headers, so only chain hosts share reads
+    const isCacheableRead = RPC_CHAINS.has(upstream.chain) && (req.method === 'GET' || (rpc && !hasRpcSend))
+      && !UNCACHED_READ.test(sendPath) && ![].concat(rpc ?? []).some((call) => UNCACHED_READ.test(call?.method));
+    const cache = isCacheableRead ? readCache : undefined;
     if (rpc) {
-      await handleJsonRpc(upstream, url, req, res, body, rpc, record, onResponse);
+      await handleJsonRpc(upstream, url, req, res, body, rpc, record, { onResponse, canRetry, readCache: cache });
       return;
     }
 
-    await forward(url, req, res, body, onResponse);
+    await forward(url, req, res, body, { onResponse, canRetry, readCache: cache });
   } catch (err) {
     // Decoders quote their input, which may be a signed transaction, so only the error's kind is logged and returned
     const kind = [err?.name, err?.code].filter(Boolean).join(' ') || 'Error';
@@ -270,7 +296,7 @@ async function handleProxyRequest(upstream, req, res, { record, fixtures, saveRe
   }
 }
 
-async function handleJsonRpc(upstream, url, req, res, body, rpc, record, onResponse) {
+async function handleJsonRpc(upstream, url, req, res, body, rpc, record, forwardOptions) {
   const calls = Array.isArray(rpc) ? rpc : [rpc];
   const answers = new Map();
 
@@ -285,19 +311,20 @@ async function handleJsonRpc(upstream, url, req, res, body, rpc, record, onRespo
   }
 
   if (!answers.size) {
-    await forward(url, req, res, body, onResponse);
+    await forward(url, req, res, body, forwardOptions);
     return;
   }
 
   const rest = calls.filter((call) => !answers.has(call));
   let forwarded = [];
   if (rest.length) {
-    const response = await fetch(url, {
+    const response = await fetchUpstream(url, {
       method: 'POST',
       headers: buildForwardHeaders(req.headers),
       body: JSON.stringify(Array.isArray(rpc) ? rest : rest[0]),
       redirect: 'manual',
-    });
+    }, forwardOptions.canRetry);
+    if (response.status >= 400) console.error(`${upstream.chain} ${req.method} ${url.pathname.slice(0, 80)}: HTTP ${response.status}`);
     // Following a redirect would hand the rest of the batch to a host the guard does not see
     if (response.status >= 300 && response.status < 400) {
       sendJson(res, { error: 'Blocked a redirect of a JSON-RPC batch' }, 502);
@@ -652,29 +679,126 @@ function isSentTo(broadcast, to) {
   return false;
 }
 
-async function forward(url, req, res, body, onResponse) {
-  const hasBody = !BODYLESS_METHODS.has(req.method);
-  const response = await fetch(url, {
-    method: req.method,
-    headers: buildForwardHeaders(req.headers),
-    body: hasBody ? body : undefined,
-    redirect: 'manual',
-  });
+async function forward(url, req, res, body, { onResponse, canRetry, readCache }) {
+  const fetchResponse = () => fetchForwarded(url, req, body, canRetry);
+  const { response, isFetched } = readCache
+    ? await readCache(buildReadCacheKey(url, req, body), fetchResponse)
+    : { response: await fetchResponse(), isFetched: true };
+  const { status, body: responseBody } = response;
 
+  // Cached answers keep the upstream's CORS headers, so the local ones are applied at reply time
+  const isLocalOrigin = getIsLocalOrigin(req.headers.origin);
   const headers = {};
-  response.headers.forEach((value, name) => {
-    if (!HOP_BY_HOP_HEADERS.has(name)) headers[name] = value;
-  });
-  const responseBody = Buffer.from(await response.arrayBuffer());
+  for (const [name, value] of Object.entries(response.headers)) {
+    if (!(isLocalOrigin && REPLACED_CORS_HEADERS.has(name))) headers[name] = value;
+  }
+  if (isLocalOrigin) Object.assign(headers, getCorsHeaders(req.headers.origin));
+
   // The app would follow an absolute redirect straight to the real host, bypassing the guard
   const { location } = headers;
   if (location && (new URL(location, url).origin !== url.origin || /^\s*([a-z][\w+.-]*:|[\\/]{2})/i.test(location))) {
     sendJson(res, { error: `Blocked a redirect to ${headers.location}` }, 502);
     return;
   }
-  res.writeHead(response.status, headers);
+  res.writeHead(status, headers);
   res.end(responseBody);
-  onResponse?.(response.status, responseBody);
+  if (isFetched) onResponse?.(status, responseBody);
+}
+
+async function fetchForwarded(url, req, body, canRetry) {
+  const hasBody = !BODYLESS_METHODS.has(req.method);
+  const response = await fetchUpstream(url, {
+    method: req.method,
+    headers: buildForwardHeaders(req.headers),
+    body: hasBody ? body : undefined,
+    redirect: 'manual',
+  }, canRetry);
+
+  const headers = {};
+  response.headers.forEach((value, name) => {
+    if (!HOP_BY_HOP_HEADERS.has(name)) headers[name] = value;
+  });
+  const responseBody = Buffer.from(await response.arrayBuffer());
+
+  return { status: response.status, headers, body: responseBody };
+}
+
+function createReadCache(ttlMs) {
+  const entries = new Map();
+
+  return async function fetchCached(key, fetchResponse, isRetry = false) {
+    const now = Date.now();
+    const cached = entries.get(key);
+    if (cached && cached.expiresAt > now) {
+      const response = await cached.response.catch(() => undefined);
+      if (response && isSuccessfulResponse(response)) return { response, isFetched: false };
+      // A failed answer is not kept, so the requests that waited for it retry it once together
+      if (!isRetry) return fetchCached(key, fetchResponse, true);
+      return { response: await cached.response, isFetched: false };
+    }
+
+    for (const [otherKey, entry] of entries) {
+      if (entry.expiresAt <= now) entries.delete(otherKey);
+    }
+    const entry = { response: fetchResponse(), expiresAt: Infinity };
+    entries.set(key, entry);
+    let response;
+    try {
+      response = await entry.response;
+    } catch (err) {
+      if (entries.get(key) === entry) entries.delete(key);
+      throw err;
+    }
+    if (isSuccessfulResponse(response) && !hasSnapshotTime(response)) {
+      entry.expiresAt = Date.now() + ttlMs;
+    } else if (entries.get(key) === entry) {
+      entries.delete(key);
+    }
+    return { response, isFetched: true };
+  };
+}
+
+function buildReadCacheKey(url, req, body) {
+  const headers = READ_CACHE_KEY_HEADERS.map((name) => req.headers[name] ?? '');
+  // Filtered on the raw query, since re-encoding it would merge a literal `+` with a space
+  const query = url.search.slice(1).split('&')
+    .filter((param) => !READ_CACHE_IGNORED_PARAMS.includes(param.split('=')[0]))
+    .join('&');
+
+  return JSON.stringify([req.method, url.origin + url.pathname, query, ...headers, body.toString()]);
+}
+
+// A concurrent request may share such an answer, but a replayed `Date` would later make it look fresh
+function hasSnapshotTime({ headers }) {
+  return Boolean(headers['x-snapshot-at']);
+}
+
+function isSuccessfulResponse({ status, body }) {
+  if (status < 200 || status >= 300) return false;
+  let parsed;
+  try {
+    parsed = JSON.parse(body.toString());
+  } catch {
+    // Chain reads are JSON, so another body is an error page from a proxy or CDN
+    return false;
+  }
+  // JSON-RPC hosts and toncenter report errors, including rate limits, inside a successful HTTP answer
+  return [].concat(parsed).every((reply) => !reply?.error && reply?.ok !== false);
+}
+
+async function fetchUpstream(url, init, canRetry) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(url, init);
+    if (response.status !== 429 || !canRetry || attempt === RATE_LIMIT_RETRIES) return response;
+    await response.arrayBuffer();
+    await new Promise((resolve) => setTimeout(resolve, getRateLimitWait(response, attempt)));
+  }
+}
+
+function getRateLimitWait(response, attempt) {
+  const wait = getRetryAfterMs(response.headers.get('retry-after')) ?? 500 * 2 ** attempt;
+  // The jitter keeps parallel retries from hitting the upstream in step again
+  return Math.min(wait, RATE_LIMIT_MAX_WAIT_MS) + Math.random() * 250;
 }
 
 async function handleFixturesRequest(req, res, url, fixtures, fixturesDir) {
@@ -722,6 +846,22 @@ function parseJsonRpc(body) {
   }
 }
 
+function getRetryAfterMs(value) {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(seconds, 0) * 1000;
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.max(date - Date.now(), 0);
+}
+
+function getIsLocalOrigin(origin) {
+  return Boolean(origin) && LOCAL_ORIGIN_REGEX.test(origin);
+}
+
+function getCorsHeaders(origin) {
+  return { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true', vary: 'Origin' };
+}
+
 function sendJson(res, data, status = 200) {
   res.writeHead(status, JSON_HEADERS);
   res.end(JSON.stringify(data));
@@ -742,6 +882,29 @@ function listen(port, handler) {
     server.once('error', reject);
     server.listen(port, HOST, () => resolve(server));
   });
+}
+
+export function getDefaultUpstreams(env) {
+  return [
+    { env: ['TONCENTER_MAINNET_URL'], port: 8791, target: 'https://toncenter.mytonwallet.org', chain: 'ton' },
+    { env: ['TONAPIIO_MAINNET_URL'], port: 8792, target: 'https://tonapiio.mytonwallet.org', chain: 'ton' },
+    { env: ['TRON_MAINNET_API_URL'], port: 8793, target: 'https://tronapi.mytonwallet.org', chain: 'tron' },
+    {
+      env: ['SOLANA_MAINNET_RPC_URL', 'SOLANA_MAINNET_API_URL'],
+      port: 8794,
+      target: 'https://solanaapi.mytonwallet.org',
+      chain: 'solana',
+    },
+    { env: ['EVM_MAINNET_RPC_URL'], port: 8795, target: 'https://evmapi.mytonwallet.org', chain: 'evm' },
+    { env: ['UTXO_MAINNET_RPC_URL'], port: 8796, target: 'https://utxoapi.mytonwallet.org', chain: 'utxo' },
+    {
+      env: ['BRILLIANT_API_BASE_URL'], port: 8797, target: env.BROADCAST_GUARD_BACKEND_URL || DEFAULT_BACKEND_URL, chain: 'backend',
+    },
+    // Read-only, proxied so fixtures can show the Portfolio tab's empty and error states
+    {
+      env: ['PORTFOLIO_API_URL'], envPath: '/api', port: 8799, target: 'https://api-portfolio.mywallet.io', chain: 'portfolio',
+    },
+  ];
 }
 
 function getEnvLines(upstreams) {

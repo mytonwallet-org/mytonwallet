@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsDraftRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsFundingRequirements
@@ -176,8 +177,10 @@ private fun MApiPerpsFundingRequirements.fundingUsdc(): String {
 
 /** The text for an SDK error code, as iOS shows it. */
 internal fun futuresErrorText(error: String): String {
-    val key = PERPS_ERROR_KEYS.firstOrNull { error.contains(it) } ?: "PerpsUnavailable"
-    return LocaleController.getString(key)
+    val key = PERPS_ERROR_KEYS.firstOrNull { error.contains(it) }
+    if (key != null) return LocaleController.getString(key)
+    return MBridgeError.fromErrorName(error)?.toLocalized
+        ?: LocaleController.getString("PerpsUnavailable")
 }
 
 private val PERPS_ERROR_KEYS = listOf(
@@ -187,7 +190,7 @@ private val PERPS_ERROR_KEYS = listOf(
     "PerpsInsufficientMargin", "PerpsOrderRejected", "PerpsPositionChanged", "PerpsPositionExists",
     "PerpsOperationPending", "PerpsUnsupportedAccount", "PerpsInvalidLeverage",
     "PerpsInvalidAmount", "PerpsChangeLeverageSeparately", "PerpsTradingUnavailable",
-    "PerpsNothingToWithdraw", "PerpsWithdrawalRejected"
+    "PerpsNothingToWithdraw", "PerpsWithdrawalRejected", "PerpsOrderNotPlaced"
 )
 
 internal val futuresPaymentSymbol: String

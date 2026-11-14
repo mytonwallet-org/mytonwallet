@@ -31,6 +31,18 @@ public struct ApiAgentV2NewsFeedItem: Codable, Equatable, Hashable, Sendable {
         }
     }
 
+    public struct DiscussionNaming: Codable, Equatable, Hashable, Sendable {
+        public let title: String
+        public let icon: String?
+        public let followups: [String]
+
+        public init(title: String, icon: String? = nil, followups: [String]) {
+            self.title = title
+            self.icon = icon
+            self.followups = followups
+        }
+    }
+
     public let eventId: Int
     public let deliveredAt: String
     public let headline: String
@@ -38,6 +50,7 @@ public struct ApiAgentV2NewsFeedItem: Codable, Equatable, Hashable, Sendable {
     public let imageUrl: String?
     public let sources: [Source]
     public let discussion: Discussion?
+    public let discussionNaming: DiscussionNaming?
 
     public init(
         eventId: Int,
@@ -46,7 +59,8 @@ public struct ApiAgentV2NewsFeedItem: Codable, Equatable, Hashable, Sendable {
         body: String,
         imageUrl: String? = nil,
         sources: [Source] = [],
-        discussion: Discussion? = nil
+        discussion: Discussion? = nil,
+        discussionNaming: DiscussionNaming? = nil
     ) {
         self.eventId = eventId
         self.deliveredAt = deliveredAt
@@ -55,12 +69,31 @@ public struct ApiAgentV2NewsFeedItem: Codable, Equatable, Hashable, Sendable {
         self.imageUrl = imageUrl
         self.sources = sources
         self.discussion = discussion
+        self.discussionNaming = discussionNaming
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case eventId, deliveredAt, headline, body, imageUrl, sources, discussion, discussionNaming
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        eventId = try container.decode(Int.self, forKey: .eventId)
+        deliveredAt = try container.decode(String.self, forKey: .deliveredAt)
+        headline = try container.decode(String.self, forKey: .headline)
+        body = try container.decode(String.self, forKey: .body)
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+        sources = try container.decode([Source].self, forKey: .sources)
+        discussion = try container.decodeIfPresent(Discussion.self, forKey: .discussion)
+        discussionNaming = try? container.decodeIfPresent(DiscussionNaming.self, forKey: .discussionNaming)
     }
 }
 
 public struct ApiAgentV2DigestHeadline: Codable, Equatable, Hashable, Sendable {
     public let eventId: Int
     public let headline: String
+    /// The news item's picture, as the feed shows it
+    public let imageUrl: String?
 }
 
 public struct ApiAgentV2NewsFeedDigest: Codable, Equatable, Hashable, Sendable {
@@ -69,6 +102,37 @@ public struct ApiAgentV2NewsFeedDigest: Codable, Equatable, Hashable, Sendable {
     public let top: [ApiAgentV2DigestHeadline]
     public let total: Int
     public let discussion: ApiAgentV2NewsFeedItem.Discussion?
+    public let discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming?
+
+    public init(
+        id: String,
+        deliveredAt: String,
+        top: [ApiAgentV2DigestHeadline],
+        total: Int,
+        discussion: ApiAgentV2NewsFeedItem.Discussion? = nil,
+        discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming? = nil
+    ) {
+        self.id = id
+        self.deliveredAt = deliveredAt
+        self.top = top
+        self.total = total
+        self.discussion = discussion
+        self.discussionNaming = discussionNaming
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, deliveredAt, top, total, discussion, discussionNaming
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        deliveredAt = try container.decode(String.self, forKey: .deliveredAt)
+        top = try container.decode([ApiAgentV2DigestHeadline].self, forKey: .top)
+        total = try container.decode(Int.self, forKey: .total)
+        discussion = try container.decodeIfPresent(ApiAgentV2NewsFeedItem.Discussion.self, forKey: .discussion)
+        discussionNaming = try? container.decodeIfPresent(ApiAgentV2NewsFeedItem.DiscussionNaming.self, forKey: .discussionNaming)
+    }
 }
 
 public struct ApiAgentV2ThreadDigestCard: Codable, Equatable, Hashable, Sendable {
@@ -76,6 +140,13 @@ public struct ApiAgentV2ThreadDigestCard: Codable, Equatable, Hashable, Sendable
     public let windowEnd: String
     public let total: Int
     public let top: [ApiAgentV2DigestHeadline]
+
+    public init(id: String, windowEnd: String, total: Int, top: [ApiAgentV2DigestHeadline]) {
+        self.id = id
+        self.windowEnd = windowEnd
+        self.total = total
+        self.top = top
+    }
 }
 
 public struct ApiAgentV2ThreadDigestRequest: Encodable, Equatable, Sendable {
@@ -100,11 +171,26 @@ public struct ApiAgentV2NewsFeedPage: Codable, Equatable, Sendable {
     }
 }
 
+public enum ApiAgentV2NewsFeedView: String, Codable, Sendable {
+    case all, digests
+}
+
 struct ApiAgentV2NewsFeedRequest: Encodable, Equatable, Sendable {
     let lang: String
     let cursor: String?
     let digestHour: Int
+    let digestMinute: Int
     let timeZone: String
+    let view: ApiAgentV2NewsFeedView?
+
+    init(lang: String, cursor: String?, digestHour: Int, digestMinute: Int, timeZone: String, view: ApiAgentV2NewsFeedView = .all) {
+        self.lang = lang
+        self.cursor = cursor
+        self.digestHour = digestHour
+        self.digestMinute = digestMinute
+        self.timeZone = timeZone
+        self.view = view == .digests ? .digests : nil
+    }
 }
 
 public struct ApiAgentV2ThreadNewsCard: Codable, Equatable, Hashable, Sendable {
@@ -153,6 +239,20 @@ struct ApiAgentV2ThreadCreateRequest: Encodable, Equatable, Sendable {
     var digest: ApiAgentV2ThreadDigestRequest? = nil
 }
 
+public struct ApiAgentV2ThreadSupport: Codable, Equatable, Hashable, Sendable {
+    public enum State: String, Codable, Equatable, Hashable, Sendable {
+        case waiting, `operator`, closed
+    }
+
+    public let state: State
+    public let lastOperatorMessageAt: String?
+
+    public init(state: State, lastOperatorMessageAt: String? = nil) {
+        self.state = state
+        self.lastOperatorMessageAt = lastOperatorMessageAt
+    }
+}
+
 public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
     public let id: String
     public let revision: Int
@@ -167,6 +267,7 @@ public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
     public let isPinned: Bool?
     public let news: ApiAgentV2ThreadNewsCard?
     public var digest: ApiAgentV2ThreadDigestCard? = nil
+    public var support: ApiAgentV2ThreadSupport? = nil
 
     /// Whether the user has written in the thread, by the SDK's `getIsAgentV2ThreadStarted`: a news discussion starts
     /// with its post alone, one message, until the user sends something there. The chat list leaves it out until then,
@@ -190,7 +291,8 @@ public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
             hasCustomTitle: hasCustomTitle,
             isPinned: isPinned,
             news: news,
-            digest: digest
+            digest: digest,
+            support: support
         )
     }
 }
@@ -342,6 +444,7 @@ public enum ApiAgentV2ErrorCode: String, Codable, Equatable, Hashable, Sendable 
     case invalidRequest = "invalid_request"
     case invalidEvent = "invalid_event"
     case clientUpdateRequired = "client_update_required"
+    case supportEscalationRateLimited = "support_escalation_rate_limited"
     case networkError = "network_error"
     case deviceIdInvalid = "device_id_invalid"
     case deviceTokenMissing = "device_token_missing"
@@ -732,7 +835,29 @@ public enum ApiAgentV2MessageContent: Codable, Equatable, Hashable, Sendable {
 }
 
 public enum ApiAgentV2MessageRole: String, Codable, Equatable, Hashable, Sendable {
-    case user, assistant
+    case user, assistant, `operator`, event
+}
+
+public struct ApiAgentV2OperatorAuthor: Codable, Equatable, Hashable, Sendable {
+    public let operatorId: String
+    public let name: String
+    public let avatarUrl: String?
+
+    public init(operatorId: String, name: String, avatarUrl: String? = nil) {
+        self.operatorId = operatorId
+        self.name = name
+        self.avatarUrl = avatarUrl
+    }
+}
+
+public enum ApiAgentV2SupportEventCode: String, Codable, Equatable, Hashable, Sendable {
+    case supportRequested = "support_requested"
+    case operatorJoined = "operator_joined"
+    case supportClosed = "support_closed"
+}
+
+public enum ApiAgentV2SupportClosedReason: String, Codable, Equatable, Hashable, Sendable {
+    case `operator`, inactivity
 }
 
 public enum ApiAgentV2PersistedMessageStatus: String, Codable, Equatable, Hashable, Sendable {
@@ -764,15 +889,21 @@ public struct ApiAgentV2PersistedMessage: Codable, Equatable, Hashable, Sendable
     public let followups: [ApiAgentV2FollowUp]?
     public let feedback: ApiAgentV2AnswerFeedback?
     public let newsPost: Bool?
+    public let text: String?
+    public let author: ApiAgentV2OperatorAuthor?
+    public let code: ApiAgentV2SupportEventCode?
+    public let reason: ApiAgentV2SupportClosedReason?
 
     private enum CodingKeys: String, CodingKey {
         case id, threadId, role, status, content, createdAt, runId, responseLanguage, error, actions, followups, feedback, newsPost
-        case text, textFormat, widget
+        case text, author, code, reason, textFormat, widget
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        for key in [CodingKeys.text, .textFormat, .widget] where container.contains(key) {
+        role = try container.decode(ApiAgentV2MessageRole.self, forKey: .role)
+        let removedKeys: [CodingKeys] = role == .operator ? [.textFormat, .widget] : [.text, .textFormat, .widget]
+        for key in removedKeys where container.contains(key) {
             throw DecodingError.dataCorruptedError(
                 forKey: key,
                 in: container,
@@ -781,7 +912,6 @@ public struct ApiAgentV2PersistedMessage: Codable, Equatable, Hashable, Sendable
         }
         id = try container.decode(String.self, forKey: .id)
         threadId = try container.decode(String.self, forKey: .threadId)
-        role = try container.decode(ApiAgentV2MessageRole.self, forKey: .role)
         status = try container.decode(ApiAgentV2PersistedMessageStatus.self, forKey: .status)
         content = try container.decodeIfPresent(ApiAgentV2MessageContent.self, forKey: .content)
         createdAt = try container.decode(String.self, forKey: .createdAt)
@@ -797,6 +927,10 @@ public struct ApiAgentV2PersistedMessage: Codable, Equatable, Hashable, Sendable
         // An unknown rating never fails the message: the answer shows as not rated
         feedback = try? container.decodeIfPresent(ApiAgentV2AnswerFeedback.self, forKey: .feedback)
         newsPost = try container.decodeIfPresent(Bool.self, forKey: .newsPost)
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        author = try container.decodeIfPresent(ApiAgentV2OperatorAuthor.self, forKey: .author)
+        code = try container.decodeIfPresent(String.self, forKey: .code).flatMap(ApiAgentV2SupportEventCode.init(rawValue:))
+        reason = try container.decodeIfPresent(ApiAgentV2SupportClosedReason.self, forKey: .reason)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -814,6 +948,10 @@ public struct ApiAgentV2PersistedMessage: Codable, Equatable, Hashable, Sendable
         try container.encodeIfPresent(followups, forKey: .followups)
         try container.encodeIfPresent(feedback, forKey: .feedback)
         try container.encodeIfPresent(newsPost, forKey: .newsPost)
+        try container.encodeIfPresent(text, forKey: .text)
+        try container.encodeIfPresent(author, forKey: .author)
+        try container.encodeIfPresent(code, forKey: .code)
+        try container.encodeIfPresent(reason, forKey: .reason)
     }
 }
 
@@ -821,12 +959,54 @@ public struct ApiAgentV2ThreadHydration: Codable, Equatable, Sendable {
     public let thread: ApiAgentV2ThreadSummary
     public let messages: [ApiAgentV2PersistedMessage]
     public let nextCursor: String?
+
+    private enum CodingKeys: String, CodingKey { case thread, messages, nextCursor }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        thread = try container.decode(ApiAgentV2ThreadSummary.self, forKey: .thread)
+        messages = try ApiAgentV2PersistedMessage.decodeKnownMessages(
+            from: try container.nestedUnkeyedContainer(forKey: .messages)
+        )
+        nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
+    }
 }
 
 public struct ApiAgentV2CachedMessages: Codable, Equatable, Sendable {
     public let thread: ApiAgentV2ThreadSummary
     public let messages: [ApiAgentV2PersistedMessage]
     public let hasOlder: Bool
+
+    private enum CodingKeys: String, CodingKey { case thread, messages, hasOlder }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        thread = try container.decode(ApiAgentV2ThreadSummary.self, forKey: .thread)
+        messages = try ApiAgentV2PersistedMessage.decodeKnownMessages(
+            from: try container.nestedUnkeyedContainer(forKey: .messages)
+        )
+        hasOlder = try container.decode(Bool.self, forKey: .hasOlder)
+    }
+}
+
+private extension ApiAgentV2PersistedMessage {
+    private enum EventCodingKeys: String, CodingKey { case role, code }
+
+    /// The page's messages without the support events of a code this version does not know
+    static func decodeKnownMessages(from page: UnkeyedDecodingContainer) throws -> [ApiAgentV2PersistedMessage] {
+        var page = page
+        var messages: [ApiAgentV2PersistedMessage] = []
+        while !page.isAtEnd {
+            let messageDecoder = try page.superDecoder()
+            let message = try messageDecoder.container(keyedBy: EventCodingKeys.self)
+            if try message.decode(ApiAgentV2MessageRole.self, forKey: .role) == .event {
+                let code = try message.decode(String.self, forKey: .code)
+                guard ApiAgentV2SupportEventCode(rawValue: code) != nil else { continue }
+            }
+            messages.append(try ApiAgentV2PersistedMessage(from: messageDecoder))
+        }
+        return messages
+    }
 }
 
 public struct ApiAgentV2StarterHint: Codable, Equatable, Hashable, Sendable {
@@ -1043,6 +1223,8 @@ public struct ApiAgentV2HostUiCapabilities: Codable, Equatable, Sendable {
     public let supportsMessageEdit: Bool
     public let supportsRegenerate: Bool
     public let supportsSendRecipientWithoutAsset: Bool?
+    /// The host shows live support in the chat, so the SDK tells the Agent it can hand the chat over to support
+    public let supportsSupportHandoff: Bool?
 
     public init(
         supportedActions: [String],
@@ -1051,7 +1233,8 @@ public struct ApiAgentV2HostUiCapabilities: Codable, Equatable, Sendable {
         supportsWalletDirectory: Bool,
         supportsMessageEdit: Bool,
         supportsRegenerate: Bool,
-        supportsSendRecipientWithoutAsset: Bool? = nil
+        supportsSendRecipientWithoutAsset: Bool? = nil,
+        supportsSupportHandoff: Bool? = nil
     ) {
         self.supportedActions = supportedActions
         self.supportsFollowups = supportsFollowups
@@ -1060,6 +1243,7 @@ public struct ApiAgentV2HostUiCapabilities: Codable, Equatable, Sendable {
         self.supportsMessageEdit = supportsMessageEdit
         self.supportsRegenerate = supportsRegenerate
         self.supportsSendRecipientWithoutAsset = supportsSendRecipientWithoutAsset
+        self.supportsSupportHandoff = supportsSupportHandoff
     }
 }
 
@@ -1166,6 +1350,12 @@ public enum ApiAgentV2EntryPoint: Codable, Equatable, Sendable {
     case globalSearch(query: String)
     case pulseNews(eventId: Int)
     case emptyState(hintId: String?, catalogVersion: String?)
+    /// Opens a support ticket with the message the run appends, without the model
+    case supportRequest(source: SupportRequestSource)
+
+    public enum SupportRequestSource: String, Codable, Equatable, Sendable {
+        case starterHint, header, menu
+    }
 
     private enum CodingKeys: String, CodingKey {
         case kind, chartId, range, accountScope, source, asset, query, eventId, surface, hintId, catalogVersion
@@ -1200,6 +1390,8 @@ public enum ApiAgentV2EntryPoint: Codable, Equatable, Sendable {
                 hintId: container.decodeIfPresent(String.self, forKey: .hintId),
                 catalogVersion: container.decodeIfPresent(String.self, forKey: .catalogVersion)
             )
+        case "supportRequest":
+            self = try .supportRequest(source: container.decode(SupportRequestSource.self, forKey: .source))
         default:
             throw DecodingError.dataCorruptedError(
                 forKey: .kind,
@@ -1234,6 +1426,9 @@ public enum ApiAgentV2EntryPoint: Codable, Equatable, Sendable {
             try container.encode("agentTab", forKey: .surface)
             try container.encodeIfPresent(hintId, forKey: .hintId)
             try container.encodeIfPresent(catalogVersion, forKey: .catalogVersion)
+        case .supportRequest(let source):
+            try container.encode("supportRequest", forKey: .kind)
+            try container.encode(source, forKey: .source)
         }
     }
 }

@@ -121,6 +121,51 @@ struct AgentV2MessageReplacementTests {
         #expect(replacement.seenMessageCount(nil, messages: messages) == nil)
     }
 
+    @Test
+    func latestHistoryInsertsOperatorRepliesInServerOrderWithoutReplacingKnownMessages() {
+        var conversation = AgentV2ConversationState()
+        var answer = message(id: "answer", text: "Answer", role: .assistant)
+        answer.feedback = .like
+        conversation.replaceMessages([
+            message(id: "older-page", text: "Older history"),
+            answer,
+            message(id: "later-question", text: "Later question"),
+            message(id: "local-ios-question", text: "Unconfirmed question")
+        ])
+        let latest = [
+            message(id: "answer", text: "Stored answer", role: .assistant),
+            message(id: "late-operator", text: "Late reply", role: .operator),
+            message(id: "later-question", text: "Later question"),
+            message(id: "new-operator", text: "Latest reply", role: .operator)
+        ]
+
+        conversation.mergeLatestMessages(latest)
+        conversation.mergeLatestMessages(latest)
+
+        #expect(conversation.messages.map(\.id) == [
+            "older-page", "answer", "late-operator", "later-question", "new-operator", "local-ios-question"
+        ])
+        #expect(conversation.messages.first { $0.id == "answer" } == answer)
+    }
+
+    @Test
+    func latestHistoryWithoutAnOverlapKeepsOlderMessagesAndTheOptimisticTail() {
+        var conversation = AgentV2ConversationState()
+        conversation.replaceMessages([
+            message(id: "older-page", text: "Older history"),
+            message(id: "local-opening-question", text: "Unconfirmed question")
+        ])
+
+        conversation.mergeLatestMessages([
+            message(id: "first-operator", text: "First reply", role: .operator),
+            message(id: "second-operator", text: "Second reply", role: .operator)
+        ])
+
+        #expect(conversation.messages.map(\.id) == [
+            "older-page", "first-operator", "second-operator", "local-opening-question"
+        ])
+    }
+
     private var messages: [AgentV2NativeMessage] {
         [
             message(id: "question", text: "Question"),

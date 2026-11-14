@@ -1,13 +1,16 @@
 import Dependencies
+import GRDB
 import UIKit
 @testable import UIToken
-import WalletCore
+@testable import WalletCore
 import WalletResources
 import XCTest
 @testable import AirAsFramework
 
 @MainActor
 final class PerpsNavigationTests: XCTestCase {
+    private var database: DatabaseQueue!
+
     override func invokeTest() {
         withDependencies {
             $0.context = .live
@@ -16,9 +19,55 @@ final class PerpsNavigationTests: XCTestCase {
         }
     }
 
-    override func setUp() {
-        super.setUp()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         _ = WalletResourcesBundle.bundle.load()
+        database = try DatabaseQueue()
+        try makeMigrator().migrate(database)
+        SettingsStore.liveValue.use(db: database)
+    }
+
+    override func tearDown() {
+        SettingsStore.liveValue.clean()
+        super.tearDown()
+    }
+
+    func testMarketAndPositionChartsRememberTheLastTokenOrFuturesPeriod() async throws {
+        AppStorageHelper.save(currentTokenPeriod: ApiPriceHistoryPeriod.month.rawValue)
+        let session = try await makeSession(positions: false)
+        session.coordinator.showMarket("hyperliquid:hl:BTC", from: session.origin)
+        let market = try XCTUnwrap(session.navigation.topViewController as? PerpsMarketVC)
+        XCTAssertEqual(try readSelectedPeriodTitle(in: market), ApiPriceHistoryPeriod.month.localized)
+        market.onSelectPeriod(.year)
+        XCTAssertEqual(AppStorageHelper.selectedCurrentTokenPeriod(), ApiPriceHistoryPeriod.year.rawValue)
+
+        session.navigation.popViewController(animated: false)
+        SettingsStore.liveValue.use(db: database)
+        session.coordinator.showMarket("hyperliquid:hl:BTC", from: session.origin)
+        let reopenedMarket = try XCTUnwrap(session.navigation.topViewController as? PerpsMarketVC)
+        XCTAssertEqual(try readSelectedPeriodTitle(in: reopenedMarket), ApiPriceHistoryPeriod.year.localized)
+
+        let positionSession = try await makeSession(positions: true)
+        positionSession.coordinator.showPosition("wallet/btc", from: positionSession.origin)
+        let position = try XCTUnwrap(positionSession.navigation.topViewController as? PerpsPositionVC)
+        XCTAssertEqual(position.data.market.period, .year)
+        position.onSelectPeriod(.all)
+        XCTAssertEqual(AppStorageHelper.selectedCurrentTokenPeriod(), ApiPriceHistoryPeriod.all.rawValue)
+
+        positionSession.navigation.popViewController(animated: false)
+        positionSession.coordinator.showPosition("wallet/btc", from: positionSession.origin)
+        let reopenedPosition = try XCTUnwrap(positionSession.navigation.topViewController as? PerpsPositionVC)
+        XCTAssertEqual(reopenedPosition.data.market.period, .all)
+    }
+
+    private func readSelectedPeriodTitle(in controller: UIViewController) throws -> String {
+        controller.loadViewIfNeeded()
+        func findPeriods(in view: UIView) -> WChartSegmentedControl? {
+            if let periods = view as? WChartSegmentedControl { return periods }
+            return view.subviews.lazy.compactMap { findPeriods(in: $0) }.first
+        }
+        let periods = try XCTUnwrap(findPeriods(in: controller.view))
+        return try XCTUnwrap(periods.titleForSegment(at: periods.selectedSegmentIndex))
     }
 
     func testMarketSelectionOpensTheExistingPositionForEitherSide() async throws {

@@ -21,3 +21,27 @@ export function markAgentNewsReadThrough(deliveredAt: string) {
   }
   return deliveredAt;
 }
+
+// When the newest digest the user has seen in the feed, in either view, was delivered
+const DIGESTS_READ_THROUGH_STORAGE_KEY = 'mytonwallet-agent-mypulse-digests-read-through';
+
+export function getAgentNewsDigestsReadThrough() {
+  try {
+    return localStorage.getItem(DIGESTS_READ_THROUGH_STORAGE_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Moves the digests' mark forward to `deliveredAt`, never back, and returns the mark that holds afterwards */
+export function markAgentNewsDigestsReadThrough(deliveredAt: string) {
+  const readThrough = getAgentNewsDigestsReadThrough();
+  if (readThrough && Date.parse(readThrough) >= Date.parse(deliveredAt)) return readThrough;
+
+  try {
+    localStorage.setItem(DIGESTS_READ_THROUGH_STORAGE_KEY, deliveredAt);
+  } catch {
+    // Without storage the counter starts over on the next launch
+  }
+  return deliveredAt;
+}

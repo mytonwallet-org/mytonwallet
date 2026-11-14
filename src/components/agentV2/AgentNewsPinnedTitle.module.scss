@@ -1,0 +1,95 @@
+// `AnimatedCounter`'s roll: 10 px and 30° in a 10 px perspective over 200 ms, eased out
+$perspective: 0.625rem;
+$distance: 0.625rem;
+$angle: 30deg;
+
+.root {
+  unicode-bidi: inherit;
+  white-space: pre;
+}
+
+.tail {
+  position: relative;
+  display: inline-block;
+}
+
+// The old characters lie over the new ones, from the same start
+.tailOld {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+}
+
+.character {
+  display: inline-block;
+
+  white-space: pre;
+
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.rollInFromAbove {
+  animation-name: roll-in-from-above;
+}
+
+.rollAwayBelow {
+  animation-name: roll-away-below;
+}
+
+.rollInFromBelow {
+  animation-name: roll-in-from-below;
+}
+
+.rollAwayAbove {
+  animation-name: roll-away-above;
+}
+
+@keyframes roll-in-from-above {
+  from {
+    transform: perspective($perspective) translateY(-$distance) rotateX($angle);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes roll-away-below {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+
+  to {
+    transform: perspective($perspective) translateY($distance) rotateX(-$angle);
+    opacity: 0;
+  }
+}
+
+@keyframes roll-in-from-below {
+  from {
+    transform: perspective($perspective) translateY($distance) rotateX(-$angle);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes roll-away-above {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+
+  to {
+    transform: perspective($perspective) translateY(-$distance) rotateX($angle);
+    opacity: 0;
+  }
+}

@@ -192,7 +192,7 @@ final class ContextMenuSeparatorView: UIView {
         super.layoutSubviews()
 
         let height = 1.0
-        let horizontalInset = self.style.rowSideInset + 4.0
+        let horizontalInset = self.style.separatorSideInset
         self.lineView.frame = CGRect(
             x: horizontalInset,
             y: floor((self.bounds.height - height) * 0.5),
@@ -347,7 +347,7 @@ final class ContextMenuRowView: UIControl {
         if isRightToLeft {
             let titleRight = self.reservesIconSpace
                 ? size.width - self.style.iconSideInset - self.reservedIconWidth - self.style.iconSpacing
-                : size.width - self.style.rowSideInset
+                : size.width - self.style.plainTitleSideInset
             var leftLimit = self.style.rowSideInset
             if self.presentation.accessory == .disclosure {
                 self.accessoryView.frame = CGRect(
@@ -376,7 +376,7 @@ final class ContextMenuRowView: UIControl {
         } else {
             let titleX = self.reservesIconSpace
                 ? (self.style.iconSideInset + self.reservedIconWidth + self.style.iconSpacing)
-                : self.style.rowSideInset
+                : self.style.plainTitleSideInset
             var rightLimit = size.width - self.style.rowSideInset
             if self.presentation.accessory == .disclosure {
                 self.accessoryView.frame = CGRect(
@@ -453,7 +453,7 @@ final class ContextMenuRowView: UIControl {
     private var horizontalChromeWidth: CGFloat {
         var width = self.reservesIconSpace
             ? (self.style.iconSideInset + self.reservedIconWidth + self.style.iconSpacing)
-            : self.style.rowSideInset
+            : self.style.plainTitleSideInset
 
         if let badgeImage = self.badgeView.image {
             width += badgeImage.size.width + 8.0

@@ -62,6 +62,47 @@ final class RootContentOverlayAppearanceTests: XCTestCase {
         XCTAssertNil(nft.onContentOverlayAppearanceChange)
     }
 
+    func testToolbarGeometryPreservesTheEmptyPresentationTransform() async throws {
+        let (host, window, toolbar) = try makeHost(verticalEdge: nil)
+        defer { window.isHidden = true }
+        host.navigation.pushViewController(WViewController(), animated: false)
+        try await settle(window)
+        let field = toolbar.searchToolbar
+        XCTAssertEqual(field.presentation, .empty)
+        field.setNeedsLayout()
+        field.layoutIfNeeded()
+        let transform = field.transform
+        XCTAssertNotEqual(transform, .identity)
+
+        var container = field.superview
+        while let view = container {
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
+            XCTAssertEqual(field.transform, transform)
+            container = view.superview
+        }
+    }
+
+    func testExpandedSideTabsKeepNeighboringControlsInTheAvailableRegion() {
+        let bounds = CGRect(x: 0, y: 170, width: 466, height: 484)
+        for isOnLeftEdge in [false, true] {
+            let x: CGFloat = isOnLeftEdge ? 24 : 394
+            let account = CGRect(x: x, y: 170, width: 48, height: 48)
+            let toolbar = CGRect(x: x, y: 488, width: 48, height: 166)
+            for height: CGFloat in [296, 352, 484] {
+                let tabs = CGRect(x: isOnLeftEdge ? 12 : 378, y: min(230, bounds.maxY - height), width: 76, height: height)
+                for control in [account, toolbar] {
+                    let offset = getSideControlOffset(frame: control, avoiding: tabs, within: bounds, isOnLeftEdge: isOnLeftEdge)
+                    let displaced = control.offsetBy(dx: offset.x, dy: offset.y)
+                    XCTAssertTrue(bounds.contains(displaced))
+                    XCTAssertFalse(displaced.intersects(tabs))
+                }
+            }
+            let shortTabs = CGRect(x: isOnLeftEdge ? 12 : 378, y: 230, width: 76, height: 162)
+            XCTAssertEqual(getSideControlOffset(frame: toolbar, avoiding: shortTabs, within: bounds, isOnLeftEdge: isOnLeftEdge), .zero)
+        }
+    }
+
     func testDuoAppearanceUpdatesAndResetsForSearchAndNavigation() async throws {
         let (host, window, toolbar) = try makeHost()
         defer { window.isHidden = true }

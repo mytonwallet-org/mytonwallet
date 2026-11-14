@@ -3,7 +3,7 @@ import './misc';
 import type { GlobalState } from '../../types';
 import { ContentTab } from '../../types';
 
-import { addActionHandler } from '../../index';
+import { addActionHandler, setGlobal } from '../../index';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
@@ -19,6 +19,7 @@ jest.mock('../../../hooks/useDeviceScreen', () => ({
 }));
 
 type ActionHandler = (global: GlobalState, actions: AnyLiteral) => void;
+type ActionHandlerWithPayload = (global: GlobalState, actions: AnyLiteral, payload: AnyLiteral) => void;
 
 const ACCOUNT_ID = '0-mainnet';
 
@@ -63,5 +64,29 @@ describe('switchToWallet', () => {
 
   it('leaves the tab alone when the home tab is already open', () => {
     expect(switchToWallet({ isPortrait: false, activeContentTab: ContentTab.Overview })).not.toHaveBeenCalled();
+  });
+});
+
+describe('openAgentNewsDiscussion', () => {
+  it('switches to the agent with the request for the discussion', () => {
+    const switchToAgent = jest.fn();
+    const handler = getHandler('openAgentNewsDiscussion') as ActionHandlerWithPayload;
+
+    handler({ isAgentOpen: undefined } as GlobalState, { switchToAgent }, { eventId: 7 });
+
+    expect(setGlobal).toHaveBeenCalledWith(expect.objectContaining({ agentNewsDiscussionRequest: { eventId: 7 } }));
+    expect(switchToAgent).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('clearAgentNewsDiscussionRequest', () => {
+  it('clears the request it consumed, and keeps one stored after it', () => {
+    const handler = getHandler('clearAgentNewsDiscussionRequest') as ActionHandlerWithPayload;
+    const consumed = { eventId: 7 };
+
+    expect(handler({ agentNewsDiscussionRequest: consumed } as GlobalState, {}, { request: consumed }))
+      .toEqual({ agentNewsDiscussionRequest: undefined });
+    expect(handler({ agentNewsDiscussionRequest: { eventId: 8 } } as GlobalState, {}, { request: consumed }))
+      .toBeUndefined();
   });
 });

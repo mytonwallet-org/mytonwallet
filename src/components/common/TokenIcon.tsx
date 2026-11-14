@@ -59,6 +59,7 @@ function TokenIcon({
           <img
             key={image}
             src={image}
+            data-account-crossfade-image
             alt={symbol}
             className={iconFullClassName}
             draggable={false}
@@ -69,6 +70,7 @@ function TokenIcon({
       {shouldRenderChainIcon && (
         <img
           src={getChainNetworkIcon(chain)}
+          data-account-crossfade-image
           alt=""
           className={styles.blockchainIcon}
           draggable={false}

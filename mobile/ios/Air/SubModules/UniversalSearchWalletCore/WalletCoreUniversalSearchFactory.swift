@@ -16,6 +16,8 @@ public enum WalletCoreUniversalSearchFactory {
             WalletCoreCollectibleSearchSource(),
             WalletCoreConnectedAppSearchSource(),
             WalletCoreExploreAppSearchSource(),
+            WalletCoreFuturesSearchSource(),
+            WalletCoreFuturesPositionSearchSource(),
             WalletCoreSearchInteractionSource(),
         ]
     }

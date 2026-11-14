@@ -4,6 +4,7 @@ import { getActions } from '../../global';
 import renderText from '../../global/helpers/renderText';
 import { getIsFaceIdAvailable, getIsTouchIdAvailable } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { PARTICLE_BURST_PARAMS, PARTICLE_PARAMS, setupParticles } from '../../util/particles';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -117,6 +118,7 @@ const AuthCreateBiometrics = ({ isActive, isLoading, error }: OwnProps) => {
           <Button
             isText
             isDisabled={isLoading}
+            testId={isActive ? getTestId('biometrics_skip') : undefined}
             className={buildClassName(styles.btn, styles.btn_text)}
             onClick={skipBiometrics}
           >

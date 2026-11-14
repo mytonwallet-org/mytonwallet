@@ -51,6 +51,29 @@ final class AgentPreviewImageTests: XCTestCase {
         XCTAssertEqual(getParagraph(of: cell)?.firstLineHeadIndent, 0)
     }
 
+    /// In the Digests view the News row shows the picture of the latest digest's first headline
+    func testNewsRowShowsThePictureOfTheDigestsFirstHeadline() async throws {
+        let cell = AgentNewsCell(frame: CGRect(x: 0, y: 0, width: 402, height: 92))
+        let window = makeKeyWindow(showing: UIViewController())
+        defer { window.isHidden = true }
+        window.addSubview(cell)
+        let url = try makeImageFile()
+        let digest = try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: Data("""
+        {"id":"en:2026-10-19T06:00:00Z","deliveredAt":"2026-10-19T06:00:00Z","total":5,"top":[
+        {"eventId":1,"headline":"First headline","imageUrl":"\(url.absoluteString)"},
+        {"eventId":2,"headline":"Second headline"}]}
+        """.utf8))
+        cell.configure(latestDigest: digest, unreadCount: 0)
+        let imageView = try XCTUnwrap(findDescendants(of: cell.previewLabel).compactMap { $0 as? WImageView }.first)
+
+        for _ in 0..<100 where imageView.isHidden {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertFalse(imageView.isHidden)
+        XCTAssertNotNil(imageView.image)
+        XCTAssertEqual(cell.previewLabel.attributedText?.string, "First headline")
+    }
+
     func testRowWithoutAPictureOrWithAFailedOneLeavesThePreviewWhole() async throws {
         let cell = AgentNewsCell(frame: CGRect(x: 0, y: 0, width: 402, height: 92))
         let item = ApiAgentV2NewsFeedItem(

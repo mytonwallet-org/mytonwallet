@@ -21,6 +21,8 @@ import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uiagent.R
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_SUPPORT_HINT_ID
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBlurTransition
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSpinningTopView
@@ -121,6 +123,18 @@ class AgentHintsCell(context: Context) :
         }
 
     private var renderedHints = listOf<AgentHint>()
+    private var areCardsEnabled = true
+
+    // Contact Support, the client's own suggestion after the server's, with its own availability
+    private var supportCard: WAgentHintView? = null
+
+    /** Whether Contact Support takes taps; it shows dimmed while it doesn't */
+    var isSupportHintEnabled = true
+        set(value) {
+            if (field == value) return
+            field = value
+            supportCard?.let(::applySupportCardState)
+        }
     private val followupReveals = mutableMapOf<View, Animator>()
 
     /** What the row shows: the cards, with the empty chat's spinning top or the placeholders */
@@ -288,6 +302,7 @@ class AgentHintsCell(context: Context) :
                 toBottom(column, if (areFollowups) FOLLOWUPS_BOTTOM.toFloat() else 4f)
             }
             for (index in column.childCount - 1 downTo placeholders.size) column.removeViewAt(index)
+            supportCard = null
             if (shouldShowEmptyStateIcon) {
                 column.addView(
                     emptyStateIconView,
@@ -314,10 +329,20 @@ class AgentHintsCell(context: Context) :
                     continue
                 }
                 lateinit var card: WAgentHintView
-                card = makeCard(hint.title, showsIcon = areFollowups) {
+                val isSupportHint = hint.id == AGENT_SUPPORT_HINT_ID
+                card = makeCard(
+                    hint.title,
+                    showsIcon = areFollowups,
+                    leadingIconResId = R.drawable.ic_agent_support.takeIf { isSupportHint }
+                ) {
                     onHintTap?.invoke(hint, card)
                 }
                 makeAccessible(card, hint)
+                if (isSupportHint) {
+                    card.id = UIComponentsR.id.agent_support_hint
+                    supportCard = card
+                    applySupportCardState(card)
+                }
                 val lp = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     if (column.childCount > 0) topMargin = CARD_SPACING.dp
                 }
@@ -359,20 +384,38 @@ class AgentHintsCell(context: Context) :
     }
 
     fun setCardsEnabled(enabled: Boolean) {
+        areCardsEnabled = enabled
         for (i in 0 until column.childCount) {
             val card = column.getChildAt(i) as? WAgentHintView ?: continue
             if (card.isPlaceholder) continue
+            if (card === supportCard) {
+                applySupportCardState(card)
+                continue
+            }
             card.isEnabled = enabled
             card.isClickable = enabled
         }
     }
 
-    private fun makeCard(title: String, showsIcon: Boolean, onTap: () -> Unit) = WAgentHintView(
+    private fun applySupportCardState(card: WAgentHintView) {
+        val isEnabled = areCardsEnabled && isSupportHintEnabled
+        card.isEnabled = isEnabled
+        card.isClickable = isEnabled
+        card.isDimmed = !isSupportHintEnabled
+    }
+
+    private fun makeCard(
+        title: String,
+        showsIcon: Boolean,
+        leadingIconResId: Int? = null,
+        onTap: () -> Unit
+    ) = WAgentHintView(
         context,
         title,
         contentHorizontalPadding = CHIP_HORIZONTAL_PADDING.dp,
         borderWidth = CHIP_BORDER_WIDTH.dp,
         showsIcon = showsIcon,
+        leadingIconResId = leadingIconResId,
         onTap = onTap
     )
 

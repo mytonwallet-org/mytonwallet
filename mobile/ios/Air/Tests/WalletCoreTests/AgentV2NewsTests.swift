@@ -18,6 +18,20 @@ struct AgentV2NewsTests {
     }
 
     @Test
+    func digestHeadlineDecodesAnOptionalPicture() throws {
+        let headlines = try JSONDecoder().decode(
+            [ApiAgentV2DigestHeadline].self,
+            from: Data(#"""
+            [{"eventId":1,"headline":"A","imageUrl":"https://example.com/1.png"},
+             {"eventId":2,"headline":"B"},
+             {"eventId":3,"headline":"C","imageUrl":null}]
+            """#.utf8)
+        )
+        #expect(headlines.map(\.imageUrl) == ["https://example.com/1.png", nil, nil])
+        #expect(headlines.map(\.headline) == ["A", "B", "C"])
+    }
+
+    @Test
     func feedDecodesDiscussionAndIgnoresUnknownFields() throws {
         let result = try JSONDecoder().decode(
             ApiAgentV2MutationResult<ApiAgentV2NewsFeedPage>.self,
@@ -37,6 +51,7 @@ struct AgentV2NewsTests {
                     {"url": "https://example.com/another"}
                   ],
                   "discussion": {"threadId": "thread-news", "icon": "📰", "futureDiscussion": []},
+                  "discussionNaming": {"title": "Discuss market news", "icon": "📈", "followups": ["What changed?", "What comes next?"]},
                   "futureItem": {"enabled": true}
                 }],
                 "nextCursor": "older-news",
@@ -60,6 +75,7 @@ struct AgentV2NewsTests {
             .init(url: "https://example.com/another")
         ])
         #expect(item.discussion == .init(threadId: "thread-news", icon: "📰"))
+        #expect(item.discussionNaming == .init(title: "Discuss market news", icon: "📈", followups: ["What changed?", "What comes next?"]))
         #expect(try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONEncoder().encode(page)) == page)
     }
 
@@ -79,7 +95,24 @@ struct AgentV2NewsTests {
         )
         #expect(item.imageUrl == nil)
         #expect(item.discussion == nil)
+        #expect(item.discussionNaming == nil)
         #expect(item.sources.isEmpty)
+    }
+
+    @Test
+    func decodeFeedKeepingItemWithMalformedDiscussionNaming() throws {
+        let page = try JSONDecoder().decode(
+            ApiAgentV2NewsFeedPage.self,
+            from: Data(#"""
+            {"locale":"en","items":[{
+              "eventId":308,"deliveredAt":"2026-10-20T11:00:00.000Z","headline":"News","body":"Update","sources":[],
+              "discussionNaming":{"title":"Discuss news","followups":["What changed?",42]}
+            }]}
+            """#.utf8)
+        )
+        #expect(page.items.count == 1)
+        #expect(page.items.first?.eventId == 308)
+        #expect(page.items.first?.discussionNaming == nil)
     }
 
     @Test
@@ -160,6 +193,87 @@ struct AgentV2NewsTests {
     }
 
     @Test
+    func supportHistoryDecodesEveryRoleAndSkipsUnknownEvents() throws {
+        let common: [String: Any] = [
+            "threadId": "support-thread", "status": "complete", "createdAt": "2026-11-08T10:30:00.000Z"
+        ]
+        let author = ["operatorId": "support-42", "name": "Alex", "avatarUrl": "https://example.com/avatar.jpg"]
+        let messageFields: [[String: Any]] = [
+            ["id": "user", "role": "user", "content": ["kind": "markdown", "text": "Help"]],
+            ["id": "assistant", "role": "assistant", "content": ["kind": "markdown", "text": "Connecting"]],
+            ["id": "requested", "role": "event", "code": "support_requested"],
+            ["id": "joined", "role": "event", "code": "operator_joined", "author": author],
+            ["id": "operator", "role": "operator", "text": "**Plain text**", "author": author],
+            ["id": "unknown", "role": "event", "code": "future_support_event"],
+            ["id": "closed", "role": "event", "code": "support_closed", "reason": "inactivity"]
+        ]
+        let page: [String: Any] = [
+            "thread": [
+                "id": "support-thread", "revision": 2,
+                "createdAt": "2026-11-08T10:30:00.000Z", "updatedAt": "2026-11-08T10:30:00.000Z",
+                "lastActivityAt": "2026-11-08T10:30:00.000Z", "messageCount": 7,
+                "support": ["state": "closed"]
+            ],
+            "messages": messageFields.map { common.merging($0) { _, new in new } },
+            "nextCursor": "older"
+        ]
+        let history = try JSONDecoder().decode(
+            ApiAgentV2ThreadHydration.self, from: JSONSerialization.data(withJSONObject: page)
+        )
+        #expect(history.messages.map(\.id) == ["user", "assistant", "requested", "joined", "operator", "closed"])
+        #expect(history.messages.map(\.role) == [.user, .assistant, .event, .event, .operator, .event])
+        #expect(history.messages[2].code == .supportRequested)
+        #expect(history.messages[3].code == .operatorJoined)
+        #expect(history.messages[3].author?.name == "Alex")
+        #expect(history.messages[4].content == nil)
+        #expect(history.messages[4].text == "**Plain text**")
+        #expect(history.messages[4].author == .init(
+            operatorId: "support-42", name: "Alex", avatarUrl: "https://example.com/avatar.jpg"
+        ))
+        #expect(history.messages[5].code == .supportClosed)
+        #expect(history.messages[5].reason == .inactivity)
+        #expect(history.thread.support?.state == .closed)
+        #expect(history.nextCursor == "older")
+        #expect(try JSONDecoder().decode(ApiAgentV2ThreadHydration.self, from: JSONEncoder().encode(history)) == history)
+    }
+
+    @Test
+    func threadSupportDecodesInSummariesAndLiveUpdates() throws {
+        let base: [String: Any] = [
+            "id": "support-thread", "revision": 2,
+            "createdAt": "2026-11-08T10:30:00.000Z", "updatedAt": "2026-11-08T10:30:00.000Z",
+            "lastActivityAt": "2026-11-08T10:30:00.000Z", "messageCount": 4
+        ]
+        let plain = try JSONDecoder().decode(
+            ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: base)
+        )
+        #expect(plain.support == nil)
+        for state in ["waiting", "operator", "closed"] {
+            var thread = base
+            thread["support"] = ["state": state, "lastOperatorMessageAt": "2026-11-08T10:31:00.000Z"]
+            let summary = try JSONDecoder().decode(
+                ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: thread)
+            )
+            #expect(summary.support?.state.rawValue == state)
+            #expect(summary.support?.lastOperatorMessageAt == "2026-11-08T10:31:00.000Z")
+            #expect(summary.makeCopy(isPinned: true).support == summary.support)
+            let envelope = try JSONDecoder().decode(
+                ApiAgentV2ClientUpdateEnvelope.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "type": "agentV2",
+                    "update": ["kind": "threadChanged", "threadId": "support-thread", "thread": thread]
+                ])
+            )
+            guard case .threadChanged(let threadId, let updatedThread) = envelope.update else {
+                Issue.record("Expected a live thread summary")
+                continue
+            }
+            #expect(threadId == summary.id)
+            #expect(updatedThread.support == summary.support)
+        }
+    }
+
+    @Test
     func pulseNewsEntryPointUsesThePublicWireShape() throws {
         let entryPoint = ApiAgentV2EntryPoint.pulseNews(eventId: 309)
         let data = try JSONEncoder().encode(entryPoint)
@@ -172,14 +286,79 @@ struct AgentV2NewsTests {
         ) == entryPoint)
     }
 
+    @Test(arguments: [
+        ApiAgentV2EntryPoint.SupportRequestSource.starterHint,
+        .header,
+        .menu,
+    ])
+    func supportRequestEntryPointUsesThePublicWireShape(source: ApiAgentV2EntryPoint.SupportRequestSource) throws {
+        let entryPoint = ApiAgentV2EntryPoint.supportRequest(source: source)
+        let data = try JSONEncoder().encode(entryPoint)
+        let encoded = try #require(JSONSerialization.jsonObject(with: data) as? NSDictionary)
+        #expect(encoded == ["kind": "supportRequest", "source": source.rawValue] as NSDictionary)
+        #expect(try JSONDecoder().decode(ApiAgentV2EntryPoint.self, from: data) == entryPoint)
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ApiAgentV2EntryPoint.self, from: Data(#"{"kind":"supportRequest","source":"composer"}"#.utf8))
+        }
+    }
+
+    @Test
+    func supportEscalationLimitDecodesAsItsOwnNonRetryableCode() throws {
+        let result = try JSONDecoder().decode(
+            ApiAgentV2MutationResult<ApiAgentV2NewsFeedPage>.self,
+            from: Data(#"{"ok":false,"error":{"code":"support_escalation_rate_limited","retryable":false}}"#.utf8)
+        )
+        #expect(result.error?.code == .supportEscalationRateLimited)
+        #expect(result.error?.retryable == false)
+        #expect(ApiAgentV2ErrorCode.supportEscalationRateLimited.rawValue == "support_escalation_rate_limited")
+    }
+
     @Test
     func feedRequestPassesAppLanguageWithoutNormalizingIt() throws {
-        let request = ApiAgentV2NewsFeedRequest(lang: "ru-RU", cursor: "older-news", digestHour: 21, timeZone: "Europe/Moscow")
+        let request = ApiAgentV2NewsFeedRequest(lang: "ru-RU", cursor: "older-news", digestHour: 21, digestMinute: 45, timeZone: "Europe/Moscow")
         let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? NSDictionary)
-        #expect(encoded == ["lang": "ru-RU", "cursor": "older-news", "digestHour": 21, "timeZone": "Europe/Moscow"] as NSDictionary)
-        let firstPage = ApiAgentV2NewsFeedRequest(lang: "es", cursor: nil, digestHour: 7, timeZone: "Europe/Madrid")
+        #expect(encoded == [
+            "lang": "ru-RU", "cursor": "older-news", "digestHour": 21, "digestMinute": 45, "timeZone": "Europe/Moscow"
+        ] as NSDictionary)
+        let firstPage = ApiAgentV2NewsFeedRequest(lang: "es", cursor: nil, digestHour: 7, digestMinute: 0, timeZone: "Europe/Madrid")
         let firstPageEncoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(firstPage)) as? NSDictionary)
-        #expect(firstPageEncoded == ["lang": "es", "digestHour": 7, "timeZone": "Europe/Madrid"] as NSDictionary)
+        #expect(firstPageEncoded == ["lang": "es", "digestHour": 7, "digestMinute": 0, "timeZone": "Europe/Madrid"] as NSDictionary)
+        let digests = ApiAgentV2NewsFeedRequest(
+            lang: "ru-RU", cursor: "older-digests", digestHour: 21, digestMinute: 15, timeZone: "Europe/Moscow", view: .digests
+        )
+        let digestsEncoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(digests)) as? NSDictionary)
+        #expect(digestsEncoded == [
+            "lang": "ru-RU", "cursor": "older-digests", "digestHour": 21, "digestMinute": 15, "timeZone": "Europe/Moscow", "view": "digests"
+        ] as NSDictionary)
+        let all = ApiAgentV2NewsFeedRequest(lang: "es", cursor: nil, digestHour: 7, digestMinute: 0, timeZone: "Europe/Madrid", view: .all)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        #expect(try encoder.encode(all) == encoder.encode(firstPage))
+    }
+
+    @Test @MainActor
+    func verifyNewsFeedViewPersistenceAndFallbackWithoutChangingTheDigestHour() async {
+        let name = "AgentNewsSettings.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = AgentNewsNotificationSettings(userDefaults: defaults)
+        #expect(settings.newsFeedView == .all)
+        _ = await settings.setDigestTime(hour: 9, minute: 0)
+        settings.setNewsFeedView(.digests)
+        #expect(AgentNewsNotificationSettings(userDefaults: defaults).newsFeedView == .digests)
+        settings.setNewsFeedView(.all)
+        #expect(AgentNewsNotificationSettings(userDefaults: defaults).newsFeedView == .all)
+        for storedView in ["unknown", ""] {
+            defaults.set(Data("""
+            {"mode":"off","digestHour":9,"newsFeedView":"\(storedView)"}
+            """.utf8), forKey: "agent-mypulse-notifications")
+            let restored = AgentNewsNotificationSettings(userDefaults: defaults)
+            #expect(restored.newsFeedView == .all)
+            #expect(restored.digestHour == 9)
+        }
+        defaults.set(Data(#"{"mode":"off","digestHour":9}"#.utf8), forKey: "agent-mypulse-notifications")
+        #expect(AgentNewsNotificationSettings(userDefaults: defaults).newsFeedView == .all)
+        #expect(AgentNewsNotificationSettings(userDefaults: defaults).digestHour == 9)
     }
 
     @Test
@@ -219,6 +398,29 @@ struct AgentV2NewsTests {
         #expect(digest.top.first?.eventId == 307)
         #expect(digest.total == 5)
         #expect(digest.discussion?.threadId == "digest-thread")
+        #expect(digest.discussionNaming == nil)
+        let named = try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONSerialization.data(withJSONObject: [
+            "locale": "ru", "items": [], "digests": [
+                [
+                    "id": digestId, "deliveredAt": "2026-11-08T18:00:00.000Z", "top": top, "total": 5,
+                    "discussionNaming": ["title": "Evening digest", "icon": "🌙", "followups": ["What matters most?"]]
+                ],
+                [
+                    "id": "ru:2026-11-07T18:00:00.000Z", "deliveredAt": "2026-11-07T18:00:00.000Z", "top": top, "total": 5,
+                    "discussionNaming": ["title": "Evening digest", "followups": ["What matters most?", 42]]
+                ],
+                [
+                    "id": "ru:2026-11-06T18:00:00.000Z", "deliveredAt": "2026-11-06T18:00:00.000Z", "top": top, "total": 5,
+                    "discussionNaming": ["title": "Morning digest", "followups": ["What changed?", "What comes next?"]]
+                ]
+            ]
+        ]))
+        #expect(named.digests?.map(\.discussionNaming) == [
+            .init(title: "Evening digest", icon: "🌙", followups: ["What matters most?"]), nil,
+            .init(title: "Morning digest", followups: ["What changed?", "What comes next?"])
+        ])
+        #expect(named.digests?.last?.discussionNaming?.icon == nil)
+        #expect(try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONEncoder().encode(named)) == named)
         for count in [1, 2] {
             let thread = try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: [
                 "id": "digest-thread", "revision": 1, "createdAt": digest.deliveredAt,
@@ -275,7 +477,7 @@ struct AgentV2NewsTests {
     }
 
     @Test @MainActor
-    func digestHourPersistsImmediatelyAndOnlyReappliesDigestMode() async {
+    func digestTimePersistsImmediatelyAndOnlyReappliesDigestMode() async {
         let name = "AgentNewsHour.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
@@ -285,17 +487,55 @@ struct AgentV2NewsTests {
             userDefaults: defaults, getToken: { "token" }, ensureToken: { "token" },
             apply: { calls.append($0); return shouldSucceed }
         )
-        #expect(await store.setDigestHour(8) == .ok)
+        #expect(store.digestMinute == 0)
+        #expect(await store.setDigestTime(hour: 8, minute: 15) == .ok)
         #expect(calls.isEmpty)
         #expect(await store.setMode(.news) == .ok)
-        #expect(await store.setDigestHour(9) == .ok)
+        #expect(await store.setDigestTime(hour: 9, minute: 15) == .ok)
         #expect(calls.count == 1)
         #expect(await store.setMode(.digest) == .ok)
+        #expect(await store.setDigestTime(hour: 9, minute: 45) == .ok)
+        #expect(await store.reapplyIfNeeded() == .ok)
+        let reopened = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" }, apply: { calls.append($0); return true }
+        )
+        #expect(reopened.digestMinute == 45)
+        #expect(await reopened.reapplyIfNeeded() == .ok)
+        #expect(calls.count == 3)
+        #expect(await store.setDigestTime(hour: 9, minute: 20) == .failed)
         shouldSucceed = false
-        #expect(await store.setDigestHour(10) == .failed)
+        #expect(await store.setDigestTime(hour: 10, minute: 30) == .failed)
         #expect(store.digestHour == 10)
-        #expect(AgentNewsNotificationSettings(userDefaults: defaults).digestHour == 10)
-        #expect(calls.map(\.digestHour) == [8, 9, 10])
+        #expect(store.digestMinute == 30)
+        let restored = AgentNewsNotificationSettings(userDefaults: defaults)
+        #expect(restored.digestHour == 10)
+        #expect(restored.digestMinute == 30)
+        #expect(calls.map(\.digestHour) == [8, 9, 9, 10])
+        #expect(calls.map(\.digestMinute) == [15, 15, 45, 30])
+    }
+
+    @Test @MainActor
+    func stateSavedWithoutTheDigestMinuteKeepsItsSubscriptionAtMinuteZero() async throws {
+        let name = "AgentNewsLegacy.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(Data(#"""
+        {"mode":"digest","digestHour":9,"newsFeedView":"digests","applied":{"mode":"digest","userToken":"token",\#
+        "langCode":"en","digestHour":9,"timeZone":"Europe/Moscow"}}
+        """#.utf8), forKey: "agent-mypulse-notifications")
+        var calls: [ApiSetNewsNotificationsProps] = []
+        let store = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" }, language: { "en" }, timeZone: { "Europe/Moscow" },
+            apply: { calls.append($0); return true }
+        )
+        #expect(store.mode == .digest)
+        #expect(store.digestHour == 9)
+        #expect(store.digestMinute == 0)
+        #expect(store.newsFeedView == .digests)
+        #expect(await store.reapplyIfNeeded() == .ok)
+        #expect(calls.isEmpty)
+        #expect(await store.setDigestTime(hour: 9, minute: 15) == .ok)
+        #expect(calls.map(\.digestMinute) == [15])
     }
 
     @Test @MainActor

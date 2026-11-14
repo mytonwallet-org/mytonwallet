@@ -35,6 +35,7 @@ protocol RootSearchToolbarHost: AnyObject {
     var showsRootSearchToolbar: Bool { get }
     var searchToolbarVerticalEdge: UIRectEdge? { get }
     func searchToolbarWillDetach()
+    func searchToolbarGeometryDidChange()
     func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?)
     /// The Agent list's question field gained or lost focus
     func agentQuestionEditingDidChange(_ isEditing: Bool)
@@ -51,6 +52,7 @@ extension RootSearchToolbarHost {
         }
     }
     func searchToolbarWillDetach() {}
+    func searchToolbarGeometryDidChange() {}
     func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?) {}
     func agentQuestionEditingDidChange(_ isEditing: Bool) {}
 }
@@ -64,6 +66,8 @@ final class RootSearchToolbarController: NSObject {
     private var searchToolbarWidthConstraint: NSLayoutConstraint?
     private var searchToolbarMaxWidthConstraint: NSLayoutConstraint?
     private var sideBarEdge: UIRectEdge?
+    private var sideTabBarFrame: CGRect?
+    private var lastSideToolbarFrame: CGRect?
     private var viewportHorizontalConstraints: [NSLayoutConstraint] = []
     private var searchToolbarCenterXConstraint: NSLayoutConstraint?
     private var searchToolbarHeightConstraint: NSLayoutConstraint?
@@ -163,6 +167,8 @@ final class RootSearchToolbarController: NSObject {
     }
 
     private func detach() {
+        sideTabBarFrame = nil
+        searchToolbarDisplacementView.transform = .identity
         (overlayAppearanceController as? any ContentOverlayAppearanceProviding)?.onContentOverlayAppearanceChange = nil
         overlayAppearanceController = nil
         overlayAppearanceTransitionID = nil
@@ -206,6 +212,7 @@ final class RootSearchToolbarController: NSObject {
     private let bottomGradientView = RootBottomGradientView()
     private let searchToolbarViewportView = RootSearchToolbarContainerView()
     private let searchToolbarContainerView = RootSearchToolbarContainerView()
+    private let searchToolbarDisplacementView = WTouchPassView()
     let searchToolbar = UniversalSearchFieldView(configuration: .init(
         placeholder: lang("Search or Ask"),
         shortPlaceholder: lang("Search"),
@@ -610,6 +617,34 @@ final class RootSearchToolbarController: NSObject {
                 searchToolbarMaxWidthConstraint?.constant = maxWidth
             }
         }
+        let frame = getSideToolbarFrame(in: searchToolbarHostView)
+        if #available(iOS 27.1, *), let frame, let sideTabBarFrame, let sideBarEdge {
+            let hostView = searchToolbarHostView
+            let region = hostView.layoutGuide(for: .bar(onEdge: sideBarEdge, extent: frame.width)).layoutFrame
+            let top = max(region.minY, hostView.bounds.minY + 24)
+            let bounds = CGRect(x: hostView.bounds.minX, y: top, width: hostView.bounds.width, height: max(0, frame.maxY - top))
+            let offset = getSideControlOffset(frame: frame, avoiding: sideTabBarFrame, within: bounds, isOnLeftEdge: sideBarEdge == .left)
+            searchToolbarDisplacementView.transform = CGAffineTransform(translationX: offset.x, y: offset.y)
+        } else {
+            searchToolbarDisplacementView.transform = .identity
+        }
+        if frame != lastSideToolbarFrame {
+            lastSideToolbarFrame = frame
+            host?.searchToolbarGeometryDidChange()
+        }
+    }
+
+    func getSideToolbarFrame(in view: UIView) -> CGRect? {
+        guard #available(iOS 27.1, *), sideBarEdge != nil, searchToolbar.presentation == .sideToolbar,
+              let buttonFrame = searchToolbarHostView.verticalToolbarBottomButtonFrame else { return nil }
+        let frame = CGRect(x: buttonFrame.minX, y: buttonFrame.maxY - searchToolbar.sideToolbarHeight,
+                           width: buttonFrame.width, height: searchToolbar.sideToolbarHeight)
+        return view.convert(frame, from: searchToolbarHostView)
+    }
+
+    func setSideTabBarFrame(_ frame: CGRect?, in view: UIView) {
+        sideTabBarFrame = frame.map { searchToolbarHostView.convert($0, from: view) }
+        updateSearchToolbarGeometry(for: searchToolbar.presentation)
     }
 
     private func sharedBottomToolbarPresentation(
@@ -887,21 +922,30 @@ final class RootSearchToolbarController: NSObject {
         searchToolbar.transitionViewportView = searchToolbarViewportView
         searchToolbarViewportView.clipsToBounds = true
         searchToolbarViewportView.addSubview(container)
+        let placement = searchToolbarDisplacementView
+        placement.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(placement)
         searchToolbar.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(searchToolbar)
+        placement.addSubview(searchToolbar)
+        NSLayoutConstraint.activate([
+            searchToolbar.leadingAnchor.constraint(equalTo: placement.leadingAnchor),
+            searchToolbar.trailingAnchor.constraint(equalTo: placement.trailingAnchor),
+            searchToolbar.topAnchor.constraint(equalTo: placement.topAnchor),
+            searchToolbar.bottomAnchor.constraint(equalTo: placement.bottomAnchor),
+        ])
         // Viewport placement and presentation insets already account for the split
         // panel. Do not inset Search again for Duo's side toolbar area.
-        let leading = searchToolbar.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 28)
-        let trailing = searchToolbar.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -28)
-        let width = searchToolbar.widthAnchor.constraint(equalTo: container.widthAnchor, constant: -56)
+        let leading = placement.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 28)
+        let trailing = placement.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -28)
+        let width = placement.widthAnchor.constraint(equalTo: container.widthAnchor, constant: -56)
         width.priority = .defaultHigh
-        let bottom = searchToolbar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: homeToolbarBottomInset)
-        let center = searchToolbar.centerXAnchor.constraint(equalTo: container.centerXAnchor)
-        let height = searchToolbar.heightAnchor.constraint(equalToConstant: 48)
+        let bottom = placement.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: homeToolbarBottomInset)
+        let center = placement.centerXAnchor.constraint(equalTo: container.centerXAnchor)
+        let height = placement.heightAnchor.constraint(equalToConstant: 48)
         searchToolbarCenterXConstraint = center
         searchToolbarHeightConstraint = height
-        searchToolbarSideWidthConstraint = searchToolbar.widthAnchor.constraint(equalToConstant: 48)
-        let maxWidth = searchToolbar.widthAnchor.constraint(
+        searchToolbarSideWidthConstraint = placement.widthAnchor.constraint(equalToConstant: 48)
+        let maxWidth = placement.widthAnchor.constraint(
             lessThanOrEqualToConstant: AgentListBottomBar.getMaximumToolbarWidth(sideInset: 28)
         )
         searchToolbarMaxWidthConstraint = maxWidth
@@ -1275,6 +1319,9 @@ final class RootSearchToolbarController: NSObject {
                 )
             }
 
+        case .futuresMarket(let accountID, let assetID):
+            AppActions.showPerpsMarket(accountId: accountID, assetId: assetID)
+
         case .wallet(let account):
             Task {
                 do {
@@ -1463,4 +1510,18 @@ private final class RootSearchToolbarContainerView: WTouchPassView {
         super.layoutSubviews()
         onLayout?()
     }
+}
+
+func getSideControlOffset(frame: CGRect, avoiding expandedFrame: CGRect, within bounds: CGRect, isOnLeftEdge: Bool) -> CGPoint {
+    guard frame.insetBy(dx: -12, dy: -12).intersects(expandedFrame) else { return .zero }
+    let verticalOffset = frame.midY < expandedFrame.midY
+        ? expandedFrame.minY - 12 - frame.maxY
+        : expandedFrame.maxY + 12 - frame.minY
+    if bounds.contains(frame.offsetBy(dx: 0, dy: verticalOffset)) {
+        return CGPoint(x: 0, y: verticalOffset)
+    }
+    let horizontalOffset = isOnLeftEdge
+        ? expandedFrame.maxX + 12 - frame.minX
+        : expandedFrame.minX - 12 - frame.maxX
+    return CGPoint(x: horizontalOffset, y: 0)
 }

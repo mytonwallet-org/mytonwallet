@@ -4,7 +4,9 @@ import { requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
 import { animate } from '../../util/animation';
 import { lerp } from '../../util/math';
 import {
+  cacheWhileConnected,
   createTextPicture,
+  getBorderRadii,
   getRectCenter,
   getShare,
   getTelegramProgress,
@@ -75,8 +77,10 @@ const TAIL_GROWTH_END = 1;
 const TAIL_COLLAPSED_SCALE = 0.01;
 // The blur of the title as it fades out, and of the text before it fades in, half the Agent's blur transition's
 export const FOLLOWUP_MORPH_BLUR = 4;
-// A source older than this is not the sent question's any more
-const SOURCE_LIFETIME = 1000;
+// A source older than this is not the sent question's any more. It outlives the wait of a chat that opens with the
+// question for the question to show, `QUESTION_WAIT` of `agentOpeningQuestion.ts`, by the time the morph takes to
+// measure the layout once the question shows.
+const SOURCE_LIFETIME = 1200;
 // The suggestions beside the tapped one leave this way, each this long after the one nearer to it
 const RIPPLE_DURATION = 200;
 const RIPPLE_STAGGER = 30;
@@ -97,7 +101,6 @@ export function captureFollowupSource(button: HTMLElement): FollowupSource | und
   const isRtl = style.direction === 'rtl';
   const pill = button.cloneNode() as HTMLElement;
   pill.style.cssText = button.style.cssText;
-  pill.classList.remove(styles.followupArrow);
   pill.classList.add(styles.followupMorphPill);
   pill.removeAttribute('data-agent-followup-id');
   pill.tabIndex = -1;
@@ -184,8 +187,9 @@ export function getRippleOrder(rects: MotionRect[], tapped: MotionRect) {
  * the bubble's body, corners and colour, and its title moves onto the bubble's `text`, scaling with it from the title's
  * size to the text's, as the one fades into the other. Each goes out of focus as it fades, so the two never show sharp
  * together, wherever their lines break. Once the fill is the bubble's, the bubble's tail grows out of its corner. The
- * morph follows the bubble wherever the list shows it meanwhile, which `getBubble` finds in each frame, and the bubble
- * stays out of sight until the morph ends and the bubble takes its place at once, and `onEnd` follows.
+ * morph follows the bubble wherever the list shows it meanwhile, which `getBubble` finds again whenever the bubble
+ * found has left the document, and the bubble stays out of sight until the morph ends and the bubble takes its place at
+ * once, and `onEnd` follows.
  *
  * It reads the layout, so it is called in a measure phase, and returns the morph to start in a mutation, which returns
  * what ends it where it stands. A source that is too old or a bubble without its text has no morph.
@@ -218,12 +222,10 @@ export function measureFollowupMorph(
       y: (parseFloat(bubbleStyle.borderTopWidth) || 0) + (parseFloat(bubbleStyle.paddingTop) || 0),
     },
     fontSize: parseFloat(getComputedStyle(text).fontSize),
-    radii: [
-      bubbleStyle.borderTopLeftRadius, bubbleStyle.borderTopRightRadius,
-      bubbleStyle.borderBottomRightRadius, bubbleStyle.borderBottomLeftRadius,
-    ].map((radius) => parseFloat(radius) || 0),
+    radii: getBorderRadii(bubbleStyle).map((radius) => parseFloat(radius) || 0),
   };
   let layerRect = layer.getBoundingClientRect();
+  const findBubble = cacheWhileConnected(getBubble);
 
   const textPicture = createTextPicture(text, textRect.width, styles.followupMorphText);
   const morph = document.createElement('div');
@@ -309,7 +311,7 @@ export function measureFollowupMorph(
       const now = Date.now();
       startedAt ??= now;
       const fraction = Math.min(1, (now - startedAt) / FOLLOWUP_MORPH_DURATION);
-      const shownBubble = getBubble();
+      const shownBubble = findBubble();
       const shownBody = shownBubble?.getBoundingClientRect();
       if (shownBody && shownBody.width >= 1 && shownBody.height >= 1) {
         target = { ...target, frame: toMotionRect(shownBody) };

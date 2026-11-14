@@ -12,11 +12,12 @@ interface OwnProps {
   accountId: string;
   title?: string;
   className?: string;
+  testId?: string;
   onClick?: NoneToVoidFunction;
 }
 
 function AccountSwitcherPill({
-  accountId, title, className, onClick,
+  accountId, title, className, testId, onClick,
 }: OwnProps) {
   const lang = useLang();
 
@@ -44,6 +45,7 @@ function AccountSwitcherPill({
       type="button"
       className={buildClassName(styles.pill, className)}
       aria-label={lang('Selected Wallet')}
+      data-testid={testId}
       onClick={onClick}
     >
       {content}

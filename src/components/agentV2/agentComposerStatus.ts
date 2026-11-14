@@ -11,14 +11,14 @@ interface AgentV2QuotaRetry {
 }
 
 export function selectAgentV2ComposerStatus(
-  availability: AgentV2AvailabilityState,
+  availability?: AgentV2AvailabilityState,
   quota?: AgentUserQuotaV2,
   quotaRetry?: AgentV2QuotaRetry,
   rateLimit?: AgentV2RateLimitState,
   now = Date.now(),
 ): AgentV2ComposerStatus | undefined {
   if (
-    availability.state === 'capacity_exhausted'
+    availability?.state === 'capacity_exhausted'
     && availability.resetAt !== undefined
     && availability.resetAt > now
   ) {
@@ -41,11 +41,11 @@ export function selectAgentV2ComposerStatus(
       kind: 'rateLimit',
       mode: 'blocked',
       resetAt: rateLimit.resetAt,
-      clientRunId: rateLimit.clientRunId,
+      ...(rateLimit.clientRunId ? { clientRunId: rateLimit.clientRunId } : {}),
     };
   }
 
-  if (availability.state === 'capacity_exhausted') {
+  if (availability?.state === 'capacity_exhausted') {
     return { kind: 'capacity', mode: 'degraded' };
   }
 
@@ -64,7 +64,7 @@ export function selectAgentV2ComposerStatus(
       kind: 'rateLimit',
       mode: 'informational',
       resetAt: rateLimit.resetAt,
-      clientRunId: rateLimit.clientRunId,
+      ...(rateLimit.clientRunId ? { clientRunId: rateLimit.clientRunId } : {}),
     };
   }
 

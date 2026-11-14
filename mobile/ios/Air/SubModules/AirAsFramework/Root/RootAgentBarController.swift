@@ -195,6 +195,12 @@ final class RootAgentBarController {
         let swell = progress > 0.001 && progress < 0.999 || abs(progress - morphProgress) > 0.001
             ? AgentListBottomBar.swell(at: min(1.15, max(-0.1, progress)))
             : 1
+        // Under a chat the circle waits away, where the chat's composer stands: a fold still springing from a tab switch
+        // made with the push, as asking the Agent from search does, must not bring it back over the composer
+        if !isOnRoot, host?.agentBarNavigationController?.topViewController is any AgentComposerHandoffTarget {
+            searchToolbar.setTrailingButtonHandoffScale(1)
+            return
+        }
         if isSearchCircleAway {
             // Away for a question on the Agent tab, the circle comes back to the toolbar as the bar folds into it
             applySearchCircleFlight(clamped, scale: swell)

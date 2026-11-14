@@ -32,7 +32,10 @@ jest.mock('../../global', () => {
 });
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
-  default: () => Object.assign((key: string) => key, { code: 'en', isRtl: false }),
+  default: () => Object.assign((key: string, values?: Record<string, string>) => (
+    (key === '$swap_better_rate_minimum' ? 'Better rate is available starting from %value%.' : key)
+      .replace(/%(\w+)%/g, (placeholder, name: string) => values?.[name] ?? placeholder)
+  ), { code: 'en', isRtl: false }),
 }));
 jest.mock('./hooks/useOffRampMaxAmount', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('./hooks/useSwapEstimatePolling', () => ({ __esModule: true, default: () => undefined }));
@@ -44,7 +47,6 @@ jest.mock('../ui/Button', () => ({ __esModule: true, default: () => undefined })
 jest.mock('../ui/FeeLine', () => ({ __esModule: true, default: () => undefined }));
 jest.mock('../ui/Modal', () => ({ __esModule: true, default: () => undefined }));
 jest.mock('../ui/RichNumberInput', () => ({ __esModule: true, default: jest.fn(() => undefined) }));
-jest.mock('./components/SwapHint', () => ({ __esModule: true, default: () => undefined }));
 jest.mock('./TokenTradeMenu', () => ({ __esModule: true, default: () => undefined }));
 jest.mock('./TokenTradeSlippageModal', () => ({ __esModule: true, default: () => undefined }));
 
@@ -130,6 +132,20 @@ describe('TokenTrade selling for a card', () => {
 
     expect(mockActions.setTradeAmount).not.toHaveBeenCalled();
     expect(getButtonProps()).toMatchObject({ errorText: undefined, canSubmit: false, isEstimating: true });
+  });
+
+  it.each([
+    [{ type: 'betterRate', additionalAmount: '0.01', symbol: 'ETH' },
+      'Better rate is available if you add 0.01 ETH for network fee.'],
+    [{ type: 'betterRateMinimum', minimumAmount: '30.000001', symbol: 'ETH' },
+      'Better rate is available starting from 30.000001 ETH.'],
+  ] as const)('shows %j on a successful swap quote and removes it when the quote changes', async (hint, text) => {
+    const swap = { tradeCardCurrency: undefined, tradeAmount: '1', amountIn: '1', amountOut: '2' };
+    await renderTrade({ ...swap, swapQuoteHint: hint });
+    expect(root.textContent).toContain(text);
+
+    await renderTrade(swap);
+    expect(root.textContent).not.toContain(text);
   });
 
   it('keeps a typed amount above the card maximum as a short balance', async () => {

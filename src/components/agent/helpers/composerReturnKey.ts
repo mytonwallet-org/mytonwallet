@@ -5,8 +5,8 @@ import { getIsInputMethodKey } from '../../../util/domEvents';
 type ReturnKeyEvent = React.KeyboardEvent | KeyboardEvent;
 
 /**
- * What Return does in the Agent's fields: alone it sends; with Shift, Option or Command on macOS, or Shift, Alt or Ctrl
- * elsewhere, it starts a new line, which the field does by itself only for Shift
+ * What Return does in the Agent's fields: alone it sends; with Shift, Option (Alt), Command (Meta) or Ctrl, on any
+ * platform, it starts a new line, which the field does by itself only for Shift
  */
 export function getReturnKeyAction(event: ReturnKeyEvent): 'send' | 'lineBreak' | 'nativeLineBreak' | undefined {
   if (event.key !== 'Enter' || getIsInputMethodKey(event)) return undefined;

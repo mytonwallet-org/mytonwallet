@@ -29,6 +29,7 @@ import { callApi } from '../api';
 import { SwapActivityModal, TransactionInfoModal, TransactionModal } from './main/modals/transaction';
 import IFrameBrowser from './ui/IFrameBrowser';
 
+import useAccountContentFade from '../hooks/useAccountContentFade';
 import { useAppIntersectionObserver } from '../hooks/useAppIntersectionObserver';
 import useAppTheme from '../hooks/useAppTheme';
 import useBackgroundMode from '../hooks/useBackgroundMode';
@@ -205,12 +206,13 @@ function App({
   }, [isFullscreen]);
 
   useSyncEffect(([previousAccountId]) => {
-    // The landscape Agent shares Main, but its conversation belongs to the profile.
-    if (accountId && accountId !== previousAccountId && (!isAgentOpen || isPortrait)) {
+    // Keep the account carousel mounted while switching profiles, because account-specific panes reset in `Main`
+    if (accountId && !previousAccountId) {
       mainKey += 1;
     }
-  }, [accountId, isAgentOpen, isPortrait]);
+  }, [accountId]);
 
+  const accountContentRef = useAccountContentFade(accountId, !isPortrait || renderingKey === AppState.Main);
   const appTheme = useAppTheme(theme);
   useAccentColor('body', appTheme, accentColorIndex);
 
@@ -269,6 +271,7 @@ function App({
       {IS_ELECTRON && <ElectronHeader withTitle />}
 
       <Transition
+        ref={accountContentRef}
         name={transitionName}
         activeKey={renderingKey}
         renderCount={APP_STATE_RENDER_COUNT}

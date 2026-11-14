@@ -1,4 +1,4 @@
-import React, { type VirtualElementComponent } from '../../lib/teact/teact';
+import React, { useState, type VirtualElementComponent } from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
 import type { AgentPublicFollowUpV2, AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
@@ -7,9 +7,12 @@ import type { AgentConversation, AgentConversationShellProps } from '../agent/Ag
 import type { UseAgentV2MessagesResult } from '../agent/hooks/useAgentV2Messages';
 
 import { getAgentV2LocalState, resetAgentV2LocalState } from '../../util/agent/agentV2LocalState';
+import Deferred from '../../util/Deferred';
 import { openUrl } from '../../util/openUrl';
 import { pause, rafPromise, waitFor } from '../../util/schedulers';
 import { shareUrl } from '../../util/share';
+import { formatAgentTime } from '../agent/helpers/agentDateFormat';
+import { copyAgentText } from '../agent/helpers/copyAgentText';
 import { markAgentThreadShown } from './agentThreadReadState';
 
 import useAgentV2Messages from '../agent/hooks/useAgentV2Messages';
@@ -29,7 +32,9 @@ jest.mock('../../global', () => ({
 }));
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
-  default: () => Object.assign((key: string) => key, { code: 'en' }),
+  default: () => Object.assign((key: string, value?: string) => (
+    key === '$agent_daily_limit_resets_at' ? `${key}:${value}` : key
+  ), { code: 'en' }),
 }));
 jest.mock('../agent/hooks/useAgentV2Messages', () => ({
   __esModule: true,
@@ -37,6 +42,7 @@ jest.mock('../agent/hooks/useAgentV2Messages', () => ({
 }));
 jest.mock('../../util/openUrl', () => ({ openUrl: jest.fn() }));
 jest.mock('../../util/share', () => ({ shareUrl: jest.fn() }));
+jest.mock('../agent/helpers/copyAgentText', () => ({ copyAgentText: jest.fn() }));
 jest.mock('../agent/AgentConversationShell', () => ({
   __esModule: true,
   default: jest.fn((props: AgentConversationShellProps) => props.composer!.render?.({
@@ -71,6 +77,9 @@ const NEWS_POST: AgentMessage = {
   isOutgoing: false,
   isNewsPost: true,
   timestamp: 1,
+};
+const DIGEST = {
+  id: 'digest-1', windowEnd: '2026-10-21T21:00:00.000Z', total: 1, top: [{ eventId: 5, headline: 'News headline' }],
 };
 const NEWS_FOLLOWUP: AgentPublicFollowUpV2 = {
   id: 'news-followup-1', kind: 'suggested_prompt', text: 'What does this news mean for TON?',
@@ -192,6 +201,36 @@ describe('AgentV2Classic', () => {
       .toEqual({ messageCount: 2, isNews: true });
   });
 
+  it('opens with the hint tapped under the chat list and sends a hint tapped in the empty chat', async () => {
+    const hint = {
+      id: 'action.swap', langCode: 'en' as const, title: 'Swap tokens', subtitle: '', prompt: 'Swap tokens',
+    };
+    const entryPoint = {
+      kind: 'emptyState', surface: 'agentTab', hintId: 'action.swap', catalogVersion: 'agent-starter-hints-v2',
+    } as const;
+    const sendHint = jest.fn();
+    useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({ hints: [hint], sendHint }));
+    TeactDOM.render(
+      <AgentV2Classic
+        isActive
+        animationLevel={0}
+        target={{ kind: 'new' }}
+        initialMessage="Swap tokens"
+        initialHintEntryPoint={entryPoint}
+      />,
+      root,
+    );
+    await pause(20);
+
+    expect(useAgentV2MessagesMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      initialMessage: 'Swap tokens', initialHintEntryPoint: entryPoint,
+    }));
+    const shellProps = AgentConversationShellMock.mock.calls.at(-1)![0];
+    expect(shellProps.conversation.hints).toEqual([hint]);
+    shellProps.composer!.onSendHint(hint);
+    expect(sendHint).toHaveBeenCalledWith(hint);
+  });
+
   it('does not offer deletion for an untouched composer without a target or thread', async () => {
     useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({ messages: [], thread: undefined }));
     TeactDOM.render(<AgentV2Classic isActive animationLevel={0} onDelete={jest.fn()} />, root);
@@ -241,6 +280,75 @@ describe('AgentV2Classic', () => {
     expect(Boolean(actions?.onDelete)).toBe(canDelete);
     // Problem reports, which also need consent, are checked once it comes
     expect(useAgentV2MessagesMock).toHaveBeenLastCalledWith(expect.objectContaining({ hasConsent }));
+  });
+
+  it.each((['news', 'digest'] as const).flatMap((kind) => [
+    { kind, hasNaming: false }, { kind, hasNaming: true },
+  ]))('uses feed naming and report availability until a discussion thread exists: %o', async ({ kind, hasNaming }) => {
+    const discussionNaming = hasNaming ? { title: 'Discuss TON news', icon: '💎', followups: [] } : undefined;
+    const isDigest = kind === 'digest';
+    const result = buildMessagesResult({
+      ...(isDigest ? { digest: DIGEST } : { news: NEWS }),
+      messages: [NEWS_POST], isOpeningNews: true, reportProblem: undefined,
+    });
+    useAgentV2MessagesMock.mockReturnValue(result);
+    const target = {
+      ...(isDigest
+        ? { kind: 'digest' as const, digest: { id: DIGEST.id }, digestPreview: DIGEST }
+        : { kind: 'news' as const, news: { eventId: 5, locale: 'ru' as const }, preview: NEWS }),
+      shouldDeferCreation: true, discussionNaming,
+    };
+    const onThreadResolved = jest.fn();
+    TeactDOM.render(
+      <AgentV2Classic
+        isActive
+        animationLevel={0}
+        target={target}
+        onDelete={jest.fn()}
+        chatKey={5}
+        onThreadResolved={onThreadResolved}
+      />,
+      root,
+    );
+    await pause(20);
+    const notifyThreadResolved = useAgentV2MessagesMock.mock.calls.at(-1)![0].onThreadResolved!;
+
+    const { header, actions, composer } = AgentConversationShellMock.mock.calls.at(-1)![0];
+    expect(header?.title).toBe(discussionNaming?.title ?? (isDigest ? '$agent_digest_title' : NEWS.headline));
+    expect(header?.icon).toBe(discussionNaming?.icon);
+    expect(actions?.onReportProblem).toBeUndefined();
+    expect(actions?.onDelete).toBeUndefined();
+    expect(composer?.isDisabled).toBe(false);
+    expect(composer?.shouldHide).toBe(false);
+    const post = AgentConversationShellMock.mock.calls.at(-1)![0].conversation.renderMessage(NEWS_POST, {
+      shouldAnimateTextStreaming: false, isJustAdded: false,
+      onEditMessage: jest.fn(), onTextRevealProgress: jest.fn(), onRequestLiveTail: jest.fn(),
+    }) as unknown as VirtualElementComponent;
+    expect(post.props.shouldShowFollowups).toBe(false);
+    // The post shares the news in the language the discussion opened it in, apart from the app's
+    expect(post.props.locale).toBe(isDigest ? undefined : 'ru');
+
+    const timestamp = '2026-10-21T12:00:00.000Z';
+    const reportProblem = jest.fn(() => Promise.resolve('sent' as const));
+    useAgentV2MessagesMock.mockReturnValue({
+      ...result,
+      reportProblem,
+      thread: {
+        id: 'news-thread', revision: 1, messageCount: 1, title: 'Saved news title', icon: '📰',
+        ...(isDigest ? { digest: DIGEST } : { news: NEWS }),
+        createdAt: timestamp, updatedAt: timestamp, lastActivityAt: timestamp,
+      },
+    });
+    TeactDOM.render(<AgentV2Classic isActive animationLevel={0} target={target} />, root);
+    expect(await waitFor(() => (
+      AgentConversationShellMock.mock.calls.at(-1)?.[0].header?.title === 'Saved news title'
+    ), 10, 300)).toBe(true);
+    expect(AgentConversationShellMock.mock.calls.at(-1)![0].header?.icon).toBe('📰');
+    expect(AgentConversationShellMock.mock.calls.at(-1)![0].actions?.onReportProblem).toBe(reportProblem);
+    TeactDOM.render(undefined, root);
+    await rafPromise();
+    notifyThreadResolved('created-news-thread');
+    expect(onThreadResolved).toHaveBeenCalledWith(5, 'created-news-thread', target);
   });
 
   it('ends the chat with provider capacity as its status line and leaves the input bar to the draft', async () => {
@@ -296,7 +404,9 @@ describe('AgentV2Classic', () => {
     expect(AgentInputBarMock.mock.calls.at(-1)![0].isDictationHeld).toBe(false);
   });
 
-  it('asks at once in a chat whose consent read says no: Allow reads it again, closing leaves the chat', async () => {
+  it.each([false, true])('asks for consent at once; Allow reads it again, closing leaves: support=%s', async (
+    shouldRequestSupport,
+  ) => {
     const checkConsentAgain = jest.fn();
     useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({
       isConsentAccepted: false, isInitialLoadComplete: false, checkConsentAgain,
@@ -308,7 +418,8 @@ describe('AgentV2Classic', () => {
         isActive
         animationLevel={0}
         target={{ kind: 'new' }}
-        initialMessage="What is TON?"
+        initialMessage={shouldRequestSupport ? undefined : 'What is TON?'}
+        shouldRequestSupport={shouldRequestSupport}
         hasConsent={false}
         onRequestConsent={onRequestConsent}
         onBack={onBack}
@@ -316,6 +427,7 @@ describe('AgentV2Classic', () => {
       root,
     );
     await pause(20);
+    expect(useAgentV2MessagesMock).toHaveBeenLastCalledWith(expect.objectContaining({ shouldRequestSupport }));
     expect(onRequestConsent).toHaveBeenCalledTimes(1);
     const [allow, field, decline] = onRequestConsent.mock.calls[0];
     expect(field).toBeUndefined();
@@ -326,14 +438,16 @@ describe('AgentV2Classic', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('gives the composer the stop of the answer being produced', async () => {
-    const messagesResult = buildMessagesResult({ isRunActive: true, canStopRun: true, isInputDisabled: true });
+  it('gives the composer the stop of the answer being produced, and a send that queues behind it', async () => {
+    const messagesResult = buildMessagesResult({
+      isRunActive: true, canStopRun: true, isInputDisabled: true, isSendQueued: true,
+    });
     useAgentV2MessagesMock.mockReturnValue(messagesResult);
     TeactDOM.render(<AgentV2Classic isActive animationLevel={0} />, root);
     await pause(20);
 
     const { composer } = AgentConversationShellMock.mock.calls.at(-1)![0];
-    expect(composer).toMatchObject({ canStop: true });
+    expect(composer).toMatchObject({ canStop: true, isDisabled: false, isQueueing: true });
     composer!.onStop!();
     expect(messagesResult.stopRun).toHaveBeenCalledTimes(1);
   });
@@ -350,10 +464,10 @@ describe('AgentV2Classic', () => {
     useAgentV2MessagesMock.mockReturnValue(thinking);
     TeactDOM.render(<AgentV2Classic isActive animationLevel={2} />, root);
     await pause(20);
-    const getFooter = () => AgentConversationShellMock.mock.calls.at(-1)![0].slots?.messageListFooter as {
+    const getActivity = () => AgentConversationShellMock.mock.calls.at(-1)![0].slots?.runActivity as {
       props: { activity?: unknown; isStopped?: boolean };
     } | undefined;
-    expect(getFooter()?.props).toMatchObject({ isStopped: false });
+    expect(getActivity()?.props).toMatchObject({ isStopped: false });
 
     AgentConversationShellMock.mock.calls.at(-1)![0].composer!.onStop!();
     useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({ messages: [question], composerStatus: undefined }));
@@ -361,10 +475,10 @@ describe('AgentV2Classic', () => {
     await pause(20);
 
     expect(thinking.stopRun).toHaveBeenCalledTimes(1);
-    expect(getFooter()?.props).toMatchObject({ activity: { kind: 'analyzingRequest' }, isStopped: true });
+    expect(getActivity()?.props).toMatchObject({ activity: { kind: 'analyzingRequest' }, isStopped: true });
 
     await pause(1700);
-    expect(getFooter()?.props).toMatchObject({ activity: undefined, isStopped: false });
+    expect(getActivity()?.props).toMatchObject({ activity: undefined, isStopped: false });
   });
 
   it('opens at the first answer the user has not seen and tells where it stands', async () => {
@@ -507,6 +621,84 @@ describe('AgentV2Classic', () => {
       AgentConversationShellMock.mockImplementation(shellImplementation);
       spies.forEach((spy) => spy.mockRestore());
       jest.useRealTimers();
+    });
+
+    it.each((['news', 'digest'] as const).flatMap((kind) => [
+      { kind, isQuotaBlocked: false }, { kind, isQuotaBlocked: true },
+    ]))('prepares the first discussion send after consent without losing a blocked draft: %o', async ({
+      kind, isQuotaBlocked,
+    }) => {
+      const quotaRead = new Deferred<void>();
+      const sendMessage = jest.fn();
+      const prepareSend = jest.fn();
+      const onRequestConsent = jest.fn();
+      const resetAt = Date.now() + 60_000;
+      const quota = { limit: 20, used: 20, remaining: 0, resetAt: new Date(resetAt).toISOString() };
+      const session = { initial: { draft: 'Discuss this news' }, save: jest.fn() };
+      let hasConsent = false;
+      useAgentV2MessagesMock.mockImplementation(function useMessages() {
+        const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+        const [isStatusLoaded, setIsStatusLoaded] = useState(false);
+        prepareSend.mockImplementation(async () => {
+          setIsLoadingStatus(true);
+          await quotaRead.promise;
+          setIsStatusLoaded(true);
+          setIsLoadingStatus(false);
+          return !isQuotaBlocked;
+        });
+        const isDisabled = isLoadingStatus || (isStatusLoaded && isQuotaBlocked);
+        return buildMessagesResult({
+          ...(kind === 'digest' ? { digest: DIGEST } : { news: NEWS }), messages: [NEWS_POST], isOpeningNews: true,
+          isSendDisabled: isDisabled, isInputDisabled: isDisabled,
+          prepareSend, sendMessage,
+          composerStatus: isStatusLoaded && isQuotaBlocked
+            ? { kind: 'userQuota', mode: 'blocked', quota, resetAt } : undefined,
+        });
+      });
+
+      renderChat();
+      await flushFrames(frames);
+      AgentInputBarMock.mock.calls.at(-1)![0].onSend();
+      await flushFrames(frames);
+      expect(onRequestConsent).toHaveBeenCalledTimes(1);
+      expect(AgentInputBarMock.mock.calls.at(-1)![0].inputValue).toBe('Discuss this news');
+
+      hasConsent = true;
+      renderChat();
+      onRequestConsent.mock.calls[0][0]();
+      await flushFrames(frames);
+      expect(prepareSend).toHaveBeenCalledTimes(1);
+      expect(AgentInputBarMock.mock.calls.at(-1)![0].isDisabled).toBe(true);
+      expect(AgentInputBarMock.mock.calls.at(-1)![0].isDictationHeld).toBe(false);
+      quotaRead.resolve();
+      await flushFrames(frames);
+
+      if (isQuotaBlocked) {
+        expect(root.textContent).toContain(`$agent_daily_limit_resets_at:${formatAgentTime('en', resetAt)}`);
+        expect(AgentInputBarMock.mock.calls.at(-1)![0].inputValue).toBe('Discuss this news');
+        expect(sendMessage).not.toHaveBeenCalled();
+      } else {
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+        expect(sendMessage).toHaveBeenCalledWith('Discuss this news', undefined);
+        expect(AgentInputBarMock.mock.calls.at(-1)![0].inputValue).toBe('');
+      }
+
+      function renderChat() {
+        TeactDOM.render(
+          <AgentV2Classic
+            isActive
+            animationLevel={0}
+            target={kind === 'digest'
+              ? { kind, digest: { id: DIGEST.id }, shouldDeferCreation: true, digestPreview: DIGEST }
+              : { kind, news: { eventId: 5, locale: 'en' }, shouldDeferCreation: true, preview: NEWS }}
+            hasConsent={hasConsent}
+            onRequestConsent={onRequestConsent}
+            session={session}
+          />,
+          root,
+        );
+        mockList();
+      }
     });
 
     it.each([false, true])(
@@ -715,6 +907,33 @@ describe('AgentV2Classic', () => {
     expect(retryHistory).toHaveBeenCalledTimes(1);
   });
 
+  it('offers the held quota Retry after a non-retryable support failure', async () => {
+    const retryAdmission = jest.fn();
+    useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({
+      retryAdmission,
+      composerStatus: { kind: 'userQuota', mode: 'informational', clientRunId: 'held', resetAt: 1,
+        quota: { limit: 20, used: 20, remaining: 0, resetAt: '2026-08-01T00:00:00.000Z' } },
+      messages: [{ id: -1, text: '', isOutgoing: false, timestamp: 1,
+        error: { code: 'network_error', retryable: false }, isRetryAvailable: false }],
+    }));
+    TeactDOM.render(<AgentV2Classic isActive animationLevel={0} />, root);
+    await pause(20);
+    const footer = document.createElement('div');
+    root.appendChild(footer);
+    try {
+      const content = AgentConversationShellMock.mock.calls.at(-1)![0].slots?.messageListFooter;
+      TeactDOM.render(content as unknown as VirtualElementComponent, footer);
+      await pause(20);
+      const button = footer.querySelector<HTMLButtonElement>('button[aria-label="$agent_retry_request"]');
+      expect(button).not.toBeNull();
+      button!.click();
+      expect(retryAdmission).toHaveBeenCalledTimes(1);
+    } finally {
+      TeactDOM.render(undefined, footer);
+      footer.remove();
+    }
+  });
+
   it('keeps current capacity status visible beside the historical failed message', async () => {
     useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({
       messages: [{
@@ -773,6 +992,118 @@ describe('AgentV2Classic', () => {
       expect(retryMessage).toHaveBeenCalledWith(1);
     });
 
+  it('shows the run\'s activity under the question being answered, above the questions that wait', async () => {
+    const question: AgentMessage = {
+      id: 1, text: 'Question', isOutgoing: true, timestamp: 1,
+    };
+    const answer: AgentMessage = {
+      id: 2, text: '', isOutgoing: false, timestamp: 2, isStreaming: true,
+    };
+    const waiting: AgentMessage = {
+      id: 3, text: 'Waiting question', isOutgoing: true, timestamp: 3,
+    };
+    const activity = { kind: 'analyzingRequest' } as const;
+    const renderChat = async (messages: AgentMessage[]) => {
+      useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({
+        messages, queuedMessageCount: 1, isRunActive: true, activity, composerStatus: undefined,
+      }));
+      TeactDOM.render(<AgentV2Classic isActive animationLevel={0} />, root);
+      await pause(20);
+      return AgentConversationShellMock.mock.calls.at(-1)![0];
+    };
+
+    // Before the answer's message comes, the activity follows the question rather than ending the chat
+    const { slots } = await renderChat([question, waiting]);
+    expect(slots?.runActivity).toBeDefined();
+    expect(slots?.messageListFooter).toBeUndefined();
+
+    // The answer's message hosts it once it comes, though a question waits after the answer
+    const { slots: answerSlots, conversation } = await renderChat([question, answer, waiting]);
+    expect(answerSlots?.runActivity).toBeUndefined();
+    const context: Parameters<AgentConversation['renderMessage']>[1] = {
+      shouldAnimateTextStreaming: false,
+      isJustAdded: false,
+      onEditMessage: jest.fn(),
+      onTextRevealProgress: jest.fn(),
+      onRequestLiveTail: jest.fn(),
+    };
+    const answerBubble = conversation.renderMessage(answer, context) as unknown as VirtualElementComponent;
+    expect(answerBubble.props.isActivityHost).toBe(true);
+    expect(answerBubble.props.activity).toBe(activity);
+    const waitingBubble = conversation.renderMessage(waiting, context) as unknown as VirtualElementComponent;
+    expect(waitingBubble.props.isActivityHost).toBe(false);
+    expect(waitingBubble.props.activity).toBeUndefined();
+  });
+
+  describe('Edit', () => {
+    const QUESTION: AgentMessage = {
+      id: 1, text: 'Stored question', isOutgoing: true, timestamp: 1,
+    };
+    const ANSWER: AgentMessage = {
+      id: 2, text: 'Stored answer', isOutgoing: false, timestamp: 2,
+    };
+    const WAITING_QUESTION: AgentMessage = {
+      id: 3, text: 'Waiting question', isOutgoing: true, timestamp: 3,
+    };
+    // A question that waits, or failed to go, has no stored message to edit
+    const isMessageEditable = (messageId: number) => messageId === QUESTION.id;
+
+    async function renderEditMenuChat(overrides: Partial<UseAgentV2MessagesResult>) {
+      useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({ isMessageEditable, ...overrides }));
+      TeactDOM.render(<AgentV2Classic isActive animationLevel={0} />, root);
+      await pause(20);
+
+      const { renderMessage } = AgentConversationShellMock.mock.calls.at(-1)![0].conversation;
+      const context: Parameters<AgentConversation['renderMessage']>[1] = {
+        shouldAnimateTextStreaming: false,
+        isJustAdded: false,
+        onEditMessage: jest.fn(),
+        onTextRevealProgress: jest.fn(),
+        onRequestLiveTail: jest.fn(),
+      };
+      return (message: AgentMessage) => (
+        renderMessage(message, context) as unknown as VirtualElementComponent
+      ).props.onEdit;
+    }
+
+    it('offers Edit on a stored question while the chat is free', async () => {
+      const getOnEdit = await renderEditMenuChat({ messages: [QUESTION, ANSWER] });
+      expect(getOnEdit(QUESTION)).toBeDefined();
+    });
+
+    it('offers no Edit while an answer is being produced', async () => {
+      const getOnEdit = await renderEditMenuChat({
+        messages: [QUESTION, ANSWER], isRunActive: true, isInputDisabled: true, isSendQueued: true, canStopRun: true,
+      });
+      expect(getOnEdit(QUESTION)).toBeUndefined();
+    });
+
+    it('offers no Edit on a queued question, nor on a stored one while a question waits', async () => {
+      const getOnEdit = await renderEditMenuChat({
+        messages: [QUESTION, ANSWER, WAITING_QUESTION],
+        isRunActive: true,
+        isInputDisabled: true,
+        isSendQueued: true,
+        queuedMessageCount: 1,
+      });
+      expect(getOnEdit(WAITING_QUESTION)).toBeUndefined();
+      expect(getOnEdit(QUESTION)).toBeUndefined();
+    });
+
+    it('offers no Edit on a question a wallet switch failed, while a stored one keeps it, as on mobile', async () => {
+      const failure: AgentMessage = {
+        id: 4, text: '', isOutgoing: false, timestamp: 4, failureText: 'Switched wallet', isRetryAvailable: true,
+      };
+      const getOnEdit = await renderEditMenuChat({
+        messages: [QUESTION, ANSWER, WAITING_QUESTION, failure],
+        failedQueueFailureId: failure.id,
+        queuedMessageCount: 2,
+      });
+      expect(getOnEdit(WAITING_QUESTION)).toBeUndefined();
+      expect(getOnEdit(QUESTION)).toBeDefined();
+    });
+  });
+
   it.each(['news', 'digest'] as const)('renders a %s post without message controls or an opening question', async (
     kind,
   ) => {
@@ -822,18 +1153,26 @@ describe('AgentV2Classic', () => {
     expect(AgentInputBarMock.mock.calls.at(-1)![0].placeholder).toBeUndefined();
   });
 
-  it('shows news followups through the shared controls and hides them during a run and after an answer', async () => {
+  it.each(['news', 'digest'] as const)('shows %s followups by shared controls, not in a run or after an answer', async (
+    kind,
+  ) => {
     const message = { ...NEWS_POST, followups: [NEWS_FOLLOWUP] };
     const sendFollowup = jest.fn();
     const onRequestLiveTail = jest.fn();
+    const isDigest = kind === 'digest';
     const result = buildMessagesResult({
-      news: NEWS, messages: [message], sendFollowup, composerStatus: undefined,
+      ...(isDigest ? { digest: DIGEST } : { news: NEWS }), messages: [message], sendFollowup, composerStatus: undefined,
     });
+    // A digest's discussion without a thread offers the suggestions of the feed's naming
+    const target = isDigest ? {
+      kind: 'digest' as const, digest: { id: DIGEST.id }, digestPreview: DIGEST, shouldDeferCreation: true,
+      discussionNaming: { title: 'Discuss the digest', followups: [NEWS_FOLLOWUP.text] },
+    } : undefined;
     const messagesRoot = document.createElement('div');
     document.body.appendChild(messagesRoot);
     const renderPost = async (overrides: Partial<UseAgentV2MessagesResult> = {}) => {
       useAgentV2MessagesMock.mockReturnValue({ ...result, ...overrides });
-      TeactDOM.render(<AgentV2Classic isActive animationLevel={0} />, root);
+      TeactDOM.render(<AgentV2Classic isActive animationLevel={0} target={target} />, root);
       await pause(20);
       const { conversation } = AgentConversationShellMock.mock.calls.at(-1)![0];
       TeactDOM.render(conversation.renderMessage(message, {
@@ -998,10 +1337,36 @@ describe('AgentV2Classic', () => {
     });
   });
 
+  it('shares the post of a listed news discussion in the language it was opened in, not the app\'s', async () => {
+    useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({ news: NEWS, messages: [NEWS_POST] }));
+    TeactDOM.render(
+      <AgentV2Classic
+        isActive
+        animationLevel={0}
+        target={{ kind: 'thread', threadId: 'news-thread', isNews: true, newsLocale: 'ru' }}
+      />,
+      root,
+    );
+    await pause(20);
+    const post = AgentConversationShellMock.mock.calls.at(-1)![0].conversation.renderMessage(NEWS_POST, {
+      shouldAnimateTextStreaming: false, isJustAdded: false,
+      onEditMessage: jest.fn(), onTextRevealProgress: jest.fn(), onRequestLiveTail: jest.fn(),
+    });
+    TeactDOM.render(<div>{post}</div>, root);
+    await pause(20);
+
+    root.querySelector('h3')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button: 2 }));
+    await pause(20);
+    Array.from(document.body.querySelectorAll('button')).find(({ textContent }) => textContent === 'Share')!.click();
+    expect(shareUrl).toHaveBeenCalledWith(
+      'https://my.tt/agent?news=5&lang=ru&utm_source=pulse_share', 'News headline', 'News headline',
+    );
+  });
+
   it.each([
     { url: 'https://example.com/news', canOpenSource: true },
     { url: 'javascript:alert(1)', canOpenSource: false },
-  ])('shares a news post with source $url', async ({ url, canOpenSource }) => {
+  ])('copies a news post\'s text and the link of its source $url', async ({ url, canOpenSource }) => {
     const news = {
       eventId: 5,
       headline: 'News headline',
@@ -1010,32 +1375,130 @@ describe('AgentV2Classic', () => {
       sources: [{ name: 'Source', url }],
     };
     TeactDOM.render(
-      <AgentNewsPost news={news} message={NEWS_POST} isDisabled={false} shouldShowFollowups={false} />, root,
+      <AgentNewsPost news={news} locale="ru" message={NEWS_POST} isDisabled={false} shouldShowFollowups={false} />,
+      root,
     );
     await pause(20);
 
-    // The post names its source in the line above the time, and its menu opens it too
-    expect(root.querySelector('time')!.previousElementSibling!.textContent).toBe('$agent_news_source');
+    // The post does not name its source, which opens from its menu
+    expect(root.querySelector('a')).toBeNull();
+    expect(root.textContent).not.toContain('Source');
     root.querySelector('h3')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button: 2 }));
     await pause(20);
 
     const buttons = Array.from(document.body.querySelectorAll('button'));
     expect(buttons.map(({ textContent }) => textContent)).toEqual([
-      ...(canOpenSource ? ['$agent_news_open_source'] : []),
+      ...(canOpenSource ? ['$agent_news_sources'] : []),
       'Copy',
       'Share',
     ]);
+    buttons.find(({ textContent }) => textContent === 'Copy')!.click();
+    expect(copyAgentText).toHaveBeenCalledWith('News headline\n\nComplete news body');
+    expect(shareUrl).not.toHaveBeenCalled();
+    // Share sends the headline and the link of the news in the language the discussion shows it in
     buttons.find(({ textContent }) => textContent === 'Share')!.click();
     expect(shareUrl).toHaveBeenCalledWith(
-      canOpenSource ? url : undefined,
-      news.headline,
-      canOpenSource ? undefined : `News headline\n\nComplete news body\n\n${url}`,
+      'https://my.tt/agent?news=5&lang=ru&utm_source=pulse_share', 'News headline', 'News headline',
     );
     if (canOpenSource) {
+      // With a pointer, Sources shows the sources in a menu beside it, each opening its link
       buttons[0].click();
+      await pause(20);
+      expect(buttons[0].getAttribute('aria-expanded')).toBe('true');
+      const menus = Array.from(document.body.querySelectorAll('.menu-bubble'));
+      expect(menus.at(-1)!.textContent).toBe('Source');
+      menus.at(-1)!.querySelector('button')!.click();
       expect(openUrl).toHaveBeenCalledTimes(1);
       expect(openUrl).toHaveBeenCalledWith(url);
     }
+  });
+
+  describe('support request', () => {
+    async function renderChat(overrides: Partial<UseAgentV2MessagesResult> = {}, hasWallet = true) {
+      const messagesResult = buildMessagesResult(overrides);
+      useAgentV2MessagesMock.mockReturnValue(messagesResult);
+      TeactDOM.render(
+        <AgentV2Classic
+          isActive
+          animationLevel={0}
+          hasWallet={hasWallet}
+          target={{ kind: 'thread', threadId: 'thread-1' }}
+        />,
+        root,
+      );
+      await pause(20);
+      return messagesResult;
+    }
+
+    function getShellProps() {
+      return AgentConversationShellMock.mock.calls.at(-1)![0];
+    }
+
+    async function openSheet() {
+      getShellProps().actions.onRequestSupport!('header');
+      await pause(50);
+      return {
+        text: portals.querySelector('p')?.textContent,
+        cancel: findPortalButton('Cancel')!,
+        call: findPortalButton('$agent_support_confirm_action')!,
+      };
+    }
+
+    function findPortalButton(text: string) {
+      return [...portals.querySelectorAll('button')].find(({ textContent }) => textContent === text);
+    }
+
+    it('keeps support in the header of an empty chat whose hints did not load', async () => {
+      await renderChat({
+        messages: [], hints: undefined, isSupportRequestVisible: true, canRequestSupport: true,
+      });
+      expect(getShellProps().conversation.hints).toBeUndefined();
+      expect(getShellProps().actions.onRequestSupport).toBeDefined();
+      expect(getShellProps().header!.canRequestSupport).toBe(true);
+    });
+
+    it('offers support in the header while the chat shows it and enables it while the chat can call it', async () => {
+      await renderChat({ canRequestSupport: false });
+      expect(getShellProps().actions.onRequestSupport).toBeDefined();
+      expect(getShellProps().header!.canRequestSupport).toBe(false);
+
+      await renderChat({ isSupportRequestVisible: false });
+      expect(getShellProps().actions.onRequestSupport).toBeUndefined();
+    });
+
+    it('asks before calling support from the header', async () => {
+      const messagesResult = await renderChat();
+
+      const sheet = await openSheet();
+      expect(portals.textContent).toContain('$agent_support_confirm_title');
+      expect(sheet.text).toBe('$agent_support_confirm_text');
+      sheet.cancel.click();
+      await pause(50);
+      expect(messagesResult.requestSupport).not.toHaveBeenCalled();
+
+      (await openSheet()).call.click();
+      expect(messagesResult.requestSupport).toHaveBeenCalledTimes(1);
+      expect(messagesResult.requestSupport).toHaveBeenCalledWith('header');
+    });
+
+    it('sends nothing once the chat cannot call support with the sheet open', async () => {
+      const messagesResult = await renderChat();
+      await openSheet();
+
+      await renderChat({ requestSupport: messagesResult.requestSupport, canRequestSupport: false });
+      const call = findPortalButton('$agent_support_confirm_action')!;
+      expect(call.disabled).toBe(true);
+      call.click();
+      expect(messagesResult.requestSupport).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['without consent', { isConsentAccepted: false }, true],
+      ['without a wallet', {}, false],
+    ] as const)('tells that the operator gets no addresses %s', async (_, overrides, hasWallet) => {
+      await renderChat(overrides, hasWallet);
+      expect((await openSheet()).text).toBe('$agent_support_confirm_text_no_wallet');
+    });
   });
 });
 
@@ -1063,9 +1526,12 @@ function buildMessagesResult(overrides: Partial<UseAgentV2MessagesResult> = {}):
     isHistoryCached: false,
     isOpenedWithCachedHistory: false,
     hasPendingQuestion: false,
-    canEditMessages: true,
     isInputDisabled: false,
+    isSendDisabled: false,
+    isSendQueued: false,
+    queuedMessageCount: 0,
     isMessageRegenerable: () => false,
+    isMessageEditable: () => false,
     isRunActive: false,
     canStopRun: false,
     stopRun: jest.fn(),
@@ -1074,11 +1540,15 @@ function buildMessagesResult(overrides: Partial<UseAgentV2MessagesResult> = {}):
     isLoadingOlderMessages: false,
     isConsentAccepted: true,
     checkConsentAgain: jest.fn(),
+    prepareSend: jest.fn(() => Promise.resolve(true)),
     composerStatus: { kind: 'capacity', mode: 'degraded' },
     loadOlderMessages: jest.fn(() => Promise.resolve()),
     retryHistory: jest.fn(),
     sendMessage: jest.fn(),
     sendHint: jest.fn(),
+    requestSupport: jest.fn(),
+    isSupportRequestVisible: true,
+    canRequestSupport: true,
     sendFollowup: jest.fn(),
     clearChat: jest.fn(),
     cancelPendingRequests: jest.fn(() => Promise.resolve(undefined)),

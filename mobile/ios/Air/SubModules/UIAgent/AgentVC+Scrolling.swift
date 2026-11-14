@@ -392,6 +392,66 @@ extension AgentVC: AgentChatListScrolling {
         return VisibleRowAnchor(itemID: anchor.itemID, isDateHeader: false, minY: anchor.frame.minY, offsetY: offsetY)
     }
 
+    /// Notes support taking or leaving the chat. Support taking a chat over a pinned question leaves the question, its
+    /// reserve and the rows that came with the switch where they are; a row after them lets the question go, and the
+    /// list follows new rows from then on, as `noLiveTail` does in Classic.
+    func updateSupportFollowState() {
+        let isActive = model.isSupportActive
+        defer { wasSupportActive = isActive }
+        guard isActive else {
+            supportFollowResumeItemID = nil
+            return
+        }
+        if !wasSupportActive, pinnedUserMessageID != nil {
+            supportFollowResumeItemID = model.itemIDs.last
+        } else if let resumeItemID = supportFollowResumeItemID, model.itemIDs.last != resumeItemID {
+            supportFollowResumeItemID = nil
+            pinnedUserMessageID = nil
+        }
+    }
+
+    /// While support has the chat, the list follows its end as a messenger does: a new row that ends below the screen
+    /// is brought into view. A sent message is taken to the end whatever the list showed. The reserve a question pinned
+    /// before held goes as far as the list no longer needs it there. `completion` runs once the list is there.
+    func followLatestInSupport(isSent: Bool, then completion: (() -> Void)? = nil) {
+        collectionView.layoutIfNeeded()
+        let finish = { [weak self] in
+            guard let self else { return }
+            self.trimReserveSpacerPreservingOffset()
+            self.lastKnownNearBottom = self.isNearBottom()
+            self.updateScrollToBottomButtonVisibility(animated: false)
+            completion?()
+        }
+        guard let targetOffsetY = latestRowBottomOffsetY(),
+              isSent ? abs(targetOffsetY - collectionView.contentOffset.y) > 0.5
+                  : targetOffsetY > collectionView.contentOffset.y + 0.5 else {
+            finish()
+            return
+        }
+        guard view.window != nil, !UIAccessibility.isReduceMotionEnabled else {
+            listScrollAnimator.stop()
+            collectionView.setContentOffset(CGPoint(x: collectionView.contentOffset.x, y: targetOffsetY), animated: false)
+            finish()
+            return
+        }
+        collectionView.isScrollingToLatest = true
+        listScrollAnimator.scroll(to: { [weak self] in self?.latestRowBottomOffsetY() }) { [weak self] _ in
+            guard let self else { return }
+            if self.collectionView.isScrollingToLatest {
+                self.collectionView.isScrollingToLatest = false
+                self.listDidEndScrollingToLatest()
+            }
+            finish()
+        }
+    }
+
+    /// The offset that puts the latest row's bottom just above what covers the list's bottom
+    private func latestRowBottomOffsetY() -> CGFloat? {
+        guard let indexPath = lastItemIndexPath,
+              let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return nil }
+        return clampedContentOffsetY(frame.maxY - collectionView.bounds.height + occlusionBottomInset)
+    }
+
     func trimReserveSpacerPreservingOffset() {
         collectionView.layoutIfNeeded()
         let offsetY = collectionView.contentOffset.y

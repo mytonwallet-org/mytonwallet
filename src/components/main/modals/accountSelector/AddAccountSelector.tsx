@@ -1,6 +1,7 @@
 import React, { memo } from '../../../../lib/teact/teact';
 
 import buildClassName from '../../../../util/buildClassName';
+import getTestId from '../../../../util/getTestId';
 import { toNativeDigits } from '../../../../util/nativeDigits';
 import { IS_LEDGER_SUPPORTED } from '../../../../util/windowEnvironment';
 
@@ -62,6 +63,7 @@ function AddAccountSelector({
           label={lang('New Wallet')}
           description={lang('From new secret words')}
           isLoading={!isNewAccountImporting && isLoading}
+          testId={getTestId('add_wallet_create')}
           onClick={onNewAccountClick}
         />
         {canAddSubwallet && (
@@ -81,6 +83,7 @@ function AddAccountSelector({
           icon="key"
           label={lang('$secret_words')}
           description={toNativeDigits(lang('Restore wallet from 12 or 24 words'))}
+          testId={getTestId('add_wallet_secret_words')}
           onClick={onImportAccountClick}
           isLoading={isNewAccountImporting && isLoading}
         />
@@ -89,6 +92,7 @@ function AddAccountSelector({
             icon="ledger-alt"
             label={lang('Ledger')}
             description={lang('Connect your hardware wallet')}
+            testId={getTestId('add_wallet_ledger')}
             onClick={onImportHardwareWalletClick}
           />
         )}
@@ -99,6 +103,7 @@ function AddAccountSelector({
           icon="wallet-view"
           label={lang('View Any Address')}
           description={lang('Watch wallet in read-only mode')}
+          testId={getTestId('add_wallet_view')}
           onClick={onViewModeWalletClick}
         />
       </div>

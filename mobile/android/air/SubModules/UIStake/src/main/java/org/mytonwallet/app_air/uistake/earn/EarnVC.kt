@@ -273,6 +273,7 @@ class EarnVC(
 
     private val notItemButton: WButton by lazy {
         val label = WButton(context, WButton.Type.SECONDARY)
+        label.id = R.id.earn_how_it_works
         label.textAlignment = View.TEXT_ALIGNMENT_CENTER
         label.text =
             LocaleController.getString("How does it work?")

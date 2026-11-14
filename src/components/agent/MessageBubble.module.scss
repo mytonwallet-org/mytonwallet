@@ -111,7 +111,7 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   margin-inline-end: 0.5rem;
   border-end-end-radius: 0;
 
-  color: #FFF;
+  color: var(--color-accent-button-text);
 
   background-color: var(--color-accent);
 
@@ -130,7 +130,7 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 
 .incoming {
   --color-dot: var(--color-gray-1);
-  --agent-reveal-edge-background: var(--color-activity-gray-background);
+  --agent-reveal-edge-background: var(--agent-bubble-background);
   --agent-code-background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   --agent-table-header-background: rgba(0, 0, 0, 0.05);
   // The answer takes the place of the activity indicator, so it fades in where it stands instead of sliding up
@@ -145,7 +145,7 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 
   color: var(--color-black);
 
-  background-color: var(--color-activity-gray-background);
+  background-color: var(--agent-bubble-background);
 
   // The corner under the tail squares again as the tail grows back over it
 
@@ -383,11 +383,11 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 
   // The tail fades away and back where it stands, at the suggestions' pace, as on iOS
   .incoming {
-    transition: border-end-start-radius agentBubble.$tailAwayTransition;
+    @include mixins.transition(border-end-start-radius agentBubble.$tailAwayTransition);
   }
 
   .incoming::after {
-    transition: opacity agentBubble.$tailAwayTransition;
+    @include mixins.transition(opacity agentBubble.$tailAwayTransition);
   }
 
   .incoming.tailless::after {
@@ -478,6 +478,13 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   @include agentMenu.contextMenu;
 
   padding-block: 0.5rem 0.25rem !important;
+}
+
+// A news menu's sources beside it, as the menu without its header: as far from the first source as from the last
+.subMenu {
+  @include agentMenu.contextMenu;
+
+  padding-block: 0.25rem !important;
 }
 
 // The suggestions under an answer lifted over the menu's tint stay as dim as the rest of the chat

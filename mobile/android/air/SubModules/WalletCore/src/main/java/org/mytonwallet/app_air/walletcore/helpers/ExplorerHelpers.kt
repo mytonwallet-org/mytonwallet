@@ -95,6 +95,12 @@ class ExplorerHelpers {
             return uriBuilder.build().toString()
         }
 
+        fun buildAgentNewsShareUrl(eventId: Int, locale: String): String {
+            val language = if (locale.startsWith("ru")) "ru" else "en"
+            return "https://${ApplicationContextHolder.universalShortUrlHost}/agent" +
+                "?news=$eventId&lang=$language&utm_source=pulse_share"
+        }
+
         fun getgemsUrl(network: MBlockchainNetwork): String = MMarketplace.Getgems.homeUrl(network)
 
         fun getMtwCardsUrl(network: MBlockchainNetwork): String =

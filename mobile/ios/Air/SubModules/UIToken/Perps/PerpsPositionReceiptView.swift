@@ -29,7 +29,7 @@ struct PerpsPositionReceiptView: View {
             VStack(spacing: data.event.isLiquidated ? 20 : 16) {
                 VStack(spacing: presentation.detailsExpanded && !data.event.isLiquidated ? 8 : 4) {
                     if case .balanceWithdrawal(let withdrawal) = data.event {
-                        PerpsBalanceWithdrawalSummaryView(data: withdrawal, showsCaption: false, accessibilityPrefix: "perps.receipt")
+                        PerpsWithdrawalSummaryView(amount: withdrawal.receiveAmount, accessibilityPrefix: "perps.receipt")
                     } else {
                         PerpsPositionSummaryView(token: data.token, direction: data.direction, leverage: data.leverage,
                                                  margin: presentation.detailsExpanded ? data.expandedSummaryAmount : data.summaryAmount,
@@ -70,6 +70,7 @@ struct PerpsPositionReceiptView: View {
                 }
             }
             .contentTransition(.numericText())
+            .alignedToHostTop()
         }
     }
 

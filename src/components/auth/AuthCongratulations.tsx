@@ -4,6 +4,7 @@ import { getActions } from '../../global';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
+import getTestId from '../../util/getTestId';
 import { vibrateOnSuccess } from '../../util/haptics';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -68,7 +69,9 @@ function AuthCongratulations({
         nonInteractive
         className={styles.sticker}
       />
-      <div className={styles.title}>{lang('All Set!')}</div>
+      <div className={styles.title} data-testid={isActive ? getTestId('wallet_added_title') : undefined}>
+        {lang('All Set!')}
+      </div>
       <div className={styles.info}>
         <p><b>{getInfo()}</b></p>
         <p>{renderText(lang('$wallet_done_description'))}</p>
@@ -77,6 +80,7 @@ function AuthCongratulations({
       <div className={styles.buttons}>
         <Button
           isPrimary
+          testId={isActive ? getTestId('wallet_added_open') : undefined}
           className={styles.btn}
           onClick={handleClick}
         >

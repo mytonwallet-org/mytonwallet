@@ -273,6 +273,9 @@ object TokenStore : IStore {
             token.percentChange24hReal = cached.percentChange24hReal
             token.percentChange24h = cached.percentChange24h
         }
+        if (token.precision == null) {
+            token.precision = cached.precision
+        }
     }
 
     fun onBridgeReady() {
@@ -325,6 +328,7 @@ object TokenStore : IStore {
         color = color,
         codeHash = codeHash,
         label = label,
+        precision = precision,
         priceUsd = priceUsd,
         percentChange24h = percentChange24h
     )

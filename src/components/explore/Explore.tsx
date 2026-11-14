@@ -10,6 +10,7 @@ import { ANIMATED_STICKER_BIG_SIZE_PX, IS_TELEGRAM_APP } from '../../config';
 import { selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
+import getTestId from '../../util/getTestId';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { captureControlledSwipe } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
@@ -174,6 +175,7 @@ function Explore({
           <div className={styles.slideWrapper}>
             <div
               className={buildClassName(styles.slide, 'custom-scroll')}
+              data-testid={isContentActive ? getTestId('explore_list') : undefined}
             >
               {IS_TELEGRAM_APP && isPortrait && <h1 className={styles.title}>{lang('Explore')}</h1>}
               {!isPortrait && (

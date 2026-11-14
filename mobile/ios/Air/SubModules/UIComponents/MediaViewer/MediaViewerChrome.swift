@@ -1,3 +1,4 @@
+import ContextMenuKit
 import UIKit
 import WalletContext
 
@@ -8,6 +9,8 @@ extension MediaViewer {
         public let date: String?
         public let caption: NSAttributedString?
         public let actions: [Action]
+        /// The button at the header's trailing end, which opens a menu
+        public let menu: Menu?
         /// A tap on a link in the caption
         public let onLinkTap: ((URL) -> Void)?
 
@@ -15,12 +18,27 @@ extension MediaViewer {
             date: String?,
             caption: NSAttributedString?,
             actions: [Action],
+            menu: Menu? = nil,
             onLinkTap: ((URL) -> Void)? = nil
         ) {
             self.date = date
             self.caption = caption
             self.actions = actions
+            self.menu = menu
             self.onLinkTap = onLinkTap
+        }
+    }
+
+    /// A header button that opens a menu under it, as the back button stands at the other end
+    public struct Menu {
+        public let title: String
+        public let image: UIImage?
+        public let makeConfiguration: () -> ContextMenuConfiguration?
+
+        public init(title: String, image: UIImage?, makeConfiguration: @escaping () -> ContextMenuConfiguration?) {
+            self.title = title
+            self.image = image
+            self.makeConfiguration = makeConfiguration
         }
     }
 
@@ -244,8 +262,8 @@ final class MediaViewerButtonGroup: UIView {
 }
 
 /// Telegram's gallery header (`GalleryControllerNode` with `GalleryTitleView`): the back button in the bar's 44 pt row
-/// under the status bar, and a capsule in the middle with "N of M" over the picture's date, or the date alone for a
-/// single picture
+/// under the status bar, a capsule in the middle with "N of M" over the picture's date, or the date alone for a single
+/// picture, and a picture's menu button at the trailing end
 @MainActor
 final class MediaViewerHeaderView: MediaViewerPassthroughView {
     /// The bar's height under the status bar
@@ -257,6 +275,13 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
     static let subtitleFont = UIFont.systemFont(ofSize: 12)
 
     let backGroup = MediaViewerButtonGroup()
+    let menuGroup = MediaViewerButtonGroup()
+    /// What the menu button opens for the picture shown
+    private(set) var makeMenuConfiguration: (() -> ContextMenuConfiguration?)?
+    /// The menu grows out of its glass button, as the app's other glass buttons open theirs
+    private lazy var menuInteraction = ContextMenuInteraction(triggers: [], presentationMode: .zoomPopover) { [weak self] _ in
+        self?.makeMenuConfiguration?()
+    }
     let titleGlass = WGlassView(cornerRadius: nil)
     /// The capsule's first line: "N of M", or the date of a single picture
     let titleLabel = MediaViewerAnimatedLabel()
@@ -278,6 +303,8 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
             handler: { _ in onBack() }
         )])
         addSubview(backGroup)
+        menuGroup.isHidden = true
+        addSubview(menuGroup)
 
         titleLabel.font = Self.titleFont
         titleLabel.textColor = .white
@@ -308,13 +335,38 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
         setNeedsLayout()
     }
 
+    /// Shows the menu button for `menu`, or hides it without one
+    func configureMenu(_ menu: MediaViewer.Menu?) {
+        makeMenuConfiguration = menu?.makeConfiguration
+        menuGroup.isHidden = menu == nil
+        guard let menu, menuGroup.buttons.first?.accessibilityLabel != menu.title else { return }
+        menuGroup.setItems([.init(
+            title: menu.title,
+            image: menu.image,
+            symbolConfiguration: nil,
+            identifier: "MediaViewerMenu",
+            handler: { [weak self] _ in self?.menuInteraction.present() }
+        )])
+        if let button = menuGroup.buttons.first {
+            menuInteraction.attach(to: button)
+        }
+    }
+
     /// Lays the header out in `bounds` of the viewer, the bar's height under the status bar, with its row of buttons
-    /// from `rowY` and the back button `leadingInset` from the safe area's leading edge, 16 pt by default
+    /// from `rowY`, the back button `leadingInset` from the safe area's leading edge, 16 pt by default, and the menu
+    /// button 16 pt from its trailing edge
     func layout(safeArea: UIEdgeInsets, rowY: CGFloat, leadingInset: CGFloat?, isRightToLeft: Bool) {
         let size = MediaViewerButtonGroup.itemSize
         let inset = (isRightToLeft ? safeArea.right : safeArea.left) + (leadingInset ?? Self.sideInset)
         backGroup.frame = CGRect(
             x: isRightToLeft ? bounds.width - inset - size : inset,
+            y: rowY,
+            width: size,
+            height: size
+        )
+        let trailingInset = (isRightToLeft ? safeArea.left : safeArea.right) + Self.sideInset
+        menuGroup.frame = CGRect(
+            x: isRightToLeft ? trailingInset : bounds.width - trailingInset - size,
             y: rowY,
             width: size,
             height: size
@@ -341,6 +393,7 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
     func setShown(_ isShown: Bool) {
         self.isShown = isShown
         backGroup.glassView.setMaterialized(isShown)
+        menuGroup.glassView.setMaterialized(isShown)
         titleGlass.setMaterialized(isShown)
         accessibilityElementsHidden = !isShown
     }
@@ -348,7 +401,9 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
     /// The header's controls, which take touches while the header shows
     func containsControl(at point: CGPoint) -> Bool {
         guard isShown else { return false }
-        return backGroup.frame.contains(point) || (hasTitle && titleGlass.frame.contains(point))
+        return backGroup.frame.contains(point)
+            || (!menuGroup.isHidden && menuGroup.frame.contains(point))
+            || (hasTitle && titleGlass.frame.contains(point))
     }
 }
 

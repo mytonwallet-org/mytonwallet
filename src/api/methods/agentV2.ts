@@ -17,6 +17,7 @@ export {
   getAgentV2NewsFeed,
   getAgentV2ProblemReportAvailability,
   getAgentV2RuntimeStatus,
+  getAgentV2StarterHints,
   getAgentV2UserQuota,
   listAgentV2Threads,
   reportAgentV2Problem,
@@ -32,6 +33,7 @@ export {
 } from '../agentV2/service';
 export type {
   AgentV2ActionPresentation,
+  AgentV2HintWalletState,
   AgentV2HostContextSnapshot,
   AgentV2MutationError,
   AgentV2MutationResult,
@@ -39,6 +41,7 @@ export type {
   AgentV2ResolvedAction,
   AgentV2RunCommand,
   AgentV2RuntimeStatus,
+  AgentV2StarterHints,
   AgentV2ThreadUpdate,
   AgentV2Transcription,
 } from '../agentV2/types';

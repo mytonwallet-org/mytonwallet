@@ -135,11 +135,17 @@ class AgentMessageCell internal constructor(
     // The first like's and the first dislike's toasts, each once on this install. A toast still waiting holds this cell,
     // so it lives no longer than the cell does.
     private val reactionToasts = AgentReactionToasts(
-        isShown = { feedback ->
-            WGlobalStorage.getIsAgentFeedbackToastShown(feedback == AgentAnswerFeedback.LIKE)
+        isShown = { feedback, isOperator ->
+            WGlobalStorage.getIsAgentFeedbackToastShown(
+                feedback == AgentAnswerFeedback.LIKE,
+                isOperator
+            )
         },
-        markShown = { feedback ->
-            WGlobalStorage.setAgentFeedbackToastShown(feedback == AgentAnswerFeedback.LIKE)
+        markShown = { feedback, isOperator ->
+            WGlobalStorage.setAgentFeedbackToastShown(
+                feedback == AgentAnswerFeedback.LIKE,
+                isOperator
+            )
         }
     )
 
@@ -1264,7 +1270,12 @@ class AgentMessageCell internal constructor(
             // Choosing the answer's reaction again takes it back
             val feedback = option.takeUnless { it == message.feedback }
             val chosenCloud = cloud
-            val toast = reactionToasts.await(message.id, feedback, ::showFirstReactionToast)
+            val toast = reactionToasts.await(
+                message.id,
+                feedback,
+                message.operator != null,
+                ::showFirstReactionToast
+            )
             if (feedback != null && chosenCloud != null) {
                 startFlight(message.id, feedback, chosenCloud, toast)
             }

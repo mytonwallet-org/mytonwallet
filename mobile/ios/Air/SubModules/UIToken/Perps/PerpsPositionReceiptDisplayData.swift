@@ -178,6 +178,6 @@ public struct PerpsPositionReceiptDisplayData {
     public init(balanceWithdrawal: PerpsBalanceWithdrawalReviewDisplayData, timestamp: Int64) {
         self.init(token: balanceWithdrawal.token, direction: .long, leverage: 0, margin: PerpsFormatting.usd(nil),
                   timestamp: timestamp, positionSize: "", price: "", liquidationPrice: nil,
-                  paymentAmount: balanceWithdrawal.receiveAmount, fee: "", event: .balanceWithdrawal(balanceWithdrawal))
+                  paymentAmount: balanceWithdrawal.formattedReceiveAmount, fee: "", event: .balanceWithdrawal(balanceWithdrawal))
     }
 }

@@ -74,14 +74,24 @@ public struct ApiSetNewsNotificationsProps: Encodable, Sendable {
     public let platform: NativePlatform
     public let langCode: String
     public let digestHour: Int
+    public let digestMinute: Int
     public let timeZone: String
 
-    public init(mode: AgentNewsNotificationSettings.Mode, userToken: String, platform: NativePlatform, langCode: String, digestHour: Int, timeZone: String) {
+    public init(
+        mode: AgentNewsNotificationSettings.Mode,
+        userToken: String,
+        platform: NativePlatform,
+        langCode: String,
+        digestHour: Int,
+        digestMinute: Int,
+        timeZone: String
+    ) {
         self.mode = mode
         self.userToken = userToken
         self.platform = platform
         self.langCode = langCode
         self.digestHour = digestHour
+        self.digestMinute = digestMinute
         self.timeZone = timeZone
     }
 }

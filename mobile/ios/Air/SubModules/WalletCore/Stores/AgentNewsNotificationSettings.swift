@@ -15,24 +15,31 @@ public final class AgentNewsNotificationSettings {
     }
 
     public static let shared = AgentNewsNotificationSettings()
+    /// The digest's minutes the server sends it at
+    public static let digestMinutes = [0, 15, 30, 45]
     private static let storageKey = "agent-mypulse-notifications"
 
-    private struct Applied: Codable, Equatable {
+    fileprivate struct Applied: Codable, Equatable {
         let mode: Mode
         let userToken: String
         let langCode: String
         let digestHour: Int
+        let digestMinute: Int
         let timeZone: String
     }
 
-    private struct State: Codable {
+    fileprivate struct State: Codable {
         var mode: Mode = .off
         var digestHour: Int = 21
+        var digestMinute: Int = 0
+        var newsFeedView: String?
         var applied: Applied?
     }
 
     public private(set) var mode: Mode
     public private(set) var digestHour: Int
+    public private(set) var digestMinute: Int
+    public private(set) var newsFeedView: ApiAgentV2NewsFeedView
     private var applied: Applied?
     private let userDefaults: UserDefaults
     private let getToken: () -> String?
@@ -61,7 +68,14 @@ public final class AgentNewsNotificationSettings {
         let state = userDefaults.data(forKey: Self.storageKey).flatMap { try? JSONDecoder().decode(State.self, from: $0) } ?? State()
         mode = state.mode
         digestHour = state.digestHour
+        digestMinute = state.digestMinute
+        newsFeedView = state.newsFeedView.flatMap(ApiAgentV2NewsFeedView.init(rawValue:)) ?? .all
         applied = state.applied
+    }
+
+    public func setNewsFeedView(_ view: ApiAgentV2NewsFeedView) {
+        newsFeedView = view
+        save()
     }
 
     public func setMode(_ mode: Mode) async -> Outcome {
@@ -95,9 +109,10 @@ public final class AgentNewsNotificationSettings {
         }.value
     }
 
-    public func setDigestHour(_ hour: Int) async -> Outcome {
-        guard (0...23).contains(hour) else { return .failed }
+    public func setDigestTime(hour: Int, minute: Int) async -> Outcome {
+        guard (0...23).contains(hour), Self.digestMinutes.contains(minute) else { return .failed }
         digestHour = hour
+        digestMinute = minute
         save()
         return await enqueue { [self] in
             guard mode == .digest else { return .ok }
@@ -175,7 +190,7 @@ public final class AgentNewsNotificationSettings {
         do {
             guard try await apply(.init(
                 mode: mode, userToken: token, platform: .ios, langCode: candidate.langCode,
-                digestHour: candidate.digestHour, timeZone: candidate.timeZone
+                digestHour: candidate.digestHour, digestMinute: candidate.digestMinute, timeZone: candidate.timeZone
             )) else { return .failed }
             applied = candidate
             save()
@@ -186,11 +201,43 @@ public final class AgentNewsNotificationSettings {
     }
 
     private func makeApplied(_ mode: Mode, token: String) -> Applied {
-        Applied(mode: mode, userToken: token, langCode: language(), digestHour: digestHour, timeZone: timeZone())
+        Applied(
+            mode: mode, userToken: token, langCode: language(), digestHour: digestHour, digestMinute: digestMinute, timeZone: timeZone()
+        )
     }
 
     private func save() {
-        let state = State(mode: mode, digestHour: digestHour, applied: applied)
+        let state = State(
+            mode: mode, digestHour: digestHour, digestMinute: digestMinute, newsFeedView: newsFeedView.rawValue, applied: applied
+        )
         userDefaults.set(try? JSONEncoder().encode(state), forKey: Self.storageKey)
+    }
+}
+
+// A state saved before the digest took minutes has no minute, which is 0
+extension AgentNewsNotificationSettings.Applied {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            mode: try container.decode(AgentNewsNotificationSettings.Mode.self, forKey: .mode),
+            userToken: try container.decode(String.self, forKey: .userToken),
+            langCode: try container.decode(String.self, forKey: .langCode),
+            digestHour: try container.decode(Int.self, forKey: .digestHour),
+            digestMinute: try container.decodeIfPresent(Int.self, forKey: .digestMinute) ?? 0,
+            timeZone: try container.decode(String.self, forKey: .timeZone)
+        )
+    }
+}
+
+extension AgentNewsNotificationSettings.State {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            mode: try container.decode(AgentNewsNotificationSettings.Mode.self, forKey: .mode),
+            digestHour: try container.decode(Int.self, forKey: .digestHour),
+            digestMinute: try container.decodeIfPresent(Int.self, forKey: .digestMinute) ?? 0,
+            newsFeedView: try container.decodeIfPresent(String.self, forKey: .newsFeedView),
+            applied: try container.decodeIfPresent(AgentNewsNotificationSettings.Applied.self, forKey: .applied)
+        )
     }
 }

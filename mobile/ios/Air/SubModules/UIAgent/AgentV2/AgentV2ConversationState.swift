@@ -55,6 +55,8 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
     var id: String
     let threadId: String
     let role: ApiAgentV2MessageRole
+    let operatorAuthor: ApiAgentV2OperatorAuthor?
+    let supportEvent: AgentSupportEvent?
     let newsPost: Bool
     private(set) var content: AgentV2NativeMessageContent
     let createdAt: Date
@@ -66,12 +68,14 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
     var tables: [ApiAgentV2AnswerTable] = []
     var tableReferences: [ApiAgentV2AnswerTableReference] = []
     var links: [ApiAgentV2AnswerLink] = []
-    /// The server stores the answer as complete, so the user can rate it
+    /// The server stores the answer, or an operator's reply, as complete, so the user can rate it
     private(set) var isStoredAsComplete = false
     var feedback: ApiAgentV2AnswerFeedback?
 
     var text: String {
-        AgentV2AnswerTables.text(content.text, tables: tables, references: tableReferences, links: links)
+        if role == .operator { return content.text }
+        if let supportEvent { return supportEvent.text }
+        return AgentV2AnswerTables.text(content.text, tables: tables, references: tableReferences, links: links)
     }
 
     var contentKind: ApiAgentV2ContentKind {
@@ -86,6 +90,17 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         id = message.id
         threadId = message.threadId
         role = message.role
+        operatorAuthor = message.author
+        switch message.code {
+        case .supportRequested:
+            supportEvent = .supportRequested
+        case .operatorJoined:
+            supportEvent = message.author.map(AgentSupportEvent.operatorJoined)
+        case .supportClosed:
+            supportEvent = message.reason.map(AgentSupportEvent.supportClosed)
+        case nil:
+            supportEvent = nil
+        }
         newsPost = message.newsPost == true
         switch message.content {
         case .markdown(let markdown):
@@ -98,7 +113,7 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         case .semantic(let semantic):
             content = .semantic(semantic)
         case nil:
-            content = .markdown("")
+            content = .markdown(message.text ?? "")
         }
         createdAt = AgentV2DateParser.date(message.createdAt)
         status = AgentV2NativeMessageStatus(message.status)
@@ -114,7 +129,7 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
             )
         }
         followups = message.followups ?? []
-        isStoredAsComplete = message.role == .assistant && message.status == .complete
+        isStoredAsComplete = (message.role == .assistant || message.role == .operator) && message.status == .complete
         feedback = message.feedback
     }
 
@@ -131,6 +146,8 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         self.id = id
         self.threadId = threadId
         self.role = role
+        operatorAuthor = nil
+        supportEvent = nil
         newsPost = false
         content = contentKind == .markdown ? .markdown(text) : .semanticPending
         self.createdAt = createdAt
@@ -206,6 +223,38 @@ struct AgentV2ConversationState {
     mutating func prependMessages(_ messages: [AgentV2NativeMessage]) {
         let existingIds = Set(self.messages.map(\.id))
         self.messages = messages.filter { !existingIds.contains($0.id) } + self.messages
+    }
+
+    mutating func mergeLatestMessages(_ latestMessages: [AgentV2NativeMessage]) {
+        guard !latestMessages.isEmpty else { return }
+        var messageIndexById: [String: Int] = [:]
+        var tailIndex = 0
+        for (index, message) in messages.enumerated() {
+            messageIndexById[message.id] = index
+            if !message.id.hasPrefix("local-") { tailIndex = index + 1 }
+        }
+        var insertedIds = Set<String>()
+        var insertionsByIndex: [Int: [AgentV2NativeMessage]] = [:]
+        var anchorIndex = tailIndex
+        for message in latestMessages.reversed() {
+            if let index = messageIndexById[message.id] {
+                anchorIndex = index
+            } else if insertedIds.insert(message.id).inserted {
+                insertionsByIndex[anchorIndex, default: []].insert(message, at: 0)
+            }
+        }
+        guard !insertedIds.isEmpty else { return }
+        var mergedMessages: [AgentV2NativeMessage] = []
+        mergedMessages.reserveCapacity(messages.count + insertedIds.count)
+        for index in 0...messages.count {
+            mergedMessages.append(contentsOf: insertionsByIndex[index] ?? [])
+            if index < messages.count { mergedMessages.append(messages[index]) }
+        }
+        messages = mergedMessages
+    }
+
+    mutating func removeMessage(id: String) {
+        messages.removeAll { $0.id == id }
     }
 
     mutating func removeAllMessages() {

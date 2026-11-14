@@ -552,7 +552,9 @@ import UIToken
                 }
                 // Authentication must authorize this exact displayed quote, even if it expires while entering the code.
                 let reviewedQuote = quote
-                let outcome = await confirmReviewed(header: PerpsBalanceWithdrawalConfirmationHeader(data: data), from: screen) { [self] token in
+                let header = PerpsWithdrawalConfirmationHeader(amount: data.receiveAmount, title: lang("You Receive"),
+                                                              accessibilityPrefix: "perps.withdrawal.authentication")
+                let outcome = await confirmReviewed(header: header, from: screen) { [self] token in
                     try await store.executeBalanceWithdrawal(quote: reviewedQuote, enclaveToken: token)
                 } replacement: { [self] operation in
                     balanceWithdrawalReplacement(operation)
@@ -589,16 +591,22 @@ import UIToken
     }
 
     private func showFill(_ id: String, from origin: UIViewController) {
-        guard let fill = store.fill(accountId: context.accountId, id: id),
-              let asset = store.asset(named: fill.coin) else { return }
-        let operation = store.operations.values.first {
-            $0.accountId == context.accountId && $0.assetId == asset.id && $0.orderId != nil && $0.orderId == fill.oid
-        }
         let controller: PerpsPositionReceiptVC
-        if let operation, let receipt = makeOperationReceipt(operation, asset: asset) {
+        if let operationId = PerpsTradeActivity.failedOrderOperationID(activityID: id) {
+            guard let operation = store.operations[operationId], operation.accountId == context.accountId,
+                  let asset = asset(operation.assetId), let receipt = makeOperationReceipt(operation, asset: asset) else { return }
             controller = receipt
         } else {
-            controller = makeReceipt(data: PerpsSDKAdapter.receipt(fill: fill, asset: asset))
+            guard let fill = store.fill(accountId: context.accountId, id: id),
+                  let asset = store.asset(named: fill.coin) else { return }
+            let operation = store.operations.values.first {
+                $0.accountId == context.accountId && $0.assetId == asset.id && $0.orderId != nil && $0.orderId == fill.oid
+            }
+            if let operation, let receipt = makeOperationReceipt(operation, asset: asset) {
+                controller = receipt
+            } else {
+                controller = makeReceipt(data: PerpsSDKAdapter.receipt(fill: fill, asset: asset))
+            }
         }
         let navigation = WNavigationController(rootViewController: controller)
         controller.prepareForPresentation(from: origin)
@@ -612,7 +620,7 @@ import UIToken
             let data = receipt.data
             var lines = [data.title + " · " + data.token.name, data.timestamp.dateTimeString]
             if case .balanceWithdrawal(let withdrawal) = data.event {
-                lines += [lang("You Receive") + ": " + withdrawal.receiveAmount,
+                lines += [lang("You Receive") + ": " + withdrawal.formattedReceiveAmount,
                           lang("PerpsWithdrawalToWallet") + ": " + withdrawal.destination]
             } else {
                 lines += [data.positionSizeTitle + ": " + data.positionSize, lang("Price") + ": " + data.price]
@@ -698,7 +706,12 @@ import UIToken
         Task { [self] in
             do {
                 let amount = try await store.client.prepareWithdrawal(context.accountId, id)
-                let action = ProtectedAction<PerpsWithdrawalHeader, PerpsExecutionResult>(account: context.account,
+                let token = PerpsFormatting.hyperliquidUsdc
+                let header = PerpsWithdrawalConfirmationHeader(
+                    amount: TokenAmount(normalizedAmountValue(amount, digits: token.decimals), token),
+                    title: lang("PerpsWithdrawReleased"), description: lang("PerpsWithdrawDescription"),
+                    accessibilityPrefix: "perps.releasedWithdrawal.authentication")
+                let action = ProtectedAction<PerpsWithdrawalConfirmationHeader, PerpsExecutionResult>(account: context.account,
                     software: .custom { [self] token in
                         do {
                             let result = try await store.retryWithdrawal(operation: operation, enclaveToken: token)
@@ -708,7 +721,7 @@ import UIToken
                         } catch { return .resolved(.notCommitted(error)) }
                     }, hardware: nil,
                     confirmation: .init(title: lang("PerpsWithdrawReleased"),
-                        header: PerpsWithdrawalHeader(amount: amount), requiresFreshAuthentication: true))
+                        header: header, requiresFreshAuthentication: true))
                 _ = await ProtectedActionExecutor.execute(action, in: .init(screen))
             } catch { AppActions.showError(error: PerpsExecutionError(message: PerpsFormatting.error(error))) }
         }
@@ -790,7 +803,7 @@ import UIToken
 
 /// The chart period a market or position screen shows, and what has been read for each of its periods.
 @MainActor private final class PerpsChartSelection {
-    private(set) var period: ApiPriceHistoryPeriod = .day
+    private(set) var period = ApiPriceHistoryPeriod(rawValue: AppStorageHelper.selectedCurrentTokenPeriod()) ?? .day
     private let store: PerpsStore
     private let assetId: String
     private var finishedPeriods = Set<ApiPriceHistoryPeriod>()
@@ -817,6 +830,7 @@ import UIToken
     /// Selects a period and reads its chart. `onUpdate` runs at once, and after the read unless another period took over.
     func select(_ selected: ApiPriceHistoryPeriod, onUpdate: @escaping () -> Void) {
         period = selected
+        AppStorageHelper.save(currentTokenPeriod: selected.rawValue)
         freshPeriods.remove(selected)
         let request = UUID(); generation = request
         onUpdate()
@@ -842,15 +856,4 @@ private enum PerpsReviewedOutcome {
 private struct PerpsExecutionError: LocalizedError {
     let message: String
     var errorDescription: String? { message }
-}
-
-private struct PerpsWithdrawalHeader: ConfirmationContent {
-    let amount: String
-    var body: some View {
-        VStack(spacing: 12) {
-            Text(verbatim: amount + " USDC").textStyle(.screenTitle, content: .technical)
-            Text(lang("PerpsWithdrawDescription"))
-        }.padding(24)
-    }
-    var compactRepresentation: some View { body }
 }

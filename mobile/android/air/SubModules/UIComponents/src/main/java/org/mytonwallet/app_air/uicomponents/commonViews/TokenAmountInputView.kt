@@ -8,6 +8,7 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.text.method.DigitsKeyListener
 import android.view.Gravity
+import android.view.View
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
@@ -31,8 +32,13 @@ import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 @SuppressLint("ViewConstructor")
-class TokenAmountInputView(context: Context, private val isFirstItem: Boolean) :
-    WView(context),
+class TokenAmountInputView(
+    context: Context,
+    private val isFirstItem: Boolean,
+    amountEditTextId: Int = View.generateViewId(),
+    tokenSelectorId: Int = View.generateViewId(),
+    maxBalanceButtonId: Int = View.generateViewId()
+) : WView(context),
     Counter.Callback,
     WThemedView {
 
@@ -65,19 +71,19 @@ class TokenAmountInputView(context: Context, private val isFirstItem: Boolean) :
     }
 
     val maxBalanceButton = WTokenMaxButton(context).apply {
-        id = generateViewId()
+        id = maxBalanceButtonId
         visibility = GONE
     }
 
     val tokenSelectorView = WTokenSymbolIconView(context).apply {
-        id = generateViewId()
+        id = tokenSelectorId
         drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         defaultSymbol =
             LocaleController.getString("Select Token")
     }
 
     val amountEditText = WAmountEditText(context).apply {
-        id = generateViewId()
+        id = amountEditTextId
         hint = "0"
         isSingleLine = true
         gravity = Gravity.CENTER_VERTICAL or

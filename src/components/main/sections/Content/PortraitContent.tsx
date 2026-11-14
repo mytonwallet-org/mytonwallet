@@ -1,4 +1,3 @@
-import type { ElementRef } from '../../../../lib/teact/teact';
 import React, { memo, useRef } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
@@ -42,7 +41,6 @@ import styles from './Content.module.scss';
 const INTERSECTION_APPROXIMATION_VALUE_PX = 3 * REM;
 
 interface OwnProps {
-  ref?: ElementRef<HTMLDivElement>;
   isActive?: boolean;
   onTabsStuck?: (isStuck: boolean) => void;
   onStakedTokenClick: NoneToVoidFunction;
@@ -72,7 +70,6 @@ interface StateProps {
 }
 
 function PortraitContent({
-  ref,
   isActive,
   byChain,
   tokensCount,
@@ -94,8 +91,7 @@ function PortraitContent({
   onStakedTokenClick,
   onTabsStuck,
 }: OwnProps & StateProps) {
-  const localContainerRef = useRef<HTMLDivElement>();
-  const containerRef = ref ?? localContainerRef;
+  const containerRef = useRef<HTMLDivElement>();
   const tabsRef = useRef<HTMLDivElement>();
   const transitionRef = useRef<HTMLDivElement>();
 
@@ -340,6 +336,5 @@ export default memo(
         collectionTabs,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(PortraitContent),
 );

@@ -98,6 +98,237 @@ final class AgentChatKeyboardTests: XCTestCase {
         XCTAssertEqual(controller.reserveSpacerHeight, 0)
     }
 
+    /// A question the chat takes closes the keyboard as it goes, as on Android, and the field gives its text up
+    func testSentQuestionClosesTheKeyboard() async throws {
+        let chat = makeChat()
+        try await chat.waitForStableLayout()
+        let composer = chat.controller.composerView
+        let text = "What should I check before paying with crypto?"
+        composer.setDraftText(text, focus: true)
+        XCTAssertTrue(composer.isTextInputActive)
+
+        composer.onSend?()
+        XCTAssertFalse(composer.isTextInputActive, "The keyboard goes with the question")
+        XCTAssertEqual(composer.draftText ?? "", "")
+        let questionID = try XCTUnwrap(chat.model.itemIDs.last)
+        XCTAssertEqual(chat.model.message(for: questionID)?.text, text)
+        try await chat.waitForStableLayout()
+        XCTAssertFalse(composer.isTextInputActive)
+    }
+
+    /// A question sent while an answer is written waits for it at the chat's end, and closes the keyboard as one that
+    /// goes at once does
+    func testQuestionThatWaitsForTheAnswerClosesTheKeyboard() async throws {
+        let chat = makeChat()
+        try await chat.waitForStableLayout()
+        chat.backend.canSendMessages = false
+        chat.backend.context?.append(.typingIndicator(AgentTypingIndicator()), animated: false)
+        try await chat.waitForStableLayout()
+        let composer = chat.controller.composerView
+        let text = "And what about the fees?"
+        composer.setDraftText(text, focus: true)
+        XCTAssertTrue(composer.isTextInputActive)
+
+        composer.onSend?()
+        XCTAssertFalse(composer.isTextInputActive, "The keyboard goes with the question that waits")
+        XCTAssertEqual(composer.draftText ?? "", "")
+        let questionID = try XCTUnwrap(chat.model.itemIDs.last)
+        XCTAssertEqual(chat.model.message(for: questionID)?.text, text, "It waits after the answer being written")
+        try await chat.waitForStableLayout()
+        XCTAssertFalse(composer.isTextInputActive)
+    }
+
+    /// The field's text flies into the bubble of a question that waits wherever the list takes the bubble meanwhile, as
+    /// the list goes down with the keyboard the question closes
+    func testWaitingQuestionsTextFliesWithItsBubbleAsTheListMoves() async throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled, "Reduce Motion shows the bubble without a flight")
+        let chat = makeChat()
+        try await chat.waitForStableLayout()
+        chat.backend.canSendMessages = false
+        chat.backend.context?.append(.typingIndicator(AgentTypingIndicator()), animated: false)
+        try await chat.waitForStableLayout()
+        let controller = chat.controller
+        controller.composerView.setDraftText("And what about the fees?", focus: false)
+        chat.layout()
+        let shownViews = Set(controller.view.subviews.map { ObjectIdentifier($0) })
+
+        controller.composerView.onSend?()
+        let picture = try XCTUnwrap(
+            controller.view.subviews.last { !shownViews.contains(ObjectIdentifier($0)) },
+            "The field's text flies"
+        )
+        let questionID = try XCTUnwrap(chat.model.itemIDs.last)
+        let indexPath = try XCTUnwrap(controller.messageIndexPath(for: questionID))
+        let text = try XCTUnwrap(chat.collectionView.cellForItem(at: indexPath) as? AgentMessageCell).sentTextView
+        try await Task.sleep(for: .milliseconds(30))
+        let pictureY = picture.center.y
+        let textY = text.convert(text.bounds, to: controller.view).midY
+
+        chat.collectionView.contentOffset.y -= 40
+        try await Task.sleep(for: .milliseconds(60))
+        let textShift = text.convert(text.bounds, to: controller.view).midY - textY
+        XCTAssertGreaterThan(textShift, 30, "The list moved the bubble")
+        XCTAssertEqual(picture.center.y - pictureY, textShift, accuracy: 1, "The text flies with it")
+    }
+
+    /// The first question typed in a chat opened at its end, sent without scrolling, lands under what shows: the list
+    /// scrolls up over several frames, on its spring, until the question shows above the field as it stood, while the
+    /// field's text flies into the bubble and lands on its text wherever the list takes it, and the chat then brings
+    /// the question up
+    func testFirstQuestionInAChatOpenedAtItsEndFliesOutOfTheField() async throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled, "Reduce Motion shows the bubble without a flight")
+        let chat = makeChat()
+        try await chat.waitForStableLayout()
+        chat.backend.isThinkingOnSend = true
+        let controller = chat.controller
+        let collectionView = chat.collectionView
+        let composer = controller.composerView
+        composer.setDraftText("Тест", focus: true)
+        try await chat.waitForStableLayout()
+        XCTAssertTrue(controller.isNearBottom(), "The chat is at its end")
+        let offsetY = collectionView.contentOffset.y
+        let occlusion = controller.occlusionBottomInset
+        let shownViews = Set(controller.view.subviews.map { ObjectIdentifier($0) })
+        // Every offset the list takes, however seldom the test gets to look
+        let log = ContentOffsetLog()
+        let observation = collectionView.observe(\.contentOffset, options: [.new]) { _, change in
+            let newOffsetY = change.newValue?.y ?? 0
+            MainActor.assumeIsolated { log.offsets.append(newOffsetY) }
+        }
+        defer { observation.invalidate() }
+
+        composer.onSend?()
+        let picture = try XCTUnwrap(
+            controller.view.subviews.last {
+                !shownViews.contains(ObjectIdentifier($0))
+                    && $0.accessibilityIdentifier != AgentListScrollAnimator.departingViewIdentifier
+            },
+            "The field's text flies into the bubble"
+        )
+        let questionID = try XCTUnwrap(chat.model.itemIDs.last { chat.model.message(for: $0)?.role == .user })
+        XCTAssertEqual(chat.model.message(for: questionID)?.text, "Тест")
+        let indexPath = try XCTUnwrap(controller.messageIndexPath(for: questionID))
+        let text = try XCTUnwrap((collectionView.cellForItem(at: indexPath) as? AgentMessageCell)?.sentTextView)
+        XCTAssertEqual(collectionView.contentOffset.y, offsetY, accuracy: 0.5, "The list sets out from where it stood")
+
+        // Frame by frame through the flight, the picture's landing point, its place moved by the transform it flies
+        // by, is the bubble's text, within what the list moves between two looks
+        var previousOffsetY = collectionView.contentOffset.y
+        let deadline = ContinuousClock.now + .seconds(2)
+        while picture.superview != nil {
+            guard ContinuousClock.now < deadline else { throw AgentTestTimeout() }
+            try await Task.sleep(for: .milliseconds(16))
+            let currentOffsetY = collectionView.contentOffset.y
+            let textMidY = text.convert(text.bounds, to: controller.view).midY
+            XCTAssertEqual(
+                picture.center.y + picture.transform.ty,
+                textMidY,
+                accuracy: abs(currentOffsetY - previousOffsetY) + 1,
+                "The text flies onto the bubble's text"
+            )
+            previousOffsetY = currentOffsetY
+        }
+        observation.invalidate()
+        // Where the question shows whole above the field as it stood, which the list reaches before it brings the
+        // question up
+        let questionFrame = try XCTUnwrap(collectionView.layoutAttributesForItem(at: indexPath)).frame
+        let roomOffsetY = questionFrame.maxY - collectionView.bounds.height + occlusion
+        let distance = roomOffsetY - offsetY
+        XCTAssertGreaterThan(distance, 1, "The question landed under what showed")
+        let offsets = [offsetY] + log.offsets
+        let roomIndex = try XCTUnwrap(
+            offsets.firstIndex { abs($0 - roomOffsetY) < 1 },
+            "The list stops where the question shows whole above the field: \(offsets)"
+        )
+        let makingRoom = offsets[...roomIndex]
+        let largestStep = zip(makingRoom, makingRoom.dropFirst()).map { abs($1 - $0) }.max() ?? 0
+        XCTAssertLessThan(largestStep, distance * 0.75, "The list moves over several frames: \(makingRoom)")
+        XCTAssertGreaterThan(Set(makingRoom.map { Int($0.rounded()) }).count, 3, "\(makingRoom)")
+
+        let typingDeadline = ContinuousClock.now + .seconds(5)
+        while controller.lastTypingIndicatorID == nil {
+            guard ContinuousClock.now < typingDeadline else { throw AgentTestTimeout() }
+            try await Task.sleep(for: .milliseconds(16))
+            chat.layout()
+        }
+        try await chat.waitForStableLayout()
+        let pinnedOffsetY = try XCTUnwrap(controller.pinnedOffsetY(for: questionID))
+        XCTAssertEqual(
+            collectionView.contentOffset.y,
+            controller.clampedContentOffsetY(pinnedOffsetY),
+            accuracy: 1,
+            "Then the chat brings it up"
+        )
+    }
+
+    /// A question the chat turns down, as the hardware keyboard's Return sends it while nothing can go, keeps the
+    /// keyboard and the draft
+    func testTurnedDownQuestionKeepsTheKeyboard() async throws {
+        let chat = makeChat()
+        try await chat.waitForStableLayout()
+        chat.backend.canSendMessages = false
+        chat.backend.canAcceptMessages = false
+        let composer = chat.controller.composerView
+        let text = "What should I check before paying with crypto?"
+        composer.setDraftText(text, focus: true)
+        XCTAssertTrue(composer.isTextInputActive)
+        let itemIDs = chat.model.itemIDs
+
+        composer.onSend?()
+        try await chat.waitForStableLayout()
+        XCTAssertTrue(composer.isTextInputActive, "The keyboard stays")
+        XCTAssertEqual(composer.draftText, text)
+        XCTAssertEqual(chat.model.itemIDs, itemIDs, "Nothing went")
+    }
+
+    /// A question sent with the keyboard up, as a tapped suggestion, turns the trailing circle's microphone into Stop
+    /// while the keyboard it closes takes the composer down in the same pass: the leaving glyph shrinks away and the
+    /// arriving one grows in inside the circle, frame by frame, wherever the composer is
+    func testMicrophoneTurnsIntoStopInsideTheCircleAsTheKeyboardCloses() async throws {
+        let chat = makeChat()
+        let controller = chat.controller
+        // The composer stands where a keyboard holds it
+        controller.additionalSafeAreaInsets.bottom = 300
+        try await chat.waitForStableLayout()
+        let composer = controller.composerView
+        let microphone = try XCTUnwrap(findDescendants(of: composer).compactMap { $0 as? AgentDictationButton }.first)
+        let circle = try XCTUnwrap(microphone.superview, "The circle's content")
+        let raisedComposerY = composer.frame.minY
+
+        composer.setStopAvailable(true)
+        UIView.animate(withDuration: 0.35, delay: 0, options: [.curveEaseInOut]) {
+            controller.additionalSafeAreaInsets.bottom = 0
+            chat.window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+        }
+        XCTAssertGreaterThan(composer.frame.minY, raisedComposerY + 100, "The composer goes down")
+        XCTAssertFalse((composer.layer.animationKeys() ?? []).isEmpty, "In the keyboard's animation")
+        let leaving = try XCTUnwrap(composer.leavingActionGlyphView, "The microphone leaves")
+        XCTAssertTrue(leaving.isDescendant(of: circle), "As a view of the circle")
+        let arriving = try XCTUnwrap(
+            circle.subviews.compactMap { $0 as? UIImageView }.first { $0 !== leaving && !$0.isHidden },
+            "Stop comes"
+        )
+        XCTAssertFalse(arriving.image === leaving.image)
+        let start = CACurrentMediaTime()
+        var sampleCount = 0
+        while leaving.superview != nil, CACurrentMediaTime() - start < 1 {
+            for (glyph, name) in [(leaving, "The microphone"), (arriving, "Stop")] {
+                let frame = glyph.layer.presentation()?.frame ?? glyph.frame
+                XCTAssertTrue(
+                    circle.bounds.insetBy(dx: -0.5, dy: -0.5).contains(frame),
+                    "\(name) stays in the circle, at \(frame) in \(circle.bounds)"
+                )
+            }
+            sampleCount += 1
+            try await Task.sleep(for: .milliseconds(16))
+        }
+        XCTAssertGreaterThan(sampleCount, 1, "The swap takes several frames")
+        XCTAssertNil(leaving.superview, "The microphone is gone once it has shrunk away")
+        XCTAssertNil(composer.leavingActionGlyphView)
+        try await chat.waitForStableLayout()
+    }
+
     /// Applies `change` in the keyboard's animation time, then follows the list
     private func changeCoveredArea(in chat: AgentTestChat, _ change: @escaping () -> Void) async throws {
         let sampling = try await followCoveredArea(in: chat) {
@@ -185,4 +416,9 @@ final class AgentChatKeyboardTests: XCTestCase {
         addTeardownBlock { chat.close() }
         return chat
     }
+}
+
+@MainActor
+private final class ContentOffsetLog {
+    var offsets: [CGFloat] = []
 }

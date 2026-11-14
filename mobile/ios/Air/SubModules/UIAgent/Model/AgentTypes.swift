@@ -1,4 +1,5 @@
 import Foundation
+import WalletContext
 import WalletCore
 
 typealias AgentItemID = UUID
@@ -39,6 +40,19 @@ struct AgentHint: Decodable, Hashable {
     }
 }
 
+extension AgentHint {
+    private static let supportRequestID = "client.supportRequest"
+
+    /// Contact Support, which the client adds after the server's suggestions
+    static var supportRequest: AgentHint {
+        AgentHint(id: supportRequestID, title: lang("$agent_support_contact"), subtitle: "", prompt: "")
+    }
+
+    var isSupportRequest: Bool {
+        id == Self.supportRequestID
+    }
+}
+
 struct AgentMessageControl: Hashable {
     enum Kind: Hashable {
         case action
@@ -74,7 +88,47 @@ enum AgentMessageRenderingPolicy: Equatable {
     }
 }
 
+enum AgentSupportState: Equatable, Sendable {
+    case none
+    case waiting
+    case `operator`(ApiAgentV2OperatorAuthor?)
+    case closed
+
+    var isActive: Bool {
+        switch self {
+        case .waiting, .operator: true
+        case .none, .closed: false
+        }
+    }
+}
+
+enum AgentSupportEvent: Equatable, Sendable {
+    case supportRequested
+    case operatorJoined(ApiAgentV2OperatorAuthor)
+    case supportClosed(ApiAgentV2SupportClosedReason)
+
+    var text: String {
+        switch self {
+        case .supportRequested: lang("$agent_support_requested")
+        case .operatorJoined(let author): L10n.agentSupportOperatorJoined(name: author.name)
+        case .supportClosed(.operator): lang("$agent_support_closed_operator")
+        case .supportClosed(.inactivity): lang("$agent_support_closed_inactivity")
+        }
+    }
+
+    var isOperatorJoined: Bool {
+        if case .operatorJoined = self { return true }
+        return false
+    }
+}
+
 struct AgentMessage {
+    enum Author: Equatable, Sendable {
+        case user
+        case agent
+        case `operator`(ApiAgentV2OperatorAuthor)
+    }
+
     enum Role: String {
         case assistant
         case system
@@ -91,6 +145,12 @@ struct AgentMessage {
 
     let id: AgentItemID
     let role: Role
+    var author: Author
+    var supportEvent: AgentSupportEvent? = nil
+    var isPlainText = false
+    var isEditingDisabled = false
+    /// The author shows over the answer, as in a chat an operator has joined
+    var shouldShowAuthor = false
     var answerBlocks: [AgentMessageBlock]? = nil
     var text: String
     var timestamp: Date
@@ -122,6 +182,7 @@ struct AgentMessage {
     ) {
         self.id = id
         self.role = role
+        author = role == .user ? .user : .agent
         self.text = text
         self.timestamp = timestamp
         self.isStreaming = isStreaming

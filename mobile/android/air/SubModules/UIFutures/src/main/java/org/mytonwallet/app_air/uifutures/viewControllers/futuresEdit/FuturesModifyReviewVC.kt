@@ -394,7 +394,7 @@ class FuturesModifyReviewVC(
     private fun headerView() = if (change == FuturesPositionChange.CLOSE) {
         FuturesActivityHeaderView(
             context,
-            PerpsStore.assetsById[quote.assetId]?.image,
+            PerpsStore.assetsById[quote.assetId],
             quote.side,
             badgeText,
             quote.profitLoss?.toDoubleOrNull() ?: position?.pnl ?: 0.0,
@@ -403,7 +403,7 @@ class FuturesModifyReviewVC(
     } else {
         FuturesActivityHeaderView(
             context,
-            PerpsStore.assetsById[quote.assetId]?.image,
+            PerpsStore.assetsById[quote.assetId],
             quote.side,
             badgeText,
             newMargin,

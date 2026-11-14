@@ -5,9 +5,9 @@ import { type AllMethods, recognizeDappMethod } from '../../types/methods';
 import { throttle } from '../../../util/schedulers';
 import { isUpdaterAlive } from '../../common/helpers';
 import { getProtocolManager } from '../../dappProtocols';
-import { reportAndroidInstallation } from '../../methods/androidInstallation';
 import { syncAndroidWalletAttribution } from '../../methods/attribution';
 import init from '../../methods/init';
+import { reportNativeInstallation } from '../../methods/nativeInstallation';
 import { methods } from '../../methods/registry';
 import { createStorage, withStorage } from '../../storages';
 
@@ -25,6 +25,7 @@ export function createDirectApiConnector() {
     const args = typeof initArgs === 'function' ? initArgs() : initArgs;
 
     const isAndroidInstallation = Boolean(args.isAndroidApp);
+    const isNativeInstallation = isAndroidInstallation || Boolean(args.isIosApp);
     runtimeStorage = createStorage(args.storage);
     const targetStorage = runtimeStorage;
     const ready = withStorage(targetStorage, () => init(onUpdate, args));
@@ -36,7 +37,7 @@ export function createDirectApiConnector() {
     const report = throttle(async () => {
       clearTimeout(retryTimeout);
       if (!isAlive()) return;
-      const isAcknowledged = await reportAndroidInstallation(isAlive);
+      const isAcknowledged = await reportNativeInstallation(isAlive);
       if (!isAcknowledged && isAlive()) retryTimeout = setTimeout(report, INSTALLATION_RETRY_DELAY);
     }, () => Promise.resolve());
     const claim = throttle(async () => {
@@ -53,15 +54,13 @@ export function createDirectApiConnector() {
       clearTimeout(claimRetryTimeout);
     };
     requestReport = () => {
-      if (isAndroidInstallation && isAlive()) report();
+      if (isNativeInstallation && isAlive()) report();
     };
     requestWalletClaim = () => {
       if (isAndroidInstallation && isAlive()) claim();
     };
-    if (isAndroidInstallation) {
-      requestReport();
-      requestWalletClaim();
-    }
+    requestReport();
+    requestWalletClaim();
   }
 
   async function callApi<T extends keyof AllMethods>(

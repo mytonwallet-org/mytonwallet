@@ -154,6 +154,14 @@ class BigIntegerUtilsTest {
         assertEquals(0, BigInteger("123").smartDecimalsCount(0))
     }
 
+    @Test
+    fun smartDecimalsUsesPreferredPrecisionFloor() {
+        // 1.23456789 BTC (8 decimals) with preferred 4 keeps four fraction digits
+        assertEquals(4, BigInteger("123456789").smartDecimalsCount(8, 4))
+        // Cheap assets with preferred 0 show whole numbers only
+        assertEquals(0, BigInteger("123456789000").smartDecimalsCount(9, 0))
+    }
+
     // max
 
     @Test

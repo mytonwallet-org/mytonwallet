@@ -26,7 +26,7 @@ import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, TONCOIN 
 import { Big } from '../../../lib/big.js';
 import { parseTxId } from '../../../util/activities';
 import { getDoesUsePinPad } from '../../../util/biometrics';
-import { getChainConfig, getIsSupportedChain } from '../../../util/chain';
+import { getChainConfig, getEvmChains, getIsSupportedChain } from '../../../util/chain';
 import { fromDecimal, roundDecimal, toBig, toDecimal } from '../../../util/decimals';
 import { canAffordSwapEstimateVariant, shouldSwapBeGasless } from '../../../util/fee/swapFee';
 import generateUniqueId from '../../../util/generateUniqueId';
@@ -78,12 +78,11 @@ import {
   selectCurrentNetwork,
   selectCurrentSwapTokenIn,
   selectCurrentSwapTokenOut,
-  selectCurrentToncoinBalance,
   selectSwapRoute,
   selectSwapType,
   selectToken,
 } from '../../selectors';
-import { switchAccount } from './auth';
+import { getIsAccountSwitchCurrent, switchAccount } from './auth';
 
 const pairsCache: Record<string, { timestamp: number }> = {};
 
@@ -298,7 +297,8 @@ addActionHandler('switchSwapAccount', async (global, actions, { accountId }) => 
     isTradeAmountInToken,
   } = global.currentSwap;
 
-  await switchAccount(global, accountId);
+  const switchId = await switchAccount(global, accountId);
+  if (!getIsAccountSwitchCurrent(switchId)) return;
 
   global = getGlobal();
   setGlobal(updateCurrentSwap(global, {
@@ -868,10 +868,15 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
     const toAmount = global.currentSwap.amountOut ?? '0';
     const estimateAmount = global.currentSwap.inputSource === SwapInputSource.In ? { fromAmount } : { toAmount };
 
-    if (chain === 'ton') {
-      toncoinBalance = selectCurrentToncoinBalance(global);
+    const nativeBalance = selectCurrentAccountTokenBalance(global, nativeTokenIn.slug);
+    const isNativeFeeShort = nativeBalance
+      < fromDecimal(global.currentSwap.networkFee ?? '0', nativeTokenIn.decimals);
 
-      shouldTryDiesel = toncoinBalance < fromDecimal(global.currentSwap.networkFee ?? '0', nativeTokenIn.decimals);
+    if (chain === 'ton') {
+      toncoinBalance = nativeBalance;
+      shouldTryDiesel = isNativeFeeShort;
+    } else if (getEvmChains().includes(chain)) {
+      shouldTryDiesel = isNativeFeeShort;
     }
 
     // Same-chain quotes race DEX and CEX. CEX needs the payout address; the provider is left unset so the
@@ -911,6 +916,12 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
     };
   }
 
+  if (swapType !== SwapType.CrosschainToWallet && estimateRequest.fromAddress && getIsSupportedChain(tokenIn.chain)) {
+    const { slug, decimals } = getNativeToken(tokenIn.chain);
+    const balance = selectCurrentAccountState(global)?.balances?.bySlug[slug];
+    if (balance !== undefined) estimateRequest.nativeBalance = toDecimal(balance, decimals);
+  }
+
   const estimate = await callApi('swapEstimate', selectCurrentAccountId(global)!, estimateRequest);
 
   if (shouldStop()) return undefined;
@@ -940,6 +951,10 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
       estimateDebugSummary: estimate && 'debug' in estimate ? estimate.debug?.summary : undefined,
     };
   }
+
+  const { hint } = estimate;
+  const swapQuoteHint = hint?.type === 'oneToOne' || hint?.type === 'betterRate' || hint?.type === 'betterRateMinimum'
+    ? hint : undefined;
 
   if (estimate.route === 'dex') {
     if (!canUseBackendDexRoute) {
@@ -987,6 +1002,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
       ourFeePercent: dexEstimate.ourFeePercent,
       dieselFee: currentEstimate.dieselFee,
       route: 'dex',
+      swapQuoteHint,
       estimateDebugSummary: estimate.debug?.summary,
     };
   }
@@ -1054,6 +1070,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
       dieselStatus: 'not-available',
       amountOutMin: cexEstimate.toAmount,
       route: 'cex',
+      swapQuoteHint,
       errorType: Big(fromAmount).lt(cexEstimate.fromMin)
         ? SwapErrorType.ChangellyMinSwap
         : Big(fromAmount).gt(cexEstimate.fromMax)

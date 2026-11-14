@@ -61,7 +61,8 @@ private let log = Log("OnchainSwapEstimateEngine")
                 swapVersion: nil,
                 toncoinBalance: toncoinBalance,
                 walletVersion: account.version,
-                isFromAmountMax: isFromAmountMax
+                isFromAmountMax: isFromAmountMax,
+                nativeBalance: account.getNativeBalanceForEstimate(chain: selling.token.chain)
             )
 
             let response = try await SwapQuoteDiagnostics.step("quote") {
@@ -107,7 +108,8 @@ private let log = Log("OnchainSwapEstimateEngine")
                         swapVersion: nil,
                         toncoinBalance: nil,
                         walletVersion: nil,
-                        isFromAmountMax: true
+                        isFromAmountMax: true,
+                        nativeBalance: request.nativeBalance
                     )
                     let adjustedResponse = try await fetchEstimate(account.id, adjustedRequest)
                     try Task.checkCancellation()

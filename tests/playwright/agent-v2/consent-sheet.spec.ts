@@ -76,7 +76,7 @@ test.describe('Agent V2 consent sheet', () => {
     await page.getByRole('button', { name: /^News,/u }).click();
     await page.getByRole('button', { name: 'Discuss, Deterministic MyPulse headline', exact: true }).click();
 
-    // The discussion opens with its post and the composer, its thread made with the news reference alone
+    // The discussion opens with the feed's post and the composer, and creates its thread for the first question
     const post = page.locator('[data-agent-news-post-event-id="5"]');
     const allow = page.getByRole('button', { name: 'Allow the agent', exact: true });
     await expect(post).toBeVisible();
@@ -84,10 +84,6 @@ test.describe('Agent V2 consent sheet', () => {
     const isThreadCreated = ({ method, path }: { method: string; path: string }) => (
       method === 'POST' && path === '/api/v2/threads'
     );
-    await expect.poll(async () => (await agentV2.getState()).requests.filter(isThreadCreated).length).toBe(1);
-    expect((await agentV2.getState()).requests.find(isThreadCreated)?.body)
-      .toEqual({ protocolVersion: 3, news: { eventId: 5, locale: expect.any(String) } });
-
     const prompt = 'What does this news mean?';
     const composer = page.getByRole('textbox', { name: 'Ask anything', exact: true });
     await composer.fill(prompt);
@@ -102,12 +98,16 @@ test.describe('Agent V2 consent sheet', () => {
     await expect(composer).toHaveValue(prompt);
     await expect(composer).toBeFocused();
     expect((await agentV2.getState()).runBodies).toHaveLength(0);
+    expect((await agentV2.getState()).requests.filter(isThreadCreated)).toHaveLength(0);
 
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await allow.click();
     await expect(page.getByText(`Deterministic response: ${prompt}`, { exact: true })).toBeVisible();
     await expect(post).toHaveCount(1);
-    const { runBodies } = await agentV2.getState();
+    const { requests, runBodies } = await agentV2.getState();
+    expect(requests.filter(isThreadCreated)).toHaveLength(1);
+    expect(requests.find(isThreadCreated)?.body)
+      .toEqual({ protocolVersion: 3, news: { eventId: 5, locale: expect.any(String) } });
     expect(runBodies).toHaveLength(1);
     expect(runBodies[0]).toMatchObject({ input: { kind: 'append', message: { text: prompt } } });
   });

@@ -3,6 +3,7 @@ import { getActions } from '../../../../../global';
 
 import type { DropdownItem } from '../../../../ui/Dropdown';
 
+import getTestId from '../../../../../util/getTestId';
 import { vibrate } from '../../../../../util/haptics';
 
 import useContextMenuHandlers from '../../../../../hooks/useContextMenuHandlers';
@@ -22,11 +23,13 @@ const items: DropdownItem<MenuHandler>[] = [{
   name: 'Customize',
   fontIcon: 'menu-magic',
   value: 'customize',
+  testId: getTestId('wallets_menu_customize'),
 }, {
   name: 'Remove',
   fontIcon: 'menu-trash',
   value: 'remove',
   isDangerous: true,
+  testId: getTestId('wallets_menu_remove'),
 }];
 
 function useAccountContextMenu(ref: ElementRef<HTMLElement>, options: {

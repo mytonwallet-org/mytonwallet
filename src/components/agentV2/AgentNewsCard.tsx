@@ -1,6 +1,6 @@
 import React, { memo, useRef } from '../../lib/teact/teact';
 
-import type { AgentNewsFeedItemV2 } from '../../api/agentV2/protocol/types';
+import type { AgentNewsFeedItemV2, AgentNewsFeedLocaleV2 } from '../../api/agentV2/protocol/types';
 
 import buildClassName from '../../util/buildClassName';
 import { formatAgentTime } from '../agent/helpers/agentDateFormat';
@@ -17,6 +17,8 @@ import styles from './AgentNews.module.scss';
 
 interface OwnProps {
   item: AgentNewsFeedItemV2;
+  /** The feed page's language, which the card's shared link names */
+  locale?: AgentNewsFeedLocaleV2;
   /** The news came after the feed was shown, and fades in as a chat's new message does */
   isJustAdded?: boolean;
   /** The user has written in the news' discussion, which the card then offers to continue */
@@ -33,7 +35,7 @@ const CARD_SELECTOR = '[data-agent-news-event-id]';
  * foot, as a channel post's comments, on mobile. The day line above it dates it, so its foot tells the time alone.
  */
 function AgentNewsCard({
-  item, isJustAdded = false, isDiscussionContinued, onOpenDiscussion, onOpenPicture,
+  item, locale, isJustAdded = false, isDiscussionContinued, onOpenDiscussion, onOpenPicture,
 }: OwnProps) {
   const lang = useLang();
   const shouldAnimateAppearance = useRef(isJustAdded).current;
@@ -59,6 +61,7 @@ function AgentNewsCard({
       <div className={styles.cardColumn}>
         <AgentNewsBubble
           news={item}
+          locale={locale}
           time={formatAgentTime(lang.code ?? 'en', deliveredAt)}
           timeDateTime={item.deliveredAt}
           menuTimestamp={deliveredAt}

@@ -1,12 +1,7 @@
 import React, { memo } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../global';
 
-import type { Theme } from '../../../../global/types';
-
-import { selectCurrentAccountId } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 
-import useBrowserUiColor from '../../../../hooks/useBrowserUiColor';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
 import useShowTransition from '../../../../hooks/useShowTransition';
@@ -18,14 +13,7 @@ type OwnProps = {
   onOpenBackupWallet: () => void;
 };
 
-type StateProps = {
-  theme: Theme;
-};
-
-const UI_BG_RED_LIGHT = '#F36A6B';
-const UI_BG_RED_DARK = '#C44646';
-
-function BackupWarning({ isRequired, theme, onOpenBackupWallet }: OwnProps & StateProps) {
+function BackupWarning({ isRequired, onOpenBackupWallet }: OwnProps) {
   const { shouldRender, ref } = useShowTransition({
     isOpen: isRequired,
     noMountTransition: true,
@@ -34,13 +22,6 @@ function BackupWarning({ isRequired, theme, onOpenBackupWallet }: OwnProps & Sta
   const { isLandscape } = useDeviceScreen();
 
   const lang = useLang();
-
-  useBrowserUiColor({
-    isActive: isRequired,
-    currentTheme: theme,
-    lightColor: UI_BG_RED_LIGHT,
-    darkColor: UI_BG_RED_DARK,
-  });
 
   const handleClick = () => {
     onOpenBackupWallet();
@@ -65,13 +46,4 @@ function BackupWarning({ isRequired, theme, onOpenBackupWallet }: OwnProps & Sta
   );
 }
 
-export default memo(
-  withGlobal<OwnProps>(
-    (global): StateProps => {
-      return {
-        theme: global.settings.theme,
-      };
-    },
-    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
-  )(BackupWarning),
-);
+export default memo(BackupWarning);

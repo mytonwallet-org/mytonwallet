@@ -26,10 +26,12 @@ extension Api {
 
     @concurrent public static func getAgentV2Availability() async throws {
         try await bridge.callApiVoid("getAgentV2Availability")
+        try await bridge.waitForPendingUpdates()
     }
 
     @concurrent public static func getAgentV2UserQuota() async throws {
         try await bridge.callApiVoid("getAgentV2UserQuota")
+        try await bridge.waitForPendingUpdates()
     }
 
     @concurrent public static func getAgentV2ProblemReportAvailability() async throws -> Bool {
@@ -97,11 +99,15 @@ extension Api {
         lang: String,
         cursor: String? = nil,
         digestHour: Int,
-        timeZone: String
+        digestMinute: Int,
+        timeZone: String,
+        view: ApiAgentV2NewsFeedView = .all
     ) async throws -> ApiAgentV2NewsFeedPage {
         let result = try await bridge.callApi(
             "getAgentV2NewsFeed",
-            ApiAgentV2NewsFeedRequest(lang: lang, cursor: cursor, digestHour: digestHour, timeZone: timeZone),
+            ApiAgentV2NewsFeedRequest(
+                lang: lang, cursor: cursor, digestHour: digestHour, digestMinute: digestMinute, timeZone: timeZone, view: view
+            ),
             decoding: ApiAgentV2MutationResult<ApiAgentV2NewsFeedPage>.self
         )
         return try requireAgentV2OperationValue(result, methodName: "getAgentV2NewsFeed")

@@ -24,6 +24,14 @@ public enum AdaptivePreset<Backing: DecimalBackingType>: Codable {
         let decimals = decimalAmount.decimals
         switch self {
         case .defaultAdaptive:
+            if let preferred = decimalAmount.type.preferredDecimals {
+                if preferred == 0 { return 0 }
+                return tokenDecimals(
+                    for: abs(decimalAmount.amount),
+                    tokenDecimals: decimals,
+                    minimumSignificantDigits: preferred
+                )
+            }
             return tokenDecimals(for: abs(decimalAmount.amount), tokenDecimals: decimals)
 
         case .compact:

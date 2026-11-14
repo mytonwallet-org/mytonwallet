@@ -6,6 +6,7 @@ import type { TabWithProperties } from '../ui/TabList';
 
 import { selectIsOffRampAllowed } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { vibrate } from '../../util/haptics';
 import { compact } from '../../util/iteratees';
 import { openMultisend } from '../../util/openMultisend';
@@ -20,6 +21,7 @@ import styles from './SentTabs.module.scss';
 
 interface OwnProps {
   className?: string;
+  isActive?: boolean;
 }
 
 interface StateProps {
@@ -31,7 +33,7 @@ const enum TabContent {
   Sell,
 }
 
-function SentTabs({ className, isOffRampAllowed }: OwnProps & StateProps) {
+function SentTabs({ className, isActive, isOffRampAllowed }: OwnProps & StateProps) {
   const { openOffRampWidgetModal, cancelTransfer } = getActions();
   const lang = useLang();
 
@@ -59,6 +61,7 @@ function SentTabs({ className, isOffRampAllowed }: OwnProps & StateProps) {
       {
         id: TabContent.Send,
         title: lang('Send'),
+        testId: isActive ? getTestId('send_tab_send') : undefined,
         className: styles.tab,
         menuClassName: styles.menuWrapper,
         menuPositionX: 'left',
@@ -71,7 +74,7 @@ function SentTabs({ className, isOffRampAllowed }: OwnProps & StateProps) {
         className: styles.tab,
       } : undefined,
     ]);
-  }, [isOffRampAllowed, lang, multisendMenuItem, handleMultisendOpen]);
+  }, [isActive, isOffRampAllowed, lang, multisendMenuItem, handleMultisendOpen]);
 
   return (
     <div className={buildClassName(styles.root, className)}>

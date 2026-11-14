@@ -26,7 +26,14 @@ import { estimatePerpsDepositNetworkFee } from './perps';
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { buildOnchainSwapTransfer, resolveSwapNeedsBatch, submitOnchainSwapTransfer } from './swap';
 import { fetchTransactionById } from './transactionInfo';
-import { checkTransactionDraft, sendSignedTransaction, submitGasfullTransfer } from './transfer';
+import {
+  checkTransactionDraft,
+  estimateEvmSwapDiesel,
+  fetchEstimateDiesel,
+  sendSignedTransaction,
+  submitGasfullTransfer,
+  submitGaslessTransfer,
+} from './transfer';
 import { fetchAccountBalances, fetchCrosschainAccountBalances, getAddressInfo, getWalletBalance } from './wallet';
 
 type OmitFirstArg<F extends (...args: any) => any> =
@@ -78,16 +85,17 @@ class EVMChainSdk<T extends EVMChain> implements ChainSdk<T> {
 
   checkTransactionDraft = this.#bindChain(checkTransactionDraft);
 
-  fetchEstimateDiesel = notSupported;
+  fetchEstimateDiesel = this.#bindChain(fetchEstimateDiesel);
 
   submitGasfullTransfer = this.#bindChain(submitGasfullTransfer);
 
-  submitGaslessTransfer = notSupported;
+  submitGaslessTransfer = this.#bindChain(submitGaslessTransfer);
   verifyLedgerWalletAddress = notSupported;
 
   buildOnchainSwapTransfer = this.#bindChain(buildOnchainSwapTransfer);
   submitOnchainSwapTransfer = this.#bindChain(submitOnchainSwapTransfer);
   resolveSwapNeedsBatch = this.#bindChain(resolveSwapNeedsBatch);
+  estimateSwapDiesel = this.#bindChain(estimateEvmSwapDiesel);
 
   fetchPrivateKeyString = this.#bindChain(fetchPrivateKeyString);
 

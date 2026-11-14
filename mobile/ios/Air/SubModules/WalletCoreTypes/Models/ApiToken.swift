@@ -36,10 +36,16 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     and other details (`ApiTokenDetails`), so no separate requests are needed. */
     public var isFromBackend: Bool?
 
+    /**
+     Fractional digits for displaying the token amount, derived from USD price on the backend
+     (`0` for cheap assets, `2` for mid-priced, `4` for assets priced ≥ $1000 such as BTC).
+     */
+    public var precision: Int?
+
     public var priceUsd: Double?
     public var percentChange24h: Double?
 
-    public init(slug: String, name: String, localizedName: String? = nil, symbol: String, decimals: Int, chain: ApiChain, type: ApiTokenType? = nil, tokenAddress: String? = nil, tokenWalletAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, label: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
+    public init(slug: String, name: String, localizedName: String? = nil, symbol: String, decimals: Int, chain: ApiChain, type: ApiTokenType? = nil, tokenAddress: String? = nil, tokenWalletAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, label: String? = nil, isFromBackend: Bool? = nil, precision: Int? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
         self.slug = slug
         self.name = name
         self.localizedName = localizedName
@@ -61,6 +67,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.codeHash = codeHash
         self.label = label
         self.isFromBackend = isFromBackend
+        self.precision = precision
         self.priceUsd = priceUsd
         self.percentChange24h = percentChange24h
     }
@@ -87,6 +94,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         case codeHash
         case label
         case isFromBackend
+        case precision
         case priceUsd
         case percentChange24h
         
@@ -121,6 +129,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         try container.encodeIfPresent(self.codeHash, forKey: .codeHash)
         try container.encodeIfPresent(self.label, forKey: .label)
         try container.encodeIfPresent(self.isFromBackend, forKey: .isFromBackend)
+        try container.encodeIfPresent(self.precision, forKey: .precision)
         try container.encodeIfPresent(self.priceUsd, forKey: .priceUsd)
         try container.encodeIfPresent(self.percentChange24h, forKey: .percentChange24h)
     }
@@ -161,6 +170,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.codeHash = try container.decodeIfPresent(String.self, forKey: .codeHash)
         self.label = try container.decodeIfPresent(String.self, forKey: .label)
         self.isFromBackend = try container.decodeIfPresent(Bool.self, forKey: .isFromBackend)
+        self.precision = try container.decodeIfPresent(Int.self, forKey: .precision)
         
         var quote = try? container.decodeIfPresent(ApiTokenPrice.self, forKey: .quote)
         if quote == nil {
@@ -204,6 +214,7 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.codeHash = dict["codeHash"] as? String
         self.label = dict["label"] as? String
         self.isFromBackend = dict["isFromBackend"] as? Bool
+        self.precision = dict["precision"] as? Int
         self.priceUsd = dict["priceUsd"] as? Double
         self.percentChange24h = dict["percentChange24h"] as? Double
     }

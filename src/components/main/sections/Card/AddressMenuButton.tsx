@@ -20,6 +20,7 @@ interface OwnProps {
   withTextGradient?: boolean;
   isMinimized?: boolean;
   isTinyFormat?: boolean;
+  testId?: string;
   toggleMenu: NoneToVoidFunction;
   onLongPress?: (chain: ApiChain, address: string, domain?: string) => void;
   onMouseEnter?: NoneToVoidFunction;
@@ -38,6 +39,7 @@ function AddressMenuButton({
   withTextGradient,
   isMinimized,
   isTinyFormat,
+  testId,
   toggleMenu,
   onLongPress,
   onMouseEnter,
@@ -119,6 +121,7 @@ function AddressMenuButton({
         withTextGradient && 'gradientText',
       )}
       tabIndex={isMinimized ? -1 : undefined}
+      data-testid={testId}
       {...longPressHandlers}
       onMouseEnter={onMouseEnter}
       onMouseLeave={handleMouseLeave}

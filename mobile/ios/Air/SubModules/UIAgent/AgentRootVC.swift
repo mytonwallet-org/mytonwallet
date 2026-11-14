@@ -35,16 +35,22 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     private var isThreadDeleted = false
     /// The thread's summary is the SDK's copy, so the chat shows only its loaded history
     private let isSummaryCached: Bool
+    /// The new chat asks for a support operator, from the starter hints, once it has loaded
+    private let shouldRequestSupport: Bool
+    /// How many times the chat has gone from the screen while it loads: one the user left drops its support request
+    private var disappearanceCount = 0
 
     convenience init(
         client: AgentV2Client = LiveAgentV2Client(),
         preloader: AgentPreloader? = nil,
+        shouldRequestSupport: Bool = false,
         showError: @escaping (String) -> Void = {
             AppActions.showError(error: DisplayError(text: $0))
         }
     ) {
         self.init(
-            client: client, thread: nil, preloader: preloader, showError: showError, isSummaryCached: false
+            client: client, thread: nil, preloader: preloader, showError: showError, isSummaryCached: false,
+            shouldRequestSupport: shouldRequestSupport
         )
     }
 
@@ -60,11 +66,13 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         thread: ApiAgentV2ThreadSummary?,
         preloader: AgentPreloader?,
         showError: @escaping (String) -> Void,
-        isSummaryCached: Bool
+        isSummaryCached: Bool,
+        shouldRequestSupport: Bool = false
     ) {
         self.client = client
         self.thread = thread
         self.isSummaryCached = isSummaryCached
+        self.shouldRequestSupport = shouldRequestSupport
         self.preloader = preloader
         sessionGeneration = preloader?.sessionGeneration
         self.showError = showError
@@ -126,6 +134,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        disappearanceCount += 1
         backSwipe.restore()
     }
 
@@ -133,12 +142,16 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         super.viewDidLoad()
         title = AgentV2Model.chatTitle(thread: thread)
         view.backgroundColor = .air.background
-        navigationItem.rightBarButtonItem = makeMenuPlaceholder()
+        navigationItem.rightBarButtonItems = makeNavigationPlaceholders()
         chatTitleView.setTitle(
             AgentV2Model.chatTitleText(thread: thread),
             icon: AgentV2Model.chatIcon(thread: thread),
             animated: false
         )
+        // A chat that support has keeps the header and field it shows once loaded
+        let supportState = AgentSupportPresentation.getState(for: thread?.support)
+        chatTitleView.setSubtitle(AgentSupportPresentation.getSubtitle(for: supportState))
+        composerView.placeholder = AgentSupportPresentation.getComposerPlaceholder(for: supportState)
 
         // A chat that is not cached yet shows Telegram's bubble skeleton under the same chrome it will have
         skeletonView.translatesAutoresizingMaskIntoConstraints = false
@@ -245,7 +258,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         // one would show its glass under the transition's
         if AgentChatNavigation.findButton(in: navigationItem.rightBarButtonItem)?.accessibilityIdentifier
             != AgentChatNavigation.menuButtonIdentifier {
-            navigationItem.rightBarButtonItem = makeMenuPlaceholder()
+            navigationItem.rightBarButtonItems = makeNavigationPlaceholders()
         }
         do {
             let selectedThread: ApiAgentV2ThreadSummary
@@ -287,6 +300,11 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
                 loadErrorView.show(model.initialLoadFailure ?? lang("$agent_error_generic"))
                 return
             }
+            // The request goes from a chat the user has stayed on since it opened, not from one left, as by going back
+            // or switching tabs, while its history loaded
+            if shouldRequestSupport, disappearanceCount == 0 {
+                model.requestSupportOnceLoaded()
+            }
             isModelPrepared = true
             presentPreparedModelIfPossible()
         } catch {
@@ -297,10 +315,18 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     /// The chat's "…" button while the chat loads, which an existing chat shows from the start, as the loaded chat
-    /// does. A new chat has nothing in its menu yet, so it has no button.
-    private func makeMenuPlaceholder() -> UIBarButtonItem? {
-        guard thread != nil else { return nil }
-        return AgentChatNavigation.makeMenuItem(menu: nil)
+    /// does, and the headset before it in a chat that offers Contact Support. A new chat that offers it shows both, as
+    /// its loaded header has them, so neither moves in.
+    private func makeNavigationPlaceholders() -> [UIBarButtonItem] {
+        let isSupportVisible = AgentV2HostContextProvider.supportsSupportHandoff
+            && !AgentSupportPresentation.getState(for: thread?.support).isActive
+        guard thread != nil || isSupportVisible else { return [] }
+        let menu = AgentChatNavigation.makeMenuItem(menu: nil)
+        guard isSupportVisible else { return [menu] }
+        let support = AgentChatNavigation.makeSupportItem(primaryAction: nil)
+        AgentChatNavigation.findCircle(in: support)?.isUserInteractionEnabled = false
+        AgentChatNavigation.findButton(in: support)?.isAccessibilityElement = false
+        return [menu, support]
     }
 
     private var isSessionCurrent: Bool {

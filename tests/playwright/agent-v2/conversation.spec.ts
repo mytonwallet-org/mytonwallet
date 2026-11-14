@@ -43,6 +43,12 @@ test.describe('Agent V2 deterministic conversation', () => {
     await page.setViewportSize({ width: 390, height: 500 });
     await agentV2.reset('news-post');
     await agentV2.seedWallet();
+    await page.route('**/api/v2/news-feed?*', async (route) => {
+      const response = await route.fetch();
+      const feed = await response.json();
+      feed.items[0].discussion = { threadId: '44444444-4444-4444-8444-444444444444' };
+      await route.fulfill({ response, json: feed });
+    });
     let releaseHistory: () => void;
     const historyMayFinish = new Promise<void>((resolve) => {
       releaseHistory = resolve;
@@ -97,8 +103,12 @@ test.describe('Agent V2 deterministic conversation', () => {
     const creationMayFinish = new Promise<void>((resolve) => {
       releaseCreation = resolve;
     });
+    let creationCount = 0;
     await page.route('**/api/v2/threads', async (route) => {
-      if (route.request().method() === 'POST') await creationMayFinish;
+      if (route.request().method() === 'POST') {
+        creationCount += 1;
+        await creationMayFinish;
+      }
       await route.continue();
     });
     await page.getByRole('button', { name: 'Discuss, Deterministic MyPulse headline', exact: true }).click();
@@ -112,20 +122,25 @@ test.describe('Agent V2 deterministic conversation', () => {
     const menuButton = page.getByRole('button', { name: 'Open Menu', exact: true });
     await expect(menuButton).toHaveCount(0);
     const previewElement = await post.elementHandle();
-    const messagesLoaded = page.waitForResponse((response) => (
-      response.request().method() === 'GET' && /\/api\/v2\/threads\/[^/]+\/messages\?/u.test(response.url())
-    ));
-    releaseCreation!();
-    await messagesLoaded;
-
     const composer = page.getByRole('textbox', { name: 'Ask anything', exact: true });
     await expect(composer).toBeEnabled();
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }));
+    expect(creationCount).toBe(0);
     await expect(post).toHaveCount(1);
     expect((await agentV2.getState()).runBodies).toHaveLength(0);
 
     const prompt = 'What does this news mean?';
     await composer.fill(prompt);
+    const messagesLoaded = page.waitForResponse((response) => (
+      response.request().method() === 'GET' && /\/api\/v2\/threads\/[^/]+\/messages\?/u.test(response.url())
+    ));
     await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(getAgentV2Conversation(page).getByText(prompt, { exact: true })).toBeVisible();
+    await expect.poll(() => creationCount).toBe(1);
+    releaseCreation!();
+    await messagesLoaded;
     await expect(page.getByText(`Deterministic response: ${prompt}`, { exact: true })).toBeVisible();
     await expect(post).toHaveCount(1);
     expect(await post.evaluate((element, preview) => element === preview, previewElement)).toBe(true);

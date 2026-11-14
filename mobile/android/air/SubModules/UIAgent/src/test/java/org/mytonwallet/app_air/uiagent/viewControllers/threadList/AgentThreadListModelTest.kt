@@ -893,6 +893,77 @@ class AgentThreadListModelTest {
         assertNull(agentThreadPreviewImageUrl(discussion.copy(news = null)))
     }
 
+    @Test
+    fun contactSupportWaitsForTheServerChatsAndOpensTheLatestOneSupportHas() = runBlocking {
+        val page = CompletableDeferred<AgentV2ThreadListResponse>()
+        val client = FakeClient().apply {
+            onCached = { listOf(supportItem("cached", "operator")) }
+            onList = { page.await() }
+        }
+        val model = makeModel(client)
+        val opened = mutableListOf<AgentV2ThreadSummary?>()
+        model.refresh()
+        assertTrue(model.isCacheShown)
+
+        model.requestSupportThread { opened += it }
+        yield()
+        assertTrue(opened.isEmpty())
+        page.complete(
+            AgentV2ThreadListResponse(
+                listOf(
+                    item("plain", "2026-01-05T00:00:00Z"),
+                    supportItem("closed", "closed", "2026-01-04T00:00:00Z"),
+                    supportItem("operator", "operator", "2026-01-01T00:00:00Z"),
+                    supportItem("waiting", "waiting", "2026-01-02T00:00:00Z")
+                )
+            )
+        )
+        withTimeout(1_000) { while (opened.isEmpty()) yield() }
+        assertEquals(listOf("waiting"), opened.map { it?.id })
+
+        // The server's chats at hand answer at once, without a chat support has with a new one
+        client.onList = { AgentV2ThreadListResponse(listOf(item("plain"))) }
+        model.refresh()
+        model.requestSupportThread { opened += it }
+        assertEquals(listOf("waiting", null), opened.map { it?.id })
+    }
+
+    @Test
+    fun contactSupportIsDroppedWhenTheChatsFailToLoad() = runBlocking {
+        val client = FakeClient().apply { onList = { error("Unavailable") } }
+        val model = makeModel(client)
+        val opened = mutableListOf<AgentV2ThreadSummary?>()
+        model.requestSupportThread { opened += it }
+        assertTrue(model.hasLoadFailed)
+
+        client.onList = { AgentV2ThreadListResponse(listOf(supportItem("waiting", "waiting"))) }
+        model.refresh()
+        assertTrue(opened.isEmpty())
+    }
+
+    @Test
+    fun contactSupportNeverChoosesFromTheCachedChatsAPageFailedBehind() = runBlocking {
+        val page = CompletableDeferred<AgentV2ThreadListResponse>()
+        val client = FakeClient().apply {
+            onCached = { listOf(supportItem("cached", "operator")) }
+            onList = { page.await() }
+        }
+        val model = makeModel(client)
+        val opened = mutableListOf<AgentV2ThreadSummary?>()
+        model.refresh()
+        page.completeExceptionally(IllegalStateException("Offline"))
+        assertTrue(model.isCacheShown)
+        assertFalse(model.isLoading)
+
+        model.requestSupportThread { opened += it }
+        assertTrue(opened.isEmpty())
+    }
+
+    private fun supportItem(id: String, state: String, timestamp: String = "2026-01-01T00:00:00Z") =
+        item(id, timestamp).let {
+            it.copy(thread = it.thread.copy(support = AgentV2ThreadSupport(state)))
+        }
+
     private fun item(
         id: String,
         timestamp: String = "2026-01-01T00:00:00Z",

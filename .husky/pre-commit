@@ -26,5 +26,20 @@ if ! git diff --cached --quiet -- mobile/android; then
   (
     cd mobile/android
     ./gradlew ktlintCheck
-  )
+  ) || exit $?
+fi
+
+# The navigation docs list the cases and name code files, and the `Check the generated docs` job fails on a stale or
+# broken one, so catch it before the push: on any Maestro change, and on a moved or deleted file the docs may name
+if ! git diff --cached --quiet -- maestro \
+  || [ -n "$(git diff --cached --name-only --diff-filter=DR -- src mobile)" ]; then
+  if python3 -c 'import yaml' 2>/dev/null; then
+    # The check reads the working tree, so docs rebuilt but left unstaged would pass it and still commit the stale ones
+    git diff --quiet -- maestro/docs/navigation || {
+      echo "husky - stage the navigation docs too: git add maestro/docs/navigation"; exit 1; }
+    python3 maestro/docs/navigation/build.py --check > /dev/null || {
+      echo "husky - navigation docs are stale or broken: run python3 maestro/docs/navigation/build.py and stage the result"; exit 1; }
+  else
+    echo "husky - skipped the navigation docs check: python3 has no pyyaml (pip install pyyaml)"
+  fi
 fi

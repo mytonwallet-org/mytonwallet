@@ -1,6 +1,8 @@
 package org.mytonwallet.app_air.uiagent.agentV2
 
+import java.util.Date
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.formatAgentChatTime
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
@@ -52,6 +54,10 @@ internal fun localizedAgentV2Hint(id: String): AgentHint? {
 }
 
 internal fun agentUnavailableText(): String = LocaleController.getString("\$agent_error_generic")
+
+/** The message a support request sends, which the chat keeps as the user's */
+internal fun getAgentSupportRequestText(): String =
+    LocaleController.getString("\$agent_support_request_message")
 
 internal fun getAgentAnalyzingRequestText(): String =
     LocaleController.getString("\$agent_activity_analyzing_request")
@@ -107,6 +113,21 @@ internal fun agentV2SemanticText(content: Map<String, Any>?): String {
     return LocaleController.getString(key)
 }
 
+internal fun agentV2ErrorText(code: String?, resetAt: Date?): String {
+    if (code == "user_quota_exhausted" && resetAt != null && resetAt.after(Date())) {
+        return LocaleController.getStringWithKeyValues(
+            "\$agent_daily_limit_resets_at",
+            listOf(
+                "%time%" to formatAgentChatTime(
+                    ApplicationContextHolder.applicationContext,
+                    resetAt
+                )
+            )
+        )
+    }
+    return agentV2ErrorText(code)
+}
+
 internal fun agentV2ErrorText(code: String?): String = LocaleController.getString(
     when (code) {
         "invalid_event" -> "\$agent_error_invalid_response"
@@ -116,6 +137,8 @@ internal fun agentV2ErrorText(code: String?): String = LocaleController.getStrin
         "network_error" -> "\$agent_connection_lost"
 
         "user_quota_exhausted" -> "\$agent_daily_limit_reached"
+
+        "support_escalation_rate_limited" -> "\$agent_support_rate_limited"
 
         "rate_limited", "agent_capacity_exhausted", "run_budget_exceeded", "output_limit_reached",
         "context_too_large_retryable", "device_token_rate_limited" -> "\$agent_error_limit"

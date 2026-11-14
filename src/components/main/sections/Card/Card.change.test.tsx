@@ -68,7 +68,7 @@ afterEach(() => {
 });
 
 async function renderCard() {
-  TeactDOM.render(<Card onYieldClick={() => {}} />, root);
+  TeactDOM.render(<Card accountId={MAIN_ACCOUNT_ID} isActive onYieldClick={() => {}} />, root);
   await pause(50);
 }
 

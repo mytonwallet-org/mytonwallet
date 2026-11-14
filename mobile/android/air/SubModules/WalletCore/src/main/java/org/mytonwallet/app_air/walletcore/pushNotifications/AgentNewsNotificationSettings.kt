@@ -17,10 +17,17 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Notifications.SetN
 enum class AgentNewsNotificationMode { Off, Digest, News }
 enum class AgentNewsNotificationOutcome { Ok, PermissionDenied, Failed }
 
+enum class AgentNewsFeedView(val value: String) { All("all"), Digests("digests") }
+
+/** The minutes of the hour the digest can come at */
+val AGENT_NEWS_DIGEST_MINUTES = listOf(0, 15, 30, 45)
+
 @JsonClass(generateAdapter = true)
 data class AgentNewsNotificationState(
     val mode: AgentNewsNotificationMode = AgentNewsNotificationMode.Off,
-    val digestHour: Int = 21
+    val digestHour: Int = 21,
+    val digestMinute: Int = 0,
+    val newsView: String? = "all"
 )
 
 class AgentNewsNotificationSettings internal constructor(
@@ -39,6 +46,7 @@ class AgentNewsNotificationSettings internal constructor(
     }
 
     private val mutex = Mutex()
+    private val stateLock = Any()
     private var currentModeOperation: Any? = null
     private val adapter = MoshiBuilder.build().adapter(AgentNewsNotificationPreferences::class.java)
     private val stored = read()?.let(adapter::fromJson)
@@ -46,7 +54,15 @@ class AgentNewsNotificationSettings internal constructor(
     val state = mutableState.asStateFlow()
     val mode: AgentNewsNotificationMode get() = state.value.mode
     val digestHour: Int get() = state.value.digestHour
+    val digestMinute: Int get() = state.value.digestMinute
+    val newsView: AgentNewsFeedView
+        get() = AgentNewsFeedView.entries.firstOrNull { it.value == state.value.newsView }
+            ?: AgentNewsFeedView.All
     private var lastApplied = stored?.lastApplied
+
+    suspend fun setNewsView(view: AgentNewsFeedView) {
+        save { it.copy(newsView = view.value) }
+    }
 
     suspend fun setMode(mode: AgentNewsNotificationMode): AgentNewsNotificationOutcome {
         val operation = Any()
@@ -66,7 +82,7 @@ class AgentNewsNotificationSettings internal constructor(
                     val request = buildRequest(mode, token)
                     if (!apply(request)) return@withLock AgentNewsNotificationOutcome.Failed
                     lastApplied = request
-                    save(state.value.copy(mode = mode))
+                    save { it.copy(mode = mode) }
                     AgentNewsNotificationOutcome.Ok
                 } finally {
                     if (currentModeOperation === operation) currentModeOperation = null
@@ -81,10 +97,11 @@ class AgentNewsNotificationSettings internal constructor(
         }
     }
 
-    suspend fun setDigestHour(hour: Int): AgentNewsNotificationOutcome {
+    suspend fun setDigestTime(hour: Int, minute: Int): AgentNewsNotificationOutcome {
         require(hour in 0..23) { "Digest hour must be between 0 and 23" }
+        require(minute in AGENT_NEWS_DIGEST_MINUTES) { "Digest minute must be 0, 15, 30 or 45" }
         return mutex.withLock {
-            save(state.value.copy(digestHour = hour))
+            save { it.copy(digestHour = hour, digestMinute = minute) }
             if (mode !=
                 AgentNewsNotificationMode.Digest
             ) {
@@ -111,7 +128,7 @@ class AgentNewsNotificationSettings internal constructor(
     internal suspend fun reset(): AgentNewsNotificationOutcome = mutex.withLock {
         currentModeOperation = null
         val token = getToken()
-        save(state.value.copy(mode = AgentNewsNotificationMode.Off))
+        save { it.copy(mode = AgentNewsNotificationMode.Off) }
         if (token == null) return@withLock AgentNewsNotificationOutcome.Ok
         applyRequest(buildRequest(AgentNewsNotificationMode.Off, token))
     }
@@ -119,7 +136,7 @@ class AgentNewsNotificationSettings internal constructor(
     private suspend fun applyRequest(request: Props): AgentNewsNotificationOutcome = try {
         if (apply(request)) {
             lastApplied = request
-            save(state.value)
+            save()
             AgentNewsNotificationOutcome.Ok
         } else {
             AgentNewsNotificationOutcome.Failed
@@ -135,12 +152,16 @@ class AgentNewsNotificationSettings internal constructor(
         userToken = token,
         langCode = language(),
         digestHour = digestHour,
+        digestMinute = digestMinute,
         timeZone = timeZone()
     )
 
-    private fun save(value: AgentNewsNotificationState) {
-        write(adapter.toJson(AgentNewsNotificationPreferences(value, lastApplied)))
-        mutableState.value = value
+    private fun save(update: (AgentNewsNotificationState) -> AgentNewsNotificationState = { it }) {
+        synchronized(stateLock) {
+            val value = update(state.value)
+            write(adapter.toJson(AgentNewsNotificationPreferences(value, lastApplied)))
+            mutableState.value = value
+        }
     }
 }
 

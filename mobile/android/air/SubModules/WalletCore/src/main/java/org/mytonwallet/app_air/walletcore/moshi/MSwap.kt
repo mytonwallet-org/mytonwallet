@@ -21,12 +21,19 @@ data class MApiSwapAsset(
     override val decimals: Int,
     override val isPopular: Boolean? = null,
     val priceUsd: Double? = null,
+    override val precision: Int? = null,
     override val image: String? = null,
     override val tokenAddress: String? = null,
     override val keywords: List<String>? = null,
     override val label: String? = null,
     val color: String? = null
 ) : IApiToken {
+
+    override val amountPrecision: Int
+        get() = org.mytonwallet.app_air.walletbasecontext.utils.AssetPrecision.amountPrecision(
+            precision,
+            priceUsd
+        )
 
     companion object {
         fun from(token: MToken): MApiSwapAsset = MApiSwapAsset(
@@ -38,6 +45,7 @@ data class MApiSwapAsset(
             decimals = token.decimals,
             isPopular = token.isPopular,
             priceUsd = token.priceUsd,
+            precision = token.precision,
             image = token.image,
             tokenAddress = token.tokenAddress,
             keywords = token.keywords,
@@ -79,7 +87,8 @@ data class MApiSwapEstimateRequest(
     val shouldTryDiesel: Boolean?,
     val walletVersion: MApiTonWalletVersion?,
     val isFromAmountMax: Boolean?,
-    val toncoinBalance: String?
+    val toncoinBalance: String?,
+    val nativeBalance: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -87,7 +96,10 @@ data class MApiSwapHint(
     val type: String? = null,
     val token: String? = null,
     val providerName: String? = null,
-    val url: String? = null
+    val url: String? = null,
+    val minimumAmount: String? = null,
+    val additionalAmount: String? = null,
+    val symbol: String? = null
 )
 
 /** Present only for tester wallets; backend may attach more fields. */

@@ -656,6 +656,104 @@ final class AgentThreadListTests: XCTestCase {
     }
 
     @MainActor
+    func testOperatorRepliesStayUnreadUntilTheirHistoryIsShown() throws {
+        let suite = "AgentThreadListTests.SupportReadState.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let readState = AgentThreadReadState(userDefaults: defaults)
+        let firstTimestamp = "2026-11-09T10:00:00.500Z"
+        let nextTimestamp = "2026-11-09T10:00:01.500Z"
+        let first = try makeItem("support", date: firstTimestamp, support: .init(
+            state: .operator, lastOperatorMessageAt: firstTimestamp
+        )).thread
+        readState.observe([first], answeringThreadIds: [])
+        XCTAssertTrue(readState.isUnread(first))
+
+        readState.chatDidAppear(threadId: first.id)
+        XCTAssertTrue(readState.isUnread(first))
+        readState.markOperatorMessagesSeen(threadId: first.id, loadedOperatorMessageAt: firstTimestamp)
+        XCTAssertFalse(readState.isUnread(first))
+        readState.chatDidDisappear(threadId: first.id, seenMessageCount: first.messageCount)
+        let restarted = AgentThreadReadState(userDefaults: defaults)
+        XCTAssertFalse(restarted.isUnread(first))
+
+        let next = try makeItem(first.id, date: nextTimestamp, support: .init(
+            state: .operator, lastOperatorMessageAt: nextTimestamp
+        )).thread
+        restarted.observe([next], answeringThreadIds: [])
+        restarted.chatDidAppear(threadId: next.id)
+        restarted.markOperatorMessagesSeen(threadId: next.id, loadedOperatorMessageAt: firstTimestamp)
+        XCTAssertTrue(restarted.isUnread(next))
+        restarted.markOperatorMessagesSeen(threadId: next.id, loadedOperatorMessageAt: nextTimestamp)
+        XCTAssertFalse(restarted.isUnread(next))
+        let closed = try makeItem(first.id, date: nextTimestamp, support: .init(
+            state: .closed, lastOperatorMessageAt: nextTimestamp
+        )).thread
+        XCTAssertFalse(restarted.isUnread(closed))
+        restarted.chatDidDisappear(threadId: next.id, seenMessageCount: next.messageCount)
+        XCTAssertFalse(restarted.isUnread(closed))
+    }
+
+    @MainActor
+    func testLoadedOperatorHistoryIsSeenOnlyInAVisibleForegroundChat() async throws {
+        let threadId = "support-\(UUID().uuidString)"
+        let firstTimestamp = "2026-11-09T10:00:00.500Z"
+        let nextTimestamp = "2026-11-09T10:00:01.500Z"
+        let first = try makeItem(threadId, date: firstTimestamp, support: .init(
+            state: .operator, lastOperatorMessageAt: firstTimestamp
+        )).thread
+        let next = try makeItem(threadId, date: nextTimestamp, revision: 2, messageCount: 3, support: .init(
+            state: .operator, lastOperatorMessageAt: nextTimestamp
+        )).thread
+        let author = ["operatorId": "alex", "name": "Alex"]
+        var messages: [[String: Any]] = [
+            ["id": "question", "role": "user", "content": ["kind": "markdown", "text": "Help"]],
+            ["id": "event", "role": "event", "code": "operator_joined", "author": author],
+            ["id": "operator-1", "role": "operator", "text": "Hello", "author": author]
+        ]
+        messages = messages.map { $0.merging([
+            "threadId": threadId, "status": "complete", "createdAt": "2026-11-09T10:00:00.100Z"
+        ]) { existing, _ in existing } }
+        var history: [String: Any] = [
+            "thread": try JSONSerialization.jsonObject(with: JSONEncoder().encode(first)), "messages": messages
+        ]
+        let initial = try JSONDecoder().decode(ApiAgentV2ThreadHydration.self, from: JSONSerialization.data(withJSONObject: history))
+        messages.append([
+            "id": "operator-2", "threadId": threadId, "role": "operator", "text": "Another reply", "author": author,
+            "status": "complete", "createdAt": "2026-11-09T10:00:01.100Z"
+        ])
+        history["thread"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(next))
+        history["messages"] = messages
+        let updated = try JSONDecoder().decode(ApiAgentV2ThreadHydration.self, from: JSONSerialization.data(withJSONObject: history))
+        let client = FakeAgentV2Client(hydrationResults: [initial, updated])
+        let model = AgentV2Model(client: client, thread: first)
+        let readState = AgentThreadReadState.shared
+        defer {
+            model.stop()
+            readState.remove(threadId: threadId)
+        }
+        await model.waitForInitialLoad()
+        let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+        XCTAssertEqual(coordinator.loadedOperatorMessageAt, firstTimestamp)
+        XCTAssertEqual(model.seenMessageCount, 2)
+        XCTAssertEqual(coordinator.getFirstUnseenMessageID(seenMessageCount: 1, ignoredIDs: []), "operator-1")
+        XCTAssertTrue(readState.isUnread(first))
+
+        model.isActive = true
+        XCTAssertFalse(readState.isUnread(first))
+        coordinator.walletCore(event: .applicationDidEnterBackground)
+        await coordinator.hydrate()
+        XCTAssertEqual(coordinator.loadedOperatorMessageAt, nextTimestamp)
+        XCTAssertEqual(model.seenMessageCount, 3)
+        XCTAssertTrue(readState.isUnread(next))
+        model.isActive = false
+        coordinator.walletCore(event: .applicationWillEnterForeground)
+        XCTAssertTrue(readState.isUnread(next))
+        model.isActive = true
+        XCTAssertFalse(readState.isUnread(next))
+    }
+
+    @MainActor
     func testDeletionEventRemovesThreadAndReadStateWithoutServerAccess() async throws {
         let suite = "AgentThreadListTests.Deletion.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -841,11 +939,19 @@ final class AgentThreadListTests: XCTestCase {
             newsItem(2, deliveredAt: "2026-10-19T11:00:00Z")
         ])
         let model = AgentThreadListModel(newsClient: newsClient, readState: readState, language: { "ru-RU" })
+        let settings = AgentNewsNotificationSettings.shared
+        let savedTime = (hour: settings.digestHour, minute: settings.digestMinute)
+        addTeardownBlock { @MainActor in
+            _ = await AgentNewsNotificationSettings.shared.setDigestTime(hour: savedTime.hour, minute: savedTime.minute)
+        }
+        _ = await settings.setDigestTime(hour: 7, minute: 30)
 
         XCTAssertNil(model.latestNews)
         await model.refreshNews()
 
         XCTAssertEqual(newsClient.requests.map(\.lang), ["ru-RU"])
+        XCTAssertEqual(newsClient.requests.map(\.schedule.hour), [7])
+        XCTAssertEqual(newsClient.requests.map(\.schedule.minute), [30])
         XCTAssertEqual(newsClient.requests.map(\.cursor), [nil])
         XCTAssertEqual(model.latestNews?.eventId, 2)
         XCTAssertEqual(readState.readThrough, "2026-10-19T11:00:00Z")
@@ -1086,7 +1192,8 @@ final class AgentThreadListTests: XCTestCase {
         customTitle: Bool = false,
         preview: String? = nil,
         revision: Int = 1,
-        messageCount: Int = 2
+        messageCount: Int = 2,
+        support: ApiAgentV2ThreadSupport? = nil
     ) throws -> ApiAgentV2ThreadListItem {
         var json: [String: Any] = [
             "id": id,
@@ -1099,6 +1206,7 @@ final class AgentThreadListTests: XCTestCase {
             "hasCustomTitle": customTitle
         ]
         json["title"] = title
+        if let support { json["support"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(support)) }
         let thread = try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: json))
         return ApiAgentV2ThreadListItem(thread: thread, preview: preview)
     }
@@ -1115,19 +1223,26 @@ final class AgentThreadListTests: XCTestCase {
 
 @MainActor
 final class ThreadListNewsClient: AgentNewsFeedClient {
+    struct Request {
+        let lang: String
+        let cursor: String?
+        let schedule: AgentNewsDigestSchedule
+    }
+
     var locale = "en"
     var items: [ApiAgentV2NewsFeedItem]
+    var digests: [ApiAgentV2NewsFeedDigest]?
     var shouldFail = false
-    private(set) var requests: [(lang: String, cursor: String?)] = []
+    private(set) var requests: [Request] = []
 
     init(items: [ApiAgentV2NewsFeedItem] = []) {
         self.items = items
     }
 
-    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
-        requests.append((lang, cursor))
+    func getNewsFeed(lang: String, cursor: String?, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView = .all) async throws -> ApiAgentV2NewsFeedPage {
+        requests.append(Request(lang: lang, cursor: cursor, schedule: schedule))
         if shouldFail { throw ThreadListError.unavailable }
-        return ApiAgentV2NewsFeedPage(locale: locale, items: items)
+        return ApiAgentV2NewsFeedPage(locale: locale, items: items, digests: digests)
     }
 }
 

@@ -42,8 +42,13 @@ interface OwnProps {
   shouldAnimateTextStreaming?: boolean;
   textRevealPresentation?: TextRevealPresentation;
   isJustAdded?: boolean;
-  /** The latest message alone shows follow-up suggestions and stands in for the answer being produced */
+  /** The latest message alone shows follow-up suggestions */
   isLatest?: boolean;
+  /**
+   * The last message before the questions that wait, which stands in for the answer being produced: the answer shows
+   * the run's activity in place of its bubble
+   */
+  isActivityHost?: boolean;
   /** Names the answer's author, the operator or the agent, once an operator has joined the chat */
   hasAuthor?: boolean;
   /** The suggestions wait for the run to end, so they come once, ready to be pressed */
@@ -54,7 +59,7 @@ interface OwnProps {
   isRegenerating?: boolean;
   /** The run phase shown in place of the answer bubble until its text arrives */
   activity?: AgentRunActivityType;
-  /** Shared with the run's indicator at the chat's end, whose place the answer's takes */
+  /** Shared with the run's indicator under the question, whose place the answer's takes */
   activityHandoff?: AgentRunActivityHandoff;
   onEdit?: (id: number, text: string) => void;
   onFollowup?: (messageId: number, followup: AgentPublicFollowUpV2) => void;
@@ -102,6 +107,7 @@ function MessageBubble({
   textRevealPresentation,
   isJustAdded = false,
   isLatest = false,
+  isActivityHost = false,
   hasAuthor = false,
   areFollowupsHeld = false,
   areFollowupsInactive = false,
@@ -136,7 +142,7 @@ function MessageBubble({
   const shouldAnimateAppearance = useRef(isJustAdded).current;
   const shouldRenderIncomingBubble = Boolean(isTyping || text);
   const isVisuallyEmpty = !isOutgoing && !shouldRenderIncomingBubble && !hasRichIncomingContent
-    && (noFailureCaption || (!error && !failureText)) && !(isLatest && activity);
+    && (noFailureCaption || (!error && !failureText)) && !(isActivityHost && activity);
   // A failure with no answer over it is only its caption, which hangs closer under the message before
   const isFailureOnly = !isOutgoing && !shouldRenderIncomingBubble && !hasRichIncomingContent
     && Boolean(error || failureText) && !noFailureCaption;
@@ -214,7 +220,8 @@ function MessageBubble({
     if (value === 'copy') {
       // A failure under the answer is copied after it, as on mobile
       const copyText = getAnswerMessageCopyText(text, message.tables, message.tableReferences, message.links);
-      const errorText = error ? getAgentV2ErrorText(error.code, lang) : failureText;
+      const errorResetAt = typeof error?.resetAt === 'string' ? error.resetAt : undefined;
+      const errorText = error ? getAgentV2ErrorText(error.code, lang, errorResetAt) : failureText;
       void copyAgentText([copyText, errorText].filter(Boolean).join('\n\n'));
     } else if (value === 'edit') {
       onEdit?.(id, text);
@@ -301,6 +308,7 @@ function MessageBubble({
           shouldAnimateTextStreaming={shouldAnimateTextStreaming}
           shouldAnimateAppearance={shouldAnimateAppearance}
           isLatest={isLatest}
+          isActivityHost={isActivityHost}
           areFollowupsHeld={areFollowupsHeld && !isRegenerating}
           areFollowupsInactive={areFollowupsInactive}
           isMenuOpen={isContextMenuOpen && isPortrait}
@@ -326,6 +334,7 @@ function MessageBubble({
           isOpen={isContextMenuOpen}
           messageId={id}
           feedback={feedback}
+          isOperator={Boolean(message.operator)}
           getAnchorElement={getBubbleElement}
           getMessageBottom={getMessageBottom}
           onChange={handleRate}

@@ -1,5 +1,6 @@
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiDappTransfer, ApiTokenWithPrice } from '../../api/types';
 import type { GlobalState } from '../types';
+import { SignDataState, TransferState, WalletConnectPayState } from '../types';
 
 import { STON_PTON_SLUG, TONCOIN, UNKNOWN_TOKEN } from '../../config';
 import { calculateTokenPrice } from '../../util/calculatePrice';
@@ -11,6 +12,17 @@ import { selectCurrentAccountState } from './accounts';
 
 // Cheap operations are dominated by the network fee, so showing their total would only mislead
 const MIN_TOTAL_AMOUNT_USD = 0.5;
+
+// The modals open by these states, which a request sets before it gets its `promiseId`
+export function selectIsDappRequestOpen(global: GlobalState) {
+  return Boolean(
+    global.dappConnectRequest
+    || global.currentDappTransfer.state !== TransferState.None
+    || global.currentDappSignData.state !== SignDataState.None
+    || global.currentWalletConnectPay.state !== WalletConnectPayState.None
+    || global.currentWalletConnectPay.promiseId,
+  );
+}
 
 const selectCurrentDappTransferTotalsMemoized = memoize((
   transactions: ApiDappTransfer[] | undefined,

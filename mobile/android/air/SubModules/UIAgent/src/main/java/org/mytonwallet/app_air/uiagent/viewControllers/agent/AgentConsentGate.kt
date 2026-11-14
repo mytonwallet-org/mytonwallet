@@ -1,5 +1,8 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
 /**
  * What the user does that would send something to the Agent, held until they allow it. Once the Agent is allowed, an
  * action runs at once. Otherwise [askForConsent] shows the consent sheet: Allow runs the action once, and closing the
@@ -41,19 +44,45 @@ internal class AgentConsentGate(
 }
 
 /**
- * The gate of a news discussion, whose model, kept by `AgentSession`, may hold the refusal it read before the user
+ * The gate of a discussion, whose model, kept by `AgentSession`, may hold the refusal it read before the user
  * allowed the Agent elsewhere: the gate reads the consent again before the sheet asks, and a consent given reaches the
  * model as one given in the sheet does.
  */
 internal fun createDiscussionConsentGate(
-    model: () -> AgentVM,
-    askForConsent: (onAllowed: () -> Unit, onDeclined: () -> Unit) -> Unit
+    model: () -> AgentVM?,
+    askForConsent: (onAllowed: () -> Unit, onDeclined: () -> Unit) -> Unit,
+    opening: () -> AgentChatOpening? = { null }
 ) = AgentConsentGate(
-    knownConsent = { model().hasConsent?.takeIf { it } },
-    readConsent = { model().readConsent() },
+    knownConsent = { (model()?.hasConsent ?: opening()?.hasConsent)?.takeIf { it } },
+    readConsent = {
+        model()?.readConsent() ?: run {
+            opening()?.readConsent()
+            opening()?.hasConsent == true
+        }
+    },
     askForConsent = askForConsent,
-    onAllowed = { model().acceptConsent() }
+    onAllowed = { model()?.acceptConsent() ?: opening()?.markConsentAccepted() }
 )
+
+internal fun AgentConsentGate.requestDiscussionConsent(
+    scope: CoroutineScope,
+    opening: () -> AgentChatOpening?,
+    onDeclined: () -> Unit = {},
+    action: () -> Unit
+) {
+    scope.launch {
+        request(onDeclined) {
+            val pendingOpening = opening()
+            if (pendingOpening?.isDeferredDiscussion == true) {
+                scope.launch {
+                    if (pendingOpening.prepareDiscussionSubmission()) action()
+                }
+            } else {
+                action()
+            }
+        }
+    }
+}
 
 /**
  * The recording a microphone press holds until the user allows the Agent, owned by that press. A press while one is

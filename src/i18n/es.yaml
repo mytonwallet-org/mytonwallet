@@ -627,6 +627,7 @@ Buy crypto or choose another token to sell.: Compra cripto o elige otro token pa
 Your balances are small. Add funds or choose another token to swap.: Tus saldos son bajos. Añade fondos o elige otro token para intercambiar.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: Para comprar %buy_token%, primero compra %token% y luego intercámbialo por %buy_token%.
 Open %provider% to swap this pair in the browser.: Abre %provider% para intercambiar este par en el navegador.
+"Better rate is available if you add %amount% %symbol% for network fee.": "Puedes conseguir un mejor tipo de cambio si añades %amount% %symbol% para la comisión de red."
 Buy %token%: Comprar %token%
 Open %provider%: Abrir %provider%
 Cannot load widget: No se puede cargar el widget
@@ -1328,8 +1329,8 @@ $agent_consent_allow_button: Permitir al agente
 $agent_consent_feature_answers: Obtén respuestas sobre %app_name%, tokens y actividad de la billetera.
 $agent_consent_feature_actions: Prepara acciones compatibles como enviar, recibir y hacer staking.
 $agent_consent_feature_context: Usa el contexto de la billetera para que las respuestas puedan hacer referencia a activos y direcciones relevantes.
-$agent_consent_disclosure_text: Al tocar Permitir al agente, permites que %app_name% envíe tus mensajes del agente y el contexto relevante de la billetera a %app_name% Agent (agent.mywallet.io) y a Anthropic Claude API, nuestro proveedor externo de IA, para procesar tus solicitudes. El contexto de la billetera puede incluir direcciones de billetera, saldos, tokens, actividad y detalles de las acciones solicitadas. Los datos se usan solo para proporcionar respuestas del agente y preparar las acciones que solicites.
-$agent_consent_search_disclosure_text: Para las búsquedas web, solo se pueden enviar consultas de búsqueda a Serper; no se envían el contexto de la billetera ni el historial del chat.
+$agent_consent_disclosure_text: Al tocar Permitir al agente, permites que %app_name% envíe tus mensajes del agente y el contexto relevante de la billetera a %app_name% Agent (agent.mywallet.io) y a nuestros proveedores externos de IA, OpenAI y Anthropic, para procesar tus solicitudes. El contexto de la billetera puede incluir direcciones de billetera, saldos, tokens, actividad y detalles de las acciones solicitadas. Si usas la entrada de voz, tu grabación se envía a Inworld y, cuando es necesario, a ElevenLabs a través de OpenRouter para convertirla en texto. Los datos se usan solo para proporcionar respuestas del agente y preparar las acciones que solicites.
+$agent_consent_search_disclosure_text: Para las búsquedas web, solo se envían consultas de búsqueda a OpenAI y, cuando es necesario, a Serper; no se envían el contexto de la billetera ni el historial del chat.
 $settings_token_change_threshold: Umbral de variación porcentual
 $settings_token_change_threshold_description: Oculta los cambios porcentuales de 24 horas inferiores al umbral seleccionado.
 $settings_token_change_threshold_off: Desactivado
@@ -1387,14 +1388,29 @@ $agent_prompt_token_price: "Analiza el precio de %token%."
 $agent_hint_capabilities_title: ¿Qué puedes hacer?
 $agent_hint_portfolio_title: Rendimiento de la cartera
 $agent_hint_portfolio_prompt: Analice el rendimiento de mi cartera.
-$agent_hint_swap_title: Cómo funcionan los intercambios
+$agent_hint_swap_title: ¿Cómo funcionan los intercambios?
 $agent_hint_swap_prompt: Explique cómo funcionan los intercambios de tokens.
-$agent_hint_staking_title: Qué es el staking
+$agent_hint_staking_title: ¿Qué es el staking?
 $agent_hint_staking_prompt: Explique el staking desde cero, como si nunca hubiera usado criptomonedas antes.
-$agent_hint_security_title: Seguridad de la billetera
+$agent_hint_security_title: ¿Cómo protejo mi billetera?
 $agent_hint_security_prompt: Muéstreme cómo mantener mi billetera segura.
 $agent_hint_receive_title: Recibir tokens
 $agent_hint_receive_prompt: Ayúdeme a recibir tokens.
+$agent_hint_assets_title: Muestra mis activos
+$agent_hint_total_title: ¿Cuál es mi saldo total?
+$agent_hint_spending_title: ¿En qué gasté esta semana?
+$agent_hint_last_transfer_title: Muestra mi última transferencia
+$agent_hint_fund_title: ¿Cómo recargo mi billetera?
+$agent_hint_market_today_title: ¿Cómo está el mercado hoy?
+$agent_hint_news_today_title: Noticias principales del día
+$agent_hint_bitcoin_title: ¿Qué pasa con Bitcoin?
+$agent_hint_price_title: ¿Cuánto cuesta 0,5 ETH?
+$agent_hint_staking_yield_title: ¿Dónde es mayor el rendimiento?
+$agent_hint_staking_options_title: ¿Qué opciones de staking hay?
+$agent_hint_multisend_title: ¿Cómo envío a varias personas?
+$agent_hint_action_swap_title: Intercambiar tokens
+$agent_hint_action_send_title: Enviar cripto
+$agent_hint_action_stake_title: Empezar a hacer staking
 $agent_notice_content_over_budget: El resultado es demasiado grande para mostrarse completamente.
 $agent_notice_web_search_no_results: No se ha encontrado información que coincida con tu solicitud.
 $agent_error_session: Tu sesión del agente ha expirado. Vuelve a abrir el agente e inténtalo de nuevo.
@@ -2141,8 +2157,7 @@ News: "Noticias"
 Crypto Market News: "Noticias del mercado de criptomonedas"
 $agent_news_new: "Nuevas"
 $agent_news_open_source: "Abrir fuente"
-$agent_news_source: "Fuente: %sources%"
-$agent_news_sources: "Fuentes: %sources%"
+$agent_news_sources: "Fuentes"
 $agent_news_unavailable: "Las noticias no están disponibles en este momento"
 $agent_news_read_more: "Leer más"
 $agent_news_discuss: "Comentar"
@@ -2154,6 +2169,9 @@ $agent_news_quote_accessibility: "Noticia de MyPulse: %headline%"
 $agent_news_unread_count:
   oneValue: "%count% noticia sin leer"
   otherValue: "%count% noticias sin leer"
+$agent_news_unread_digests_count:
+  oneValue: "%count% resumen sin leer"
+  otherValue: "%count% resúmenes sin leer"
 Explorer mode: Modo explorador
 Open a link to a wallet, transfer, token or collectible to see its details here.: Abre un enlace a un monedero, transferencia, token o coleccionable para ver aquí sus detalles.
 
@@ -2413,7 +2431,7 @@ $agent_chats_unavailable: "No se pudieron cargar los chats"
 "View your assets and activity": "Consulta tus activos y actividad"
 "Ask AI and follow the news": "Pregunta a la IA y sigue las noticias"
 $underlying_stock: 'Acción de %symbol%'
-$agent_support_requested: "Has pedido ayuda al soporte. Un operador responderá aquí"
+$agent_support_requested: "Has pedido ayuda al soporte. Un operador responderá aquí, normalmente en un par de minutos"
 $agent_support_operator_joined: "El soporte se ha unido al chat: %name%"
 $agent_support_closed_operator: "El soporte ha cerrado la solicitud. A partir de ahora responde el agente"
 $agent_support_closed_inactivity: "La solicitud se cerró tras 48 horas sin respuestas. A partir de ahora responde el agente"
@@ -2433,22 +2451,41 @@ $send_only_chain_and_token: Envía solo %symbol%, %tokenSymbol% u otros activos 
 $agent_digest_unavailable: "Este resumen ya no está disponible"
 $agent_digest_title: "Lo más importante del día"
 $agent_digest_meta:
-  oneValue: "%count% noticia · %time%"
-  otherValue: "%count% noticias · %time%"
+  oneValue: "%count% noticia"
+  otherValue: "%count% noticias"
 $agent_digest_more:
   oneValue: "y %count% más — está más arriba en el feed"
   otherValue: "y %count% más — están más arriba en el feed"
+$agent_digest_more_count:
+  oneValue: "y %count% más"
+  otherValue: "y %count% más"
 $agent_digest_settings_title: "Resumen y notificaciones"
 $agent_digest_settings_text: "Una vez al día aparece en el feed un resumen con las noticias más importantes del día."
 $agent_digest_time: "Hora del resumen"
-$agent_digest_time_zone: "Según la zona horaria de tu teléfono."
+$agent_digest_time_hint: "El resumen aparece en tu feed a esta hora, aunque las notificaciones estén desactivadas."
 $agent_digest_notifications_off: "Desactivadas"
-$agent_digest_notifications_off_hint: "El resumen aparecerá solo en el feed"
 $agent_digest_notifications_daily: "Resumen diario"
-$agent_digest_notifications_daily_hint: "A las %time%, las noticias principales en una notificación"
+$agent_digest_notifications_daily_hint: "Una notificación a las %time% con las noticias principales del día."
 $agent_digest_notifications_every: "Cada noticia"
-$agent_digest_notifications_every_hint: "Una notificación por cada noticia"
-$agent_digest_post_header: "MyPulse · resumen · %time%"
 $agent_digest_sheet_title: "Resumen diario"
-$agent_digest_device_time_zone: "Según la zona horaria de este dispositivo."
 $agent_dictation_microphone_denied_device: "Permite el acceso al micrófono en los ajustes del dispositivo para dictar."
+"$perps_funding_usdc_fees": "Necesitas al menos %minUSDC% USDC en Arbitrum para abrir una posición: %amount% USDC más %fees% USDC de comisiones."
+"$perps_funding_usdc_increase_fees": "Necesitas al menos %minUSDC% USDC en Arbitrum para aumentar esta posición: %amount% USDC más %fees% USDC de comisiones."
+"PerpsOrderNotPlaced": "La orden no se colocó. El USDC transferido para ella permanece en tu saldo de Hyperliquid."
+$agent_feedback_support_liked_toast: "¡Gracias! Tu valoración se enviará al equipo de soporte."
+$agent_feedback_support_disliked_toast: "El equipo de soporte revisará esta respuesta."
+$agent_support_request_message: "Quiero hablar con una persona"
+$agent_support_contact: "Contactar con soporte"
+$agent_support_confirm_title: "¿Llamar a un operador?"
+$agent_support_confirm_text: "Un operador de soporte verá este chat y las direcciones de tu billetera y responderá aquí."
+$agent_support_confirm_text_no_wallet: "Un operador de soporte verá este chat y responderá aquí."
+$agent_support_confirm_action: "Llamar"
+$agent_support_rate_limited: "Ya has contactado con soporte tres veces hoy. Inténtalo mañana o escribe a @mysupport en Telegram."
+$agent_news_digests_empty: "Aún no hay resúmenes"
+$agent_news_view_all: "Todas las noticias"
+$agent_news_view_digests: "Resúmenes"
+$agent_digest_hours: "Horas"
+$agent_digest_minutes: "Minutos"
+$swap_one_to_one: Hay un mejor tipo de cambio (1:1) a partir de %value%.
+$swap_better_rate_minimum: "Hay un mejor tipo de cambio a partir de %value%."
+$agent_daily_limit_resets_at: "Se ha alcanzado el límite diario del agente. Se restablece a las %time%."

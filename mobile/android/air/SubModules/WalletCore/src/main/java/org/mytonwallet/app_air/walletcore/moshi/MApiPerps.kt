@@ -55,6 +55,7 @@ data class MApiPerpsListedAsset(
     val context: MApiPerpsAssetContext? = null,
     val displayName: String? = null,
     val description: String? = null,
+    val keywords: List<String>? = null,
     /** Recent prices for a section's chart, when the backend sends them. */
     val sparkline: List<Double>? = null,
     /** Absent in the cached catalogue. */
@@ -62,6 +63,9 @@ data class MApiPerpsListedAsset(
 ) {
     val markPrice: Double?
         get() = context?.markPx?.toDoubleOrNull()
+
+    val isRwaStock: Boolean
+        get() = keywords?.contains("rwa") == true
 
     val isTradingUnavailable: Boolean
         get() = tradingAvailability?.isAvailable == false || isDelisted == true
@@ -364,9 +368,6 @@ data class MApiPerpsFill(
     val asset: MApiPerpsListedAsset?
         get() = PerpsStore.assetsByCoin[coin]
 
-    val image: String?
-        get() = asset?.image
-
     val symbol: String
         get() = asset?.symbol ?: coin
 
@@ -649,6 +650,8 @@ data class MApiPerpsOperation(
     val depositTxHash: String? = null,
     val acknowledgedAt: Long? = null,
     val orderId: Long? = null,
+    /** Kept so that reconciling a restored record can tell a partial fill. */
+    val submittedOrderSize: String? = null,
     val orderStatus: String? = null,
     val filledSize: String? = null,
     val positionSize: String? = null,

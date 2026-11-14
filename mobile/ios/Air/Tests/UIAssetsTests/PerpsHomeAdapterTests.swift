@@ -1,6 +1,7 @@
 import Dependencies
 import Foundation
 import Testing
+import UIComponents
 import UIKit
 import WalletContext
 import WalletCore
@@ -218,6 +219,41 @@ struct PerpsHomeAdapterTests {
         let traded = PerpsStore(client: client, load: { [withdrawal, trade] }, save: { _ in })
         await traded.refresh(accountId: "wallet")
         #expect(!PerpsHomeAdapter.showsOnboarding(store: traded, accountId: "wallet"))
+    }
+
+    @Test(arguments: [nil, "older"])
+    func failedOrdersJoinTradesInTimeOrder(nextCursor: String?) async throws {
+        let fills = try [3000, 1000].map { time in
+            try JSONDecoder().decode(ApiPerpsFill.self, from: Data("""
+            {"activityId":"btc/\(time)","coin":"BTC","oid":\(time),"time":\(time),"eventKind":"opened",
+             "positionSide":"long","notional":"100","feeToken":"USDC"}
+            """.utf8))
+        }
+        var client = try client()
+        client.history = { _ in .init(fills: fills, nextCursor: nextCursor) }
+        func operation(_ id: String, kind: String = "reduce", assetId: String = "btc", createdAt: Int64,
+                       stage: String = "finished") -> ApiPerpsOperation {
+            var operation = ApiPerpsOperation(id: id, accountId: "wallet", assetId: assetId, kind: kind, createdAt: createdAt)
+            operation.state = "failed"
+            operation.stage = stage
+            operation.error = "PerpsInsufficientMargin"
+            return operation
+        }
+        let saved = [
+            operation("failed", createdAt: 2000),
+            operation("beforeLoadedTrades", createdAt: 500),
+            operation("neverSubmitted", kind: "open", createdAt: 2500, stage: "preparing"),
+            operation("withdrawal", kind: "withdraw", assetId: "USDC", createdAt: 2600),
+        ]
+        let store = PerpsStore(client: client, load: { saved }, save: { _ in })
+        await store.refresh(accountId: "wallet")
+        let activities = PerpsHomeAdapter.home(store: store, accountId: "wallet").activities
+        let failedIDs = activities.compactMap { PerpsTradeActivity.failedOrderOperationID(activityID: $0.id) }
+        #expect(activities.map(\.isFailed) == (nextCursor == nil ? [false, true, false, true] : [false, true, false]))
+        #expect(failedIDs == (nextCursor == nil ? ["failed", "beforeLoadedTrades"] : ["failed"]))
+        #expect(activities[1].amount.text == lang("Failed"))
+        #expect(activities[1].amount.tone == .negative)
+        #expect(activities[1].title == lang("Reduce Position") + " · BTC")
     }
 
     private func client() throws -> PerpsClient {

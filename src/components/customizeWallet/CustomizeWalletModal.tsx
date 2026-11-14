@@ -14,6 +14,7 @@ import {
   selectIs3dCardDisabled,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { openUrl } from '../../util/openUrl';
 import { DEFAULT_CARD_ADDRESS } from './constants';
 
@@ -268,6 +269,7 @@ function CustomizeWalletModal({
       <ModalHeader
         className={styles.modalHeader}
         title={lang('Customize Wallet')}
+        titleTestId={getTestId('customize_wallet_title')}
         withNotch={isScrolled}
         onBackButtonClick={returnTo ? closeCustomizeWalletModal : undefined}
         onClose={returnTo ? undefined : closeCustomizeWalletModal}

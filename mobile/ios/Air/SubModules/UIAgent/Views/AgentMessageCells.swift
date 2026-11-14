@@ -29,6 +29,9 @@ enum AgentMessageCellMetrics {
     static let actionContainerInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
     static let systemPreviewCornerRadius: CGFloat = 12
     static let systemPreviewInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+    /// The author over an answer stands in from the bubble's edge and a little above it, as in Classic
+    static let authorLeadingInset: CGFloat = 8
+    static let authorSpacing: CGFloat = 6
 }
 
 private final class AgentMessageTextView: UITextView {
@@ -542,6 +545,8 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     }
 
     private let contentLayoutGuide = UILayoutGuide()
+    /// The answer's author over it, in a chat an operator has joined
+    private let authorView = AgentMessageAuthorView()
     private let bubbleStackView = AgentBubbleStackView()
     private let bubbleView = AgentBubbleBackgroundView()
     var skeletonRevealView: UIView { bubbleView }
@@ -627,6 +632,13 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private lazy var incomingTrailingLimitConstraint = bubbleStackView.trailingAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.trailingAnchor, constant: -AgentMessageCellMetrics.incomingTrailingInset)
     private lazy var outgoingMaxWidthConstraint = bubbleStackView.widthAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.widthAnchor, multiplier: AgentMessageCellMetrics.outgoingMaxWidthMultiplier)
     private lazy var bubbleStackViewBottomConstraint = bubbleStackView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor)
+    private lazy var bubbleTopConstraint = bubbleStackView.topAnchor.constraint(equalTo: contentView.topAnchor)
+    private lazy var bubbleBelowAuthorConstraint = bubbleStackView.topAnchor.constraint(
+        equalTo: authorView.bottomAnchor,
+        constant: AgentMessageCellMetrics.authorSpacing
+    )
+    /// The bubble of an operator's reply has the green of support
+    private var isOperatorBubble = false
     private lazy var bubbleMinimumWidthConstraint = bubbleView.widthAnchor.constraint(greaterThanOrEqualToConstant: AgentMessageCellMetrics.minimumBubbleWidth)
     private lazy var bubbleMinimumHeightConstraint = bubbleView.heightAnchor.constraint(greaterThanOrEqualToConstant: AgentMessageCellMetrics.minimumBubbleHeight)
     /// Holds a streaming answer's closed blocks at the text's full width, so the bubble keeps its width while the
@@ -716,6 +728,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
 
         configuredMessageID = message.id
         isAnswerRow = message.role == .assistant
+        configureAuthor(of: message, isOutgoing: isOutgoing)
         configuredFeedback = message.role == .assistant ? message.feedback : nil
         if !isFeedbackHeld, !isReactionLanding {
             showFeedback(configuredFeedback)
@@ -725,7 +738,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             ? "agent_message_user"
             : hasStreaming ? "agent_message_streaming" : "agent_message_assistant"
         self.onControlTap = controls.isEmpty ? nil : onControlTap
-        self.onURLTap = message.renderingPolicy.allowsLinks || AgentTextLinks.containsLinks(message.text)
+        self.onURLTap = !message.isPlainText && (message.renderingPolicy.allowsLinks || AgentTextLinks.containsLinks(message.text))
             ? onURLTap
             : nil
 
@@ -1133,6 +1146,10 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         contentView.clipsToBounds = false
         setupCenteredContentLayoutGuide(contentLayoutGuide)
 
+        authorView.translatesAutoresizingMaskIntoConstraints = false
+        authorView.isHidden = true
+        contentView.addSubview(authorView)
+
         bubbleStackView.translatesAutoresizingMaskIntoConstraints = false
         bubbleStackView.axis = .vertical
         bubbleStackView.spacing = AgentMessageCellMetrics.bubbleToButtonSpacing
@@ -1242,8 +1259,17 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         incomingTrailingLimitConstraint.isActive = true
 
         NSLayoutConstraint.activate([
-            bubbleStackView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            bubbleTopConstraint,
             bubbleStackViewBottomConstraint,
+            authorView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            authorView.leadingAnchor.constraint(
+                equalTo: contentLayoutGuide.leadingAnchor,
+                constant: AgentMessageCellMetrics.horizontalInset + AgentMessageCellMetrics.authorLeadingInset
+            ),
+            authorView.trailingAnchor.constraint(
+                lessThanOrEqualTo: contentLayoutGuide.trailingAnchor,
+                constant: -AgentMessageCellMetrics.horizontalInset
+            ),
             bubbleMinimumWidthConstraint,
             bubbleMinimumHeightConstraint,
 
@@ -1257,6 +1283,26 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             actionStackView.trailingAnchor.constraint(equalTo: actionBackgroundView.contentView.trailingAnchor, constant: -AgentMessageCellMetrics.actionContainerInsets.right),
             actionStackView.bottomAnchor.constraint(equalTo: actionBackgroundView.contentView.bottomAnchor, constant: -AgentMessageCellMetrics.actionContainerInsets.bottom)
         ])
+    }
+
+    /// An answer shows its author over it in a chat an operator has joined, and an operator's reply has the green of
+    /// support
+    private func configureAuthor(of message: AgentMessage, isOutgoing: Bool) {
+        if case .operator = message.author {
+            isOperatorBubble = !isOutgoing
+        } else {
+            isOperatorBubble = false
+        }
+        let shouldShowAuthor = !isOutgoing && message.shouldShowAuthor
+        authorView.isHidden = !shouldShowAuthor
+        if shouldShowAuthor {
+            authorView.configure(author: message.author)
+            bubbleTopConstraint.isActive = false
+            bubbleBelowAuthorConstraint.isActive = true
+        } else {
+            bubbleBelowAuthorConstraint.isActive = false
+            bubbleTopConstraint.isActive = true
+        }
     }
 
     private func renderedMessageText() -> String {
@@ -1430,8 +1476,8 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             textColor: configuration.textColor,
             isStreaming: configuration.hasStreaming,
             hadStreaming: configuration.hadStreaming,
-            rendersMarkdown: true,
-            markdownProfile: configuration.message.renderingPolicy.markdownProfile,
+            rendersMarkdown: !configuration.message.isPlainText,
+            markdownProfile: configuration.message.isPlainText ? .plainText : configuration.message.renderingPolicy.markdownProfile,
             allowsLinks: configuration.message.renderingPolicy.allowsLinks,
             layoutMaxWidth: layoutMaxWidth,
             streamingIdentity: configuration.message.id.uuidString
@@ -1498,7 +1544,8 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
 
     /// An answer's code blocks stand apart from its text, as its tables do
     private static func makeDisplayedBlocks(_ blocks: [AgentMessageBlock], of message: AgentMessage) -> [AgentMessageBlock] {
-        message.renderingPolicy.markdownProfile == .agentMarkdownV1 ? AgentMessageBlockParser.separatingCode(blocks) : blocks
+        if message.isPlainText { return [.text(message.text)] }
+        return message.renderingPolicy.markdownProfile == .agentMarkdownV1 ? AgentMessageBlockParser.separatingCode(blocks) : blocks
     }
 
     private func showDeferredSupplementaryErrorIfNeeded() -> Bool {
@@ -1563,7 +1610,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         let animatesTail = showsBubbleTail ? animatesTailBack : animatesFollowups
         bubbleView.configure(
             direction: isOutgoing ? .outgoing : .incoming,
-            fillColor: isOutgoing ? .tintColor : UIColor.air.agentBubbleFill,
+            fillColor: isOutgoing ? .tintColor : isOperatorBubble ? AgentSupportColors.operatorBubbleFill : UIColor.air.agentBubbleFill,
             usesTintColor: isOutgoing,
             showsTail: showsBubbleTail,
             cornerRadii: showsActionRows ? .topActioned : .standAlone,
@@ -1703,6 +1750,10 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     }
 
     var contextMenuCopyText: String? {
+        // An operator's reply is copied as they wrote it
+        if let message = lastAssistantConfiguration?.message, message.isPlainText {
+            return message.text.isEmpty ? nil : message.text
+        }
         var parts: [String] = []
         let text = renderedMessageText()
         if !text.isEmpty {
@@ -1832,6 +1883,16 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         static let lineHeight: CGFloat = 16
     }
 
+    /// A line about the chat's handover to support: a rounded gray pill in the middle of the chat, as in Classic
+    private enum EventMetrics {
+        static let verticalInset: CGFloat = 4
+        static let sideInset: CGFloat = 24
+        static let padding = UIEdgeInsets(top: 7, left: 13, bottom: 7, right: 13)
+        static let cornerRadius: CGFloat = 14
+        static let iconSize: CGFloat = 15
+        static let spacing: CGFloat = 8
+    }
+
     /// Builds the row's menu when a long press opens it
     var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)?
 
@@ -1843,6 +1904,14 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
     private let dayCapsule = AgentDateCapsuleView()
     private lazy var bottomConstraint = label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
     private lazy var captionBottomConstraint = captionTextView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+    private let eventView = UIView()
+    private let eventIconView = UIImageView(image: AgentSupportIcon.makeImage(size: EventMetrics.iconSize))
+    private let eventLabel = UILabel()
+    private let eventTimeLabel = UILabel()
+    private lazy var eventBottomConstraint = eventView.bottomAnchor.constraint(
+        equalTo: contentView.bottomAnchor,
+        constant: -EventMetrics.verticalInset
+    )
     private lazy var dayCapsuleBottomConstraint = dayCapsule.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
     private var configuredMessage: AgentMessage?
     private var onControlTap: ((String) -> Void)?
@@ -1871,13 +1940,22 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         configuredMessage = message
         self.onControlTap = onControlTap
         let isFailure = message.isFailureCaption
+        let isEvent = message.supportEvent != nil && !isFailure
         let isDay = message.isDayCapsule
-        label.isHidden = isFailure || isDay
+        label.isHidden = isFailure || isEvent || isDay
         captionTextView.isHidden = !isFailure
+        eventView.isHidden = !isEvent
         dayCapsule.isHidden = !isDay
-        NSLayoutConstraint.deactivate([bottomConstraint, captionBottomConstraint, dayCapsuleBottomConstraint])
+        NSLayoutConstraint.deactivate([
+            bottomConstraint,
+            captionBottomConstraint,
+            eventBottomConstraint,
+            dayCapsuleBottomConstraint,
+        ])
         if isFailure {
             captionBottomConstraint.isActive = true
+        } else if isEvent {
+            eventBottomConstraint.isActive = true
         } else if isDay {
             dayCapsuleBottomConstraint.isActive = true
         } else {
@@ -1904,6 +1982,8 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         contextMenuConfigurationProvider = nil
         onControlTap = nil
         label.attributedText = nil
+        eventLabel.text = nil
+        eventTimeLabel.text = nil
         captionTextView.attributedText = nil
         captionTextView.accessibilityCustomActions = nil
         dayCapsule.text = nil
@@ -1912,7 +1992,7 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
 
     var contextMenuCopyText: String? {
         let text: String
-        if configuredMessage?.isFailureCaption == true {
+        if configuredMessage?.isFailureCaption == true || configuredMessage?.supportEvent != nil {
             text = configuredMessage?.text ?? ""
         } else if configuredMessage?.isDayCapsule == true {
             text = dayCapsule.text ?? ""
@@ -1946,6 +2026,12 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
     }
 
     private func applyText(for message: AgentMessage) {
+        if message.supportEvent != nil, !message.isFailureCaption {
+            eventLabel.text = message.text
+            eventTimeLabel.text = AgentModel.formatChatDate(for: message.timestamp).time
+            eventView.accessibilityLabel = [message.text, eventTimeLabel.text ?? ""].joined(separator: ", ")
+            return
+        }
         if message.isDayCapsule {
             dayCapsule.text = message.text
             return
@@ -1995,6 +2081,12 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
     private func labelPath(in attachmentRect: CGRect) -> CGPath {
         contentView.layoutIfNeeded()
 
+        if !eventView.isHidden {
+            return UIBezierPath(
+                roundedRect: eventView.frame.offsetBy(dx: attachmentRect.minX, dy: attachmentRect.minY),
+                cornerRadius: EventMetrics.cornerRadius
+            ).cgPath
+        }
         if configuredMessage?.isDayCapsule == true {
             let capsuleRect = dayCapsule.frame.offsetBy(dx: attachmentRect.minX, dy: attachmentRect.minY)
             return UIBezierPath(roundedRect: capsuleRect, cornerRadius: capsuleRect.height / 2).cgPath
@@ -2054,6 +2146,7 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         captionTextView.isHidden = true
         captionTextView.accessibilityIdentifier = "agent_message_failure"
         contentView.addSubview(captionTextView)
+        setupEventView()
         dayCapsule.isHidden = true
         contentView.addSubview(dayCapsule)
         contextMenuInteraction.attach(to: contentView)
@@ -2064,6 +2157,7 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
             return true
         }
         label.accessibilityCustomActions = [moreActions]
+        eventView.accessibilityCustomActions = [moreActions]
         dayCapsule.label.accessibilityCustomActions = [moreActions]
 
         NSLayoutConstraint.activate([
@@ -2086,6 +2180,55 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
                 greaterThanOrEqualTo: contentLayoutGuide.leadingAnchor,
                 constant: AgentDateCapsuleView.minimumColumnInset
             ),
+        ])
+    }
+
+    private func setupEventView() {
+        eventView.translatesAutoresizingMaskIntoConstraints = false
+        eventView.backgroundColor = .air.agentHintBackground
+        eventView.layer.cornerRadius = EventMetrics.cornerRadius
+        eventView.layer.cornerCurve = .continuous
+        eventView.isHidden = true
+        eventView.isAccessibilityElement = true
+        eventView.accessibilityTraits = .staticText
+        eventView.accessibilityIdentifier = "agent_message_support_event"
+        contentView.addSubview(eventView)
+
+        eventIconView.tintColor = .tintColor
+        eventIconView.setContentHuggingPriority(.required, for: .horizontal)
+        eventLabel.font = WTypography.uiFont(.caption2Emphasized)
+        eventLabel.textColor = .air.secondaryLabel
+        eventLabel.numberOfLines = 0
+        eventLabel.textAlignment = .center
+        eventTimeLabel.font = WTypography.uiFont(.caption2, content: .technical)
+        eventTimeLabel.textColor = .air.secondaryLabel
+        eventTimeLabel.setContentHuggingPriority(.required, for: .horizontal)
+        eventTimeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let stackView = UIStackView(arrangedSubviews: [eventIconView, eventLabel, eventTimeLabel])
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.spacing = EventMetrics.spacing
+        eventView.addSubview(stackView)
+
+        let padding = EventMetrics.padding
+        NSLayoutConstraint.activate([
+            eventView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: EventMetrics.verticalInset),
+            eventView.centerXAnchor.constraint(equalTo: contentLayoutGuide.centerXAnchor),
+            eventView.leadingAnchor.constraint(
+                greaterThanOrEqualTo: contentLayoutGuide.leadingAnchor,
+                constant: EventMetrics.sideInset
+            ),
+            eventView.trailingAnchor.constraint(
+                lessThanOrEqualTo: contentLayoutGuide.trailingAnchor,
+                constant: -EventMetrics.sideInset
+            ),
+            stackView.topAnchor.constraint(equalTo: eventView.topAnchor, constant: padding.top),
+            stackView.bottomAnchor.constraint(equalTo: eventView.bottomAnchor, constant: -padding.bottom),
+            stackView.leadingAnchor.constraint(equalTo: eventView.leadingAnchor, constant: padding.left),
+            stackView.trailingAnchor.constraint(equalTo: eventView.trailingAnchor, constant: -padding.right),
+            eventIconView.widthAnchor.constraint(equalToConstant: EventMetrics.iconSize),
+            eventIconView.heightAnchor.constraint(equalToConstant: EventMetrics.iconSize),
         ])
     }
 

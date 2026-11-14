@@ -12,8 +12,10 @@ import {
   PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS,
   PERPS_HYPERCORE_BRIDGE_RELAYER,
 } from '../../common/perps';
+import * as tokenApi from '../../common/tokens';
 import { ApiServerError } from '../../errors';
-import { fetchActivitySlice, fetchEvmTxs, transformEvmTxToUnified } from './activities';
+import { PIMLICO_SINGLETON_PAYMASTER_ADDRESS } from './smartAccount/constants';
+import { fetchActivityDetails, fetchActivitySlice, fetchEvmTxs, transformEvmTxToUnified } from './activities';
 import { normalizeAddress } from './address';
 import { fetchNftByAddress } from './nfts';
 
@@ -522,5 +524,301 @@ describe('transformEvmTxToUnified on perps deposits', () => {
     }]), OWNER);
 
     expect(activity).not.toMatchObject({ type: 'perps_deposit' });
+  });
+});
+
+describe('transformEvmTxToUnified on gasless transfers', () => {
+  const OWNER = '0x3e9526b6e3648abe93de78994cf4a3edbebe6032';
+  const RECIPIENT = '0x6add56d0631ebca7ae53f3c19f61db9ab9d42cf3';
+  const FEE_RECIPIENT = '0x4337ff05c84b9a80ea0a78dbe7b8e102f66d4c08';
+  const PAYMASTER = PIMLICO_SINGLETON_PAYMASTER_ADDRESS.toLowerCase();
+  const TRANSFER_AMOUNT = 1_000_000n;
+  const FEE_AMOUNT = 10_388n;
+
+  function usdcFungibleInfo() {
+    return {
+      id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      name: 'USDC',
+      symbol: 'USDC',
+      // eslint-disable-next-line no-null/no-null
+      icon: null,
+      flags: { verified: true },
+      implementations: [{
+        chain_id: 'arbitrum',
+        address: ARBITRUM_USDC_MAINNET.tokenAddress.toLowerCase(),
+        decimals: 6,
+      }],
+    };
+  }
+
+  function tokenTransfer(
+    actId: string,
+    sender: string,
+    recipient: string,
+    amount: bigint,
+  ): ZerionTransaction['attributes']['transfers'][number] {
+    return {
+      act_id: actId,
+      direction: 'out',
+      sender,
+      recipient,
+      quantity: { int: amount.toString(), decimals: 6, float: 0, numeric: '0' },
+      // eslint-disable-next-line no-null/no-null
+      price: null,
+      // eslint-disable-next-line no-null/no-null
+      value: null,
+      fungible_info: usdcFungibleInfo(),
+    };
+  }
+
+  function buildGaslessTx(options?: {
+    paymaster?: string;
+    direction?: 'in' | 'out';
+  }): ZerionTransaction {
+    const paymaster = options?.paymaster ?? PAYMASTER;
+    const direction = options?.direction ?? 'out';
+
+    return {
+      type: 'transactions',
+      id: 'gasless',
+      attributes: {
+        address: OWNER,
+        operation_type: 'execute',
+        hash: '0xgasless',
+        mined_at_block: 1,
+        mined_at: '2026-11-06T14:35:37Z',
+        sent_from: '0x43373008077485193bb7bc36ac3ce0f5f315383c',
+        sent_to: '0x0000000071727de22e5e9d8baf0edac6f37da032',
+        status: 'confirmed',
+        nonce: 1,
+        fee: { quantity: { int: '4267552989600', decimals: 18, float: 0, numeric: '0' }, price: 0, value: 0 },
+        transfers: [
+          tokenTransfer('1', OWNER, RECIPIENT, TRANSFER_AMOUNT),
+          tokenTransfer('2', OWNER, FEE_RECIPIENT, FEE_AMOUNT),
+        ].map((transfer) => ({ ...transfer, direction })),
+        approvals: [],
+        flags: { is_trash: false },
+        acts: [
+          { id: '0', type: 'approve', sent_from: OWNER, counterparty_address: paymaster },
+          { id: '1', type: 'send', sent_from: OWNER, counterparty_address: RECIPIENT },
+          { id: '2', type: 'send', sent_from: paymaster, counterparty_address: FEE_RECIPIENT },
+        ],
+        paymaster,
+      },
+      relationships: { chain: { links: { related: '' }, data: { type: 'chains', id: 'arbitrum' } } },
+    };
+  }
+
+  it('reads the wallet send as the transfer and the paymaster send as the token fee', () => {
+    const activity = transformEvmTxToUnified('arbitrum', buildGaslessTx(), OWNER);
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      id: '0xgasless',
+      fromAddress: normalizeAddress(OWNER),
+      toAddress: normalizeAddress(RECIPIENT),
+      amount: -TRANSFER_AMOUNT,
+      slug: ARBITRUM_USDC_MAINNET.slug,
+      isIncoming: false,
+      fee: FEE_AMOUNT,
+      extra: { isGasless: true },
+    });
+    expect(activity).not.toMatchObject({ type: 'callContract' });
+  });
+
+  it('keeps an incoming gasless transfer without charging the recipient the token fee', () => {
+    const tx = buildGaslessTx({ direction: 'in' });
+    tx.attributes.acts[1] = { id: '1', type: 'send', sent_from: RECIPIENT, counterparty_address: OWNER };
+    tx.attributes.transfers[0] = {
+      ...tx.attributes.transfers[0],
+      direction: 'in',
+      sender: RECIPIENT,
+      recipient: OWNER,
+    };
+    tx.attributes.transfers[1] = {
+      ...tx.attributes.transfers[1],
+      sender: RECIPIENT,
+    };
+
+    const activity = transformEvmTxToUnified('arbitrum', tx, OWNER);
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      fromAddress: normalizeAddress(RECIPIENT),
+      toAddress: normalizeAddress(OWNER),
+      amount: TRANSFER_AMOUNT,
+      isIncoming: true,
+      fee: 0n,
+    });
+    expect(activity.extra?.isGasless).toBeUndefined();
+  });
+
+  it('leaves a two-transfer execute alone when the paymaster is not Pimlico', () => {
+    const activity = transformEvmTxToUnified('arbitrum', buildGaslessTx({ paymaster: FEE_RECIPIENT }), OWNER);
+
+    expect(activity).toMatchObject({ type: 'callContract', amount: 0n });
+  });
+});
+
+describe('transformEvmTxToUnified on gasless swaps', () => {
+  const OWNER = '0x3e9526b6e3648abe93de78994cf4a3edbebe6032';
+  const ROUTER = '0x2d01411773c8c24805306e89a41f7855c3c4fe65';
+  const FEE_RECIPIENT = '0x4337ff05c84b9a80ea0a78dbe7b8e102f66d4c08';
+  const PAYMASTER = PIMLICO_SINGLETON_PAYMASTER_ADDRESS.toLowerCase();
+  const SOLD = 1_000_000n;
+  const BOUGHT = 5n * 10n ** 18n;
+  const FEE = 21_319n;
+  const ARB_ADDRESS = '0x912ce59144191c1204e64559fe8253a0e49e6548';
+
+  beforeEach(() => {
+    jest.spyOn(tokenApi, 'getTokenBySlug').mockImplementation((slug) => ({
+      slug,
+      decimals: slug === ARBITRUM_USDC_MAINNET.slug ? 6 : 18,
+      symbol: 'T',
+      name: 'T',
+      chain: 'arbitrum',
+      priceUsd: 1,
+    } as never));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function fungible(symbol: string, address: string, decimals: number) {
+    return {
+      id: address,
+      name: symbol,
+      symbol,
+      // eslint-disable-next-line no-null/no-null
+      icon: null,
+      flags: { verified: true },
+      implementations: [{ chain_id: 'arbitrum', address, decimals }],
+    };
+  }
+
+  function buildSwapTx(withPaymaster: boolean): ZerionTransaction {
+    return {
+      type: 'transactions',
+      id: 'swap',
+      attributes: {
+        address: OWNER,
+        operation_type: 'execute',
+        hash: '0xswap',
+        mined_at_block: 1,
+        mined_at: '2026-11-06T15:48:27Z',
+        sent_from: '0x4337f6a4f786754045407d5b1653becccf8d89d7',
+        sent_to: '0x0000000071727de22e5e9d8baf0edac6f37da032',
+        status: 'confirmed',
+        nonce: 1,
+        fee: { quantity: { int: '1000', decimals: 18, float: 0, numeric: '0' }, price: 0, value: 0 },
+        transfers: [
+          {
+            act_id: '2',
+            direction: 'in',
+            sender: ROUTER,
+            recipient: OWNER,
+            quantity: { int: BOUGHT.toString(), decimals: 18, float: 0, numeric: '0' },
+            // eslint-disable-next-line no-null/no-null
+            price: null,
+            // eslint-disable-next-line no-null/no-null
+            value: null,
+            fungible_info: fungible('ARB', ARB_ADDRESS, 18),
+          },
+          {
+            act_id: '2',
+            direction: 'out',
+            sender: OWNER,
+            recipient: ROUTER,
+            quantity: { int: SOLD.toString(), decimals: 6, float: 0, numeric: '0' },
+            // eslint-disable-next-line no-null/no-null
+            price: null,
+            // eslint-disable-next-line no-null/no-null
+            value: null,
+            fungible_info: fungible('USDC', ARBITRUM_USDC_MAINNET.tokenAddress.toLowerCase(), 6),
+          },
+          {
+            act_id: '3',
+            direction: 'out',
+            sender: OWNER,
+            recipient: FEE_RECIPIENT,
+            quantity: { int: FEE.toString(), decimals: 6, float: 0, numeric: '0' },
+            // eslint-disable-next-line no-null/no-null
+            price: null,
+            // eslint-disable-next-line no-null/no-null
+            value: null,
+            fungible_info: fungible('USDC', ARBITRUM_USDC_MAINNET.tokenAddress.toLowerCase(), 6),
+          },
+        ],
+        approvals: [],
+        flags: { is_trash: false },
+        acts: [
+          { id: '2', type: 'trade', sent_from: OWNER, counterparty_address: ROUTER },
+          {
+            id: '3',
+            type: 'send',
+            sent_from: withPaymaster ? PAYMASTER : FEE_RECIPIENT,
+            counterparty_address: FEE_RECIPIENT,
+          },
+        ],
+        ...(withPaymaster ? { paymaster: PAYMASTER } : undefined),
+      },
+      relationships: { chain: { links: { related: '' }, data: { type: 'chains', id: 'arbitrum' } } },
+    };
+  }
+
+  it('keeps the trade and writes the paymaster send as the token fee', () => {
+    const activity = transformEvmTxToUnified('arbitrum', buildSwapTx(true), OWNER);
+
+    expect(activity).toMatchObject({
+      kind: 'swap',
+      from: ARBITRUM_USDC_MAINNET.slug,
+      fromAmount: '1',
+      toAmount: '5',
+      networkFee: '0.021319',
+      extra: { isGasless: true },
+    });
+  });
+
+  it('writes the paymaster token fee when a swap row is waiting for details', async () => {
+    const hash = `0x${'ab'.repeat(32)}`;
+    const tx = buildSwapTx(true);
+    tx.attributes.hash = hash;
+    fetchJsonMock.mockResolvedValueOnce({ data: [tx] });
+
+    const detailed = await fetchActivityDetails('0-mainnet', {
+      id: '1::backend-swap',
+      kind: 'swap',
+      timestamp: 1,
+      from: ARBITRUM_USDC_MAINNET.slug,
+      fromAmount: '1',
+      to: 'arbitrum-0x912ce591',
+      toAmount: '5',
+      fromAddress: OWNER,
+      networkFee: '0',
+      swapFee: '0',
+      status: 'completed',
+      hashes: [hash],
+      transactionIds: { outgoing: { hash, chain: 'arbitrum' } },
+      shouldLoadDetails: true,
+    });
+
+    expect(detailed).toMatchObject({
+      networkFee: '0.021319',
+      shouldLoadDetails: undefined,
+      extra: { isGasless: true },
+    });
+  });
+
+  it('keeps the native fee when a swap has no Pimlico paymaster', () => {
+    const activity = transformEvmTxToUnified('arbitrum', buildSwapTx(false), OWNER);
+
+    expect(activity).toMatchObject({
+      kind: 'swap',
+      fromAmount: '1',
+      toAmount: '5',
+      networkFee: '0.000000000000001',
+    });
+    expect(activity.extra?.isGasless).toBeUndefined();
   });
 });

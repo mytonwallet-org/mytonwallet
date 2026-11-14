@@ -42,6 +42,10 @@ $lastAnswerLineSpace: math.max(
 // Positioned, so that it lies over the loading bubbles that come before it
 .messages {
   --agent-messages-background: var(--agent-background);
+  // The live tail's reserve leaves out the top padding
+  --agent-messages-padding-top: calc(
+    var(--header-padding-top) + var(--header-padding-bottom) + var(--header-title-height) + 1rem
+  );
 
   overflow-anchor: none;
 
@@ -60,7 +64,7 @@ $lastAnswerLineSpace: math.max(
 
   min-height: 0;
   padding:
-    calc(var(--header-padding-top) + var(--header-padding-bottom) + var(--header-title-height) + 1rem)
+    var(--agent-messages-padding-top)
     0.5rem
     calc(var(--agent-input-bar-height, 3.5rem) + 1rem);
 
@@ -86,12 +90,66 @@ $lastAnswerLineSpace: math.max(
   }
 }
 
+// The backdrop that the header and what is attached under it share, so the two blur as one bar. The chat sets
+// `--agent-header-accessory-height` as it attaches something.
+.headerBackdrop {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  inset-inline-start: 0;
+
+  width: 100%;
+  height: calc(var(--header-padding-top) + var(--header-title-height) + var(--agent-header-accessory-height));
+
+  background-color: var(--agent-background);
+  backdrop-filter: blur(2.5rem);
+  box-shadow: 0 0.025rem 0 0 var(--color-separator-tab-bar);
+
+  @include mixins.transition(background-color 300ms);
+
+  &:global(.is-scrolled) {
+    @supports (backdrop-filter: saturate(180%) blur(20px)) {
+      background-color: var(--agent-background-blur);
+    }
+  }
+
+  @include mixins.respond-above(xs) {
+    box-shadow: 0 0.025rem 0 0 var(--color-separator);
+  }
+}
+
+// What is attached under the header, which stacks on the backdrop they share
+.headerAccessory {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--header-padding-top) + var(--header-title-height));
+  inset-inline-start: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  height: var(--agent-header-accessory-height);
+}
+
+.messagesUnderHeaderAccessory {
+  padding-top: calc(var(--agent-messages-padding-top) + var(--agent-header-accessory-height));
+}
+
 .messagesOverPlaceholder {
   background-color: transparent;
 }
 
 .spacer {
   flex-grow: 1;
+}
+
+// A pinned question stays at the top of a short history: its reserve, which ends the list after the messages under
+// its answer, takes the place the spacer would fill
+.spacerHeld {
+  flex-grow: 0;
 }
 
 // Under the header, while older messages load
@@ -108,20 +166,32 @@ $lastAnswerLineSpace: math.max(
   height: var(--spinner-size) !important;
 }
 
+// A turn must not shrink, otherwise an answer taller than the screen would overflow its turn instead of growing it
 .turn {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
 }
 
-// The percentage resolves against the content box of `.messages`, so the tail is as tall as the visible
-// area between the header and the composer. `.turn` must not shrink, otherwise an answer taller than
-// the screen would overflow its turn instead of growing it.
-// The extra top space fills the gap between the header and the list padding, and the tail is shorter by the last
-// line of the answer before and the space under it, which stay in sight over the question.
+// The extra top space fills the gap between the header and the list padding
 .liveTail {
-  min-height: calc(100% + 1rem - #{$lastAnswerLineSpace});
   padding-top: 1rem;
+}
+
+// The space the pinned question keeps for its answer to grow into ends the list, after the questions that wait under
+// the answer, as on mobile. It starts under the question's turn padding and makes the list reach as far as the turn
+// would, were it as tall as the visible area between the header and the composer: the percentage resolves against the
+// visible height of `.messages`, whose top padding it leaves out. The reserve is shorter by the last line of the
+// answer before and the space under it, which stay in sight over the question.
+.liveTailReserve {
+  pointer-events: none;
+
+  position: absolute;
+
+  width: 0.0625rem;
+  height: calc(100% - var(--agent-messages-padding-top) - #{$lastAnswerLineSpace});
+
+  visibility: hidden;
 }
 
 // A message turning to dust is drawn by its ghost until the list lets it go
@@ -248,7 +318,7 @@ $lastAnswerLineSpace: math.max(
   color: var(--color-black);
   white-space: nowrap;
 
-  background: var(--color-activity-gray-background);
+  background: var(--agent-bubble-background);
 }
 
 // A day's capsule in the news feed is a little see-through over a blur of the posts that scroll under it, as on iOS. The

@@ -21,6 +21,10 @@ describe('formatNumber', () => {
     [-123.456, 2, '-123.45'],
     [-100500, 2, `-100${WHOLE_PART_DELIMITER}500`],
     [-0.000012345, 2, '-0.000012'],
+    [1234.56, 0, `1${WHOLE_PART_DELIMITER}234`],
+    [0.9, 0, '0'],
+    [0.001234, 4, '0.001234'],
+    [1.234567, 4, '1.2345'],
   ] as const;
 
   const testCasesNoTruncate = [

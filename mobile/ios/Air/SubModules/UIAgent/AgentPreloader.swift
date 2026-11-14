@@ -3,6 +3,12 @@ import WalletCore
 
 @MainActor
 final class AgentPreloader: WalletCoreData.EventsObserver {
+    /// The feed's post a discussion that waits for its thread is about, which opening the post again returns to
+    private enum DiscussionKey: Hashable {
+        case news(eventId: Int)
+        case digest(id: String)
+    }
+
     private final class WeakModel {
         weak var value: AgentV2Model?
 
@@ -16,7 +22,7 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
     let client: AgentV2Client
     private(set) var sessionGeneration = 0
     private var models: [String: WeakModel] = [:]
-    private var newsModels: [Int: WeakModel] = [:]
+    private var discussionModels: [DiscussionKey: WeakModel] = [:]
     private var openingModels: [WeakModel] = []
     private var deletedThreadIds: Set<String> = []
     /// Recently opened chats stay loaded, so reopening one shows its messages at once
@@ -51,9 +57,9 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             let recent = recentModels
             recentModels.removeAll()
             recent.forEach { $0.releasePresentation() }
-            let activeModels = models.values.compactMap(\.value) + newsModels.values.compactMap(\.value) + openingModels.compactMap(\.value)
+            let activeModels = models.values.compactMap(\.value) + discussionModels.values.compactMap(\.value) + openingModels.compactMap(\.value)
             models.removeAll()
-            newsModels.removeAll()
+            discussionModels.removeAll()
             openingModels.removeAll()
             deletedThreadIds.removeAll()
             cachedHistories.removeAll()
@@ -66,12 +72,17 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
     func acquireModel(
         thread: ApiAgentV2ThreadSummary,
         news: (item: ApiAgentV2NewsFeedItem, locale: String)? = nil,
+        digest: ApiAgentV2ThreadDigestCard? = nil,
         isSummaryCached: Bool = false
     ) -> AgentV2Model? {
         guard !isThreadDeleted(thread.id) else { return nil }
         models = models.filter { $0.value.value != nil }
         if let model = model(threadId: thread.id) {
-            if let news { model.updateNewsPreview(news.item) }
+            if let news {
+                model.updateNewsPreview(news.item)
+                model.updateNewsLocale(news.locale)
+            }
+            if let digest { model.updateDigestPreview(digest) }
             return model
         }
         let model: AgentV2Model
@@ -81,6 +92,7 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             model = AgentV2Model(
                 client: client,
                 thread: thread,
+                digest: digest,
                 cachedHistory: isSummaryCached ? nil : cachedHistories.getHistory(threadId: thread.id),
                 isSummaryCached: isSummaryCached
             )
@@ -94,17 +106,23 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
         return model
     }
 
-    /// Keeps a presented chat's model loaded after its screen closes, up to a few recent chats
+    /// Keeps recent chats loaded after their screens close; queued questions and running answers outlive the limit
     func keepRecent(_ model: AgentV2Model) {
-        guard model.threadId != nil else { return }
+        guard model.threadId != nil || model.hasPendingDiscussionMessage else { return }
         if let index = recentModels.firstIndex(where: { $0 === model }) {
             recentModels.remove(at: index)
         } else {
             model.retainPresentation()
         }
         recentModels.append(model)
-        while recentModels.count > Self.recentModelLimit {
-            recentModels.removeFirst().releasePresentation()
+        var index = 0
+        while index < recentModels.count - Self.recentModelLimit {
+            if recentModels[index].hasQueuedQuestions || recentModels[index].hasActiveRun
+                || recentModels[index].hasPendingDiscussionMessage {
+                index += 1
+            } else {
+                recentModels.remove(at: index).releasePresentation()
+            }
         }
     }
 
@@ -133,30 +151,51 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
         locale: String,
         onThreadCreated: @escaping (ApiAgentV2ThreadSummary) -> Void
     ) -> AgentV2Model {
-        newsModels = newsModels.filter { $0.value.value != nil }
+        discussionModels = discussionModels.filter { $0.value.value != nil }
         if let model = newsModel(eventId: item.eventId) {
+            model.updateNewsPreview(item)
+            model.updateNewsLocale(locale)
             return model
         }
-        return acquireOpeningModel(newsEventId: item.eventId, onThreadCreated: onThreadCreated) { onCreated in
+        return acquireOpeningModel(discussionKey: .news(eventId: item.eventId), onThreadCreated: onThreadCreated) { onCreated in
             AgentV2Model(client: client, news: item, locale: locale, onThreadCreated: onCreated)
         }
     }
 
     func acquireNewsModel(request: ApiAgentV2ThreadNewsRequest) -> AgentV2Model {
-        if let model = newsModel(eventId: request.eventId) { return model }
-        return acquireOpeningModel(newsEventId: request.eventId) { onCreated in
+        if let model = newsModel(eventId: request.eventId) {
+            model.updateNewsLocale(request.locale)
+            return model
+        }
+        return acquireOpeningModel(discussionKey: .news(eventId: request.eventId)) { onCreated in
             AgentV2Model(client: client, newsRequest: request, onThreadCreated: onCreated)
         }
     }
 
+    /// A digest's discussion opened without the feed's copy of the digest
     func acquireDigestModel(id: String) -> AgentV2Model {
         acquireOpeningModel { onCreated in
             AgentV2Model(client: client, digestRequest: .init(id: id), onThreadCreated: onCreated)
         }
     }
 
+    /// A digest's discussion opened from the feed's copy of the digest, which its post shows while its thread comes
+    func acquireDigestModel(
+        digest: ApiAgentV2NewsFeedDigest,
+        onThreadCreated: @escaping (ApiAgentV2ThreadSummary) -> Void
+    ) -> AgentV2Model {
+        discussionModels = discussionModels.filter { $0.value.value != nil }
+        if let model = digestModel(id: digest.id) {
+            model.updateDigestPreview(digest)
+            return model
+        }
+        return acquireOpeningModel(discussionKey: .digest(id: digest.id), onThreadCreated: onThreadCreated) { onCreated in
+            AgentV2Model(client: client, digest: digest, onThreadCreated: onCreated)
+        }
+    }
+
     private func acquireOpeningModel(
-        newsEventId: Int? = nil,
+        discussionKey: DiscussionKey? = nil,
         onThreadCreated: @escaping (ApiAgentV2ThreadSummary) -> Void = { _ in },
         makeModel: (@escaping (ApiAgentV2ThreadSummary) -> Void) -> AgentV2Model
     ) -> AgentV2Model {
@@ -167,11 +206,15 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             guard let self, let model = openingModel else { return }
             self.models[thread.id] = WeakModel(model)
             self.openingModels.removeAll { $0.value == nil || $0.value === model }
-            if let newsEventId { self.newsModels.removeValue(forKey: newsEventId) }
+            if let discussionKey { self.discussionModels.removeValue(forKey: discussionKey) }
             self.keepRecent(model)
             onThreadCreated(thread)
         }
         openingModel = model
+        model.onDiscussionMessageQueued = { [weak self, weak model] in
+            guard let self, let model else { return }
+            self.keepRecent(model)
+        }
         model.resolveOpeningThreadModel = { [weak self, weak model] thread in
             guard let self, let model else { return nil }
             guard self.sessionGeneration == generation else {
@@ -184,7 +227,8 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             }
             if let existing = self.model(threadId: thread.id), existing !== model {
                 existing.refreshThreadIfNeeded(thread)
-                if let newsEventId { self.newsModels.removeValue(forKey: newsEventId) }
+                if model.hasPendingDiscussionMessage { self.keepRecent(existing) }
+                if let discussionKey { self.discussionModels.removeValue(forKey: discussionKey) }
                 onThreadCreated(thread)
                 return existing
             }
@@ -192,15 +236,18 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
         }
         observeCachedHistory(of: model)
         openingModels.append(WeakModel(model))
-        if let newsEventId { newsModels[newsEventId] = WeakModel(model) }
+        if let discussionKey { discussionModels[discussionKey] = WeakModel(model) }
         model.onStop = { [weak self, weak model] in
             guard let self, let model else { return }
             self.openingModels.removeAll { $0.value == nil || $0.value === model }
-            if let newsEventId, self.newsModels[newsEventId]?.value === model {
-                self.newsModels.removeValue(forKey: newsEventId)
+            if let discussionKey, self.discussionModels[discussionKey]?.value === model {
+                self.discussionModels.removeValue(forKey: discussionKey)
             }
             if let threadId = model.threadId, self.models[threadId]?.value === model {
                 self.models.removeValue(forKey: threadId)
+            }
+            if model.threadId == nil, let index = self.recentModels.firstIndex(where: { $0 === model }) {
+                self.recentModels.remove(at: index).releasePresentation()
             }
         }
         return model
@@ -221,7 +268,11 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
     }
 
     func newsModel(eventId: Int) -> AgentV2Model? {
-        newsModels[eventId]?.value
+        discussionModels[.news(eventId: eventId)]?.value
+    }
+
+    func digestModel(id: String) -> AgentV2Model? {
+        discussionModels[.digest(id: id)]?.value
     }
 
     func isThreadDeleted(_ threadId: String) -> Bool {

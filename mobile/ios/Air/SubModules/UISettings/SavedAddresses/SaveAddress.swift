@@ -29,6 +29,7 @@ final class SaveAddressAlertController: UIAlertController, UITextFieldDelegate {
         addTextField()
         let textField = textFields![0]
         textField.text = ""
+        textField.accessibilityIdentifier = "save_address_name_input"
         textField.autocapitalizationType = .words
         textField.autocorrectionType = .yes
         textField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)

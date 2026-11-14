@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import org.mytonwallet.app_air.walletcontext.installationStorage.WInstallationStorage
+import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkInstallationStorage
 import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
@@ -326,16 +327,6 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             data class Update(val type: String, val value: String) : BridgeEvent
         }
 
-        companion object {
-            private val sdkStorageKeys = setOf(
-                "agentMessages",
-                "agentConversationId",
-                "headlessBalanceSnapshots"
-            )
-
-            internal fun usesSecureStorage(key: String): Boolean = key !in sdkStorageKeys
-        }
-
         @JavascriptInterface
         fun logDebugError(tag: String, args: String) {
             Logger.e(Logger.LogTag.JS_DEBUG_ERROR, "[$tag] $args")
@@ -369,9 +360,29 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             scope.cancel()
         }
 
-        private fun getStorageValue(key: String): String {
-            if (usesSecureStorage(key)) return WSecureStorage.getSecValue(key)
+        private val installationValues = WSdkInstallationStorage.values
 
+        private fun getStorageValue(key: String): String = when (AirStorageRouting.routeOf(key)) {
+            AirStorageRoute.SECURE -> WSecureStorage.getSecValue(key)
+            AirStorageRoute.SDK -> getSdkValue(key)
+            AirStorageRoute.INSTALLATION -> installationValues.read(key)
+        }
+
+        private fun setStorageValue(key: String, value: String) {
+            when (AirStorageRouting.routeOf(key)) {
+                AirStorageRoute.SECURE -> WSecureStorage.setSecValue(key, value)
+                AirStorageRoute.SDK -> setSdkValue(key, value)
+                AirStorageRoute.INSTALLATION -> installationValues.write(key, value)
+            }
+        }
+
+        private fun removeStorageValue(key: String) = when (AirStorageRouting.routeOf(key)) {
+            AirStorageRoute.SECURE -> WSecureStorage.setSecValue(key, "")
+            AirStorageRoute.SDK -> removeSdkValue(key)
+            AirStorageRoute.INSTALLATION -> installationValues.remove(key)
+        }
+
+        private fun getSdkValue(key: String): String {
             val sdkValue = WSdkStorage.getValue(key)
             if (sdkValue.isNotEmpty() || WSdkStorage.contains(key)) return sdkValue
 
@@ -382,22 +393,14 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             return legacyValue
         }
 
-        private fun setStorageValue(key: String, value: String) {
-            if (usesSecureStorage(key)) {
-                WSecureStorage.setSecValue(key, value)
-            } else {
-                WSdkStorage.setValue(key, value)
-                WSecureStorage.removeSecValue(key)
-            }
+        private fun setSdkValue(key: String, value: String) {
+            WSdkStorage.setValue(key, value)
+            WSecureStorage.removeSecValue(key)
         }
 
-        private fun removeStorageValue(key: String) {
-            if (usesSecureStorage(key)) {
-                WSecureStorage.setSecValue(key, "")
-            } else {
-                WSdkStorage.removeValue(key)
-                WSecureStorage.removeSecValue(key)
-            }
+        private fun removeSdkValue(key: String) {
+            WSdkStorage.removeValue(key)
+            WSecureStorage.removeSecValue(key)
         }
 
         private fun readSlugs(reader: JsonReader, into: MutableCollection<String>) {
@@ -715,7 +718,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 }
 
                 "airStorageKeys" -> {
-                    val resultInJs = (WSecureStorage.getKeys() + WSdkStorage.getKeys())
+                    val resultInJs = (
+                        WSecureStorage.getKeys() + WSdkStorage.getKeys() +
+                            WSdkInstallationStorage.getKeys()
+                        )
                         .distinct()
                         .toTypedArray()
                         .toJSONString

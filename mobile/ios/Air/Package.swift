@@ -450,6 +450,7 @@ let package = Package(
                 "WalletContext",
                 "WalletCore",
                 "WalletCoreTypes",
+                .product(name: "SwiftNavigation", package: "swift-navigation"),
             ]
         ),
         airTarget(

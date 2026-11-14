@@ -5,6 +5,81 @@ import XCTest
 @available(iOS 26.0, *)
 @MainActor
 final class VerticalTabBarTests: XCTestCase {
+    func testConstrainedBarCentersSelectionAndKeepsManualScrollUntilSelectionOrResize() throws {
+        let (window, bar) = makeBar(titles: ["Wallet", "Market", "Explore", "Agent", "Futures", "More"])
+        defer { bar.cancelInteraction(); window.isHidden = true }
+        bar.frame.size.height = 122
+        bar.layoutIfNeeded()
+        let scrollView = try XCTUnwrap(findScrollView(in: bar))
+        XCTAssertEqual(scrollView.bounds.height, 122)
+        XCTAssertEqual(scrollView.contentSize.height, 312)
+        bar.select(3, animated: false)
+        XCTAssertEqual(scrollView.contentOffset.y, 120, accuracy: 0.5)
+        let selectedTarget = target("tab-3", in: bar)
+        XCTAssertEqual(selectedTarget.convert(selectedTarget.bounds, to: bar).midY, bar.bounds.midY, accuracy: 0.5)
+
+        scrollView.contentOffset.y = 170
+        bar.setNeedsLayout()
+        bar.layoutIfNeeded()
+        XCTAssertEqual(scrollView.contentOffset.y, 170, accuracy: 0.5)
+        bar.frame.size.height = 162
+        bar.layoutIfNeeded()
+        XCTAssertEqual(scrollView.contentOffset.y, 100, accuracy: 0.5)
+        bar.select(5, animated: false)
+        XCTAssertEqual(scrollView.contentOffset.y, 150, accuracy: 0.5)
+        bar.select(0, animated: false)
+        XCTAssertEqual(scrollView.contentOffset.y, 0, accuracy: 0.5)
+    }
+
+    func testTapAfterScrollingSelectsTheVisibleTab() throws {
+        let (window, bar) = makeBar(titles: ["Wallet", "Market", "Explore", "Agent", "Futures"])
+        defer { bar.cancelInteraction(); window.isHidden = true }
+        bar.frame.size.height = 122
+        bar.layoutIfNeeded()
+        let scrollView = try XCTUnwrap(findScrollView(in: bar))
+        scrollView.contentOffset.y = 100
+        var selections: [Int] = []
+        bar.onSelect = { index, _ in selections.append(index) }
+        bar.beginScrub(at: CGPoint(x: 24, y: 81))
+        bar.finishScrub(cancelled: false)
+        XCTAssertEqual(bar.selectedIndex, 3)
+        XCTAssertEqual(selections, [3])
+    }
+
+    func testConstrainedHoldRevealsEveryTabAndRestoresViewportOnCancellation() async throws {
+        let (window, bar) = makeBar(titles: ["Wallet", "Market", "Explore", "Agent", "Futures", "More"])
+        defer { bar.cancelInteraction(); window.isHidden = true }
+        bar.frame.size.height = 122
+        bar.expansionBounds = CGRect(x: -394, y: -64, width: 466, height: 430)
+        bar.layoutIfNeeded()
+        bar.select(3, animated: false)
+        let scrollView = try XCTUnwrap(findScrollView(in: bar))
+        var expandedFrames: [CGRect?] = []
+        bar.onExpandedFrameChange = { expandedFrames.append($0) }
+        bar.beginScrub(at: CGPoint(x: 24, y: 61))
+        try await Task.sleep(for: .milliseconds(350))
+
+        let expandedFrame = try XCTUnwrap(expandedFrames.last ?? nil)
+        XCTAssertGreaterThan(expandedFrame.height, bar.bounds.height)
+        XCTAssertGreaterThanOrEqual(expandedFrame.minY, -64)
+        XCTAssertLessThanOrEqual(expandedFrame.maxY, 366)
+        XCTAssertEqual(scrollView.bounds.height, scrollView.contentSize.height)
+        XCTAssertEqual(scrollView.contentOffset.y, 0)
+        XCTAssertFalse(scrollView.isScrollEnabled)
+        for id in bar.itemIds {
+            let item = target(id, in: bar)
+            XCTAssertTrue(expandedFrame.contains(item.convert(item.bounds, to: bar)))
+        }
+
+        bar.finishScrub(cancelled: true)
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertNil(expandedFrames.last!)
+        XCTAssertEqual(bar.selectedIndex, 3)
+        XCTAssertEqual(scrollView.bounds.height, 122)
+        XCTAssertEqual(scrollView.contentOffset.y, 120, accuracy: 0.5)
+        XCTAssertTrue(scrollView.isScrollEnabled)
+    }
+
     func testCancelledExpandedDragPreservesCommittedSelection() async throws {
         let (window, bar) = makeBar()
         defer { bar.cancelInteraction(); window.isHidden = true }
@@ -20,6 +95,73 @@ final class VerticalTabBarTests: XCTestCase {
         XCTAssertEqual(bar.selectedIndex, 0)
         XCTAssertTrue(selections.isEmpty)
         XCTAssertTrue(target("wallet", in: bar).accessibilityTraits.contains(.selected))
+    }
+
+    func testExpandedDragAfterScrollingTargetsTheRowUnderTheFinger() async throws {
+        for isReordering in [false, true] {
+            let (window, bar) = makeBar(titles: ["Wallet", "Market", "Explore", "Agent", "Futures", "More"])
+            defer { bar.cancelInteraction(); window.isHidden = true }
+            bar.frame.size.height = 122
+            bar.expansionBounds = CGRect(x: -394, y: -64, width: 466, height: 430)
+            bar.layoutIfNeeded()
+            bar.select(3, animated: false)
+            var moves: [(Int, Int)] = []
+            var selections: [Int] = []
+            bar.onSelect = { index, _ in selections.append(index) }
+            if isReordering { bar.onReorder = { moves.append(($0, $1)) } }
+            let initial = CGPoint(x: 24, y: 61)
+            bar.beginScrub(at: initial)
+            try await Task.sleep(for: .milliseconds(650))
+            let destination = target("market", in: bar)
+            let point = destination.convert(CGPoint(x: destination.bounds.midX, y: destination.bounds.midY), to: bar)
+            bar.moveScrub(translation: CGPoint(x: point.x - initial.x, y: point.y - initial.y))
+            bar.finishScrub(cancelled: false)
+
+            if isReordering {
+                XCTAssertEqual(moves.map { $0.0 }, [3])
+                XCTAssertEqual(moves.map { $0.1 }, [1])
+                XCTAssertEqual(bar.itemIds[1], "tab-3")
+                XCTAssertTrue(selections.isEmpty)
+            } else {
+                XCTAssertEqual(selections, [1])
+                XCTAssertEqual(bar.selectedIndex, 1)
+            }
+        }
+    }
+
+    func testOversizedExpandedListStaysInBoundsAndScrollsToBothEnds() async throws {
+        let (window, bar) = makeBar(titles: (0..<10).map { "Tab \($0)" })
+        defer { bar.cancelInteraction(); window.isHidden = true }
+        bar.frame.size.height = 122
+        let expansionBounds = CGRect(x: -394, y: -64, width: 466, height: 180)
+        bar.expansionBounds = expansionBounds
+        bar.layoutIfNeeded()
+        bar.select(4, animated: false)
+        let scrollView = try XCTUnwrap(findScrollView(in: bar))
+        var expandedFrame: CGRect?
+        bar.onExpandedFrameChange = { expandedFrame = $0 }
+        let initial = CGPoint(x: 24, y: 61)
+        bar.beginScrub(at: initial)
+        try await Task.sleep(for: .milliseconds(650))
+
+        let frame = try XCTUnwrap(expandedFrame)
+        XCTAssertGreaterThanOrEqual(frame.minY, expansionBounds.minY)
+        XCTAssertLessThanOrEqual(frame.maxY, expansionBounds.maxY)
+        XCTAssertEqual(scrollView.bounds.height, expansionBounds.height)
+        XCTAssertTrue(scrollView.clipsToBounds)
+        XCTAssertTrue(scrollView.isScrollEnabled)
+        XCTAssertGreaterThan(scrollView.contentOffset.y, 0)
+
+        let top = scrollView.convert(CGPoint(x: scrollView.bounds.midX, y: scrollView.bounds.minY + 1), to: bar)
+        bar.moveScrub(translation: CGPoint(x: top.x - initial.x, y: top.y - initial.y))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(scrollView.contentOffset.y, 0, accuracy: 0.5)
+        let bottom = scrollView.convert(CGPoint(x: scrollView.bounds.midX, y: scrollView.bounds.maxY - 1), to: bar)
+        bar.moveScrub(translation: CGPoint(x: bottom.x - initial.x, y: bottom.y - initial.y))
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertEqual(scrollView.contentOffset.y, scrollView.contentSize.height - scrollView.bounds.height, accuracy: 0.5)
+        bar.finishScrub(cancelled: false)
+        XCTAssertEqual(bar.selectedIndex, 9)
     }
 
     func testExternalSelectionCancelsPendingHoldAndDoesNotEmitUserAction() async throws {
@@ -201,8 +343,9 @@ final class VerticalTabBarTests: XCTestCase {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 466, height: 678))
         let controller = UIViewController()
         window.rootViewController = controller
-        let bar = WVerticalTabBar(items: zip(["wallet", "market", "explore"], titles).map { id, title in
-            .init(id: id, title: title, image: UIImage(systemName: "circle")!)
+        let ids = ["wallet", "market", "explore"]
+        let bar = WVerticalTabBar(items: titles.enumerated().map { index, title in
+            .init(id: index < ids.count ? ids[index] : "tab-\(index)", title: title, image: UIImage(systemName: "circle")!)
         })
         controller.view.addSubview(bar)
         bar.frame = CGRect(origin: CGPoint(x: 394, y: 88), size: bar.intrinsicContentSize)
@@ -219,5 +362,10 @@ final class VerticalTabBarTests: XCTestCase {
             return view.subviews.lazy.compactMap(find).first
         }
         return find(view)!
+    }
+
+    private func findScrollView(in view: UIView) -> UIScrollView? {
+        if let scrollView = view as? UIScrollView { return scrollView }
+        return view.subviews.lazy.compactMap { self.findScrollView(in: $0) }.first
     }
 }

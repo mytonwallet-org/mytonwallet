@@ -18,6 +18,7 @@ import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { getChainTitle } from '../../util/chain';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 import { openUrl } from '../../util/openUrl';
 import { shareUrl } from '../../util/share';
 import { MEANINGFUL_CHAR_LENGTH, shortenAddress } from '../../util/shortenAddress';
@@ -65,6 +66,7 @@ interface OwnProps {
   noExplorer?: boolean;
   /** The link that "Share Link" shares. Without it, a transaction shares its in-app view link. */
   shareLink?: string;
+  testId?: string;
 }
 
 interface StateProps {
@@ -101,6 +103,7 @@ function InteractiveTextField({
   isTestnet,
   noDimming,
   shareLink,
+  testId,
   selectedExplorerIds,
 }: OwnProps & StateProps) {
   const { showToast, addSavedAddress, openTemporaryViewAccount } = getActions();
@@ -276,6 +279,7 @@ function InteractiveTextField({
         tabIndex={0}
         role="button"
         title={!shouldUseMenu ? lang('Copy') : undefined}
+        data-testid={testId}
         onClick={!shouldUseMenu ? handleCopy : undefined}
       >
         {isScam && <img src={scamImg} alt={lang('Scam')} className={styles.scamImage} />}
@@ -406,6 +410,7 @@ function InteractiveTextField({
           onInput={setSavedAddressName}
           value={savedAddressName}
           maxLength={SAVED_ADDRESS_NAME_MAX_LENGTH}
+          testId={getTestId('save_address_name_input')}
           enterKeyHint="done"
           className={styles.nameInput}
         />

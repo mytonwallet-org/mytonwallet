@@ -153,6 +153,10 @@ export type UuidInput = string;
  */
 export type AgentEntryPoint =
   | {
+      kind: 'supportRequest';
+      source: 'starterHint' | 'header' | 'menu';
+    }
+  | {
       kind: 'agentTab';
     }
   | {
@@ -189,8 +193,37 @@ export type AgentEntryPoint =
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentStarterHintIdV2".
  */
-export type AgentStarterHintIdV2 =
+export type AgentStarterHintIdV2 = AgentListedStarterHintIdV2 | AgentPoolStarterHintIdV2;
+/**
+ * The starter hints GET /hints lists
+ *
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentListedStarterHintIdV2".
+ */
+export type AgentListedStarterHintIdV2 =
   'agent.capabilities' | 'learn.swap' | 'learn.staking' | 'learn.security' | 'receive.tokens';
+/**
+ * The starter hints only GET /hints/pool offers; the pool offers some listed hints too
+ *
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentPoolStarterHintIdV2".
+ */
+export type AgentPoolStarterHintIdV2 =
+  | 'wallet.assets'
+  | 'wallet.total'
+  | 'wallet.spending'
+  | 'wallet.last_transfer'
+  | 'wallet.fund'
+  | 'market.today'
+  | 'news.today'
+  | 'market.bitcoin'
+  | 'market.price'
+  | 'staking.yield'
+  | 'staking.options'
+  | 'learn.multisend'
+  | 'action.swap'
+  | 'action.send'
+  | 'action.stake';
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentErrorCodeV2".
@@ -199,6 +232,7 @@ export type AgentErrorCodeV2 =
   | 'invalid_request'
   | 'invalid_event'
   | 'client_update_required'
+  | 'support_escalation_rate_limited'
   | 'network_error'
   | 'device_token_missing'
   | 'device_token_invalid'
@@ -1779,6 +1813,7 @@ export interface AgentThreadDigestCardV2 {
 export interface AgentNewsDigestHeadlineV2 {
   eventId: number;
   headline: string;
+  imageUrl?: string;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1848,6 +1883,37 @@ export interface AgentPublicFollowUpV2 {
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentHintPoolItemV2".
+ */
+export interface AgentHintPoolItemV2 {
+  id: AgentStarterHintIdV2;
+  group: 'wallet' | 'market' | 'learn' | 'action';
+  /**
+   * The app shows the hint only when the active account supports every one of these actions
+   *
+   * @minItems 1
+   * @maxItems 4
+   */
+  requiredActions?: AgentActionKind[];
+  /**
+   * The app shows the hint only to a wallet in this state; without it, to any wallet
+   */
+  walletState?: 'funded' | 'empty';
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentHintPoolResponseV2".
+ */
+export interface AgentHintPoolResponseV2 {
+  protocolVersion: 3;
+  catalogVersion: 'agent-starter-hints-v2';
+  /**
+   * @maxItems 64
+   */
+  items: AgentHintPoolItemV2[];
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentHintsResponseV2".
  */
 export interface AgentHintsResponseV2 {
@@ -1863,7 +1929,7 @@ export interface AgentHintsResponseV2 {
  * via the `definition` "AgentStarterHintV2".
  */
 export interface AgentStarterHintV2 {
-  id: AgentStarterHintIdV2;
+  id: AgentListedStarterHintIdV2;
   /**
    * @maxItems 2
    */
@@ -1982,6 +2048,7 @@ export interface AgentNewsFeedDigestV2 {
   top: AgentNewsDigestHeadlineV2[];
   total: number;
   discussion?: AgentNewsFeedDiscussionV2;
+  discussionNaming?: AgentNewsFeedDiscussionNamingV2;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1990,6 +2057,15 @@ export interface AgentNewsFeedDigestV2 {
 export interface AgentNewsFeedDiscussionV2 {
   threadId: Uuid;
   icon?: string;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedDiscussionNamingV2".
+ */
+export interface AgentNewsFeedDiscussionNamingV2 {
+  title: AgentThreadTitleV2;
+  icon?: string;
+  followups: AgentFollowUpTextV1[];
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -2003,6 +2079,7 @@ export interface AgentNewsFeedItemV2 {
   imageUrl?: string;
   sources: Sources;
   discussion?: AgentNewsFeedDiscussionV2;
+  discussionNaming?: AgentNewsFeedDiscussionNamingV2;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -2024,8 +2101,10 @@ export interface AgentNewsFeedPageV2 {
  */
 export interface AgentNewsFeedRequestV2 {
   locale: AgentNewsFeedLocaleV2;
+  view?: 'all' | 'digests';
   cursor?: AgentNewsFeedCursorV2;
   digestHour?: number;
+  digestMinute?: 0 | 15 | 30 | 45;
   timeZone?: string;
 }
 /**
@@ -3444,8 +3523,11 @@ export interface AgentV2PublicContractTypes {
   AgentFeatureCapabilitiesResponseV2: AgentFeatureCapabilitiesResponseV2;
   AgentFollowUpTextV1: AgentFollowUpTextV1;
   AgentFollowupsEvent: AgentFollowupsEvent;
+  AgentHintPoolItemV2: AgentHintPoolItemV2;
+  AgentHintPoolResponseV2: AgentHintPoolResponseV2;
   AgentHintsResponseV2: AgentHintsResponseV2;
   AgentIntentSource: AgentIntentSource;
+  AgentListedStarterHintIdV2: AgentListedStarterHintIdV2;
   AgentMarkdownMessageContentV1: AgentMarkdownMessageContentV1;
   AgentMarketAssetIdentityV1: AgentMarketAssetIdentityV1;
   AgentMarketCanonicalChainV1: AgentMarketCanonicalChainV1;
@@ -3467,6 +3549,7 @@ export interface AgentV2PublicContractTypes {
   AgentNewsDigestHeadlineV2: AgentNewsDigestHeadlineV2;
   AgentNewsFeedCursorV2: AgentNewsFeedCursorV2;
   AgentNewsFeedDigestV2: AgentNewsFeedDigestV2;
+  AgentNewsFeedDiscussionNamingV2: AgentNewsFeedDiscussionNamingV2;
   AgentNewsFeedDiscussionV2: AgentNewsFeedDiscussionV2;
   AgentNewsFeedItemV2: AgentNewsFeedItemV2;
   AgentNewsFeedLocaleV2: AgentNewsFeedLocaleV2;
@@ -3483,6 +3566,7 @@ export interface AgentV2PublicContractTypes {
   AgentPersistedStakeActionV2: AgentPersistedStakeActionV2;
   AgentPersistedSwapActionV2: AgentPersistedSwapActionV2;
   AgentPersistedWalletActionV2: AgentPersistedWalletActionV2;
+  AgentPoolStarterHintIdV2: AgentPoolStarterHintIdV2;
   AgentPreparedPersistedActionV2: AgentPreparedPersistedActionV2;
   AgentProblemReportCapabilityV1: AgentProblemReportCapabilityV1;
   AgentProblemReportRequestV2: AgentProblemReportRequestV2;

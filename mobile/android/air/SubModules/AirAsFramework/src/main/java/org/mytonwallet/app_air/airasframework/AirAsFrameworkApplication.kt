@@ -28,6 +28,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvide
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
+import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkInstallationStorage
 import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.sqlStorage.WSQLStorage
@@ -81,6 +82,13 @@ class AirAsFrameworkApplication {
             Logger.i(
                 Logger.LogTag.AIR_APPLICATION,
                 "WSdkStorage.init: ${System.currentTimeMillis() - t}ms"
+            )
+
+            t = System.currentTimeMillis()
+            WSdkInstallationStorage.init(applicationContext)
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "WSdkInstallationStorage.init: ${System.currentTimeMillis() - t}ms"
             )
 
             t = System.currentTimeMillis()

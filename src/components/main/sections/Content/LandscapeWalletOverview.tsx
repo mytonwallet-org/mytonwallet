@@ -16,6 +16,7 @@ import {
   selectCurrentAccountState,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import getTestId from '../../../../util/getTestId';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
 import useLang from '../../../../hooks/useLang';
@@ -42,6 +43,7 @@ const MIN_VISIBLE_CELLS = 1;
 
 interface OwnProps {
   totalTokensAmount: number;
+  isActive: boolean;
   onStakedTokenClick: (stakingId?: string) => void;
 }
 
@@ -64,6 +66,7 @@ function LandscapeWalletOverview({
   blacklistedNftAddresses,
   whitelistedNftAddresses,
   areUnverifiedNftsHidden,
+  isActive,
   overviewCellSize,
   isAssetCellVisible,
   isCollectibleCellVisible,
@@ -169,7 +172,7 @@ function LandscapeWalletOverview({
 
   return (
     <div className={buildClassName(styles.wrapper, 'custom-scroll', SCROLL_CONTAINER_CLASS)}>
-      <TopActions />
+      <TopActions isActive={isActive} />
       <div ref={rowContainerRef} className={styles.rowContainer}>
         <div
           ref={rowRef}
@@ -181,6 +184,7 @@ function LandscapeWalletOverview({
               showAllLabel={lang('Show All Assets')}
               showAllIcon="icon-show-all"
               showAllAmount={totalTokensAmount}
+              showAllTestId={isActive ? getTestId('home_show_all') : undefined}
               menuItems={assetsMenuItems}
               size={overviewCellSize}
               className={stretchedCellClass}

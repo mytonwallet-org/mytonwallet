@@ -43,6 +43,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
@@ -443,7 +444,11 @@ class TokenHeaderView(
                 prevBalance != null,
                 setInstantly = false,
                 forceCurrencyToRight = true,
-                decimalsCount = if (showsFullBalance) token.decimals else null,
+                decimalsCount = if (showsFullBalance) {
+                    token.decimals
+                } else {
+                    balance.smartDecimalsCount(token.decimals, token.amountPrecision)
+                },
                 morphingDurationOverride =
                     if (fastBalanceMorph) FULL_BALANCE_MORPH_DURATION.toInt() else null,
                 rounding = RoundingMode.DOWN

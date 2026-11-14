@@ -12,6 +12,9 @@ describe('Agent V2 run command', () => {
     ['with an entry point', appendCommand({
       entryPoint: { kind: 'agentTab' },
     }), { entryPoint: { kind: 'agentTab' } }],
+    ['with a support request', appendCommand({
+      entryPoint: { kind: 'supportRequest', source: 'header' },
+    }), { entryPoint: { kind: 'supportRequest', source: 'header' } }],
     ['with a news entry point', appendCommand({
       entryPoint: { kind: 'pulseNews', eventId: 307 },
     }), { entryPoint: { kind: 'pulseNews', eventId: 307 } }],

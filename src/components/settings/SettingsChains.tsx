@@ -7,6 +7,7 @@ import type { ChainDisplay } from '../../global/selectors';
 import { selectCurrentAccountChainDisplay } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
+import getTestId from '../../util/getTestId';
 import { REM } from '../../util/windowEnvironment';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -81,7 +82,12 @@ function SettingsChains({
 
   return (
     <div className={styles.slide}>
-      <SettingsHeader title={lang('Blockchains')} isScrolled={isScrolled} onBackClick={onBackClick} />
+      <SettingsHeader
+        title={lang('Blockchains')}
+        titleTestId={getTestId('blockchains_title')}
+        isScrolled={isScrolled}
+        onBackClick={onBackClick}
+      />
       <div
         ref={scrollRef}
         className={buildClassName(styles.content, 'custom-scroll')}

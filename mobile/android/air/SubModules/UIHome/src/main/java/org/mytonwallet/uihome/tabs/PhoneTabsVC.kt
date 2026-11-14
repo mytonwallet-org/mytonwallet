@@ -145,7 +145,7 @@ class PhoneTabsVC(context: Context) :
         private const val ACTIONS_ICON_SIZE = 18
         private const val TOOLBAR_AVATAR_ICON_SIZE = 40
         private const val TOOLBAR_SCAN_ICON_SIZE = 24
-        private const val TOOLBAR_ACTION_ICON_SIZE = 28
+        private const val TOOLBAR_ACTION_ICON_SIZE = 24
         private const val TOOLBAR_SHAKE_ANGLE = 4f
         private const val AVATAR_SWAP_SCALE = 0.7f
 
@@ -339,7 +339,7 @@ class PhoneTabsVC(context: Context) :
     private var selectedTabId = AppTabsManager.ID_HOME
     private var selectingTabId: Int? = null
 
-    private fun selectTab(itemId: Int) {
+    private fun selectTab(itemId: Int, isInstant: Boolean = false) {
         finishDirectTabTransition()
         if (selectedTabId == itemId) {
             val index = topTabIds.indexOf(itemId)
@@ -379,7 +379,7 @@ class PhoneTabsVC(context: Context) :
 
         if (searchView.hasFocus()) searchView.clearFocus()
 
-        switchTab(itemId, oldNav, newNav)
+        switchTab(itemId, oldNav, newNav, isInstant)
         selectingTabId = null
         selectedTabId = itemId
         updateAgentChrome()
@@ -528,7 +528,8 @@ class PhoneTabsVC(context: Context) :
     private fun switchTab(
         itemId: Int,
         oldNav: WNavigationController?,
-        newNav: WNavigationController
+        newNav: WNavigationController,
+        isInstant: Boolean
     ) {
         val index = topTabIds.indexOf(itemId)
         if (index < 0) return
@@ -543,12 +544,12 @@ class PhoneTabsVC(context: Context) :
         val previousIndex = tabPager.currentItem
         revealPage(previousIndex)
         revealPage(index)
-        val animated = WGlobalStorage.getAreAnimationsActive()
+        val animated = !isInstant && WGlobalStorage.getAreAnimationsActive()
         if (animated && previousIndex != index && tabPager.width > 0) {
             if (abs(previousIndex - index) > 1) {
                 if (!startDirectTabTransition(previousIndex, index)) {
                     tabPager.cancelSpringScroll()
-                    tabPager.setCurrentItem(index, false)
+                    jumpToPage(index)
                     completePendingTabAppearance()
                 }
                 return
@@ -564,9 +565,23 @@ class PhoneTabsVC(context: Context) :
                 completePendingTabAppearance()
             }
         } else {
-            tabPager.setCurrentItem(index, false)
+            jumpToPage(index)
             completePendingTabAppearance()
         }
+    }
+
+    // A pager out of the window reports no scroll, so the tab bar moves with the page here
+    private fun jumpToPage(index: Int) {
+        tabPager.setCurrentItem(index, false)
+        tabPageOffset = index.toFloat()
+        topTabsControl.updateThumbPosition(
+            index = index,
+            offset = index.toFloat(),
+            targetIndex = index,
+            force = true,
+            isAnimatingToPosition = false,
+            animateScroll = false
+        )
     }
 
     private fun finishSpringTabScroll(shouldCancelPage: Boolean = false) {
@@ -1324,9 +1339,8 @@ class PhoneTabsVC(context: Context) :
     }
 
     private fun getToolbarIconRes(item: MToolbarItem): Int = when (item) {
-        MToolbarItem.SCAN -> org.mytonwallet.app_air.icons.R.drawable.ic_qr_code_scan_18_24
         MToolbarItem.ACTIONS -> org.mytonwallet.app_air.icons.R.drawable.ic_plus_thick
-        else -> HomeToolbarActions.getIconRes(item)
+        else -> HomeToolbarActions.getToolbarIconRes(item)
     }
 
     private fun getToolbarIconSize(item: MToolbarItem): Int = when (item) {
@@ -3050,7 +3064,7 @@ class PhoneTabsVC(context: Context) :
                 dismissTabMenu()
                 updateTopAvatar()
                 if (selectedTabId != AppTabsManager.ID_HOME) {
-                    selectTab(AppTabsManager.ID_HOME)
+                    selectTab(AppTabsManager.ID_HOME, isInstant = true)
                 }
                 window?.minimizedBrowser?.dismissAll()
             }

@@ -150,8 +150,13 @@ import WalletContext
                          message: L10n.perpsFundingMissing(minUSDC: usdc, feeETH: eth),
                          buttonTitle: lang("Not Enough Funds"), actionTitle: L10n.buyToken(token: "USDC"), action: .buyUsdc)
         } else if requirements.needsUsdc {
-            return .init(title: L10n.notEnoughSymbolLowercase(symbol: "USDC"),
-                         message: isEditing ? L10n.perpsFundingUsdcIncrease(minUSDC: usdc) : L10n.perpsFundingUsdc(minUSDC: usdc),
+            let message = if let (amount, fees) = fundingUsdcBreakdown(requirements) {
+                isEditing ? L10n.perpsFundingUsdcIncreaseFees(minUSDC: usdc, amount: amount, fees: fees)
+                    : L10n.perpsFundingUsdcFees(minUSDC: usdc, amount: amount, fees: fees)
+            } else {
+                isEditing ? L10n.perpsFundingUsdcIncrease(minUSDC: usdc) : L10n.perpsFundingUsdc(minUSDC: usdc)
+            }
+            return .init(title: L10n.notEnoughSymbolLowercase(symbol: "USDC"), message: message,
                          buttonTitle: L10n.notEnoughSymbol(symbol: "USDC"), actionTitle: L10n.buyToken(token: "USDC"), action: .buyUsdc)
         } else {
             return .init(title: lang("PerpsFundingGasTitle"),
@@ -170,8 +175,22 @@ import WalletContext
         return (deposit + gas).formatted(.number.locale(.forNumberFormatters).precision(.fractionLength(0...6)))
     }
 
+    /// The order amount, as the minimum-amount warning states it, and the bridge and paymaster fees on top of it.
+    private static func fundingUsdcBreakdown(_ requirements: ApiPerpsFundingRequirements) -> (amount: String, fees: String)? {
+        let locale = Locale(identifier: "en_US_POSIX")
+        guard let deposit = Decimal(string: requirements.requiredUsdc, locale: locale),
+              let bridgeFee = requirements.requiredBridgeFeeUsdc.flatMap({ Decimal(string: $0, locale: locale) }) else { return nil }
+        let amount = deposit - bridgeFee
+        let fees = bridgeFee + (Decimal(string: requirements.requiredGasUsdc, locale: locale) ?? 0)
+        guard amount > 0, fees > 0 else { return nil }
+        let format = Decimal.FormatStyle.number.locale(.forNumberFormatters).precision(.fractionLength(0...6))
+        return (amount.formatted(format), fees.formatted(format))
+    }
+
     public static func balanceWithdrawalReview(_ quote: ApiPerpsBalanceWithdrawalQuote) -> PerpsBalanceWithdrawalReviewDisplayData {
-        .init(token: hyperliquidUsdc, receiveAmount: PerpsFormatting.quantity(quote.receiveAmount, symbol: "USDC"),
+        let token = hyperliquidUsdc
+        return .init(token: token,
+              receiveAmount: TokenAmount(normalizedAmountValue(quote.receiveAmount, digits: token.decimals), token),
               amount: PerpsFormatting.quantity(quote.amount, symbol: "USDC"),
               fee: formatWithdrawalFee(quote),
               bridgeFee: PerpsFormatting.quantity(quote.bridgeFee, symbol: "USDC"),
@@ -183,7 +202,7 @@ import WalletContext
         guard let quote = operation.balanceWithdrawal else { return nil }
         var withdrawal = balanceWithdrawalReview(quote)
         // A refused withdrawal leaves the USDC on the balance, so nothing is on its way.
-        if operation.state == "failed" { withdrawal.receiveAmount = "—" }
+        if operation.state == "failed" { withdrawal.receiveAmount.optionalAmount = nil }
         var data = PerpsPositionReceiptDisplayData(balanceWithdrawal: withdrawal, timestamp: operation.createdAt)
         switch operation.state {
         case "running": data.status = operation.stage == "withdrawal" ? .submitted : .pending

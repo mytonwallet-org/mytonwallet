@@ -2,6 +2,7 @@ import React, { memo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import { getChainsSupportingLedger } from '../../util/chain';
+import getTestId from '../../util/getTestId';
 import { IS_LEDGER_SUPPORTED } from '../../util/windowEnvironment';
 
 import useLang from '../../hooks/useLang';
@@ -54,6 +55,7 @@ function AuthImportWalletModal({ isOpen }: StateProps) {
       <div className={styles.actionsSection}>
         <ListItem
           icon="key"
+          testId={getTestId('add_wallet_secret_words')}
           label={lang('$secret_words')}
           description={lang('Restore wallet from 12 or 24 words')}
           onClick={handleSecretWordsClick}
@@ -61,6 +63,7 @@ function AuthImportWalletModal({ isOpen }: StateProps) {
         {IS_LEDGER_SUPPORTED && (
           <ListItem
             icon="ledger-alt"
+            testId={getTestId('add_wallet_ledger')}
             label={lang('Ledger')}
             description={lang('Connect your hardware wallet')}
             onClick={handleImportHardwareWalletClick}
@@ -71,6 +74,7 @@ function AuthImportWalletModal({ isOpen }: StateProps) {
       <div className={styles.actionsSection}>
         <ListItem
           icon="wallet-view"
+          testId={getTestId('add_wallet_view')}
           label={lang('View Any Address')}
           description={lang('Watch wallet in read-only mode')}
           onClick={handleImportViewAccountClick}

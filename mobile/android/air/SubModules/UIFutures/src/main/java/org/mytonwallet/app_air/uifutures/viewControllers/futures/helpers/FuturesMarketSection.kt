@@ -48,6 +48,7 @@ private fun MApiPerpsListedAsset.toMarketAsset() = MApiMarketAsset(
     name = displayName ?: symbol,
     symbol = symbol,
     image = image,
+    keywords = keywords,
     price = markPrice?.let { it * (TokenStore.baseCurrencyRate ?: 1.0) },
     percentChange24h = change24h?.let {
         BigDecimal.valueOf(it).setScale(CHANGE_DECIMALS, RoundingMode.HALF_UP).toDouble()

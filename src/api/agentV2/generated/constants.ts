@@ -26,6 +26,7 @@ export const AGENT_ERROR_CODES: readonly AgentErrorCodeV2[] = [
   'invalid_request',
   'invalid_event',
   'client_update_required',
+  'support_escalation_rate_limited',
   'network_error',
   'device_token_missing',
   'device_token_invalid',

@@ -101,30 +101,30 @@ describe('AgentInputBar dictation', () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps Stop over a draft during an answer, then trades it for send without the microphone', async () => {
+  it('trades Stop for the send button and back as a draft comes and goes, without the microphone', async () => {
     const dictation = buildDictation({ phase: 'idle' });
     const stop = { canStop: true, onStop: jest.fn() };
     await renderBar(dictation, '', stop);
     const button = getButton('$agent_stop_answer');
     const getStates = recordButtonStates(button);
 
-    await renderBar(dictation, 'Next', stop);
-    expect(button.classList.contains('not-open')).toBe(false);
-    expect(getButton('Send').classList.contains('not-open')).toBe(true);
-
-    // The answer ends under the draft
-    await renderBar(dictation, 'Next', { ...stop, canStop: false });
+    // A draft sent during the answer is queued behind it
+    await renderBar(dictation, 'Hi', stop);
     expect(button.classList.contains('not-open')).toBe(true);
-    expect(button.disabled).toBe(true);
     expect(getButton('Send').classList.contains('not-open')).toBe(false);
     expect(getButton('Send').disabled).toBe(false);
+
+    await renderBar(dictation, '', stop);
+    expect(button.classList.contains('not-open')).toBe(false);
+    expect(getButton('Send').classList.contains('not-open')).toBe(true);
 
     // Every state the button passed through, however briefly, held Stop
     const { classNames, labels } = getStates();
     expect(classNames.every((className) => className.split(' ').includes('stopButton'))).toBe(true);
     expect(new Set(labels)).toEqual(new Set(['$agent_stop_answer']));
 
-    // The empty field gets the microphone back
+    // An answer that ends under a draft leaves the microphone for the empty field
+    await renderBar(dictation, 'Hi', { ...stop, canStop: false });
     await renderBar(dictation, '', { ...stop, canStop: false });
     expect(button.classList.contains('stopButton')).toBe(false);
     expect(getButton('$agent_dictation_start').classList.contains('not-open')).toBe(false);

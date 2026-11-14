@@ -6,14 +6,36 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 
 class DeeplinkParserTest {
+    @Test
+    fun buildsNewsShareLinksWithTheFeedLocale() {
+        for ((locale, language) in listOf(
+            "ru" to "ru",
+            "en" to "en",
+            "ru-RU" to "ru",
+            "de" to "en"
+        )) {
+            val url = ExplorerHelpers.buildAgentNewsShareUrl(42, locale)
+            assertEquals("https://my.tt/agent?news=42&lang=$language&utm_source=pulse_share", url)
+        }
+        assertEquals(
+            "https://my.tt/agent?news=307&lang=en&utm_source=pulse_share",
+            ExplorerHelpers.buildAgentNewsShareUrl(307, "en")
+        )
+    }
+
     @Test
     fun parsesAgentPushNewsAndDigestParametersAndFallsBackForInvalidValues() {
         val digestId = "ru:2026-11-08T18:00:00.000Z"
         assertEquals(
             Deeplink.Agent(null, newsEventId = 42),
             DeeplinkParser.parseAgentLink("42", null)
+        )
+        assertEquals(
+            Deeplink.Agent(null, newsEventId = 307),
+            DeeplinkParser.parseAgentLink("307", null)
         )
         assertEquals(
             Deeplink.Agent(null, digestId = digestId),

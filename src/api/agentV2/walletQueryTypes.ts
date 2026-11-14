@@ -70,4 +70,5 @@ export interface TransactionScanOutcome {
   attempts: number;
   failed: boolean;
   hasMore: boolean;
+  hasPassedPeriodStart: boolean;
 }

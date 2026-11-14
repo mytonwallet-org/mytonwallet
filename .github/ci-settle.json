@@ -1,0 +1,5 @@
+{
+  "ios": { "seconds": 600, "logins": [] },
+  "android": { "seconds": 600, "logins": [] },
+  "simpleTests": { "seconds": 0, "logins": [] }
+}

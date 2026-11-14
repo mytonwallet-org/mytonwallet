@@ -1,5 +1,7 @@
 package org.mytonwallet.app_air.uiagent.agentV2
 
+import android.content.ContextWrapper
+import java.util.Date
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -11,12 +13,14 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportEvent
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVM
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.formatAgentChatTime
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.findFollowupOwner
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentComposerPlaceholder
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentSupportSubtitle
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.hasSupportOperatorJoined
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.arrivingRichBlockIndex
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTable
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTableReference
@@ -28,6 +32,43 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 
 class AgentV2CopyTest {
+    @Test
+    fun showsTheDailyQuotaResetOnlyWhileItIsKnownAndInTheFuture() {
+        val dictionary = LocaleController::class.java.getDeclaredField("dictionary").apply {
+            isAccessible = true
+        }
+        val applicationContext = ApplicationContextHolder::class.java
+            .getDeclaredField("applicationContext").apply { isAccessible = true }
+        val previousDictionary = dictionary.get(null)
+        val previousContext = applicationContext.get(null)
+        val context = ContextWrapper(null)
+        val resetAt = Date(4_102_444_800_000L)
+        try {
+            applicationContext.set(null, context)
+            dictionary.set(
+                null,
+                mapOf(
+                    "\$agent_daily_limit_resets_at" to
+                        "Daily agent limit reached. Resets at %time%.",
+                    "\$agent_daily_limit_reached" to "Daily agent limit reached"
+                )
+            )
+            assertEquals(
+                "Daily agent limit reached. Resets at ${formatAgentChatTime(context, resetAt)}.",
+                agentV2ErrorText("user_quota_exhausted", resetAt)
+            )
+            for (unknownOrPast in listOf(null, Date(0))) {
+                assertEquals(
+                    "Daily agent limit reached",
+                    agentV2ErrorText("user_quota_exhausted", unknownOrPast)
+                )
+            }
+        } finally {
+            dictionary.set(null, previousDictionary)
+            applicationContext.set(null, previousContext)
+        }
+    }
+
     @Test
     fun restoresSupportMessagesWithoutContentAndSkipsUnknownEvents() {
         val user = AgentV2PersistedMessage(

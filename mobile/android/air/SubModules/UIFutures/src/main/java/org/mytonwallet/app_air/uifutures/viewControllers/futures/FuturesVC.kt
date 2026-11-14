@@ -337,7 +337,13 @@ class FuturesVC(context: Context) :
     private var rows: List<Row> = listOf(Row.Summary)
 
     private fun buildRows(): List<Row> = buildList {
-        add(if (futuresVM.showsOnboarding) Row.Onboarding else Row.Summary)
+        when {
+            futuresVM.showsOnboarding -> add(Row.Onboarding)
+
+            futuresVM.snapshot == null || futuresVM.positionsStatus != null ||
+                futuresVM.snapshot?.unavailableDexs?.isNotEmpty() == true ||
+                futuresVM.positions.isNotEmpty() -> add(Row.Summary)
+        }
         PerpsStore.visibleOperationStatus(AccountStore.activeAccountId)?.let {
             add(Row.OperationStatus(it))
         }

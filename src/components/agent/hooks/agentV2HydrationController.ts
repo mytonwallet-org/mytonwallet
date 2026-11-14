@@ -1,15 +1,12 @@
-import type {
-  AgentHintsResponseV2,
-  AgentThreadSummaryV2,
-} from '../../../api/agentV2/protocol/types';
+import type { AgentThreadSummaryV2 } from '../../../api/agentV2/protocol/types';
 import type {
   AgentV2ClientUpdate,
   AgentV2IncompatibleHistoryMessage,
   AgentV2MutationResult,
   AgentV2OperationError,
+  AgentV2StarterHints,
   AgentV2ThreadHydration,
 } from '../../../api/agentV2/types';
-import type { AgentHint } from '../../../global/types';
 import type {
   AgentV2MessagesState,
   AgentV2MessagesStateAction,
@@ -39,8 +36,10 @@ export interface AgentV2HydrationControllerDependencies {
   onThreadNotFound?: NoneToVoidFunction;
   /** The device's copy of the thread's latest messages, which shows until the history loads */
   getCachedMessages?: (threadId: string) => Promise<Pick<AgentV2ThreadHydration, 'thread' | 'messages'> | undefined>;
-  getHints: (langCode: string) => Promise<AgentHintsResponseV2 | undefined>;
-  getLangCode: () => AgentHint['langCode'];
+  /** Picks the starter hints anew; a failed pick leaves the chat without hints */
+  getStarterHints: () => Promise<AgentV2StarterHints | undefined>;
+  /** Counts the times the chat has come on screen; each picks its starter hints anew */
+  getHintsShowingId: () => number;
   getMessages: (
     threadId: string,
     cursor?: string,
@@ -50,7 +49,6 @@ export interface AgentV2HydrationControllerDependencies {
   isChatVisible: () => boolean;
   loadAvailability: () => Promise<unknown>;
   loadUserQuota: () => Promise<unknown>;
-  mapHints: (response: AgentHintsResponseV2, langCode: AgentHint['langCode']) => AgentHint[];
   now: () => number;
   releaseStaleThreadClearOperation: (
     thread: AgentThreadSummaryV2,
@@ -70,7 +68,8 @@ export interface AgentV2HydrationController {
   /** Resolves to `true` once this read has applied the thread's history */
   hydrate: (shouldPreserveLiveContent?: boolean, isFailureSilent?: boolean) => Promise<boolean>;
   loadOlderMessages: () => Promise<void>;
-  refreshHints: () => Promise<void>;
+  /** The chat came on screen: its starter hints are picked for this showing, once the history has loaded */
+  pickStarterHints: NoneToVoidFunction;
   refreshLatestMessages: () => Promise<void>;
   /** Reads the newest history once the chat allows it, also in a chat support has closed */
   requestLatestRefresh: NoneToVoidFunction;
@@ -89,13 +88,14 @@ export function createAgentV2HydrationController(
   let isRefreshingLatest = false;
   let requestedLatestRefreshCount = 0;
   let completedLatestRefreshCount = 0;
-  let pendingHintsRequest: { requestId: number; langCode: AgentHint['langCode'] } | undefined;
   let activeHistoryPageOperation: AgentV2HistoryPageOperation | undefined;
+  // The pick of the chat's current showing, which every read of its history during the showing keeps, even a failed one
+  let starterHintsPick: { showingId: number; promise: Promise<AgentV2StarterHints | undefined> } | undefined;
   let isDisposed = false;
 
   return {
-    cancelLatestRefresh, dispose, handleUpdate, hydrate, loadOlderMessages,
-    refreshHints, refreshLatestMessages, requestLatestRefresh, resetHistory, resumeLatestRefresh,
+    cancelLatestRefresh, dispose, handleUpdate, hydrate, loadOlderMessages, pickStarterHints,
+    refreshLatestMessages, requestLatestRefresh, resetHistory, resumeLatestRefresh,
   };
 
   function dispose() {
@@ -148,10 +148,8 @@ export function createAgentV2HydrationController(
       });
     }
 
-    const langCode = dependencies.getLangCode();
     const hintsRequestId = nextHintsRequestId;
-    pendingHintsRequest = { requestId: hintsRequestId, langCode };
-    const hintsResponse = dependencies.getHints(langCode).catch(() => undefined);
+    takeStarterHintsPick();
     const [hydrationResult] = await Promise.all([
       dependencies.getMessages(threadId).finally(() => {
         isCachedHistoryStale = true;
@@ -163,12 +161,10 @@ export function createAgentV2HydrationController(
     // A message sent over a cached history goes on with that history, as iOS drops a read that a run outdated. The
     // history read meanwhile waits for the next read.
     if (isShowingCachedHistory && dependencies.getState().run !== runAtStart) {
-      finishHintsRequest(hintsRequestId);
       dependencies.dispatch({ kind: 'hydrationFailed' });
       return false;
     }
     if (!hydrationResult?.ok) {
-      finishHintsRequest(hintsRequestId);
       finishHydrationFailure(
         isFailureSilent,
         dependencies.buildHistoryError(hydrationResult?.error).message,
@@ -210,35 +206,46 @@ export function createAgentV2HydrationController(
       nextCursor: hydration.nextCursor,
       shouldPreserveLiveContent: shouldPreserveCurrentLiveContent,
     });
-    void hintsResponse.then((response) => {
-      const latest = dependencies.getState();
-      if (
-        !isHydrationCurrent(requestId)
-        || hintsRequestId !== nextHintsRequestId
-        || dependencies.getLangCode() !== langCode
-        || latest.thread?.id !== threadId
-        || latest.thread.news
-        || latest.thread.digest
-      ) return;
-      if (!response) {
-        finishHintsRequest(hintsRequestId);
-        void refreshHints();
-        return;
-      }
-      dependencies.dispatch({
-        kind: 'hintsLoaded',
-        hints: {
-          hints: dependencies.mapHints(response, langCode),
-          response,
-          langCode,
-        },
-      });
-    }).finally(() => finishHintsRequest(hintsRequestId));
+    showStarterHints(takeStarterHintsPick(), () => (
+      isHydrationCurrent(requestId) && hintsRequestId === nextHintsRequestId
+      && dependencies.getState().thread?.id === threadId
+    ));
     dependencies.stream.loadSendActionPresentations(
       hydration.messages,
       dependencies.stream.getActionPresentationGeneration(),
     );
     return true;
+  }
+
+  function pickStarterHints() {
+    // Before consent, or while the history has not loaded yet, the read of the history picks them
+    if (isDisposed || !dependencies.isConsentAccepted() || !dependencies.getState().hasHydratedHistory) return;
+    showStarterHints(takeStarterHintsPick(), () => true);
+  }
+
+  function takeStarterHintsPick() {
+    const showingId = dependencies.getHintsShowingId();
+    if (starterHintsPick?.showingId !== showingId) {
+      starterHintsPick = { showingId, promise: dependencies.getStarterHints().catch(() => undefined) };
+    }
+    return starterHintsPick;
+  }
+
+  function showStarterHints(pick: NonNullable<typeof starterHintsPick>, isCurrent: () => boolean) {
+    void pick.promise.then((starterHints) => {
+      const latest = dependencies.getState();
+      if (
+        !starterHints
+        || isDisposed
+        || !isCurrent()
+        || pick !== starterHintsPick
+        || latest.starterHintsShowingId === pick.showingId
+        || !latest.thread
+        || latest.thread.news
+        || latest.thread.digest
+      ) return;
+      dependencies.dispatch({ kind: 'hintsLoaded', starterHints, showingId: pick.showingId });
+    });
   }
 
   function showCachedHistory(cached: Pick<AgentV2ThreadHydration, 'thread' | 'messages'>) {
@@ -277,49 +284,6 @@ export function createAgentV2HydrationController(
     });
     operation.promise = loadHistoryPage(operation);
     return operation.promise;
-  }
-
-  async function refreshHints() {
-    const current = dependencies.getState();
-    const threadId = current.thread?.id;
-    const langCode = dependencies.getLangCode();
-    if (
-      isDisposed
-      || !threadId
-      || current.thread?.news
-      || current.thread?.digest
-      || current.isLoading
-      || current.isConsentAccepted !== true
-      || current.hintsLangCode === langCode
-      || (pendingHintsRequest?.requestId === nextHintsRequestId
-        && pendingHintsRequest.langCode === langCode)
-    ) return;
-
-    const requestId = ++nextHintsRequestId;
-    pendingHintsRequest = { requestId, langCode };
-    const response = await dependencies.getHints(langCode).finally(() => finishHintsRequest(requestId));
-    const latest = dependencies.getState();
-    if (
-      isDisposed
-      || requestId !== nextHintsRequestId
-      || dependencies.getLangCode() !== langCode
-      || latest.thread?.id !== threadId
-      || latest.thread.news
-      || latest.thread.digest
-      || !response
-    ) return;
-    dependencies.dispatch({
-      kind: 'hintsLoaded',
-      hints: {
-        hints: dependencies.mapHints(response, langCode),
-        response,
-        langCode,
-      },
-    });
-  }
-
-  function finishHintsRequest(requestId: number) {
-    if (pendingHintsRequest?.requestId === requestId) pendingHintsRequest = undefined;
   }
 
   function resetHistory() {

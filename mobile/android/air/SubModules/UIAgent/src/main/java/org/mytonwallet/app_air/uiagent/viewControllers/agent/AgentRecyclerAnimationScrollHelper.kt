@@ -14,8 +14,9 @@ import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 /**
- * Port of Telegram's `RecyclerAnimationScrollHelper` for scrolling down. The destination lays out at once, and the
- * rows on screen slide out in the list's overlay, where the layout manager never finds them.
+ * Port of Telegram's `RecyclerAnimationScrollHelper`. The destination lays out at once, and the rows on screen slide
+ * out in the list's overlay, where the layout manager never finds them, as the destination's rows slide in after them:
+ * from below for a destination further down and from above for one further up.
  */
 internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: RecyclerView) {
     private var pendingLayout: View.OnLayoutChangeListener? = null
@@ -23,11 +24,13 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
     private val leavingViews = mutableListOf<View>()
     private val movedViews = mutableSetOf<View>()
     private val heldHolders = mutableListOf<RecyclerView.ViewHolder>()
+    private var isDown = true
     private var scrollLength = 0
     private var progress = 0f
 
-    private var stripHead: View? = null
-    private var stripHeadTop = 0
+    // A row of the destination, whose moves while the rows slide the leaving rows follow
+    private var stripAnchor: View? = null
+    private var stripAnchorTop = 0
 
     private val frameUpdater = ViewTreeObserver.OnPreDrawListener {
         applyFrame()
@@ -38,7 +41,11 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
     val isRunning: Boolean get() = pendingLayout != null || animator != null
 
     /** With animations off or nothing on screen, the list just jumps. */
-    fun scrollDown(jump: () -> Unit) {
+    fun scrollDown(jump: () -> Unit) = startScroll(isDown = true, jump)
+
+    fun scrollUp(jump: () -> Unit) = startScroll(isDown = false, jump)
+
+    private fun startScroll(isDown: Boolean, jump: () -> Unit) {
         if (isRunning) return
         val count = recyclerView.childCount
         if (count == 0 || !WGlobalStorage.getAreAnimationsActive() ||
@@ -48,6 +55,7 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
             return
         }
         recyclerView.stopScroll()
+        this.isDown = isDown
         // Kept from the recycler so the destination's layout can't reuse them
         val oldViews = ArrayList<View>(count)
         val oldTops = HashMap<View, Int>(count)
@@ -87,7 +95,7 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
         if (!isRunning) return false
         val remaining = if (animator != null) (scrollLength * (1f - progress)).roundToInt() else 0
         endScroll()
-        if (remaining != 0) recyclerView.scrollBy(0, -remaining)
+        if (remaining != 0) recyclerView.scrollBy(0, if (isDown) -remaining else remaining)
         return true
     }
 
@@ -97,35 +105,41 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
 
     private fun animateFrom(oldViews: MutableList<View>, oldTops: Map<View, Int>) {
         var top = Int.MAX_VALUE
-        var head: View? = null
+        var bottom = Int.MIN_VALUE
+        var anchor: View? = null
         var scrollDiff = 0
         var hasSameViews = false
         for (index in 0 until recyclerView.childCount) {
             val child = recyclerView.getChildAt(index)
-            if (child.top < top) {
-                top = child.top
-                head = child
-            }
+            if ((isDown && child.top < top) || (!isDown && child.bottom > bottom)) anchor = child
+            top = minOf(top, child.top)
+            bottom = maxOf(bottom, child.bottom)
             val oldTop = oldTops[child] ?: continue
             hasSameViews = true
             oldViews.remove(child)
             val diff = child.top - oldTop
             if (diff != 0) scrollDiff = diff
         }
+        var oldTop = Int.MAX_VALUE
         var oldBottom = 0
         for (view in oldViews) {
             if (view.parent != null) continue
+            oldTop = minOf(oldTop, view.top)
             oldBottom = max(oldBottom, view.bottom)
             recyclerView.overlay.add(view)
             leavingViews.add(view)
         }
-        scrollLength = if (leavingViews.isEmpty()) abs(scrollDiff) else oldBottom - top
-        if (head == null || scrollLength <= 0) {
+        scrollLength = when {
+            leavingViews.isEmpty() -> abs(scrollDiff)
+            isDown -> oldBottom - top
+            else -> bottom - oldTop
+        }
+        if (anchor == null || scrollLength <= 0) {
             endScroll()
             return
         }
-        stripHead = head
-        stripHeadTop = head.top
+        stripAnchor = anchor
+        stripAnchorTop = anchor.top
         progress = 0f
         frameBinding = AgentPreDrawBinding(recyclerView, frameUpdater)
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -155,14 +169,15 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
     private fun applyFrame() {
         if (animator == null) return
         val remaining = scrollLength * (1f - progress)
+        val offset = if (isDown) remaining else -remaining
         for (index in 0 until recyclerView.childCount) {
             val child = recyclerView.getChildAt(index)
-            child.translationY = remaining
+            child.translationY = offset
             movedViews.add(child)
         }
-        val head = stripHead?.takeIf { it.parent === recyclerView }
-        val drift = if (head == null) 0 else head.top - stripHeadTop
-        val leavingShift = drift + remaining - scrollLength
+        val anchor = stripAnchor?.takeIf { it.parent === recyclerView }
+        val drift = if (anchor == null) 0 else anchor.top - stripAnchorTop
+        val leavingShift = drift + offset + if (isDown) -scrollLength else scrollLength
         leavingViews.forEach { it.translationY = leavingShift }
         recyclerView.invalidate()
     }
@@ -186,7 +201,7 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
         movedViews.clear()
         heldHolders.forEach { it.setIsRecyclable(true) }
         heldHolders.clear()
-        stripHead = null
+        stripAnchor = null
         recyclerView.invalidate()
     }
 

@@ -1,0 +1,28 @@
+@use "../agent/agentSurface";
+
+// A 2.125rem capsule in the header's title place, which narrows between the header's buttons
+.root {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.tabs {
+  --tab-gap-size: 0;
+
+  align-items: center;
+  max-width: 100%;
+  padding: 0.1875rem;
+  border-radius: 6.25rem;
+
+  @include agentSurface.glass-capsule;
+}
+
+.tabsOverlay {
+  --tab-gap-size: 0;
+
+  top: 0.1875rem;
+  bottom: 0.1875rem;
+  align-items: center;
+  padding: 0 0.1875rem;
+}

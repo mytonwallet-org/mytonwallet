@@ -630,6 +630,7 @@ Buy crypto or choose another token to sell.: Kup kryptowalutę lub wybierz inny 
 Your balances are small. Add funds or choose another token to swap.: Twoje salda są niskie. Dodaj środki lub wybierz inny token do wymiany.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: Aby kupić %buy_token%, najpierw kup %token%, a następnie wymień na %buy_token%.
 Open %provider% to swap this pair in the browser.: Otwórz %provider%, aby wymienić tę parę w przeglądarce.
+"Better rate is available if you add %amount% %symbol% for network fee.": "Lepszy kurs jest dostępny, jeśli dodasz %amount% %symbol% na opłatę sieciową."
 Buy %token%: Kup %token%
 Open %provider%: Otwórz %provider%
 Cannot load widget: Nie można załadować widżetu
@@ -1354,8 +1355,8 @@ $agent_consent_allow_button: Zezwól agentowi
 $agent_consent_feature_answers: Uzyskaj odpowiedzi dotyczące %app_name%, tokenów i aktywności portfela.
 $agent_consent_feature_actions: Przygotuj obsługiwane działania, takie jak wysyłanie, odbieranie i staking.
 $agent_consent_feature_context: Użyj kontekstu portfela, aby odpowiedzi mogły odnosić się do odpowiednich aktywów i adresów.
-$agent_consent_disclosure_text: Stukając Zezwól agentowi, zezwalasz %app_name% na wysyłanie wiadomości agenta i odpowiedniego kontekstu portfela do %app_name% Agent (agent.mywallet.io) oraz Anthropic Claude API, naszego zewnętrznego dostawcy AI, w celu przetwarzania Twoich żądań. Kontekst portfela może obejmować adresy portfela, salda, tokeny, aktywność i szczegóły żądanych działań. Dane są używane wyłącznie do dostarczania odpowiedzi agenta i przygotowywania działań, o które prosisz.
-$agent_consent_search_disclosure_text: W przypadku wyszukiwania w internecie do Serper mogą być wysyłane wyłącznie zapytania; kontekst portfela i historia czatu nie są wysyłane.
+$agent_consent_disclosure_text: Stukając Zezwól agentowi, zezwalasz %app_name% na wysyłanie wiadomości agenta i odpowiedniego kontekstu portfela do %app_name% Agent (agent.mywallet.io) oraz naszych zewnętrznych dostawców AI, OpenAI i Anthropic, w celu przetwarzania Twoich żądań. Kontekst portfela może obejmować adresy portfela, salda, tokeny, aktywność i szczegóły żądanych działań. Jeśli korzystasz z wprowadzania głosowego, nagranie jest wysyłane do Inworld, a w razie potrzeby także do ElevenLabs przez OpenRouter, w celu zamiany na tekst. Dane są używane wyłącznie do dostarczania odpowiedzi agenta i przygotowywania działań, o które prosisz.
+$agent_consent_search_disclosure_text: W przypadku wyszukiwania w internecie do OpenAI, a w razie potrzeby także do Serper, wysyłane są wyłącznie zapytania; kontekst portfela i historia czatu nie są wysyłane.
 $settings_token_change_threshold: Próg zmiany %
 $settings_token_change_threshold_description: Ukrywa 24-godzinne zmiany poniżej wybranego progu.
 $settings_token_change_threshold_off: Wył.
@@ -1413,14 +1414,29 @@ $agent_prompt_token_price: "Przeanalizuj cenę %token%."
 $agent_hint_capabilities_title: Co potrafisz?
 $agent_hint_portfolio_title: Wyniki portfela
 $agent_hint_portfolio_prompt: Przeanalizuj wyniki mojego portfela.
-$agent_hint_swap_title: Jak działają wymiany
+$agent_hint_swap_title: Jak działają wymiany?
 $agent_hint_swap_prompt: Wyjaśnij, jak działają wymiany tokenów.
-$agent_hint_staking_title: Czym jest staking
+$agent_hint_staking_title: Czym jest staking?
 $agent_hint_staking_prompt: Wyjaśnij staking od podstaw, tak jakbym nigdy wcześniej nie używał kryptowalut.
-$agent_hint_security_title: Bezpieczeństwo portfela
+$agent_hint_security_title: Jak chronić portfel?
 $agent_hint_security_prompt: Pokaż mi, jak chronić mój portfel.
 $agent_hint_receive_title: Odbierz tokeny
 $agent_hint_receive_prompt: Pomóż mi odebrać tokeny.
+$agent_hint_assets_title: Pokaż moje aktywa
+$agent_hint_total_title: Ile mam łącznie?
+$agent_hint_spending_title: Na co wydałem w tym tygodniu?
+$agent_hint_last_transfer_title: Pokaż mój ostatni przelew
+$agent_hint_fund_title: Jak doładować portfel?
+$agent_hint_market_today_title: Co dziś dzieje się na rynku?
+$agent_hint_news_today_title: Najważniejsze wiadomości dnia
+$agent_hint_bitcoin_title: Co się dzieje z bitcoinem?
+$agent_hint_price_title: Ile kosztuje 0,5 ETH?
+$agent_hint_staking_yield_title: Gdzie jest wyższy zysk?
+$agent_hint_staking_options_title: Jakie są opcje stakingu?
+$agent_hint_multisend_title: Jak wysłać do kilku osób?
+$agent_hint_action_swap_title: Wymień tokeny
+$agent_hint_action_send_title: Wyślij kryptowaluty
+$agent_hint_action_stake_title: Rozpocznij staking
 $agent_notice_content_over_budget: Wynik jest zbyt duży, aby wyświetlić go w całości.
 $agent_notice_web_search_no_results: Nie udało się znaleźć informacji pasujących do Twojego zapytania.
 $agent_error_session: Twoja sesja agenta wygasła. Otwórz agenta ponownie i spróbuj ponownie.
@@ -2179,8 +2195,7 @@ News: "Wiadomości"
 Crypto Market News: "Wiadomości z rynku kryptowalut"
 $agent_news_new: "Nowe"
 $agent_news_open_source: "Otwórz źródło"
-$agent_news_source: "Źródło: %sources%"
-$agent_news_sources: "Źródła: %sources%"
+$agent_news_sources: "Źródła"
 $agent_news_unavailable: "Wiadomości są teraz niedostępne"
 $agent_news_read_more: "Czytaj więcej"
 $agent_news_discuss: "Omów"
@@ -2194,6 +2209,11 @@ $agent_news_unread_count:
   fewValue: "%count% nieprzeczytane wiadomości"
   manyValue: "%count% nieprzeczytanych wiadomości"
   otherValue: "%count% nieprzeczytanej wiadomości"
+$agent_news_unread_digests_count:
+  oneValue: "%count% nieprzeczytane podsumowanie"
+  fewValue: "%count% nieprzeczytane podsumowania"
+  manyValue: "%count% nieprzeczytanych podsumowań"
+  otherValue: "%count% nieprzeczytanego podsumowania"
 Explorer mode: Tryb eksplorera
 Open a link to a wallet, transfer, token or collectible to see its details here.: Otwórz link do portfela, transferu, tokena lub przedmiotu kolekcjonerskiego, aby zobaczyć tutaj szczegóły.
 
@@ -2453,7 +2473,7 @@ $agent_chats_unavailable: "Nie udało się załadować czatów"
 "View your assets and activity": "Sprawdzaj swoje aktywa i aktywność"
 "Ask AI and follow the news": "Pytaj AI i śledź wiadomości"
 $underlying_stock: 'Akcja %symbol%'
-$agent_support_requested: "Poproszono o pomoc. Konsultant odpowie tutaj"
+$agent_support_requested: "Poproszono o pomoc. Konsultant odpowie tutaj, zwykle w ciągu paru minut"
 $agent_support_operator_joined: "Do czatu dołączyła pomoc: %name%"
 $agent_support_closed_operator: "Pomoc zamknęła zgłoszenie. Od teraz odpowiada agent"
 $agent_support_closed_inactivity: "Zgłoszenie zamknięto po 48 godzinach bez odpowiedzi. Od teraz odpowiada agent"
@@ -2473,26 +2493,47 @@ $send_only_chain_and_token: Wysyłaj na ten adres wyłącznie %symbol%, %tokenSy
 $agent_digest_unavailable: "To podsumowanie nie jest już dostępne"
 $agent_digest_title: "Najważniejsze z dnia"
 $agent_digest_meta:
-  oneValue: "%count% wiadomość · %time%"
-  fewValue: "%count% wiadomości · %time%"
-  manyValue: "%count% wiadomości · %time%"
-  otherValue: "%count% wiadomości · %time%"
+  oneValue: "%count% wiadomość"
+  fewValue: "%count% wiadomości"
+  manyValue: "%count% wiadomości"
+  otherValue: "%count% wiadomości"
 $agent_digest_more:
   oneValue: "i jeszcze %count% wiadomość — jest wyżej w kanale"
   fewValue: "i jeszcze %count% wiadomości — są wyżej w kanale"
   manyValue: "i jeszcze %count% wiadomości — są wyżej w kanale"
   otherValue: "i jeszcze %count% wiadomości — są wyżej w kanale"
+$agent_digest_more_count:
+  oneValue: "i jeszcze %count% wiadomość"
+  fewValue: "i jeszcze %count% wiadomości"
+  manyValue: "i jeszcze %count% wiadomości"
+  otherValue: "i jeszcze %count% wiadomości"
 $agent_digest_settings_title: "Podsumowanie i powiadomienia"
 $agent_digest_settings_text: "Raz dziennie w kanale pojawia się podsumowanie — najważniejsze wiadomości dnia."
 $agent_digest_time: "Godzina podsumowania"
-$agent_digest_time_zone: "Według strefy czasowej telefonu."
+$agent_digest_time_hint: "Podsumowanie pojawi się w kanale o tej godzinie, nawet gdy powiadomienia są wyłączone."
 $agent_digest_notifications_off: "Wyłączone"
-$agent_digest_notifications_off_hint: "Podsumowanie będzie tylko w kanale"
 $agent_digest_notifications_daily: "Codzienne podsumowanie"
-$agent_digest_notifications_daily_hint: "O %time% najważniejsze wiadomości w jednym powiadomieniu"
+$agent_digest_notifications_daily_hint: "Jedno powiadomienie o %time% z najważniejszymi wiadomościami dnia."
 $agent_digest_notifications_every: "Każda wiadomość"
-$agent_digest_notifications_every_hint: "Osobne powiadomienie o każdej wiadomości"
-$agent_digest_post_header: "MyPulse · podsumowanie · %time%"
 $agent_digest_sheet_title: "Codzienne podsumowanie"
-$agent_digest_device_time_zone: "Według strefy czasowej tego urządzenia."
 $agent_dictation_microphone_denied_device: "Zezwól na dostęp do mikrofonu w ustawieniach urządzenia, aby dyktować."
+"$perps_funding_usdc_fees": "Potrzebujesz co najmniej %minUSDC% USDC w Arbitrum, aby otworzyć pozycję: %amount% USDC plus %fees% USDC opłat."
+"$perps_funding_usdc_increase_fees": "Potrzebujesz co najmniej %minUSDC% USDC w Arbitrum, aby zwiększyć tę pozycję: %amount% USDC plus %fees% USDC opłat."
+"PerpsOrderNotPlaced": "Zlecenie nie zostało złożone. Przesłane na nie USDC pozostaje na saldzie Hyperliquid."
+$agent_feedback_support_liked_toast: "Dziękujemy! Twoja ocena trafi do zespołu wsparcia."
+$agent_feedback_support_disliked_toast: "Zespół wsparcia przyjrzy się tej odpowiedzi."
+$agent_support_request_message: "Chcę porozmawiać z człowiekiem"
+$agent_support_contact: "Skontaktuj się z pomocą techniczną"
+$agent_support_confirm_title: "Wezwać konsultanta?"
+$agent_support_confirm_text: "Konsultant pomocy technicznej zobaczy ten czat i adresy Twojego portfela i odpowie tutaj."
+$agent_support_confirm_text_no_wallet: "Konsultant pomocy technicznej zobaczy ten czat i odpowie tutaj."
+$agent_support_confirm_action: "Wezwij"
+$agent_support_rate_limited: "Dzisiaj już trzy razy kontaktowano się z pomocą techniczną. Spróbuj ponownie jutro lub napisz do @mysupport na Telegramie."
+$agent_news_digests_empty: "Na razie brak podsumowań"
+$agent_news_view_all: "Wszystkie wiadomości"
+$agent_news_view_digests: "Podsumowania"
+$agent_digest_hours: "Godziny"
+$agent_digest_minutes: "Minuty"
+$swap_one_to_one: Lepszy kurs (1:1) jest dostępny od %value%.
+$swap_better_rate_minimum: "Lepszy kurs jest dostępny od %value%."
+$agent_daily_limit_resets_at: "Dzienny limit agenta został osiągnięty. Odnowi się o %time%."

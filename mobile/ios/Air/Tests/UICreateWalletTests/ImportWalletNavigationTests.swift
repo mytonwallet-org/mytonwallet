@@ -195,6 +195,59 @@ final class ImportWalletNavigationTests: XCTestCase {
         }
     }
 
+    func testSwitchingCompletePhraseToTwentyFourWordsFocusesNextWordAndKeepsContinue() throws {
+        let (host, navigation, screen) = makeEmbeddedImport(usesKeyboardSuggestions: true)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        defer { screen.view.endEditing(true); window.isHidden = true }
+        window.layoutIfNeeded()
+        let inputs = try (1 ... 13).map { number in
+            try XCTUnwrap(findView("import_word_\(number)", in: screen.view)?.superview?.superview as? WWordInput)
+        }
+        let suggestions = try XCTUnwrap(findView("mnemonicSuggestions", in: screen.view) as? WSuggestionsView)
+        let actions = try XCTUnwrap(screen.view.subviews.compactMap { $0 as? BottomActionsView }.first)
+        let modeControl = try XCTUnwrap(host.navigationItem.titleView?.subviews.first as? UIControl)
+        let twentyFourWords = try XCTUnwrap(findView("import_mode_24", in: modeControl) as? UIControl)
+        for input in inputs.prefix(12) {
+            input.setText("abandon", notifyDelegate: true, goToNextInput: false)
+        }
+        let nextInput = inputs[12]
+        XCTAssertTrue(inputs[11].textField.becomeFirstResponder())
+
+        twentyFourWords.sendActions(for: .touchUpInside)
+        try sendValueChanged(from: modeControl)
+
+        XCTAssertTrue(nextInput.textField.isFirstResponder)
+        XCTAssertTrue(actions.primaryButton.isEnabled)
+        XCTAssertEqual(actions.alpha, 1)
+
+        _ = nextInput.textField(nextInput.textField, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: "k")
+
+        XCTAssertTrue(suggestions.hasSuggestions)
+        XCTAssertFalse(actions.primaryButton.isEnabled)
+        XCTAssertEqual(actions.alpha, 0)
+
+        _ = nextInput.textFieldShouldClear(nextInput.textField)
+
+        XCTAssertFalse(suggestions.hasSuggestions)
+        XCTAssertTrue(actions.primaryButton.isEnabled)
+        XCTAssertEqual(actions.alpha, 1)
+    }
+
+    func testTwelveWordsTypedInTwentyFourWordModeKeepContinueDisabled() throws {
+        let (_, _, screen) = makeEmbeddedImport(usesKeyboardSuggestions: true)
+        screen.setWordsMode(.words24)
+        let actions = try XCTUnwrap(screen.view.subviews.compactMap { $0 as? BottomActionsView }.first)
+        for number in 1 ... 12 {
+            let input = try XCTUnwrap(findView("import_word_\(number)", in: screen.view)?.superview?.superview as? WWordInput)
+            input.setText("abandon", notifyDelegate: true, goToNextInput: false)
+        }
+
+        XCTAssertFalse(actions.primaryButton.isEnabled)
+        XCTAssertEqual(actions.alpha, 0)
+    }
+
     func testPrivateKeyStillShowsContinueWithoutFillingEveryWord() throws {
         let (_, _, screen) = makeEmbeddedImport(usesKeyboardSuggestions: true)
         let input = try XCTUnwrap(findView("import_word_1", in: screen.view)?.superview?.superview as? WWordInput)
@@ -230,6 +283,13 @@ final class ImportWalletNavigationTests: XCTestCase {
         screen.view.frame = host.view.bounds
         screen.view.layoutIfNeeded()
         return (host, navigation, screen)
+    }
+
+    // Package tests run without a host app, so `UIControl` target-action dispatch does not reach targets.
+    private func sendValueChanged(from control: UIControl) throws {
+        let target = try XCTUnwrap(control.allTargets.compactMap { $0.base as? NSObject }.first)
+        let action = try XCTUnwrap(control.actions(forTarget: target, forControlEvent: .valueChanged)?.first)
+        target.perform(NSSelectorFromString(action), with: control)
     }
 
     private func findView(_ identifier: String, in view: UIView) -> UIView? {

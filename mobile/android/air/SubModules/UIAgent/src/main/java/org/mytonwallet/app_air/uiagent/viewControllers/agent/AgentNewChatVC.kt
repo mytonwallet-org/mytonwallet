@@ -139,7 +139,7 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
         val navigation = navigationController ?: return
         if (navigation.isDisappeared || navigation.viewControllers.lastOrNull() !== this) return
         navigation.push(
-            AgentVC(context, chat.thread),
+            AgentVC(context, checkNotNull(chat.thread)),
             animated = false
         ) {
             navigation.removeViewController(this)
@@ -176,17 +176,21 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
 }
 
 /**
- * Creates a chat's thread once the user has allowed the Agent, or a news discussion's at once: its post and suggestions
- * show before consent, and what the user sends there asks for it
+ * A feed preview waits for its first message; other discussions open at once, and ordinary chats ask for consent
  */
 internal class AgentNewChatLoader(
     private val consent: suspend () -> Boolean,
     private val acceptConsent: suspend () -> Unit,
     private val createThread: suspend (AgentV2ThreadNewsRequest?) -> AgentV2ThreadSummary,
     private val news: AgentV2ThreadNewsRequest? = null,
-    private val hasDiscussion: Boolean = false
+    private val hasDiscussion: Boolean = false,
+    private val shouldDeferCreation: Boolean = false
 ) {
-    suspend fun load(shouldAcceptConsent: Boolean = false): AgentPreparedChat? {
+    suspend fun load(
+        shouldAcceptConsent: Boolean = false,
+        hasMessage: Boolean = false
+    ): AgentPreparedChat? {
+        if (shouldDeferCreation && !hasMessage) return AgentPreparedChat(null)
         if (news == null && !hasDiscussion && !consent()) {
             if (!shouldAcceptConsent) return null
             acceptConsent()
@@ -195,4 +199,4 @@ internal class AgentNewChatLoader(
     }
 }
 
-internal data class AgentPreparedChat(val thread: AgentV2ThreadSummary)
+internal data class AgentPreparedChat(val thread: AgentV2ThreadSummary?)

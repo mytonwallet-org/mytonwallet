@@ -17,8 +17,10 @@ import { startTypingAnswerMorph } from '../agent/helpers/typingAnswerMorph';
 import { getAgentV2ErrorText, getAgentV2NoticeTexts } from './agentV2Copy';
 import useAgentFeedbackBadge from './useAgentFeedbackBadge';
 
+import useForceUpdate from '../../hooks/useForceUpdate';
 import useLang, { LangProvider, useLangForCode } from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import useTimeout from '../../hooks/useTimeout';
 
 import AgentRunActivity from '../agent/AgentRunActivity';
 import AgentFeedbackBadge from './AgentFeedbackBadge';
@@ -36,6 +38,8 @@ interface OwnProps {
   shouldAnimateTextStreaming: boolean;
   shouldAnimateAppearance?: boolean;
   isLatest?: boolean;
+  /** Shows the run's activity in place of the bubble, as the answer being produced */
+  isActivityHost?: boolean;
   areFollowupsHeld?: boolean;
   /** The suggestions keep the look they have when they can be pressed, and a press does nothing */
   areFollowupsInactive?: boolean;
@@ -73,6 +77,7 @@ function AgentV2IncomingMessage({
   shouldAnimateTextStreaming,
   shouldAnimateAppearance = false,
   isLatest = false,
+  isActivityHost = false,
   areFollowupsHeld = false,
   areFollowupsInactive = false,
   isMenuOpen = false,
@@ -112,13 +117,19 @@ function AgentV2IncomingMessage({
     && !hasActionButtons;
   // Suggestions that arrive while the chat is open grow into place; an answer from the history has them already
   const hadFollowupsAtMountRef = useRef(Boolean(followups?.length));
+  const forceUpdate = useForceUpdate();
+  const quotaResetAt = error?.code === 'user_quota_exhausted' && typeof error.resetAt === 'string'
+    ? error.resetAt : undefined;
+  const quotaResetDelay = !noFailureCaption && quotaResetAt ? Date.parse(quotaResetAt) - Date.now() : 0;
+  useTimeout(forceUpdate, quotaResetDelay > 0 ? quotaResetDelay : undefined);
   // A failure of the answer tells its code in words; a failure of the chat brings words of its own
-  const captionText = noFailureCaption ? undefined : error ? getAgentV2ErrorText(error.code, lang) : failureText;
+  const captionText = noFailureCaption ? undefined
+    : error ? getAgentV2ErrorText(error.code, lang, quotaResetAt) : failureText;
   const badge = useAgentFeedbackBadge(id, message.feedback, isFeedbackCloudOpen);
   const bubbleRef = useRef<HTMLDivElement>();
   // The run's indicator stands in for the bubble until the answer's first text, and the bubble grows out of it then,
   // as on iOS
-  const isActivityPlaceholder = isLatest && !captionText && Boolean(activity) && !shouldRenderIncomingBubble;
+  const isActivityPlaceholder = isActivityHost && !captionText && Boolean(activity) && !shouldRenderIncomingBubble;
   const isPreviousActivityPlaceholderRef = useRef(isActivityPlaceholder);
 
   useLayoutEffect(() => {
@@ -197,7 +208,7 @@ function AgentV2IncomingMessage({
           </div>
         )}
         {/* The failure takes the activity's place at once rather than after it fades */}
-        {isLatest && !captionText && (
+        {isActivityHost && !captionText && (
           <AgentRunActivity activity={activity} isAnswerPlaceholder handoff={activityHandoff} />
         )}
         {areControlsVisible && (

@@ -42,7 +42,8 @@ export const formatNumber = withCache((
   const isNegative = bigValue.lt(0);
   if (isNegative) bigValue = bigValue.neg();
 
-  const method = bigValue.lt(1) ? 'toPrecision' : 'round';
+  // `toPrecision` requires a positive digit count; `0` is used for cheap-asset amounts
+  const method = bigValue.lt(1) && fractionDigits >= 1 ? 'toPrecision' : 'round';
   let formatted = bigValue[method](fractionDigits, noTruncate ? Big.roundHalfUp : Big.roundDown)
     .toString()
     // Remove extra zeros after rounding to the specified accuracy

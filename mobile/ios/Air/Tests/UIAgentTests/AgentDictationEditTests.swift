@@ -171,6 +171,7 @@ final class AgentDictationEditTests: XCTestCase {
         for _ in 0..<300 where backend.sentTexts.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
 
         XCTAssertEqual(composer.draftText ?? "", "")
+        XCTAssertFalse(textView.isFirstResponder, "The keyboard goes with the transcript, as with a question typed")
         XCTAssertEqual(backend.sentTexts, [transcript])
         XCTAssertEqual(backend.editedMessageIDs, [message.id])
         XCTAssertEqual(backend.context?.message(for: message.id)?.text, transcript)

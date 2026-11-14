@@ -55,6 +55,8 @@ class WAgentHintView(
     animatePressAlpha: Boolean = true,
     showsIcon: Boolean = true,
     titleMaxLines: Int = 2,
+    /** Leads the title in place of the reply arrow, in the title's first color */
+    private val leadingIconResId: Int? = null,
     onTap: () -> Unit
 ) : WFrameLayout(context) {
 
@@ -105,6 +107,9 @@ class WAgentHintView(
         private const val RESIZE_MS = 360L
         private const val CONTENT_FADE_MS = 220L
         private val RESIZE_CURVE = PathInterpolator(0.38f, 0.7f, 0.125f, 1f)
+
+        private const val LEADING_ICON_SIZE = 16
+        private const val DIMMED_CONTENT_ALPHA = 0.5f
     }
 
     private var titleGradientColors = LIGHT_TITLE_GRADIENT_COLORS
@@ -116,8 +121,12 @@ class WAgentHintView(
         get() = titleLabel
 
     private val iconView = AppCompatImageView(context).apply {
-        setImageResource(org.mytonwallet.app_air.icons.R.drawable.ic_agent_hint_arrow)
-        if (LocaleController.isRTL) scaleX = -1f
+        if (leadingIconResId != null) {
+            setImageResource(leadingIconResId)
+        } else {
+            setImageResource(org.mytonwallet.app_air.icons.R.drawable.ic_agent_hint_arrow)
+            if (LocaleController.isRTL) scaleX = -1f
+        }
     }
     private val bgDrawable = GradientDrawable().apply {
         cornerRadius = CORNER_RADIUS.dp
@@ -181,13 +190,15 @@ class WAgentHintView(
                 contentHorizontalPadding,
                 contentVerticalPadding
             )
-            if (showsIcon) {
-                addView(iconView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            val hasIcon = showsIcon || leadingIconResId != null
+            if (hasIcon) {
+                val iconSize = if (leadingIconResId != null) LEADING_ICON_SIZE.dp else WRAP_CONTENT
+                addView(iconView, LinearLayout.LayoutParams(iconSize, iconSize))
             }
             addView(
                 titleLabel,
                 LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                    if (showsIcon) marginStart = 6.dp
+                    if (hasIcon) marginStart = 6.dp
                 }
             )
         }
@@ -234,12 +245,22 @@ class WAgentHintView(
         set(value) {
             if (field == value) return
             field = value
-            content.alpha = if (value) 0f else 1f
+            content.alpha = if (value) 0f else contentAlpha
             isClickable = !value
             isFocusable = !value
             invalidate()
             scheduleShimmerFrame()
         }
+
+    /** A card that takes no taps for now shows its title and icon at half their opacity */
+    var isDimmed = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (!isPlaceholder) content.alpha = contentAlpha
+        }
+    private val contentAlpha: Float
+        get() = if (isDimmed) DIMMED_CONTENT_ALPHA else 1f
 
     // The size the pill resizes from as it turns from a placeholder into its suggestion, and how far it has
     private var resizeOrigin: Pair<Int, Int>? = null
@@ -258,7 +279,8 @@ class WAgentHintView(
             return
         }
         content.alpha = 0f
-        content.animate().alpha(1f).setStartDelay(contentDelay).setDuration(CONTENT_FADE_MS)
+        content.animate().alpha(contentAlpha).setStartDelay(contentDelay)
+            .setDuration(CONTENT_FADE_MS)
             .setInterpolator(LinearInterpolator())
             .start()
         resizeAnimator?.cancel()
@@ -351,7 +373,7 @@ class WAgentHintView(
         // A pill that leaves while it turns into its suggestion shows the suggestion
         resizeAnimator?.end()
         content.animate().cancel()
-        if (!isPlaceholder) content.alpha = 1f
+        if (!isPlaceholder) content.alpha = contentAlpha
         super.onDetachedFromWindow()
     }
 
@@ -375,6 +397,7 @@ class WAgentHintView(
         titleGradientColors =
             if (isDark) DARK_TITLE_GRADIENT_COLORS else LIGHT_TITLE_GRADIENT_COLORS
         titleLabel.setTextColor(titleGradientColors[0])
+        if (leadingIconResId != null) iconView.setColorFilter(titleGradientColors[0])
         updateTitleShader()
         val peak = Color.WHITE.colorWithAlpha(
             ((if (isDark) SHIMMER_DARK_PEAK else SHIMMER_LIGHT_PEAK) * 255).roundToInt()

@@ -21,6 +21,13 @@ public final class WVerticalTabBar: UIView {
     }
 
     public var onSelect: ((Int, Bool) -> Void)?
+    /// The expanded surface is reported in bar coordinates inside its layout animation
+    public var onExpandedFrameChange: ((CGRect?) -> Void)?
+    public var expansionBounds: CGRect? {
+        didSet {
+            if oldValue != expansionBounds { setNeedsLayout() }
+        }
+    }
     /// Holding a tab still for the long-press time lifts it, and dragging it along the bar moves it among the others.
     /// The bar shows the new order before it reports the move; a drop never selects. Without a handler a hold only
     /// scrubs the tabs
@@ -51,6 +58,8 @@ public final class WVerticalTabBar: UIView {
     private var items: [Item]
     private let surface = UIView()
     private let glass = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
     private let stage = UIView()
     private let normalContent = UIView()
     private let selectedContent = UIView()
@@ -60,8 +69,10 @@ public final class WVerticalTabBar: UIView {
     private var normalItems: [VerticalTabGlyph] = []
     private var selectedItems: [VerticalTabGlyph] = []
     private var targets: [VerticalTabAccessibilityTarget] = []
-    private var scrub: (start: Int, offset: CGFloat, preview: Int)?
+    private var scrub: (start: Int, initial: CGPoint, translation: CGPoint, preview: Int)?
     private var showsTitles = false
+    private var lastViewportSize = CGSize.zero
+    private var reportedExpandedFrame: CGRect?
     private var tracksSelectionMotion = false
     private var holdTimer: Timer?
     private var reorderTimer: Timer?
@@ -92,8 +103,16 @@ public final class WVerticalTabBar: UIView {
         usesNativeFlex = WInstallBarFlex(surface)
         surface.addSubview(glass)
         glass.layer.zPosition = 1
-        surface.addSubview(stage)
-        stage.layer.zPosition = 2
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.scrollsToTop = false
+        scrollView.decelerationRate = .fast
+        scrollView.delaysContentTouches = false
+        scrollView.layer.zPosition = 2
+        surface.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        contentView.addSubview(stage)
         stage.isUserInteractionEnabled = false
         normalContent.clipsToBounds = true
         selectedContent.clipsToBounds = true
@@ -124,12 +143,17 @@ public final class WVerticalTabBar: UIView {
                 return true
             }
             target.isUserInteractionEnabled = false
-            surface.addSubview(target)
+            contentView.addSubview(target)
             targets.append(target)
         }
         scrubRecognizer.delaysTouchesBegan = false
         scrubRecognizer.delaysTouchesEnded = false
         addGestureRecognizer(scrubRecognizer)
+        scrubRecognizer.shouldWaitForHold = { [weak self] in
+            guard let self else { return false }
+            return self.scrollView.contentSize.height > self.scrollView.bounds.height
+        }
+        scrollView.panGestureRecognizer.require(toFail: scrubRecognizer)
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self, UITraitUserInterfaceStyle.self]) { (bar: WVerticalTabBar, _: UITraitCollection) in
             bar.cancelInteraction()
             bar.setNeedsLayout()
@@ -161,6 +185,7 @@ public final class WVerticalTabBar: UIView {
         cancelInteraction()
         selectedIndex = index
         updateSelection(animated: animated)
+        centerSelection(animated: animated)
         updateAccessibility()
     }
 
@@ -175,7 +200,7 @@ public final class WVerticalTabBar: UIView {
     }
 
     private var expandedItemHeight: CGFloat { 52 + ceil(labelFont.lineHeight) }
-    private var surfaceSize: CGSize {
+    private var contentSize: CGSize {
         guard showsTitles else { return intrinsicContentSize }
         let longestTitle = items.map { ($0.title as NSString).size(withAttributes: [.font: labelFont]).width }.max() ?? 0
         return CGSize(width: max(72, ceil(longestTitle) + 36), height: CGFloat(items.count) * expandedItemHeight - CGFloat(items.count - 1) * 8 + 8)
@@ -187,24 +212,57 @@ public final class WVerticalTabBar: UIView {
     }
 
     private func layoutContents() {
-        let size = surfaceSize
+        let contentSize = self.contentSize
+        let size = showsTitles
+            ? CGSize(width: contentSize.width, height: min(contentSize.height, max(0, expansionBounds?.height ?? contentSize.height)))
+            : CGSize(width: bounds.width, height: min(bounds.height, contentSize.height))
+        let hasOverflow = contentSize.height > size.height
         surface.bounds = CGRect(origin: .zero, size: size)
-        // Expand downwards from the upper rail. Long localized titles grow inward.
         let x = showsTitles ? (isOnLeftEdge ? size.width / 2 - 12 : bounds.width + 12 - size.width / 2) : bounds.midX
-        surface.center = CGPoint(x: x, y: size.height / 2 - (showsTitles ? 4 : 0))
-        surface.transform = !usesNativeFlex && scrub != nil ? CGAffineTransform(scaleX: 1.05513372346085, y: 1.05513372346085) : .identity
+        var top: CGFloat = 0
+        if showsTitles, let expansionBounds {
+            top = max(expansionBounds.minY, min(top, expansionBounds.maxY - size.height))
+        }
+        surface.center = CGPoint(x: x, y: top + size.height / 2)
+        surface.transform = !usesNativeFlex && scrub != nil && !showsTitles ? CGAffineTransform(scaleX: 1.05513372346085, y: 1.05513372346085) : .identity
         glass.frame = surface.bounds
         glass.cornerConfiguration = surface.cornerConfiguration
-        stage.frame = surface.bounds
-        normalContent.frame = surface.bounds
-        selectedContent.frame = surface.bounds
+        scrollView.frame = surface.bounds
+        scrollView.clipsToBounds = !showsTitles || hasOverflow
+        scrollView.layer.cornerRadius = scrollView.clipsToBounds ? min(size.width, size.height) / 2 : 0
+        scrollView.isScrollEnabled = !showsTitles || hasOverflow
+        scrollView.contentSize = contentSize
+        contentView.frame = CGRect(origin: .zero, size: contentSize)
+        stage.frame = contentView.bounds
+        normalContent.frame = contentView.bounds
+        selectedContent.frame = contentView.bounds
+        if lastViewportSize != size {
+            centerSelection(animated: false)
+        }
+        lastViewportSize = size
         for index in items.indices {
             placeGlyphs(at: index)
             normalItems[index].tintColor = .label
             selectedItems[index].tintColor = tintColor
             targets[index].frame = itemFrame(index)
         }
-        updateSelection(animated: false)
+        if let scrub, tracksSelectionMotion {
+            moveScrub(translation: scrub.translation)
+        } else {
+            updateSelection(animated: false)
+        }
+        let expandedFrame = showsTitles ? surface.frame : nil
+        if reportedExpandedFrame != expandedFrame {
+            reportedExpandedFrame = expandedFrame
+            onExpandedFrameChange?(expandedFrame)
+        }
+    }
+
+    private func centerSelection(animated: Bool) {
+        guard scrollView.bounds.height > 0 else { return }
+        let offset = max(0, min(contentSize.height - scrollView.bounds.height,
+                                itemFrame(scrub?.start ?? selectedIndex).midY - scrollView.bounds.height / 2))
+        scrollView.setContentOffset(CGPoint(x: 0, y: offset), animated: animated && !UIAccessibility.isReduceMotionEnabled)
     }
 
     private func placeGlyphs(at index: Int) {
@@ -229,7 +287,7 @@ public final class WVerticalTabBar: UIView {
 
     private func itemFrame(_ index: Int) -> CGRect {
         if showsTitles {
-            return CGRect(x: 4, y: 4 + CGFloat(index) * (expandedItemHeight - 8), width: surfaceSize.width - 8, height: expandedItemHeight)
+            return CGRect(x: 4, y: 4 + CGFloat(index) * (expandedItemHeight - 8), width: contentSize.width - 8, height: expandedItemHeight)
         }
         return CGRect(x: 2, y: 2 + CGFloat(index) * 50, width: 44, height: 58)
     }
@@ -246,9 +304,11 @@ public final class WVerticalTabBar: UIView {
 
     @objc private func onScrub(_ recognizer: VerticalTabScrubRecognizer) {
         switch recognizer.state {
-        case .began: beginScrub(at: recognizer.current, timestamp: recognizer.initialTimestamp)
+        case .began: beginScrub(at: recognizer.initial, timestamp: recognizer.initialTimestamp)
         case .changed: moveScrub(translation: recognizer.translation)
-        case .ended: finishScrub(cancelled: false)
+        case .ended:
+            if scrub == nil { beginScrub(at: recognizer.current, timestamp: recognizer.initialTimestamp) }
+            finishScrub(cancelled: false)
         case .failed, .cancelled: finishScrub(cancelled: true)
         default: break
         }
@@ -256,8 +316,9 @@ public final class WVerticalTabBar: UIView {
 
     func beginScrub(at point: CGPoint, timestamp: TimeInterval? = nil) {
         let start = timestamp ?? CACurrentMediaTime()
-        let index = nearestIndex(to: convert(point, to: surface).y)
-        scrub = (index, 0, index)
+        scrollView.setContentOffset(scrollView.contentOffset, animated: false)
+        let index = nearestIndex(to: convert(point, to: contentView).y)
+        scrub = (index, point, .zero, index)
         tracksSelectionMotion = false
         feedback.prepare()
         setLifted(true)
@@ -302,25 +363,24 @@ public final class WVerticalTabBar: UIView {
             reorderTimer?.invalidate()
             reorderTimer = nil
         }
-        scrub.offset = translation.y.rounded()
+        scrub.translation = translation
+        self.scrub = scrub
+        if !tracksSelectionMotion { lens?.layer.removeAllAnimations() }
+        tracksSelectionMotion = true
         if var drag {
-            self.scrub = scrub
             let destination = nearestIndex(to: selectionFrame(lifted: false).midY)
             let isMoving = destination != drag.destination
             if isMoving { feedback.selectionChanged() }
             drag.destination = destination
             self.drag = drag
-            tracksSelectionMotion = true
             layoutGlyphs(animatingOthers: isMoving)
             updateSelection(animated: false)
             return
         }
-        let index = nearestIndex(to: itemFrame(scrub.start).midY + scrub.offset)
+        let index = nearestIndex(to: convertScrubPointToContent().y)
         if index != scrub.preview { feedback.selectionChanged() }
         scrub.preview = index
         self.scrub = scrub
-        if !tracksSelectionMotion { lens?.layer.removeAllAnimations() }
-        tracksSelectionMotion = true
         updateSelection(animated: false)
     }
 
@@ -344,6 +404,7 @@ public final class WVerticalTabBar: UIView {
         }
         setLifted(false)
         animateLayout(damping: 0.75)
+        centerSelection(animated: true)
         updateAccessibility()
         if let move {
             onReorder?(move.index, move.destination)
@@ -413,11 +474,17 @@ public final class WVerticalTabBar: UIView {
 
     private func selectionFrame(lifted: Bool) -> CGRect {
         var frame = itemFrame(scrub?.preview ?? selectedIndex)
-        if let scrub {
-            let center = itemFrame(scrub.start).midY + scrub.offset
-            frame.origin.y = max(0, min(surfaceSize.height - frame.height, center - frame.height / 2))
+        if scrub != nil, tracksSelectionMotion {
+            let center = convertScrubPointToContent().y
+            frame.origin.y = max(0, min(contentSize.height - frame.height, center - frame.height / 2))
         }
         return lifted ? frame.insetBy(dx: -10, dy: -10) : frame
+    }
+
+    private func convertScrubPointToContent() -> CGPoint {
+        guard let scrub else { return .zero }
+        return convert(CGPoint(x: scrub.initial.x + scrub.translation.x,
+                               y: scrub.initial.y + scrub.translation.y), to: contentView)
     }
 
     private func updateSelection(animated: Bool) {
@@ -494,9 +561,34 @@ public final class WVerticalTabBar: UIView {
         updateSelection(animated: true)
         displayLink?.invalidate()
         displayLink = nil
-        if lifted, lens != nil {
-            displayLink = .makeWeak(owner: self) { bar, _ in bar.refreshLiftedPosition() }
+        if lifted {
+            displayLink = .makeWeak(owner: self) { bar, link in
+                bar.scrollExpandedContent(duration: link.targetTimestamp - link.timestamp)
+                bar.refreshLiftedPosition()
+            }
         }
+    }
+
+    private func scrollExpandedContent(duration: TimeInterval) {
+        guard showsTitles, tracksSelectionMotion, let scrub,
+              scrollView.contentSize.height > scrollView.bounds.height else { return }
+        let point = convertScrubPointToContent()
+        let visibleY = point.y - scrollView.contentOffset.y
+        let edge = min(40, scrollView.bounds.height / 3)
+        guard edge > 0 else { return }
+        let speed: CGFloat
+        if visibleY < edge {
+            speed = -min(1, (edge - visibleY) / edge)
+        } else if visibleY > scrollView.bounds.height - edge {
+            speed = min(1, (visibleY - scrollView.bounds.height + edge) / edge)
+        } else {
+            return
+        }
+        let offset = max(0, min(scrollView.contentSize.height - scrollView.bounds.height,
+                                scrollView.contentOffset.y + speed * 300 * duration))
+        guard offset != scrollView.contentOffset.y else { return }
+        scrollView.contentOffset.y = offset
+        moveScrub(translation: scrub.translation)
     }
 
     fileprivate func refreshLiftedPosition() {
@@ -523,7 +615,9 @@ public final class WVerticalTabBar: UIView {
 @available(iOS 26.0, *)
 @MainActor
 private final class VerticalTabScrubRecognizer: UIGestureRecognizer {
-    private var initial = CGPoint.zero
+    var shouldWaitForHold: (() -> Bool)?
+    private var holdTimer: Timer?
+    private(set) var initial = CGPoint.zero
     private(set) var current = CGPoint.zero
     private(set) var initialTimestamp: TimeInterval = 0
     var translation: CGPoint { CGPoint(x: current.x - initial.x, y: current.y - initial.y) }
@@ -532,15 +626,41 @@ private final class VerticalTabScrubRecognizer: UIGestureRecognizer {
         initialTimestamp = touch.timestamp
         initial = touch.location(in: view)
         current = initial
-        state = .began
+        if shouldWaitForHold?() == true {
+            let timer = Timer(timeInterval: 0.25, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.state == .possible else { return }
+                    self.state = .began
+                }
+            }
+            holdTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        } else {
+            state = .began
+        }
     }
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
         guard let touch = touches.first else { return }
         current = touch.location(in: view)
-        state = .changed
+        if state == .possible {
+            if hypot(translation.x, translation.y) > 10 {
+                holdTimer?.invalidate()
+                state = .failed
+            }
+        } else {
+            state = .changed
+        }
     }
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) { state = .ended }
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        if state == .possible { state = .began }
+        state = .ended
+    }
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) { state = .cancelled }
+    override func reset() {
+        holdTimer?.invalidate()
+        holdTimer = nil
+        super.reset()
+    }
 }
 
 private final class VerticalTabAccessibilityTarget: UIView {

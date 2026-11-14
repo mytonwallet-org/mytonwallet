@@ -26,6 +26,7 @@ interface OwnProps<T, MenuValue extends string = string> {
   showAllIcon: string;
   showAllLabel: string;
   showAllAmount?: number;
+  showAllTestId?: string;
   clickArg?: T;
   menuItems?: DropdownItem<MenuValue>[];
   size?: OverviewCellSize;
@@ -47,6 +48,7 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
   showAllLabel,
   showAllIcon,
   showAllAmount,
+  showAllTestId,
   clickArg,
   menuItems,
   size = 'small',
@@ -139,7 +141,7 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
           {children}
         </div>
         {onShowAllClick && (
-          <Button isSimple className={styles.showAll} onClick={handleShowAllClick}>
+          <Button isSimple className={styles.showAll} testId={showAllTestId} onClick={handleShowAllClick}>
             <i className={buildClassName(styles.showAllIcon, showAllIcon)} aria-hidden />
             <span className={styles.showAllLabel}>{showAllLabel}</span>
             {Boolean(showAllAmount) && (

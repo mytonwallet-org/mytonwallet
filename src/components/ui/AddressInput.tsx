@@ -56,6 +56,7 @@ export const INPUT_CLEAR_BUTTON_ID = 'input-clear-button';
 
 interface OwnProps {
   ref?: ElementRef<HTMLInputElement | HTMLTextAreaElement>;
+  testId?: string;
   label?: string;
   value: string;
   chain?: ApiChain;
@@ -102,6 +103,7 @@ const SEARCH_DEBOUNCE_MS = 200;
 
 function AddressInput({
   ref,
+  testId,
   label,
   value,
   chain,
@@ -457,6 +459,7 @@ function AddressInput({
       <Input
         id={inputId}
         ref={ref}
+        testId={testId}
         className={buildClassName(isStatic && styles.inputStatic, withButton && styles.inputWithIcon)}
         isRequired
         isStatic={isStatic}

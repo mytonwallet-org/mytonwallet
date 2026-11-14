@@ -289,6 +289,7 @@ struct PerpsStoreTests {
         #expect(PerpsFormatting.errorMessage("PerpsInsufficientBalance") == lang("PerpsInsufficientBalance"))
         #expect(PerpsFormatting.errorMessage("PerpsMarketNeedsUnifiedAccount") == lang("PerpsMarketNeedsUnifiedAccount"))
         #expect(PerpsFormatting.errorMessage("InsufficientBalance") == ApiAnyDisplayError.insufficientBalance.toLocalized)
+        #expect(PerpsFormatting.errorMessage("EvmUserOperationMismatch") == lang("EvmUserOperationMismatch"))
         #expect(PerpsError.pending.localizedDescription == lang("PerpsOperationPending"))
     }
 

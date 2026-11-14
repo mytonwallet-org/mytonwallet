@@ -345,6 +345,11 @@ public struct UniversalSearchEngine: Sendable {
             return 200
         case .agentAction:
             return 100
+        // Below every token tier, so a token sharing a market's name or ticker keeps the top hit
+        case .futuresMarket where traits.contains(.held):
+            return -100
+        case .futuresMarket:
+            return -200
         default:
             return 0
         }
@@ -383,6 +388,8 @@ public struct UniversalSearchEngine: Sendable {
             return 500
         case .application:
             return 400
+        case .futuresMarket:
+            return 350
         case .site where traits.contains(.fromHistory):
             return 300
         case .site:

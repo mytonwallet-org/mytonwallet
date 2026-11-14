@@ -57,6 +57,66 @@ struct UniversalSearchResultsPresenterTests {
     }
 
     @Test
+    func `futures follow apps and a token keeps the top hit`() {
+        let token = SearchDocument(
+            id: SearchEntityID("token:btc"), kind: .token,
+            fields: [.init("Bitcoin", kind: .title)]
+        )
+        let futures = SearchDocument(
+            id: SearchEntityID("futures:btc"), kind: .futuresMarket,
+            fields: [.init("Bitcoin", kind: .title)],
+            signals: .init(traits: [.held])
+        )
+        let app = SearchDocument(
+            id: SearchEntityID("app:bitcoin"), kind: .application,
+            fields: [.init("Bitcoin Wallet", kind: .title)]
+        )
+        let presentation = makePresenter().presentation(
+            for: rankedSnapshot(query: "bitcoin", documents: [futures, app, token]), context: context
+        )
+
+        #expect(presentation.sections.map(\.id) == ["top-hit", "apps", "futures", "ask-agent", "search-google"])
+        #expect(presentation.preselectedItemID == token.id.rawValue)
+        #expect(presentation.sections[2].items.map(\.id) == [futures.id.rawValue])
+    }
+
+    @Test
+    func `a futures ticker gives the top hit to a token naming it as a word`() {
+        let futures = SearchDocument(
+            id: SearchEntityID("futures:btc"), kind: .futuresMarket,
+            fields: [.init("BTC", kind: .symbol)]
+        )
+        let token = SearchDocument(
+            id: SearchEntityID("token:wbtc"), kind: .token,
+            fields: [.init("Wrapped BTC", kind: .title)]
+        )
+        let presentation = makePresenter().presentation(
+            for: rankedSnapshot(query: "btc", documents: [futures, token]), context: context
+        )
+
+        #expect(presentation.sections.map(\.id) == ["top-hit", "futures", "ask-agent", "search-google"])
+        #expect(presentation.preselectedItemID == token.id.rawValue)
+    }
+
+    @Test
+    func `a futures market keeps the top hit over tokens that only contain the query`() {
+        let futures = SearchDocument(
+            id: SearchEntityID("futures:tsla"), kind: .futuresMarket,
+            fields: [.init("Tesla", kind: .title)]
+        )
+        let token = SearchDocument(
+            id: SearchEntityID("token:neotesla"), kind: .token,
+            fields: [.init("Neotesla", kind: .title)]
+        )
+        let presentation = makePresenter().presentation(
+            for: rankedSnapshot(query: "tesla", documents: [token, futures]), context: context
+        )
+
+        #expect(presentation.sections.map(\.id) == ["top-hit", "tokens", "ask-agent", "search-google"])
+        #expect(presentation.preselectedItemID == futures.id.rawValue)
+    }
+
+    @Test
     func `description matches do not displace Agent for a multiword question`() {
         let app = SearchDocument(
             id: SearchEntityID("app:guide"), kind: .application,
@@ -471,7 +531,7 @@ struct UniversalSearchResultsPresenterTests {
 
     private func makeItem(for document: SearchDocument) -> UniversalSearchItem? {
         switch document.kind {
-        case .token:
+        case .token, .futuresMarket:
             UniversalSearchItem(
                 id: document.id.rawValue,
                 content: .token(UniversalSearchTokenResult(

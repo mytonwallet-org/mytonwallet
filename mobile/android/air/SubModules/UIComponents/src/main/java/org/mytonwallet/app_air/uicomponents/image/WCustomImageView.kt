@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.ContentGradientDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.InitialsDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setRounding
+import org.mytonwallet.app_air.uicomponents.glass.GlassRootBitmap
 import org.mytonwallet.app_air.uicomponents.helpers.AnimationSuspension
 import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -63,6 +64,7 @@ open class WCustomImageView @JvmOverloads constructor(
 
     // Once an image is shown, its later changes wait until a reveal of the screen ends.
     override fun invalidateDrawable(dr: Drawable) {
+        if (isFading) GlassRootBitmap.notifyContentChanged(this)
         if (!isImageShown) {
             super.invalidateDrawable(dr)
             return
@@ -71,10 +73,27 @@ open class WCustomImageView @JvmOverloads constructor(
     }
 
     var fadeListener: OnFadeListener? = null
-        set(value) {
-            field = value
-            hierarchy?.setOnFadeListener(value)
+
+    private var isFading = false
+
+    private val hierarchyFadeListener = object : OnFadeListener {
+        override fun onFadeStarted() {
+            isFading = true
+            fadeListener?.onFadeStarted()
         }
+
+        override fun onFadeFinished() {
+            isFading = false
+            fadeListener?.onFadeFinished()
+            GlassRootBitmap.notifyContentChanged(this@WCustomImageView)
+        }
+
+        override fun onShownImmediately() {
+            isFading = false
+            fadeListener?.onShownImmediately()
+            GlassRootBitmap.notifyContentChanged(this@WCustomImageView)
+        }
+    }
     var onFinalImageSet: ((ImageInfo?) -> Unit)? = null
     var onFailure: ((Throwable?) -> Unit)? = null
     var chainOffsetX = 0f.dp
@@ -177,6 +196,7 @@ open class WCustomImageView @JvmOverloads constructor(
         this.content = content
         this.lowResUrl = lowResUrl
         invalidate()
+        handleDrawableReplaced()
     }
 
     fun clear() {
@@ -187,6 +207,12 @@ open class WCustomImageView @JvmOverloads constructor(
         lowResUrl = null
         setImageDrawable(null)
         invalidate()
+        handleDrawableReplaced()
+    }
+
+    private fun handleDrawableReplaced() {
+        isFading = false
+        GlassRootBitmap.notifyContentChanged(this)
     }
 
     override fun updateTheme() {
@@ -217,6 +243,7 @@ open class WCustomImageView @JvmOverloads constructor(
             if (id != null && currentControllerId != null && id != currentControllerId) return
             finishFadeIfSuppressed()
             isImageShown = true
+            GlassRootBitmap.notifyContentChanged(this@WCustomImageView)
             onFinalImageSet?.invoke(imageInfo)
         }
 
@@ -273,7 +300,7 @@ open class WCustomImageView @JvmOverloads constructor(
                 .setActualImageScaleType(content.scaleType)
                 .setRoundingParams(getRoundingParams(content))
                 .build()
-            hierarchy.setOnFadeListener(fadeListener)
+            hierarchy.setOnFadeListener(hierarchyFadeListener)
             return
         }
 
@@ -281,6 +308,7 @@ open class WCustomImageView @JvmOverloads constructor(
             setPlaceholderImage(getPlaceholderDrawable(content), content.scaleType)
             setActualImageScaleType(content.scaleType)
             roundingParams = getRoundingParams(content)
+            setOnFadeListener(hierarchyFadeListener)
         }
     }
 

@@ -31,6 +31,7 @@ import { getEvmProvider } from './util/client';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { patchSwapItem } from '../../common/swap';
 import { callHook } from '../../hooks';
+import { buildVtTransfer, submitVtTransfer } from './layerzero/driver';
 import {
   estimateBatchUserOpFee,
   submitBatchUserOp,
@@ -578,12 +579,34 @@ export function resolveSwapGasLimit(estimatedGasLimit: bigint, backendGasLimit?:
   return gasLimit;
 }
 
+/** Quotes the paymaster cost of the backend calls. The native balance is not the fee. */
+async function quoteGaslessSwapCalls(
+  chain: EVMChain,
+  network: ApiNetwork,
+  address: string,
+  calls: EvmMetaTransaction[],
+  gasToken: string,
+): Promise<{ error: ApiAnyDisplayError } | undefined> {
+  const feeResult = await estimateBatchUserOpFee(chain, network, address, calls, {
+    needsGasless: true,
+    gasToken,
+  });
+
+  return 'error' in feeResult ? feeResult : undefined;
+}
+
+function getGaslessSwapBatchOptions(gasToken: string | undefined) {
+  return gasToken ? { needsGasless: true as const, gasToken } : undefined;
+}
+
 async function estimateRegularSwapFee(
   chain: EVMChain,
   network: ApiNetwork,
   address: string,
   payload: EvmSwapTransactionPayload,
   useBatching: boolean,
+  shouldTryDiesel: boolean,
+  gasToken?: string,
 ): Promise<{ error: ApiAnyDisplayError } | undefined> {
   const provider = getEvmProvider(network, chain);
   const transactions: Array<{ request: TransactionRequest; backendGasLimit?: string }> = [];
@@ -600,6 +623,24 @@ async function estimateRegularSwapFee(
       request: toTransactionRequest(address, payload.swap),
       backendGasLimit: payload.swap.gasLimit,
     });
+  }
+
+  if (shouldTryDiesel) {
+    if (!gasToken) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
+    const calls = transactions.flatMap(({ request }) => (
+      typeof request.to === 'string' && typeof request.data === 'string'
+        ? [{ to: request.to, value: BigInt(request.value ?? 0), data: request.data }]
+        : []
+    ));
+
+    if (calls.length !== transactions.length) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
+    return quoteGaslessSwapCalls(chain, network, address, calls, gasToken);
   }
 
   let totalFee = 0n;
@@ -626,7 +667,21 @@ async function estimateSwapRequestFee(
   network: ApiNetwork,
   address: string,
   request: ApiEvmSwapTransactionRequest,
+  shouldTryDiesel: boolean,
+  gasToken?: string,
 ): Promise<{ error: ApiAnyDisplayError } | undefined> {
+  if (shouldTryDiesel) {
+    if (!gasToken) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
+    return quoteGaslessSwapCalls(chain, network, address, [{
+      to: request.to,
+      value: BigInt(request.value || '0'),
+      data: request.data,
+    }], gasToken);
+  }
+
   const provider = getEvmProvider(network, chain);
   const transaction = mapTransactionRequest(request);
   const [feeData, gasLimit] = await Promise.all([
@@ -686,13 +741,19 @@ export async function buildOnchainSwapTransfer(
   const historyAddress = await fetchSwapHistoryAddress(accountId);
 
   try {
+    if (transaction && JSON.parse(transaction).provider === 'layerzero') {
+      return await buildVtTransfer(chain, network, options);
+    }
     const { address } = await fetchEvmWallet(accountId, chain);
     const intent = buildEvmSwapIntent(chain, getEvmChainId(network, chain), address, request);
     rememberEvmSwapIntent(accountId, swapId, intent);
 
     if (transactionRequest) {
       const boundRequest = bindEvmSwapTransactionRequest(chain, transactionRequest, intent);
-      const feeError = await estimateSwapRequestFee(chain, network, address, boundRequest);
+
+      const feeError = await estimateSwapRequestFee(
+        chain, network, address, boundRequest, !!request.shouldTryDiesel, intent.sellToken,
+      );
 
       if (feeError) {
         await patchSwapItem({ address: historyAddress, swapId, authToken, error: feeError.error });
@@ -744,7 +805,19 @@ export async function buildOnchainSwapTransfer(
         return { error: ApiTransactionError.UnsuccesfulTransfer };
       }
 
-      const feeResult = await estimateBatchUserOpFee(chain, network, address, calls);
+      let feeResult: { maxCost: bigint } | { error: ApiAnyDisplayError };
+
+      if (request.shouldTryDiesel) {
+        const gaslessOptions = getGaslessSwapBatchOptions(intent.sellToken);
+
+        if (!gaslessOptions) {
+          return { error: ApiTransactionError.UnsuccesfulTransfer };
+        }
+
+        feeResult = await estimateBatchUserOpFee(chain, network, address, calls, gaslessOptions);
+      } else {
+        feeResult = await estimateBatchUserOpFee(chain, network, address, calls);
+      }
 
       if ('error' in feeResult) {
         await patchSwapItem({ address: historyAddress, swapId, authToken, error: feeResult.error });
@@ -760,7 +833,9 @@ export async function buildOnchainSwapTransfer(
       };
     }
 
-    const feeError = await estimateRegularSwapFee(chain, network, address, payload, false);
+    const feeError = await estimateRegularSwapFee(
+      chain, network, address, payload, false, !!request.shouldTryDiesel, intent.sellToken,
+    );
 
     if (feeError) {
       await patchSwapItem({ address: historyAddress, swapId, authToken, error: feeError.error });
@@ -793,6 +868,8 @@ async function submitRegularUniswapSwap(
   privateKey: string,
   payload: EvmSwapTransactionPayload,
   useBatching: boolean,
+  isGasless: boolean,
+  gasToken?: string,
 ): Promise<{ txHash: string } | { error: ApiAnyDisplayError }> {
   const payloadError = assertUniswapPayloadReady(payload);
 
@@ -807,6 +884,25 @@ async function submitRegularUniswapSwap(
   }
 
   transactions.push(payload.swap!);
+
+  if (isGasless) {
+    const gaslessOptions = getGaslessSwapBatchOptions(gasToken);
+
+    if (!gaslessOptions) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
+    const calls = transactions.map(evmSwapTxToMetaTransaction);
+    const validationError = validateEvmSwapCalls(calls, getEvmSwapAllowedTargets(payload));
+
+    if (validationError) {
+      return { error: validationError };
+    }
+
+    const result = await submitBatchUserOp(chain, network, address, privateKey, calls, gaslessOptions);
+
+    return 'error' in result ? result : { txHash: result.txHash };
+  }
 
   let lastHash = '';
 
@@ -829,6 +925,8 @@ export async function submitLifiPermit2Swap(
   privateKey: string,
   payload: EvmSwapTransactionPayload & { lifiPermit2: NonNullable<EvmSwapTransactionPayload['lifiPermit2']> },
   useBatching: boolean,
+  isGasless: boolean,
+  gasToken?: string,
 ): Promise<{ txHash: string } | { error: ApiAnyDisplayError }> {
   try {
     const signedTransaction = await buildSignedLifiPermit2Transaction(chain, network, address, privateKey, payload);
@@ -852,7 +950,37 @@ export async function submitLifiPermit2Swap(
         return { error: validationError };
       }
 
+      if (isGasless) {
+        const gaslessOptions = getGaslessSwapBatchOptions(gasToken);
+
+        if (!gaslessOptions) {
+          return { error: ApiTransactionError.UnsuccesfulTransfer };
+        }
+
+        const result = await submitBatchUserOp(chain, network, address, privateKey, calls, gaslessOptions);
+        return 'error' in result ? result : { txHash: result.txHash };
+      }
+
       const result = await submitBatchUserOp(chain, network, address, privateKey, calls);
+      return 'error' in result ? result : { txHash: result.txHash };
+    }
+
+    if (isGasless) {
+      const gaslessOptions = getGaslessSwapBatchOptions(gasToken);
+
+      if (!gaslessOptions) {
+        return { error: ApiTransactionError.UnsuccesfulTransfer };
+      }
+
+      const calls = [evmSwapTxToMetaTransaction(signedTransaction)];
+      const validationError = validateEvmSwapCalls(calls, getEvmSwapAllowedTargets(payload));
+
+      if (validationError) {
+        return { error: validationError };
+      }
+
+      const result = await submitBatchUserOp(chain, network, address, privateKey, calls, gaslessOptions);
+
       return 'error' in result ? result : { txHash: result.txHash };
     }
 
@@ -884,6 +1012,7 @@ export async function submitOnchainSwapTransfer(
     transaction,
     transactionRequest,
     needsBatch,
+    isGasless,
   } = options;
 
   const { network } = parseAccountId(accountId);
@@ -895,6 +1024,10 @@ export async function submitOnchainSwapTransfer(
 
   if (account.type === 'ledger' || account.type === 'view') {
     return { error: ApiTransactionError.UnsuccesfulTransfer };
+  }
+
+  if (transaction && JSON.parse(transaction).provider === 'layerzero') {
+    return submitVtTransfer(chain, network, options, historyAddress, onUpdate);
   }
 
   onUpdate({
@@ -924,16 +1057,45 @@ export async function submitOnchainSwapTransfer(
       }
 
       const boundRequest = bindEvmSwapTransactionRequest(chain, transactionRequest, intent);
-      const provider = getEvmProvider(network, chain);
-      const signer = getSignerFromPrivateKey(network, privateKey).connect(provider);
-      const response = await signer.sendTransaction(mapTransactionRequest(boundRequest));
-      txHash = response.hash;
+
+      if (isGasless) {
+        const gaslessOptions = getGaslessSwapBatchOptions(intent.sellToken);
+
+        if (!gaslessOptions) {
+          return { error: ApiTransactionError.UnsuccesfulTransfer };
+        }
+
+        const result = await submitBatchUserOp(chain, network, address, privateKey, [{
+          to: boundRequest.to,
+          value: BigInt(boundRequest.value || '0'),
+          data: boundRequest.data,
+        }], gaslessOptions);
+
+        if ('error' in result) {
+          onUpdate({
+            type: 'newLocalActivities',
+            accountId,
+            activities: [{ ...localSwap, status: 'failed' }],
+          });
+
+          await patchSwapItem({ address: historyAddress, swapId, authToken, error: result.error });
+
+          return { error: result.error };
+        }
+
+        txHash = result.txHash;
+      } else {
+        const provider = getEvmProvider(network, chain);
+        const signer = getSignerFromPrivateKey(network, privateKey).connect(provider);
+        const response = await signer.sendTransaction(mapTransactionRequest(boundRequest));
+        txHash = response.hash;
+      }
     } else if (transaction) {
       const payload = bindEvmSwapPayload(chain, parseEvmSwapTransactionPayload(transaction), intent);
 
       if (hasLifiPermit2Data(payload)) {
         const result = await submitLifiPermit2Swap(
-          chain, network, address, privateKey, payload, Boolean(payload.approval),
+          chain, network, address, privateKey, payload, !!payload.approval, !!isGasless, intent.sellToken,
         );
 
         if ('error' in result) {
@@ -965,24 +1127,50 @@ export async function submitOnchainSwapTransfer(
           return { error: validationError };
         }
 
-        const result = await submitBatchUserOp(chain, network, address, privateKey, calls);
+        if (isGasless) {
+          const gaslessOptions = getGaslessSwapBatchOptions(intent.sellToken);
 
-        if ('error' in result) {
-          onUpdate({
-            type: 'newLocalActivities',
-            accountId,
-            activities: [{ ...localSwap, status: 'failed' }],
-          });
+          if (!gaslessOptions) {
+            return { error: ApiTransactionError.UnsuccesfulTransfer };
+          }
 
-          await patchSwapItem({ address: historyAddress, swapId, authToken, error: result.error });
+          const result = await submitBatchUserOp(
+            chain, network, address, privateKey, calls, gaslessOptions,
+          );
 
-          return { error: result.error };
+          if ('error' in result) {
+            onUpdate({
+              type: 'newLocalActivities',
+              accountId,
+              activities: [{ ...localSwap, status: 'failed' }],
+            });
+
+            await patchSwapItem({ address: historyAddress, swapId, authToken, error: result.error });
+
+            return { error: result.error };
+          }
+
+          txHash = result.txHash;
+        } else {
+          const result = await submitBatchUserOp(chain, network, address, privateKey, calls);
+
+          if ('error' in result) {
+            onUpdate({
+              type: 'newLocalActivities',
+              accountId,
+              activities: [{ ...localSwap, status: 'failed' }],
+            });
+
+            await patchSwapItem({ address: historyAddress, swapId, authToken, error: result.error });
+
+            return { error: result.error };
+          }
+
+          txHash = result.txHash;
         }
-
-        txHash = result.txHash;
       } else if (shouldApplyUniswapPermit2Rules(payload)) {
         const result = await submitRegularUniswapSwap(
-          chain, network, address, privateKey, payload, false,
+          chain, network, address, privateKey, payload, false, !!isGasless, intent.sellToken,
         );
 
         if ('error' in result) {

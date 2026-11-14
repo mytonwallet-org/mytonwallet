@@ -9,6 +9,7 @@ import {
   selectIsHardwareAccount,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
 import useAccountSwitcherScreen, { AccountSwitcherScreen } from '../../hooks/useAccountSwitcherScreen';
@@ -69,6 +70,7 @@ function ReceiveModal({
             <div className={styles.headerWithSwitcher}>
               <ModalHeader
                 title={modalTitle}
+                titleTestId={getTestId('receive_title')}
                 className={styles.receiveHeader}
                 onClose={closeReceiveModal}
               />

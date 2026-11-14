@@ -1,6 +1,10 @@
 package org.mytonwallet.app_air.walletcore.moshi.agentV2
 
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.JsonReader
+import com.squareup.moshi.JsonWriter
+import org.mytonwallet.app_air.walletcore.pushNotifications.AGENT_NEWS_DIGEST_MINUTES
 
 @JsonClass(generateAdapter = true)
 data class AgentV2HostContextUpdate(val authorityChanged: Boolean, val generation: Int)
@@ -13,13 +17,50 @@ data class AgentV2NewsFeedItem(
     val body: String,
     val imageUrl: String? = null,
     val sources: List<Source>,
-    val discussion: Discussion? = null
+    val discussion: Discussion? = null,
+    val discussionNaming: DiscussionNaming? = null
 ) {
     @JsonClass(generateAdapter = true)
     data class Source(val name: String? = null, val url: String)
 
     @JsonClass(generateAdapter = true)
     data class Discussion(val threadId: String, val icon: String? = null)
+
+    data class DiscussionNaming(
+        val title: String,
+        val icon: String? = null,
+        val followups: List<String>
+    )
+}
+
+internal object AgentV2DiscussionNamingAdapter :
+    JsonAdapter<AgentV2NewsFeedItem.DiscussionNaming>() {
+    override fun fromJson(reader: JsonReader): AgentV2NewsFeedItem.DiscussionNaming? {
+        val value = reader.readJsonValue() as? Map<*, *> ?: return null
+        val title = value["title"] as? String ?: return null
+        val icon = value["icon"]
+        if (icon != null && icon !is String) return null
+        val followups = value["followups"] as? List<*> ?: return null
+        return AgentV2NewsFeedItem.DiscussionNaming(
+            title,
+            icon,
+            followups.map { it as? String ?: return null }
+        )
+    }
+
+    override fun toJson(writer: JsonWriter, value: AgentV2NewsFeedItem.DiscussionNaming?) {
+        if (value == null) {
+            writer.nullValue()
+            return
+        }
+        writer.beginObject()
+        writer.name("title").value(value.title)
+        writer.name("icon").value(value.icon)
+        writer.name("followups").beginArray()
+        value.followups.forEach { writer.value(it) }
+        writer.endArray()
+        writer.endObject()
+    }
 }
 
 @JsonClass(generateAdapter = true)
@@ -31,7 +72,12 @@ data class AgentV2NewsFeedPage(
 )
 
 @JsonClass(generateAdapter = true)
-data class AgentV2NewsDigestHeadline(val eventId: Int, val headline: String)
+data class AgentV2NewsDigestHeadline(
+    val eventId: Int,
+    val headline: String,
+    /** The news item's picture, as the feed shows it */
+    val imageUrl: String? = null
+)
 
 @JsonClass(generateAdapter = true)
 data class AgentV2NewsFeedDigest(
@@ -39,7 +85,8 @@ data class AgentV2NewsFeedDigest(
     val deliveredAt: String,
     val top: List<AgentV2NewsDigestHeadline>,
     val total: Int,
-    val discussion: AgentV2NewsFeedItem.Discussion? = null
+    val discussion: AgentV2NewsFeedItem.Discussion? = null,
+    val discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -47,11 +94,16 @@ data class AgentV2NewsFeedRequest(
     val lang: String,
     val cursor: String? = null,
     val digestHour: Int? = null,
-    val timeZone: String? = null
+    val digestMinute: Int? = null,
+    val timeZone: String? = null,
+    val view: String? = null
 ) {
     init {
         require((digestHour == null) == (timeZone == null))
         require(digestHour == null || digestHour in 0..23)
+        require(digestMinute == null || digestHour != null)
+        require(digestMinute == null || digestMinute in AGENT_NEWS_DIGEST_MINUTES)
+        require(view == null || view == "digests")
     }
 }
 
@@ -286,7 +338,27 @@ data class AgentV2EntryPoint(
     val hintId: String? = null,
     val catalogVersion: String? = null,
     val eventId: Int? = null
-)
+) {
+    companion object {
+        private const val SUPPORT_REQUEST_KIND = "supportRequest"
+
+        /** The server opens a support ticket with the run's message, without the model */
+        fun supportRequest(source: AgentV2SupportRequestSource) =
+            AgentV2EntryPoint(kind = SUPPORT_REQUEST_KIND, source = source.value)
+
+        fun isSupportRequest(entryPoint: AgentV2EntryPoint?) =
+            entryPoint?.kind == SUPPORT_REQUEST_KIND
+    }
+}
+
+/** Where the user asked for a support operator */
+enum class AgentV2SupportRequestSource(val value: String) {
+    STARTER_HINT("starterHint"),
+    HEADER("header"),
+
+    // The protocol's source for a chat menu's item, which this app doesn't offer
+    MENU("menu")
+}
 
 @JsonClass(generateAdapter = true)
 data class AgentV2RunResult(

@@ -22,6 +22,7 @@ public enum SearchEntityKind: String, CaseIterable, Codable, Hashable, Sendable 
     case collectible
     case collection
     case application
+    case futuresMarket
     case wallet
     case walletAction
     case setting

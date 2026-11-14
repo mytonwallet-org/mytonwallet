@@ -669,8 +669,8 @@ describe('backend token catalog and prices', () => {
   it('joins the legacy token fields and preserves UI handling of absent prices and null changes', async () => {
     const assets = [catalogToken, { ...catalogToken, slug: 'null-change' }, { ...catalogToken, slug: 'unpriced' }];
     const legacyTokens: ApiTokenWithMaybePrice[] = [
-      token,
-      { ...assets[1], priceUsd: 4, percentChange24h: undefined },
+      { ...token, precision: 2 },
+      { ...assets[1], priceUsd: 4, percentChange24h: undefined, precision: 2 },
       { ...assets[2], priceUsd: undefined, percentChange24h: undefined },
     ];
     replies['/assets/catalog'].body = { version: 'v1', assets };
@@ -786,7 +786,7 @@ describe('backend token catalog and prices', () => {
     expect(requestCount('/assets/catalog')).toBe(1);
 
     pending.resolve();
-    expect(await request).toEqual([token]);
+    expect(await request).toEqual([{ ...token, precision: 2 }]);
   });
 
   it('uses legacy after prices return 404 even when the parallel catalog rejects later', async () => {

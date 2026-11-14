@@ -10,6 +10,7 @@ public enum UniversalSearchFeatureRoute: Sendable {
     case collectible(accountID: String, nft: ApiNft)
     case collection(accountID: String, collection: NftCollection)
     case application(url: URL, title: String, opensExternally: Bool)
+    case futuresMarket(accountID: String, assetID: String)
     case wallet(MAccount)
     case externalWallet(
         network: ApiNetwork,

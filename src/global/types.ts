@@ -5,6 +5,7 @@ import type {
   AgentAnswerLinkV1,
   AgentAnswerTableReferenceV1,
   AgentAnswerTableV1,
+  AgentNewsFeedLocaleV2,
   AgentThreadNewsCardV2,
 } from '../api/agentV2/protocol/types';
 import type {
@@ -525,6 +526,10 @@ export enum MediaType {
 
 /** The news a picture of the Agent's News belongs to, which the media viewer captions it with and offers actions on */
 export interface MediaViewerPictureNews extends Pick<AgentThreadNewsCardV2, 'headline' | 'body' | 'sources'> {
+  /** The news item a shared picture links to; a digest's headline is not shared */
+  eventId?: number;
+  /** The language the news is shown in, which its shared link names */
+  locale?: AgentNewsFeedLocaleV2;
   /** When the news came, as its card or post dates it */
   timestamp: number;
 }
@@ -554,6 +559,7 @@ export type UserToken = {
   price: number;
   priceUsd: number;
   decimals: number;
+  precision?: number;
   change24h: number;
   chain: ApiChain;
   tokenAddress?: string;
@@ -1055,6 +1061,7 @@ export type GlobalState = {
     currentCexAmlKycPolicyUrl?: string;
     maxAmountFromBackend?: string;
     swapHint?: ApiSwapHint;
+    swapQuoteHint?: Extract<ApiSwapHint, { type: 'oneToOne' | 'betterRate' | 'betterRateMinimum' }>;
     /** Tester-only estimate fan-out summary from the backend `debug.summary` field. */
     estimateDebugSummary?: string;
     // Fees. Undefined values mean that these fields are unknown.
@@ -1305,6 +1312,7 @@ export type GlobalState = {
     isSecurityWarningHidden?: boolean;
     /** The Agent's reactions whose toast has explained them, which it does once on this install */
     shownAgentFeedbackToasts?: Partial<Record<AgentAnswerFeedbackV2, boolean>>;
+    shownAgentSupportFeedbackToasts?: Partial<Record<AgentAnswerFeedbackV2, boolean>>;
     areTokensWithNoCostHidden: boolean;
     areUnverifiedNftsHidden?: boolean;
     areChainBadgesShown?: boolean;
@@ -1345,6 +1353,8 @@ export type GlobalState = {
   toasts: ToastType[];
   currentAccountId?: string;
   currentTemporaryViewAccountId?: string;
+  /** The account of the card that the carousel shows, from the gesture until the current account follows it */
+  shownCardAccountId?: string;
   isAccountSelectorOpen?: boolean;
   walletRenameAccountId?: string;
   accountSelectorActiveTab?: number;
@@ -1356,6 +1366,8 @@ export type GlobalState = {
   customizeWalletReturnTo?: 'accountSelector' | 'settings';
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
+  /** The news whose discussion a link asks the agent section to open as it shows */
+  agentNewsDiscussionRequest?: { eventId: number };
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
   isPortfolioOpen?: boolean;
@@ -1609,7 +1621,9 @@ export interface ActionPayloads {
     enclaveToken?: string;
   };
   addAccount2: { method: AuthMethod; enclaveToken?: string };
-  switchAccount: { accountId: string; newNetwork?: ApiNetwork };
+  switchAccount: { accountId: string; newNetwork?: ApiNetwork; shouldKeepSettingsOpen?: boolean };
+  showCardAccount: { accountId: string };
+  switchToCardAccount: { accountId: string };
   renameAccount: { accountId: string; title: string };
   clearAccountError: undefined;
   clearAccountLoading: undefined;
@@ -1669,7 +1683,9 @@ export interface ActionPayloads {
 
   openAgent: undefined;
   closeAgent: undefined;
-  showAgentFeedbackToast: { feedback: AgentAnswerFeedbackV2; animatedIcon: ToastAnimatedIcon };
+  openAgentNewsDiscussion: { eventId: number };
+  clearAgentNewsDiscussionRequest: { request: NonNullable<GlobalState['agentNewsDiscussionRequest']> };
+  showAgentFeedbackToast: { feedback: AgentAnswerFeedbackV2; animatedIcon: ToastAnimatedIcon; isOperator?: boolean };
   openExplore: undefined;
   closeExplore: undefined;
   openMarket: undefined;

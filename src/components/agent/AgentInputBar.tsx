@@ -182,12 +182,12 @@ function AgentInputBar({
     return () => observer.disconnect();
   }, [onHeightChange]);
 
-  // While an answer is being produced, Stop stands in place of send and the microphone, a draft or not, as sending
-  // waits for the answer. A recording that is under way keeps its controls until it ends.
+  // While an answer is being produced, Stop stands in the microphone's place; a draft has its send button, which queues
+  // the question behind the answer. A recording that is under way keeps its controls until it ends.
   const isStopShown = Boolean(onStop) && canStop && !isDictating;
-  // The send button waits in the field, dimmed, on a phone; elsewhere, and where the microphone stands for it while
-  // the draft is empty, it comes with the draft
-  const isSendButtonOpen = !isStopShown && !isDictating && (Boolean(inputValue) || (!dictation && isPortrait));
+  // The send button waits in the field, dimmed, on a phone; elsewhere, and where the microphone or Stop stands for it
+  // while the draft is empty, it comes with the draft
+  const isSendButtonOpen = !isDictating && (Boolean(inputValue) || (!isStopShown && !dictation && isPortrait));
   const canSend = Boolean(inputValue) && !isDisabled;
 
   const isCircleOpen = Boolean(dictation) && (isRecording || Boolean(circleFailure));
@@ -210,14 +210,12 @@ function AgentInputBar({
     ? isHolding || !isCircleOverAction
     : lastHold === 'holding';
 
-  // The microphone turns into Stop in its own place, and back once the answer ends
-  const isStopButtonOpen = isStopShown && !isCircleLeaving;
-  const isMicrophoneButtonOpen = Boolean(dictation) && !isStopShown && !inputValue && !isDictating
-    && !isCircleLeaving;
+  // The microphone turns into Stop in its own place, and back once the answer ends. The button keeps Stop's face while
+  // a draft closes it, so the draft trades Stop for its send button and back directly, without the microphone.
+  const isMicrophoneSlotFree = !inputValue && !isDictating && !isCircleLeaving;
+  const isStopButtonOpen = isStopShown && isMicrophoneSlotFree;
+  const isMicrophoneButtonOpen = Boolean(dictation) && !isStopShown && isMicrophoneSlotFree;
   const isMicrophoneSlotOpen = isMicrophoneButtonOpen || isStopButtonOpen;
-  // The button keeps the face it showed while it goes, so an answer that ends with a draft trades Stop for the send
-  // button directly, without the microphone in between
-  const isStopFace = useCurrentOrPrev(isMicrophoneSlotOpen ? isStopButtonOpen : undefined, true) ?? false;
   // While the agent recognizes the phrase, the microphone's place goes to the field, as on mobile
   const isDictationActionOpen = isRecording;
   // The field glows while it recognizes, and until the transcript has come in, as on iOS; never while the user records
@@ -710,11 +708,11 @@ function AgentInputBar({
             className={buildClassName(
               styles.sendButton,
               styles.microphoneButton,
-              isStopFace && styles.stopButton,
+              isStopShown && styles.stopButton,
               SWIPE_DISABLED_CLASS_NAME,
             )}
-            aria-label={lang(isStopFace || !dictation ? '$agent_stop_answer' : '$agent_dictation_start')}
-            title={isStopFace ? lang('$agent_stop_answer') : undefined}
+            aria-label={lang(isStopShown || !dictation ? '$agent_stop_answer' : '$agent_dictation_start')}
+            title={isStopShown ? lang('$agent_stop_answer') : undefined}
             aria-hidden={!isMicrophoneSlotOpen}
             // The button that is still pressed stays enabled, since some browsers do not deliver the pointer events of
             // a disabled button and the press would never end

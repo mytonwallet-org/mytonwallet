@@ -15,8 +15,18 @@ final class AgentChatTitleView: UIView {
         label.font = .systemFont(ofSize: 22)
         return label
     }()
+    /// What the chat is in under its title, as support while support has the chat
+    private let subtitleLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 12)
+        label.textColor = .secondaryLabel
+        label.textAlignment = .center
+        label.lineBreakMode = .byTruncatingTail
+        return label
+    }()
     private var currentText: String?
     private var currentIcon: String?
+    private(set) var subtitle: String?
     private var outgoingView: UIImageView?
     private var animationStartedAt: CFTimeInterval = 0
     private var iconAnimationStartedAt: CFTimeInterval?
@@ -32,8 +42,11 @@ final class AgentChatTitleView: UIView {
         textLabel.isAccessibilityElement = false
         iconLabel.isAccessibilityElement = false
         iconLabel.isHidden = true
+        subtitleLabel.isAccessibilityElement = false
+        subtitleLabel.isHidden = true
         addSubview(textLabel)
         addSubview(iconLabel)
+        addSubview(subtitleLabel)
     }
 
     @available(*, unavailable)
@@ -55,7 +68,19 @@ final class AgentChatTitleView: UIView {
     var fittingWidth: CGFloat {
         let iconWidth = currentIcon == nil ? 0 : ceil(iconLabel.intrinsicContentSize.width)
         let spacing: CGFloat = currentIcon == nil ? 0 : 6
-        return iconWidth + spacing + ceil(textLabel.intrinsicContentSize.width)
+        let titleWidth = iconWidth + spacing + ceil(textLabel.intrinsicContentSize.width)
+        return subtitle == nil ? titleWidth : max(titleWidth, ceil(subtitleLabel.intrinsicContentSize.width))
+    }
+
+    /// Shows `subtitle` under the title, or the title alone with `nil`
+    func setSubtitle(_ subtitle: String?) {
+        guard subtitle != self.subtitle else { return }
+        self.subtitle = subtitle
+        subtitleLabel.text = subtitle
+        subtitleLabel.isHidden = subtitle == nil
+        accessibilityValue = subtitle
+        setNeedsLayout()
+        onFittingWidthChange?()
     }
 
     override var intrinsicContentSize: CGSize {
@@ -86,19 +111,27 @@ final class AgentChatTitleView: UIView {
             }
             ancestor = view.superview
         }
-        centerX = min(max(centerX, bounds.minX + width / 2), bounds.maxX - width / 2)
+        let subtitleSize = subtitleLabel.intrinsicContentSize
+        let subtitleWidth = subtitle == nil ? 0 : min(bounds.width, ceil(subtitleSize.width))
+        let rowWidth = max(width, subtitleWidth)
+        centerX = min(max(centerX, bounds.minX + rowWidth / 2), bounds.maxX - rowWidth / 2)
         let isRTL = effectiveUserInterfaceLayoutDirection == .rightToLeft
         let leadingX = centerX - width / 2
+        // With a subtitle the two lines share the bar's height, centred together
+        let subtitleHeight = subtitle == nil ? 0 : ceil(subtitleSize.height)
+        let titleMidY = bounds.midY - subtitleHeight / 2
         textLabel.bounds = CGRect(x: 0, y: 0, width: textWidth, height: ceil(textSize.height))
         textLabel.center = CGPoint(
             x: isRTL ? leadingX + textWidth / 2 : leadingX + iconWidth + spacing + textWidth / 2,
-            y: bounds.midY
+            y: titleMidY
         )
         iconLabel.bounds = CGRect(x: 0, y: 0, width: iconWidth, height: ceil(iconSize.height))
         iconLabel.center = CGPoint(
             x: (isRTL ? leadingX + textWidth + spacing + iconWidth / 2 : leadingX + iconWidth / 2) + iconHorizontalOffset,
-            y: bounds.midY
+            y: titleMidY
         )
+        subtitleLabel.bounds = CGRect(x: 0, y: 0, width: subtitleWidth, height: subtitleHeight)
+        subtitleLabel.center = CGPoint(x: centerX, y: titleMidY + ceil(textSize.height) / 2 + subtitleHeight / 2)
     }
 
     /// Copies of the title's labels where they show, for a transition that draws the pill's glass itself. Drawn as
@@ -109,7 +142,7 @@ final class AgentChatTitleView: UIView {
         copy.bounds = bounds
         copy.isUserInteractionEnabled = false
         copy.clipsToBounds = clipsToBounds
-        for label in [textLabel, iconLabel] where !label.isHidden {
+        for label in [textLabel, iconLabel, subtitleLabel] where !label.isHidden {
             let labelCopy = UILabel()
             labelCopy.text = label.text
             labelCopy.font = label.font

@@ -57,7 +57,7 @@ $shimmerWidth: 17.5rem;
 @mixin shimmer {
   --skeleton-shimmer: rgba(255, 255, 255, 0.7);
 
-  background-color: var(--color-activity-gray-background);
+  background-color: var(--agent-bubble-background);
   background-image: linear-gradient(90deg, transparent 0%, var(--skeleton-shimmer) 50%, transparent 100%);
   background-repeat: no-repeat;
   background-attachment: fixed;

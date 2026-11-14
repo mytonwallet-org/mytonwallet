@@ -12,6 +12,7 @@ import {
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   IS_EXPLORER,
+  SELF_UNIVERSAL_HOST_URL,
   TONCOIN,
   TRC20_USDT_MAINNET,
   TRX,
@@ -117,6 +118,9 @@ const VIEW_MODE_ALLOWED_COMMANDS = new Set([
 ]);
 
 const OPEN_IN_NATIVE_DELAY_MS = 2000;
+// A news item's `eventId`, a positive Int32
+const AGENT_NEWS_EVENT_ID_REGEX = /^[1-9][0-9]{0,9}$/;
+const MAX_AGENT_NEWS_EVENT_ID = 2147483647;
 
 let urlAfterSignIn: string | undefined;
 let urlAfterInit: string | undefined;
@@ -689,7 +693,18 @@ export function isSelfDeeplink(url: string) {
   url = forceHttpsProtocol(url);
 
   return url.startsWith(SELF_PROTOCOL)
-    || SELF_UNIVERSAL_URLS.some((u) => url.startsWith(u));
+    || SELF_UNIVERSAL_URLS.some((u) => url.startsWith(u))
+    || getIsAgentNewsShareUrl(url);
+}
+
+// News is shared on the short-link host in every flavor, which is not a self host in all of them
+function getIsAgentNewsShareUrl(url: string) {
+  try {
+    const { origin, pathname, searchParams } = new URL(url);
+    return origin === SELF_UNIVERSAL_HOST_URL && pathname === `/${DeeplinkCommand.Agent}` && searchParams.has('news');
+  } catch {
+    return false;
+  }
 }
 
 // Returns `true` if the link has been processed, ideally resulting to a UI action
@@ -1157,7 +1172,12 @@ async function openSelfDeeplink(
       }
 
       case DeeplinkCommand.Agent: {
-        actions.switchToAgent();
+        const newsEventId = parseAgentNewsEventId(searchParams);
+        if (newsEventId !== undefined) {
+          actions.openAgentNewsDiscussion({ eventId: newsEventId });
+        } else {
+          actions.switchToAgent();
+        }
         return true;
       }
 
@@ -1245,6 +1265,15 @@ async function openSelfDeeplink(
   }
 
   return false;
+}
+
+// A `digest` link is not a news item's, whatever its `news` says
+function parseAgentNewsEventId(searchParams: URLSearchParams) {
+  const news = searchParams.get('news');
+  if (!news || searchParams.has('digest') || !AGENT_NEWS_EVENT_ID_REGEX.test(news)) return undefined;
+
+  const eventId = Number(news);
+  return eventId <= MAX_AGENT_NEWS_EVENT_ID ? eventId : undefined;
 }
 
 async function openViewAccount(

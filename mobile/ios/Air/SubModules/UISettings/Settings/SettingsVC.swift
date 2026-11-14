@@ -54,6 +54,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
     
     public override func viewWillAppear(_ animated: Bool) {
+        settingsHeaderView.shouldPreserveTitleWidth = animated
         super.viewWillAppear(animated)
         isVisible = true
         pauseReloadData = false
@@ -64,8 +65,13 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // Navigation transitions can move the title view without triggering its size-change callback
+        settingsHeaderView.shouldPreserveTitleWidth = false
         syncScrollDrivenChrome()
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        settingsHeaderView.shouldPreserveTitleWidth = true
+        super.viewWillDisappear(animated)
     }
 
     public override func viewDidDisappear(_ animated: Bool) {
@@ -128,6 +134,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
 
         let listCellRegistration = AccountListCell.makeRegistration(
             showsAddress: false,
+            accessibilityIdentifier: "settings_account_row",
             contextMenuConfigurationProvider: { accountId in
                 WalletNameContextMenu.makeConfiguration(accountId: { accountId })
             }

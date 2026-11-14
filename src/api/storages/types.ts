@@ -32,7 +32,8 @@ export interface Storage {
   getMany?(keys: string[]): Promise<AnyLiteral>;
 }
 
-export type StorageKey = 'accounts'
+export type StorageKey = 'layerzeroSwaps'
+  | 'accounts'
   | 'stateVersion'
   | 'currentAccountId'
   | 'clientId'

@@ -8,8 +8,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mytonwallet.app_air.uiagent.agentV2.mapAgentV2Message
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsMenuSource
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.agentNewsCopyText
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.agentNewsMenuSources
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.agentNewsSourceUrl
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.buildAgentNewsShareText
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
@@ -29,7 +32,55 @@ class AgentNewsPostTest {
             AgentV2NewsFeedItem.Source(name = "Source", url = "https://example.com/story")
         )
     )
-    private val firstUser = AgentMessage(role = AgentMessageRole.USER, text = news.headline)
+    private val firstUser = AgentMessage(
+        id = "legacy-post",
+        sdkMessageId = "legacy-post",
+        role = AgentMessageRole.USER,
+        text = news.headline
+    )
+
+    @Test
+    fun shareUsesTheShownHeadlineAndNewsLinkWhileCopyKeepsTheFullPost() {
+        for (locale in listOf("ru", "en")) {
+            val request = AgentNewsChatRequest(eventId = news.eventId, locale = locale)
+            val post = checkNotNull(
+                agentNewsPostMessages(emptyList(), null, news, request).single().newsPost
+            )
+
+            assertEquals(
+                "News headline\nhttps://my.tt/agent?news=42&lang=$locale&utm_source=pulse_share",
+                buildAgentNewsShareText(post)
+            )
+            assertEquals(
+                "News headline\n\nFull news body\n\nhttps://example.com/story",
+                agentNewsCopyText(post)
+            )
+        }
+    }
+
+    @Test
+    fun menuListsEachSourceTheAppCanOpenOnceByItsNameOrSite() {
+        val post = AgentNewsPostContent(
+            news.copy(
+                sources = listOf(
+                    AgentV2NewsFeedItem.Source(name = " CoinDesk ", url = "https://coindesk.com/a"),
+                    AgentV2NewsFeedItem.Source(name = "coindesk", url = "https://coindesk.com/b"),
+                    AgentV2NewsFeedItem.Source(url = "https://www.theblock.co/c"),
+                    AgentV2NewsFeedItem.Source(url = "https://WWW.Decrypt.co/d"),
+                    AgentV2NewsFeedItem.Source(name = "Unsafe", url = "javascript:alert(1)")
+                )
+            )
+        )
+
+        assertEquals(
+            listOf(
+                AgentNewsMenuSource("CoinDesk", "https://coindesk.com/a"),
+                AgentNewsMenuSource("theblock.co", "https://www.theblock.co/c"),
+                AgentNewsMenuSource("Decrypt.co", "https://WWW.Decrypt.co/d")
+            ),
+            agentNewsMenuSources(post)
+        )
+    }
 
     @Test
     fun postBodyFallsBackToVisibleExcerptWhenBodyIsEmpty() {
@@ -48,7 +99,11 @@ class AgentNewsPostTest {
             imageUrl = "https://example.com/feed.jpg",
             publishedAt = news.publishedAt,
             body = news.body,
-            sources = news.sources
+            sources = news.sources,
+            discussionNaming = AgentV2NewsFeedItem.DiscussionNaming(
+                title = "News discussion",
+                followups = listOf("Why does this matter?", "Explain the impact")
+            )
         )
         val preview = agentNewsPostMessages(emptyList(), null, null, request).single()
         val followup = AgentV2FollowUp("impact", "suggested_prompt", "Why does this matter?")
@@ -72,13 +127,36 @@ class AgentNewsPostTest {
 
         assertEquals(news.body, preview.newsPost?.body)
         assertEquals(news.sources, preview.newsPost?.sources)
-        assertTrue(preview.message.followups.isEmpty())
+        assertEquals(
+            request.discussionNaming?.followups,
+            preview.message.followups.map { it.text }
+        )
+        assertTrue(
+            agentNewsPostMessages(emptyList(), null, null, request.copy(discussionNaming = null))
+                .single().message.followups.isEmpty()
+        )
+        assertTrue(
+            agentNewsPostMessages(emptyList(), null, news, request)
+                .single().message.followups.isEmpty()
+        )
+        val localUser = firstUser.copy(id = "local-question", sdkMessageId = null)
+        assertSame(
+            localUser,
+            agentNewsPostMessages(listOf(localUser), null, null, request).last().message
+        )
+        assertSame(
+            localUser,
+            agentNewsPostMessages(listOf(localUser), null, news, request).last().message
+        )
         assertTrue(saved.newsPost)
         assertEquals(preview.message.id, loaded.message.id)
         assertEquals(preview.message.date, loaded.message.date)
         assertEquals("saved-post", loaded.message.sdkMessageId)
         assertTrue(loaded.message.matchesMessageId(saved.id))
-        assertEquals(AgentNewsPostContent(news.copy(imageUrl = request.imageUrl)), loaded.newsPost)
+        assertEquals(
+            AgentNewsPostContent(news.copy(imageUrl = request.imageUrl), request.locale),
+            loaded.newsPost
+        )
         assertFalse(loaded.message.isStreaming)
         assertFalse(loaded.message.isComplete)
         assertNull(loaded.message.feedback)
@@ -117,7 +195,7 @@ class AgentNewsPostTest {
                 .newsPost
         )
         assertEquals(
-            threadPost,
+            AgentNewsPostContent(thread, request.locale),
             agentNewsPostMessages(emptyList(), null, thread, request.copy(imageUrl = null))
                 .single()
                 .newsPost
@@ -223,17 +301,38 @@ class AgentNewsPostTest {
     }
 
     @Test
-    fun digestThreadShowsItsServerPostWithTheDigestCardWithoutPictureOrSource() {
+    fun digestThreadShowsItsServerPostWithTheDigestsHeadlinesWithoutPictureOrSource() {
+        // Its headlines are all its news, so the post has no line of the news it leaves out
         val digest = AgentV2ThreadDigestCard(
             "en:2026-11-08T18:00:00.000Z",
             "2026-11-08T18:00:00.000Z",
-            26,
+            2,
             listOf(
                 AgentV2NewsDigestHeadline(1, "Binance restored its tokens"),
                 AgentV2NewsDigestHeadline(2, "BlackRock sold Bitcoin")
             )
         )
         val followup = AgentV2FollowUp("more", "suggested_prompt", "What else happened?")
+        val naming = AgentV2NewsFeedItem.DiscussionNaming(
+            title = "Digest discussion",
+            icon = "📰",
+            followups = listOf("What matters most?", "Explain the impact")
+        )
+        val preview = agentNewsPostMessages(
+            emptyList(),
+            null,
+            null,
+            null,
+            digest,
+            discussionNaming = naming
+        ).single()
+        assertEquals(AgentNewsPostContent(digest), preview.newsPost)
+        assertEquals(naming.followups, preview.message.followups.map { it.text })
+        assertTrue(preview.message.followups.all { it.kind == "suggested_prompt" })
+        assertTrue(
+            agentNewsPostMessages(emptyList(), null, null, null, digest)
+                .single().message.followups.isEmpty()
+        )
         val stored = AgentMessage(
             id = "server-post",
             sdkMessageId = "server-post",
@@ -243,19 +342,33 @@ class AgentNewsPostTest {
             newsPost = true
         )
         val question = firstUser.copy(id = "question", text = "Why?")
-        val items = agentNewsPostMessages(listOf(stored, question), null, null, null, digest)
+        val items = agentNewsPostMessages(
+            listOf(stored, question),
+            null,
+            null,
+            null,
+            digest,
+            discussionNaming = naming
+        )
         val post = checkNotNull(items.first().newsPost)
         val title = LocaleController.getString("\$agent_digest_title")
-        val headlines = "Binance restored its tokens · BlackRock sold Bitcoin"
 
         assertEquals(AgentNewsPostContent(digest), post)
         assertTrue(post.isDigest)
         assertEquals(title, post.headline)
-        assertEquals(headlines, post.body)
+        // The headlines are listed as on the digest's card, and copied one per line
+        assertNull(post.body)
+        assertEquals(digest.top, post.digestHeadlines)
+        assertNull(post.digestRemainder)
         assertNull(post.imageUrl)
         assertNull(agentNewsSourceUrl(post))
-        assertEquals("$title\n\n$headlines", agentNewsCopyText(post))
+        assertNull(buildAgentNewsShareText(post))
+        assertEquals(
+            "$title\n\n• Binance restored its tokens\n• BlackRock sold Bitcoin",
+            agentNewsCopyText(post)
+        )
         assertEquals("server-post", items.first().message.sdkMessageId)
+        assertEquals(preview.message.id, items.first().message.id)
         assertEquals(listOf(followup), items.first().message.followups)
         assertEquals(parseAgentV2Timestamp(digest.windowEnd), items.first().message.date)
         assertEquals(listOf(question), items.drop(1).map { it.message })
@@ -264,6 +377,15 @@ class AgentNewsPostTest {
             AgentNewsPostContent(news),
             agentNewsPostMessages(emptyList(), null, news, null, digest).single().newsPost
         )
+    }
+
+    @Test
+    fun omitShareForNewsWithNonPositiveEventIds() {
+        for (eventId in listOf(0, -1)) {
+            assertNull(
+                buildAgentNewsShareText(AgentNewsPostContent(news.copy(eventId = eventId), "en"))
+            )
+        }
     }
 
     @Test

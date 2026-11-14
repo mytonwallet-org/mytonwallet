@@ -1,33 +1,43 @@
 import type { TransactionRequest } from 'ethers';
-import { Interface } from 'ethers';
+import { Interface, isError } from 'ethers';
 
+import type { ExplainedTransferFee } from '../../../util/fee/transferFee';
 import type {
   ApiCheckTransactionDraftOptions,
   ApiCheckTransactionDraftResult,
+  ApiFetchEstimateDieselResult,
   ApiNetwork,
   ApiNft,
   ApiSubmitGasfullTransferOptions,
   ApiSubmitGasfullTransferResult,
+  ApiSubmitGaslessTransferOptions,
+  ApiSubmitGaslessTransferResult,
   ApiTransferPayload,
   EVMChain,
 } from '../../types';
+import type { EvmMetaTransaction } from './smartAccount/types';
 import { ApiCommonError, ApiTransactionDraftError, ApiTransactionError } from '../../types';
 
-import { raceWithAbortSignal } from '../../../util/abortSignal';
+import { raceWithAbortSignal, throwIfAborted } from '../../../util/abortSignal';
 import { parseAccountId } from '../../../util/account';
 import { bigintMin, bigintMultiplyToNumber } from '../../../util/bigint';
 import { getChainConfig } from '../../../util/chain';
 import { SECOND } from '../../../util/dateFormat';
-import { explainApiTransferFee } from '../../../util/fee/transferFee';
+import { explainApiTransferFee, getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
 import { logDebugError } from '../../../util/logs';
 import { fetchEvmWallet } from './util/account';
 import { type EvmProvider, getEvmProvider } from './util/client';
 import { fetchStoredChainAccount } from '../../common/accounts';
+import { DIESEL_NOT_AVAILABLE } from '../../common/other';
+import { getTokenByAddress } from '../../common/tokens';
 import { bytesToBase64 } from '../../common/utils';
 import { handleServerError } from '../../errors';
+import { estimateBatchUserOpFee, submitBatchUserOp } from './smartAccount/batch';
+import { isPimlicoGasToken } from './smartAccount/constants';
 import { isValidAddress } from './address';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import { EVM_MAX_TRANSFER_FEE_MULTIPLIER } from './constants';
+import { estimateEvmFee, estimateEvmGas } from './fee';
 import { getErc20Balance, getWalletBalance } from './wallet';
 
 const ERC20_TRANSFER_ABI = ['function transfer(address to, uint256 amount) returns (bool)'];
@@ -40,6 +50,15 @@ const erc721Interface = new Interface(ERC721_TRANSFER_ABI);
 const erc1155Interface = new Interface(ERC1155_TRANSFER_ABI);
 
 const FEE_ESTIMATE_CACHE_TTL = 5 * SECOND;
+
+/** A native balance at or above this skips the diesel quote. 0.0001 ETH */
+const MAX_BALANCE_WITH_CHECK_DIESEL = 100_000_000_000_000n;
+
+/** Native fee used when the node rejects `estimateGas` because the wallet cannot pay gas */
+const EVM_GASLESS_FALLBACK_NATIVE_FEE = 100_000n * 1_000_000_000n;
+
+/** Swap diesel as a percentage of the transfer probe that prices it, since swap calls use more gas */
+const SWAP_DIESEL_PROBE_PERCENT = 150n;
 
 type FeeEstimateCacheEntry = {
   fee?: bigint;
@@ -97,10 +116,32 @@ export async function checkTransactionDraft(
     const feePromise = signal
       ? estimateEvmFee(provider, feeEstimateTransaction, signal)
       : getCachedEvmFeeEstimate(provider, feeCacheKey, feeEstimateTransaction);
-    const [nativeBalance, fee] = await Promise.all([
-      raceWithAbortSignal(() => getWalletBalance(chain, network, address), signal),
-      feePromise,
-    ]);
+    const { nativeBalance, fee } = await readDraftNativeFunding(chain, network, address, feePromise, signal);
+
+    result.diesel = DIESEL_NOT_AVAILABLE;
+
+    if (tokenAddress && tokenBalance !== undefined && nativeBalance < fee) {
+      const { draft, isEnoughBalanceForGasless } = await checkTransactionDraftWithGasless({
+        chain,
+        draft: result,
+        fee,
+        network,
+        accountId,
+        address,
+        tokenAddress,
+        payload,
+        amount,
+        toAddress,
+        allowGasless: options.allowGasless,
+        nativeBalance,
+        tokenBalance,
+        signal,
+      });
+
+      if (isEnoughBalanceForGasless) {
+        return draft;
+      }
+    }
 
     const nativeTokenSlug = getChainConfig(chain).nativeToken.slug;
     const fullFee = getEvmDraftFullFee({
@@ -113,6 +154,7 @@ export async function checkTransactionDraft(
     result.explainedFee = explainApiTransferFee({
       fee: fullFee,
       realFee: fullFee,
+      diesel: result.diesel,
       tokenSlug: nativeTokenSlug,
     });
 
@@ -135,6 +177,65 @@ export async function checkTransactionDraft(
       ...result,
     };
   }
+}
+
+type CheckTransactionDraftWithGaslessParams = {
+  chain: EVMChain;
+  draft: ApiCheckTransactionDraftResult;
+  fee: bigint;
+  network: ApiNetwork;
+  accountId: string;
+  address: string;
+  tokenAddress: string;
+  payload?: ApiTransferPayload;
+  amount?: bigint;
+  toAddress: string;
+  allowGasless?: boolean;
+  nativeBalance: bigint;
+  tokenBalance: bigint;
+  signal?: AbortSignal;
+};
+
+async function checkTransactionDraftWithGasless(params: CheckTransactionDraftWithGaslessParams) {
+  let isEnoughBalanceForGasless = false;
+
+  params.draft.diesel = DIESEL_NOT_AVAILABLE;
+
+  if (params.allowGasless) {
+    params.draft.diesel = await getDiesel({
+      chain: params.chain,
+      network: params.network,
+      accountId: params.accountId,
+      address: params.address,
+      tokenAddress: params.tokenAddress,
+      payload: params.payload,
+      amount: params.amount,
+      toAddress: params.toAddress,
+      nativeBalance: params.nativeBalance,
+      tokenBalance: params.tokenBalance,
+      nativeFee: params.fee,
+      signal: params.signal,
+    });
+  }
+
+  if (isDieselAvailable(params.draft.diesel)) {
+    const dieselFee = getDieselTokenAmount(params.draft.diesel);
+
+    isEnoughBalanceForGasless = params.tokenBalance >= dieselFee;
+
+    if (isEnoughBalanceForGasless && (params.amount ?? 0n) + dieselFee > params.tokenBalance) {
+      params.draft.error = ApiTransactionDraftError.InsufficientBalance;
+    }
+  }
+
+  if (isEnoughBalanceForGasless && isDieselAvailable(params.draft.diesel)) {
+    params.draft.explainedFee = buildGaslessExplainedFee(params.draft.diesel.realFee);
+  }
+
+  return {
+    draft: params.draft,
+    isEnoughBalanceForGasless,
+  };
 }
 
 export function buildTransaction(options: {
@@ -250,30 +351,298 @@ export async function submitGasfullTransfer(
   }
 }
 
-export async function estimateEvmFee(
-  provider: EvmProvider,
-  txRequest: TransactionRequest,
-  signal?: AbortSignal,
-): Promise<bigint> {
-  const { fee } = await estimateEvmGas(provider, txRequest, signal);
+export async function submitGaslessTransfer(
+  chain: EVMChain,
+  options: ApiSubmitGaslessTransferOptions,
+): Promise<ApiSubmitGaslessTransferResult | { error: string }> {
+  const {
+    accountId, enclaveToken = '', toAddress, amount, tokenAddress, payload,
+  } = options;
+  const { network } = parseAccountId(accountId);
 
-  return fee;
+  try {
+    if (!isEvmGaslessToken(network, chain, tokenAddress)) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
+    const account = await fetchStoredChainAccount(accountId, chain);
+
+    if (account.type === 'ledger') throw new Error('Not supported by Ledger accounts');
+    if (account.type === 'view') throw new Error('Not supported by View accounts');
+
+    const { address } = await fetchEvmWallet(accountId, chain);
+    const tokenBalance = await getErc20Balance(network, chain, address, tokenAddress);
+
+    if (tokenBalance < amount) {
+      return { error: ApiTransactionError.InsufficientBalance };
+    }
+
+    const calls = [toEvmMetaTransaction(buildTransaction({
+      from: address,
+      to: toAddress,
+      amount,
+      tokenAddress,
+      payload,
+    }))];
+    const quoted = await estimateBatchUserOpFee(chain, network, address, calls, {
+      needsGasless: true,
+      gasToken: tokenAddress,
+    });
+
+    if ('error' in quoted) {
+      return { error: quoted.error };
+    }
+
+    if (tokenBalance < amount + quoted.maxCost) {
+      return { error: ApiTransactionError.InsufficientBalance };
+    }
+
+    const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
+
+    if (!privateKey) {
+      return { error: ApiCommonError.InvalidPassword };
+    }
+
+    const submitted = await submitBatchUserOp(
+      chain, network, address, privateKey, calls, { needsGasless: true, gasToken: tokenAddress },
+    );
+
+    if ('error' in submitted) {
+      return { error: submitted.error };
+    }
+
+    return { txId: submitted.txHash, msgHashForCexSwap: submitted.txHash };
+  } catch (err) {
+    logDebugError(`evm:${chain}:submitGaslessTransfer`, err);
+
+    return { error: ApiTransactionError.UnsuccesfulTransfer };
+  }
 }
 
-async function estimateEvmGas(
-  provider: EvmProvider,
-  txRequest: TransactionRequest,
+export async function fetchEstimateDiesel(
+  chain: EVMChain,
+  accountId: string,
+  tokenAddress: string,
+): Promise<ApiFetchEstimateDieselResult> {
+  const { network } = parseAccountId(accountId);
+
+  try {
+    const { address } = await fetchEvmWallet(accountId, chain);
+    const [nativeBalance, tokenBalance] = await Promise.all([
+      getWalletBalance(chain, network, address),
+      getErc20Balance(network, chain, address, tokenAddress),
+    ]);
+    const provider = getEvmProvider(network, chain);
+    const fee = await estimateEvmFee(provider, buildTransaction({
+      from: address,
+      to: address,
+      amount: getDraftProbeAmount({ tokenBalance }),
+      tokenAddress,
+    })).catch((err: unknown) => {
+      if (!isError(err, 'INSUFFICIENT_FUNDS')) throw err;
+
+      return EVM_GASLESS_FALLBACK_NATIVE_FEE;
+    });
+
+    return await getDiesel({
+      chain,
+      network,
+      accountId,
+      address,
+      tokenAddress,
+      toAddress: address,
+      nativeBalance,
+      tokenBalance,
+      nativeFee: fee,
+    });
+  } catch (err) {
+    logDebugError(`evm:${chain}:fetchEstimateDiesel`, err);
+
+    return DIESEL_NOT_AVAILABLE;
+  }
+}
+
+type GetDieselParams = {
+  chain: EVMChain;
+  network: ApiNetwork;
+  accountId: string;
+  address: string;
+  tokenAddress: string;
+  payload?: ApiTransferPayload;
+  amount?: bigint;
+  toAddress: string;
+  nativeBalance: bigint;
+  tokenBalance: bigint;
+  nativeFee: bigint;
+  /** A swap already knows its native fee, so a small native balance still gets a quote */
+  ignoresBalanceCeiling?: boolean;
+  signal?: AbortSignal;
+};
+
+/** Decides whether the transfer must be gasless and fetches the diesel estimate from the backend */
+async function getDiesel(params: GetDieselParams): Promise<ApiFetchEstimateDieselResult> {
+  if (!isEvmGaslessToken(params.network, params.chain, params.tokenAddress)) return DIESEL_NOT_AVAILABLE;
+
+  const isAboveCeiling = !params.ignoresBalanceCeiling && params.nativeBalance >= MAX_BALANCE_WITH_CHECK_DIESEL;
+
+  if (isAboveCeiling || params.nativeBalance >= params.nativeFee || params.tokenBalance === 0n) {
+    return DIESEL_NOT_AVAILABLE;
+  }
+
+  const account = await fetchStoredChainAccount(params.accountId, params.chain);
+
+  if (account.type === 'ledger' || account.type === 'view') return DIESEL_NOT_AVAILABLE;
+
+  try {
+    const calls = [toEvmMetaTransaction(buildTransaction({
+      from: params.address,
+      to: params.toAddress,
+      amount: getDraftProbeAmount({ amount: params.amount, tokenBalance: params.tokenBalance }),
+      tokenAddress: params.tokenAddress,
+      payload: params.payload,
+    }))];
+    const quoted = await raceWithAbortSignal(
+      () => estimateBatchUserOpFee(
+        params.chain,
+        params.network,
+        params.address,
+        calls,
+        { needsGasless: true, gasToken: params.tokenAddress },
+      ),
+      params.signal,
+    );
+
+    if ('error' in quoted || quoted.maxCost <= 0n) return DIESEL_NOT_AVAILABLE;
+
+    const diesel: ApiFetchEstimateDieselResult = {
+      status: 'available',
+      amount: quoted.maxCost,
+      nativeAmount: 0n,
+      remainingFee: 0n,
+      realFee: quoted.maxCost,
+    };
+    const tokenAmount = getDieselTokenAmount(diesel);
+
+    if (tokenAmount === 0n) {
+      return diesel;
+    }
+
+    return params.tokenBalance >= tokenAmount ? diesel : DIESEL_NOT_AVAILABLE;
+  } catch (err) {
+    throwIfAborted(params.signal);
+    logDebugError(`evm:${params.chain}:getDiesel`, err);
+
+    return DIESEL_NOT_AVAILABLE;
+  }
+}
+
+/** Diesel for a swap whose native fee the wallet cannot pay. The fee is the swap estimate, not a transfer probe. */
+export async function estimateEvmSwapDiesel(
+  chain: EVMChain,
+  accountId: string,
+  tokenAddress: string,
+  nativeFee: bigint,
+): Promise<ApiFetchEstimateDieselResult> {
+  const { network } = parseAccountId(accountId);
+
+  // Every swap quote refresh calls this, so a quote that cannot be gasless reads no token balance
+  if (!isEvmGaslessToken(network, chain, tokenAddress)) return DIESEL_NOT_AVAILABLE;
+
+  try {
+    const { address } = await fetchEvmWallet(accountId, chain);
+    const nativeBalance = await getWalletBalance(chain, network, address);
+
+    if (nativeBalance >= nativeFee) return DIESEL_NOT_AVAILABLE;
+
+    const tokenBalance = await getErc20Balance(network, chain, address, tokenAddress);
+    const diesel = await getDiesel({
+      chain,
+      network,
+      accountId,
+      address,
+      tokenAddress,
+      toAddress: address,
+      nativeBalance,
+      tokenBalance,
+      nativeFee,
+      ignoresBalanceCeiling: true,
+    });
+
+    if (!isDieselAvailable(diesel)) return diesel;
+
+    const amount = diesel.amount * SWAP_DIESEL_PROBE_PERCENT / 100n;
+
+    return tokenBalance >= amount ? { ...diesel, amount } : DIESEL_NOT_AVAILABLE;
+  } catch (err) {
+    logDebugError(`evm:${chain}:estimateEvmSwapDiesel`, err);
+
+    return DIESEL_NOT_AVAILABLE;
+  }
+}
+
+function isEvmGaslessToken(network: ApiNetwork, chain: EVMChain, tokenAddress: string) {
+  if (network !== 'mainnet' || !isPimlicoGasToken(network, chain, tokenAddress)) return false;
+
+  return !!getTokenByAddress(tokenAddress, chain)?.isGaslessEnabled;
+}
+
+function toEvmMetaTransaction(transaction: TransactionRequest): EvmMetaTransaction {
+  const { to, value, data } = transaction;
+
+  if (typeof to !== 'string') {
+    throw new Error('Transfer target is missing');
+  }
+
+  return {
+    to,
+    value: typeof value === 'bigint' ? value : 0n,
+    data: typeof data === 'string' ? data : '0x',
+  };
+}
+
+function buildGaslessExplainedFee(tokenFee: bigint): ExplainedTransferFee {
+  const terms = {
+    token: tokenFee,
+    native: 0n,
+  };
+
+  return {
+    isGasless: true,
+    canTransferFullBalance: false,
+    realFee: {
+      precision: 'exact',
+      terms,
+      nativeSum: 0n,
+    },
+    fullFee: {
+      precision: 'exact',
+      terms,
+      nativeSum: 0n,
+    },
+  };
+}
+
+async function readDraftNativeFunding(
+  chain: EVMChain,
+  network: ApiNetwork,
+  address: string,
+  feePromise: Promise<bigint>,
   signal?: AbortSignal,
-): Promise<{ gasLimit: bigint; fee: bigint }> {
-  const [gasLimit, feeData] = await raceWithAbortSignal(() => Promise.all([
-    provider.estimateGas(txRequest),
-    provider.getFeeData(),
-  ]), signal);
+) {
+  try {
+    const [nativeBalance, fee] = await Promise.all([
+      raceWithAbortSignal(() => getWalletBalance(chain, network, address), signal),
+      feePromise,
+    ]);
 
-  // Prefer EIP-1559 maxFeePerGas for a conservative upper-bound estimate or use fallback to legacy gasPrice.
-  const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice ?? 0n;
+    return { nativeBalance, fee };
+  } catch (err) {
+    if (!isError(err, 'INSUFFICIENT_FUNDS')) throw err;
 
-  return { gasLimit, fee: gasLimit * gasPrice };
+    const nativeBalance = await raceWithAbortSignal(() => getWalletBalance(chain, network, address), signal);
+
+    return { nativeBalance, fee: EVM_GASLESS_FALLBACK_NATIVE_FEE };
+  }
 }
 
 async function getCachedEvmFeeEstimate(

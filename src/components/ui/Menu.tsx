@@ -35,6 +35,8 @@ type OwnProps = {
   /** Keeps the menu out of the back-navigation history. Needed for nested menus, which otherwise steal the parent menu's history record */
   noHistoryBack?: boolean;
   shouldCleanup?: boolean;
+  /** The menu is placed again when this changes while it is open, as when it shows another page of items */
+  positionKey?: string | number;
   onCloseAnimationEnd?: NoneToVoidFunction;
   onClose?: NoneToVoidFunction;
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
@@ -59,6 +61,7 @@ const Menu: FC<OwnProps> = ({
   noCloseOnBackdrop = false,
   noHistoryBack = false,
   shouldCleanup,
+  positionKey,
   onCloseAnimationEnd,
   onClose,
   onMouseEnter,
@@ -72,7 +75,7 @@ const Menu: FC<OwnProps> = ({
     bubbleRef = menuRef;
   }
 
-  useMenuPosition(isOpen, containerRef, bubbleRef, positionOptions);
+  useMenuPosition(isOpen, containerRef, bubbleRef, positionOptions, positionKey);
 
   useHistoryBack({
     isActive: Boolean(isOpen && onClose && !noHistoryBack),

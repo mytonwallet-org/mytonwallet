@@ -75,6 +75,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
     private var bottomActionBottom: NSLayoutConstraint!
     private var isInitialFocusScrollPending = false
     private var isUpdatingWordsMode = false
+    private var canContinueWithTwelveWords = false
     private var showsEditingNavigation = false
     private var showsContinueButton = true
     private weak var navigationHost: UIViewController?
@@ -332,6 +333,8 @@ public class ImportWalletVC: CreateWalletBaseVC {
         wordsModeSegmentedControl.selectedSegmentIndex = mode.segmentIndex
         guard secretWordsMode != mode else { return }
 
+        let hasTwelveWordPhrase = if case .words12 = enteredWords() { true } else { false }
+        canContinueWithTwelveWords = mode == .words24 && hasTwelveWordPhrase
         let contentOffset = scrollView.contentOffset
         isUpdatingWordsMode = true
         isInitialFocusScrollPending = false
@@ -400,8 +403,11 @@ public class ImportWalletVC: CreateWalletBaseVC {
     }
 
     @objc private func wordsModeChanged(_ sender: SecretWordsModeControl) {
-        guard let mode = SecretWordsMode(segmentIndex: sender.selectedSegmentIndex) else { return }
+        guard let mode = SecretWordsMode(segmentIndex: sender.selectedSegmentIndex), mode != secretWordsMode else { return }
         setWordsMode(mode)
+        if canContinueWithTwelveWords, wordInputs.contains(where: { $0.textField.isFirstResponder }) {
+            wordInputs[SecretWordsMode.words12.wordCount].textField.becomeFirstResponder()
+        }
     }
     
     private func pasteWords(_ words: [String], startingInput input: WWordInput, clearsExistingWords: Bool = false) -> Bool {
@@ -456,6 +462,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
     }
 
     private func clearWordInputs() {
+        canContinueWithTwelveWords = false
         for input in wordInputs {
             input.setText("", notifyDelegate: false, goToNextInput: false)
         }
@@ -610,6 +617,8 @@ public class ImportWalletVC: CreateWalletBaseVC {
             
         switch (secretWordsMode, words.count) {
         case (.words12, 12):
+            return .words12(words)
+        case (.words24, 12) where canContinueWithTwelveWords && wordInputs.dropFirst(12).allSatisfy({ $0.trimmedText == nil }):
             return .words12(words)
         case (.words24, 24):
             return .words24(words)

@@ -624,6 +624,7 @@ Buy crypto or choose another token to sell.: ซื้อคริปโตห�
 Your balances are small. Add funds or choose another token to swap.: ยอดคงเหลือของคุณมีน้อย เติมเงินหรือเลือกโทเค็นอื่นเพื่อสับเปลี่ยน
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: หากต้องการซื้อ %buy_token% ให้ซื้อ %token% ก่อน แล้วสับเปลี่ยนเป็น %buy_token%
 Open %provider% to swap this pair in the browser.: เปิด %provider% เพื่อสับเปลี่ยนคู่นี้ในเบราว์เซอร์
+"Better rate is available if you add %amount% %symbol% for network fee.": "คุณจะได้อัตราแลกเปลี่ยนที่ดีกว่าหากเพิ่ม %amount% %symbol% สำหรับค่าธรรมเนียมเครือข่าย"
 Buy %token%: ซื้อ %token%
 Open %provider%: เปิด %provider%
 Cannot load widget: ไม่สามารถโหลดวิดเจ็ตได้
@@ -1317,8 +1318,8 @@ $agent_consent_allow_button: อนุญาตผู้ช่วย
 $agent_consent_feature_answers: รับคำตอบเกี่ยวกับ %app_name% โทเค็น และกิจกรรมในวอลเล็ต
 $agent_consent_feature_actions: เตรียมการดำเนินการที่รองรับ เช่น การส่ง การรับ และการสเตก
 $agent_consent_feature_context: ใช้บริบทของวอลเล็ตเพื่อให้คำตอบอ้างอิงสินทรัพย์และที่อยู่ที่เกี่ยวข้องได้
-$agent_consent_disclosure_text: เมื่อแตะ “อนุญาตผู้ช่วย” คุณอนุญาตให้ %app_name% ส่งข้อความผู้ช่วยและบริบทวอลเล็ตที่เกี่ยวข้องของคุณไปยัง %app_name% Agent (agent.mywallet.io) และ Anthropic Claude API ผู้ให้บริการ AI ภายนอกของเรา เพื่อประมวลผลคำขอของคุณ บริบทวอลเล็ตอาจรวมถึงที่อยู่วอลเล็ต ยอดคงเหลือ โทเค็น กิจกรรม และรายละเอียดการดำเนินการที่ร้องขอ ข้อมูลจะใช้เฉพาะเพื่อให้คำตอบจากผู้ช่วยและเตรียมการดำเนินการที่คุณร้องขอเท่านั้น
-$agent_consent_search_disclosure_text: สำหรับการค้นหาเว็บ อาจส่งเฉพาะคำค้นหาไปยัง Serper โดยจะไม่ส่งบริบทวอลเล็ตหรือประวัติการสนทนา
+$agent_consent_disclosure_text: เมื่อแตะ “อนุญาตผู้ช่วย” คุณอนุญาตให้ %app_name% ส่งข้อความผู้ช่วยและบริบทวอลเล็ตที่เกี่ยวข้องของคุณไปยัง %app_name% Agent (agent.mywallet.io) และผู้ให้บริการ AI ภายนอกของเรา ได้แก่ OpenAI และ Anthropic เพื่อประมวลผลคำขอของคุณ บริบทวอลเล็ตอาจรวมถึงที่อยู่วอลเล็ต ยอดคงเหลือ โทเค็น กิจกรรม และรายละเอียดการดำเนินการที่ร้องขอ หากคุณใช้การป้อนด้วยเสียง เสียงที่บันทึกจะถูกส่งไปยัง Inworld และส่งไปยัง ElevenLabs ผ่าน OpenRouter เมื่อจำเป็น เพื่อแปลงเป็นข้อความ ข้อมูลจะใช้เฉพาะเพื่อให้คำตอบจากผู้ช่วยและเตรียมการดำเนินการที่คุณร้องขอเท่านั้น
+$agent_consent_search_disclosure_text: สำหรับการค้นหาเว็บ จะส่งเฉพาะคำค้นหาไปยัง OpenAI และไปยัง Serper เมื่อจำเป็น โดยจะไม่ส่งบริบทวอลเล็ตหรือประวัติการสนทนา
 $settings_token_change_threshold: เกณฑ์ % การเปลี่ยนแปลง
 $settings_token_change_threshold_description: ซ่อนเปอร์เซ็นต์การเปลี่ยนแปลงใน 24 ชั่วโมงที่ต่ำกว่าเกณฑ์ที่เลือก
 $settings_token_change_threshold_off: ปิด
@@ -1376,14 +1377,29 @@ $agent_prompt_token_price: "วิเคราะห์ราคาของ %to
 $agent_hint_capabilities_title: คุณทำอะไรได้บ้าง?
 $agent_hint_portfolio_title: ประสิทธิภาพของพอร์ตโฟลิโอ
 $agent_hint_portfolio_prompt: วิเคราะห์ผลการดำเนินงานของพอร์ตโฟลิโอของฉัน
-$agent_hint_swap_title: สวอปทำงานอย่างไร
+$agent_hint_swap_title: สวอปทำงานอย่างไร?
 $agent_hint_swap_prompt: อธิบายวิธีการสวอปโทเค็น
-$agent_hint_staking_title: การสเตกคืออะไร
+$agent_hint_staking_title: การสเตกคืออะไร?
 $agent_hint_staking_prompt: อธิบายการสเตกตั้งแต่พื้นฐาน เหมือนกับว่าฉันไม่เคยใช้คริปโตมาก่อน
-$agent_hint_security_title: ความปลอดภัยของกระเป๋าเงิน
+$agent_hint_security_title: จะปกป้องกระเป๋าเงินของฉันอย่างไร?
 $agent_hint_security_prompt: แสดงวิธีรักษาความปลอดภัยกระเป๋าเงินของฉัน
 $agent_hint_receive_title: รับโทเค็น
 $agent_hint_receive_prompt: ช่วยฉันรับโทเค็น
+$agent_hint_assets_title: แสดงสินทรัพย์ของฉัน
+$agent_hint_total_title: ยอดรวมของฉันเท่าไร?
+$agent_hint_spending_title: สัปดาห์นี้ฉันใช้จ่ายไปกับอะไรบ้าง?
+$agent_hint_last_transfer_title: แสดงการโอนล่าสุดของฉัน
+$agent_hint_fund_title: เติมเงินเข้ากระเป๋าเงินอย่างไร?
+$agent_hint_market_today_title: วันนี้ตลาดเป็นอย่างไร?
+$agent_hint_news_today_title: ข่าวเด่นประจำวัน
+$agent_hint_bitcoin_title: บิตคอยน์เป็นอย่างไรบ้าง?
+$agent_hint_price_title: 0.5 ETH ราคาเท่าไร?
+$agent_hint_staking_yield_title: ที่ไหนให้ผลตอบแทนสูงกว่า?
+$agent_hint_staking_options_title: มีตัวเลือกการสเตกอะไรบ้าง?
+$agent_hint_multisend_title: จะส่งให้หลายคนได้อย่างไร?
+$agent_hint_action_swap_title: สวอปโทเค็น
+$agent_hint_action_send_title: ส่งคริปโต
+$agent_hint_action_stake_title: เริ่มสเตก
 $agent_notice_content_over_budget: ผลลัพธ์มีขนาดใหญ่เกินกว่าจะแสดงทั้งหมดได้
 $agent_notice_web_search_no_results: ไม่พบข้อมูลที่ตรงกับคำขอของคุณ
 $agent_error_session: เซสชันผู้ช่วยของคุณหมดอายุแล้ว โปรดเปิดผู้ช่วยอีกครั้งและลองใหม่อีกครั้ง
@@ -2127,8 +2143,7 @@ News: "ข่าว"
 Crypto Market News: "ข่าวตลาดคริปโต"
 $agent_news_new: "ใหม่"
 $agent_news_open_source: "เปิดแหล่งข่าว"
-$agent_news_source: "แหล่งที่มา: %sources%"
-$agent_news_sources: "แหล่งที่มา: %sources%"
+$agent_news_sources: "แหล่งที่มา"
 $agent_news_unavailable: "ข่าวไม่พร้อมใช้งานในขณะนี้"
 $agent_news_read_more: "อ่านเพิ่มเติม"
 $agent_news_discuss: "พูดคุย"
@@ -2139,6 +2154,8 @@ $agent_news_ask_placeholder: "สอบถามเกี่ยวกับข�
 $agent_news_quote_accessibility: "ข่าว MyPulse: %headline%"
 $agent_news_unread_count:
   otherValue: "ข่าวที่ยังไม่ได้อ่าน %count% รายการ"
+$agent_news_unread_digests_count:
+  otherValue: "สรุปข่าวที่ยังไม่ได้อ่าน %count% รายการ"
 Explorer mode: โหมดสำรวจ
 Open a link to a wallet, transfer, token or collectible to see its details here.: เปิดลิงก์ของกระเป๋าสตางค์ การโอน โทเคน หรือของสะสม เพื่อดูรายละเอียดที่นี่
 
@@ -2398,7 +2415,7 @@ $agent_chats_unavailable: "ไม่สามารถโหลดแชตไ�
 "View your assets and activity": "ดูสินทรัพย์และกิจกรรมของคุณ"
 "Ask AI and follow the news": "ถาม AI และติดตามข่าวสาร"
 $underlying_stock: 'หุ้น %symbol%'
-$agent_support_requested: "คุณขอความช่วยเหลือแล้ว เจ้าหน้าที่จะตอบกลับที่นี่"
+$agent_support_requested: "คุณขอความช่วยเหลือแล้ว เจ้าหน้าที่จะตอบกลับที่นี่ โดยปกติภายในไม่กี่นาที"
 $agent_support_operator_joined: "ฝ่ายสนับสนุนเข้าร่วมแชตแล้ว: %name%"
 $agent_support_closed_operator: "ฝ่ายสนับสนุนปิดคำขอแล้ว จากนี้ผู้ช่วยจะเป็นผู้ตอบ"
 $agent_support_closed_inactivity: "คำขอถูกปิดหลังจากไม่มีการตอบกลับเป็นเวลา 48 ชั่วโมง จากนี้ผู้ช่วยจะเป็นผู้ตอบ"
@@ -2418,20 +2435,38 @@ $send_only_chain_and_token: ส่งเฉพาะ %symbol%, %tokenSymbol% ห
 $agent_digest_unavailable: "สรุปนี้ไม่พร้อมใช้งานอีกต่อไป"
 $agent_digest_title: "ข่าวเด่นประจำวัน"
 $agent_digest_meta:
-  otherValue: "%count% ข่าว · %time%"
+  otherValue: "%count% ข่าว"
 $agent_digest_more:
   otherValue: "และอีก %count% ข่าว — อยู่ด้านบนในฟีด"
+$agent_digest_more_count:
+  otherValue: "และอีก %count% ข่าว"
 $agent_digest_settings_title: "สรุปข่าวและการแจ้งเตือน"
 $agent_digest_settings_text: "วันละครั้ง ฟีดจะมีสรุปข่าวเด่นประจำวัน"
 $agent_digest_time: "เวลาสรุปข่าว"
-$agent_digest_time_zone: "ตามเขตเวลาของโทรศัพท์"
+$agent_digest_time_hint: "สรุปข่าวจะแสดงในฟีดของคุณเวลานี้ แม้ปิดการแจ้งเตือนไว้"
 $agent_digest_notifications_off: "ปิด"
-$agent_digest_notifications_off_hint: "สรุปข่าวจะแสดงในฟีดเท่านั้น"
 $agent_digest_notifications_daily: "สรุปข่าวรายวัน"
-$agent_digest_notifications_daily_hint: "เวลา %time% ข่าวเด่นในการแจ้งเตือนเดียว"
+$agent_digest_notifications_daily_hint: "การแจ้งเตือนเดียวเวลา %time% พร้อมข่าวเด่นของวัน"
 $agent_digest_notifications_every: "ทุกข่าว"
-$agent_digest_notifications_every_hint: "แจ้งเตือนแยกสำหรับทุกข่าว"
-$agent_digest_post_header: "MyPulse · สรุปข่าว · %time%"
 $agent_digest_sheet_title: "สรุปข่าวประจำวัน"
-$agent_digest_device_time_zone: "ตามเขตเวลาของอุปกรณ์นี้"
 $agent_dictation_microphone_denied_device: "อนุญาตให้เข้าถึงไมโครโฟนในการตั้งค่าอุปกรณ์เพื่อพูดเพื่อพิมพ์"
+"$perps_funding_usdc_fees": "คุณต้องมีอย่างน้อย %minUSDC% USDC บน Arbitrum เพื่อเปิดสถานะ: %amount% USDC และค่าธรรมเนียม %fees% USDC"
+"$perps_funding_usdc_increase_fees": "คุณต้องมีอย่างน้อย %minUSDC% USDC บน Arbitrum เพื่อเพิ่มสถานะนี้: %amount% USDC และค่าธรรมเนียม %fees% USDC"
+"PerpsOrderNotPlaced": "ไม่ได้ส่งคำสั่งซื้อขาย USDC ที่โอนไปสำหรับคำสั่งนี้ยังอยู่ในยอดคงเหลือ Hyperliquid"
+$agent_feedback_support_liked_toast: "ขอบคุณ! คะแนนของคุณจะถูกส่งไปยังทีมสนับสนุน"
+$agent_feedback_support_disliked_toast: "ทีมสนับสนุนจะตรวจสอบคำตอบนี้"
+$agent_support_request_message: "ฉันต้องการคุยกับเจ้าหน้าที่"
+$agent_support_contact: "ติดต่อฝ่ายสนับสนุน"
+$agent_support_confirm_title: "เรียกเจ้าหน้าที่หรือไม่?"
+$agent_support_confirm_text: "เจ้าหน้าที่ฝ่ายสนับสนุนจะเห็นแชตนี้และที่อยู่กระเป๋าเงินของคุณ และจะตอบกลับที่นี่"
+$agent_support_confirm_text_no_wallet: "เจ้าหน้าที่ฝ่ายสนับสนุนจะเห็นแชตนี้และจะตอบกลับที่นี่"
+$agent_support_confirm_action: "เรียก"
+$agent_support_rate_limited: "วันนี้คุณติดต่อฝ่ายสนับสนุนครบสามครั้งแล้ว โปรดลองอีกครั้งพรุ่งนี้ หรือส่งข้อความถึง @mysupport ทาง Telegram"
+$agent_news_digests_empty: "ยังไม่มีสรุปข่าว"
+$agent_news_view_all: "ข่าวทั้งหมด"
+$agent_news_view_digests: "สรุปข่าว"
+$agent_digest_hours: "ชั่วโมง"
+$agent_digest_minutes: "นาที"
+$swap_one_to_one: อัตราแลกเปลี่ยนที่ดีกว่า (1:1) ใช้ได้ตั้งแต่ %value% ขึ้นไป
+$swap_better_rate_minimum: "อัตราแลกเปลี่ยนที่ดีกว่าเริ่มต้นที่ %value%"
+$agent_daily_limit_resets_at: "ถึงขีดจำกัดรายวันของผู้ช่วยแล้ว จะรีเซ็ตเวลา %time%"

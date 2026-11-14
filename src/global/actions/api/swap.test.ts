@@ -570,6 +570,105 @@ describe('estimateSwap', () => {
     }));
   });
 
+  it.each([
+    { type: 'oneToOne', minimumAmount: '30' },
+    { type: 'betterRate', additionalAmount: '0.01', symbol: 'ETH' },
+    { type: 'betterRateMinimum', minimumAmount: '30', symbol: 'ETH' },
+  ] as const)('keeps a $type hint on its selected quote and clears it on the next quote without one', async (hint) => {
+    const selected = { ...dexEstimate, dexRouterLabel: 'lifi', toAmount: '9.5', networkFee: '0.0001' };
+    (callApi as jest.Mock).mockResolvedValueOnce({ ...selected, hint }).mockResolvedValueOnce(dexEstimate);
+
+    const result = await estimateSwap(getGlobal(), () => false);
+    expect(result).toMatchObject({
+      route: 'dex', dexRouterLabel: 'lifi', quotedAmountOut: '9.5', networkFee: '0.0001',
+      errorType: undefined, swapQuoteHint: hint,
+    });
+    setGlobal(updateCurrentSwap(getGlobal(), { swapQuoteHint: hint }));
+    expect(await estimateSwap(getGlobal(), () => false)).toMatchObject({ swapQuoteHint: undefined });
+  });
+
+  it('takes the diesel of an EVM quote when the wallet cannot pay the quoted native fee', async () => {
+    const base = getGlobal();
+    setGlobal(updateCurrentSwap({
+      ...base,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic', title: 'Test',
+            byChain: { base: { address: '0x1' } },
+          },
+        },
+      },
+      byAccountId: {
+        [ACCOUNT_ID]: {
+          balances: { bySlug: { [BASE_USDC_MAINNET.slug]: 10_000_000n, [BASE.slug]: 0n } },
+        },
+      },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: { [BASE_USDC_MAINNET.slug]: BASE_USDC_MAINNET, [BASE.slug]: BASE },
+      },
+    } as unknown as GlobalState, {
+      tokenInSlug: BASE_USDC_MAINNET.slug,
+      tokenOutSlug: BASE.slug,
+      amountIn: '1',
+      networkFee: '0.001',
+      inputSource: SwapInputSource.In,
+    }));
+    (callApi as jest.Mock).mockImplementation((method: string) => Promise.resolve(
+      method === 'swapEstimate' ? { ...dexEstimate, dieselStatus: 'available', dieselFee: '0.015582' } : undefined,
+    ));
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
+      shouldTryDiesel: true,
+      nativeBalance: '0',
+    }));
+    expect(result).toMatchObject({ dieselStatus: 'available', dieselFee: '0.015582' });
+  });
+
+  it('keeps an EVM swap gasfull when the native balance covers the quoted fee', async () => {
+    const base = getGlobal();
+    setGlobal(updateCurrentSwap({
+      ...base,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic', title: 'Test',
+            byChain: { base: { address: '0x1' } },
+          },
+        },
+      },
+      byAccountId: {
+        [ACCOUNT_ID]: {
+          balances: { bySlug: { [BASE_USDC_MAINNET.slug]: 10_000_000n, [BASE.slug]: 10n ** 18n } },
+        },
+      },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: { [BASE_USDC_MAINNET.slug]: BASE_USDC_MAINNET, [BASE.slug]: BASE },
+      },
+    } as unknown as GlobalState, {
+      tokenInSlug: BASE_USDC_MAINNET.slug,
+      tokenOutSlug: BASE.slug,
+      amountIn: '1',
+      networkFee: '0.001',
+      inputSource: SwapInputSource.In,
+    }));
+    mockDexApi();
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
+      shouldTryDiesel: false,
+      nativeBalance: '1',
+    }));
+    expect(result).toMatchObject({ dieselStatus: 'not-available' });
+  });
+
   it('accepts a CEX quote for a same-chain pair', async () => {
     const tokenIn = BASE;
     const tokenOut = BASE_USDC_MAINNET;
@@ -689,6 +788,7 @@ describe('estimateSwap', () => {
       fromAddress: '0xSource',
       toAddress: '0xDestination',
     }));
+    expect((callApi as jest.Mock).mock.calls[0][2]).not.toHaveProperty('nativeBalance');
     expect(result).toMatchObject({
       route: 'dex',
       amountOut: '9.9',
@@ -696,6 +796,22 @@ describe('estimateSwap', () => {
       needsBatch: false,
       errorType: undefined,
     });
+  });
+
+  it('keeps the external deposit estimate on Changelly without a wallet balance', async () => {
+    const global = getGlobal();
+    const account = global.accounts?.byId[ACCOUNT_ID];
+    if (!account) throw new Error('Expected a test account');
+    const { solana } = account.byChain;
+    mockApi(undefined);
+    await estimateSwap({
+      ...global, accounts: { ...global.accounts, byId: { [ACCOUNT_ID]: { ...account, byChain: { solana } } } },
+    }, () => false);
+
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
+      fromAddress: undefined, toAddress: 'So1', cexLabel: 'changelly',
+    }));
+    expect((callApi as jest.Mock).mock.calls[0][2]).not.toHaveProperty('nativeBalance');
   });
 
   it('blocks the swap when the source chain cannot price the transfer', async () => {

@@ -111,4 +111,20 @@ class PreviewDistributionTest < Minitest::Test
   ensure
     ENV.replace(saved)
   end
+
+  def test_upload_from_linux_only_when_flag_is_true
+    { nil => false, '' => false, 'false' => false, 'TRUE' => false, 'true' => true }.each do |value, expected|
+      ENV['IOS_UPLOAD_ON_LINUX'] = value
+      assert_equal expected, upload_from_linux?, value.inspect
+    end
+  ensure
+    ENV.delete('IOS_UPLOAD_ON_LINUX')
+  end
+
+  def test_linux_lanes_skip_the_signing_setup
+    assert builds_an_archive?(:beta)
+    assert builds_an_archive?(:release)
+    refute builds_an_archive?(:distribute)
+    refute builds_an_archive?(:upload_ipa)
+  end
 end

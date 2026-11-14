@@ -88,6 +88,8 @@ export type ZerionTransaction = {
     acts: {
       id: string;
       type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'delegate' | 'revoke_delegation' | 'mint';
+      sent_from?: string;
+      counterparty_address?: string;
       application_metadata?: ZerionTransaction['attributes']['application_metadata'];
     }[];
     paymaster?: string;

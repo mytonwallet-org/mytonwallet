@@ -32,6 +32,8 @@ type BaseActivity = {
   isScam?: boolean;
   extra?: {
     withW5Gasless?: boolean; // Only for TON
+    /** The fee is paid in the transferred token. A Pimlico gasless transfer or swap sets it. */
+    isGasless?: boolean;
     dex?: ApiSwapDexLabel; // Only for TON liquidity deposit and withdrawal
     marketplace?: ApiNftMarketplace;
     /** Request identifier from the underlying message where available (TON only) */

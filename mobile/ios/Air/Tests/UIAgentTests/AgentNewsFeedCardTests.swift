@@ -19,11 +19,8 @@ final class AgentNewsFeedCardTests: XCTestCase {
         XCTAssertFalse(cell.isAccessibilityElement)
         XCTAssertTrue(elements[0].isAccessibilityElement)
         XCTAssertTrue(elements[0] === cell.newsView.accessibilityContentElement)
-        // As the post in the discussion: the source, the post's menu, which has Copy and Share, and the source by its name
-        XCTAssertEqual(
-            elements[0].accessibilityCustomActions?.map(\.name),
-            [lang("$agent_news_open_source"), lang("More actions"), "example.com"]
-        )
+        // As the post in the discussion: the source and the post's menu, which has Copy and Share
+        XCTAssertEqual(elements[0].accessibilityCustomActions?.map(\.name), [lang("$agent_news_open_source"), lang("More actions")])
         XCTAssertTrue(elements[1] === button)
         XCTAssertTrue(button.isAccessibilityElement)
         XCTAssertTrue(button.accessibilityTraits.contains(.button))
@@ -80,8 +77,8 @@ final class AgentNewsFeedCardTests: XCTestCase {
         XCTAssertTrue(descendants(button).compactMap { $0 as? UILabel }.contains { $0.text == lang("$agent_news_discuss") })
     }
 
-    /// VoiceOver reads the card's headline, body, source line and time
-    func testAccessibilityLabelReadsTheSourceLineBetweenTheBodyAndTheTime() {
+    /// VoiceOver reads the card's headline, body and time, without its sources' names or sites
+    func testAccessibilityLabelLeavesTheSourcesOut() {
         _ = WalletResourcesBundle.bundle.load()
         let cell = AgentNewsFeedCardCell(frame: .zero)
         let item = makeItem(sources: [
@@ -90,59 +87,7 @@ final class AgentNewsFeedCardTests: XCTestCase {
         ])
         cell.configure(with: item)
         let element = cell.newsView.accessibilityContentElement
-        let sources = makeSourcesLineText(["example.com", "Second source"])
-        XCTAssertEqual(
-            element.accessibilityLabel,
-            "Headline, A bold report., \(sources), \(AgentNewsFeedCardCell.timeText(for: item.deliveredAt))"
-        )
-    }
-
-    /// The API's sources in its order, each named or shown by its site without "www.", without the ones naming nothing or
-    /// a source already named, three at most; a thread's news card stored before it had sources names its old source
-    func testSourceLineNamesUpToThreeDistinctSourcesAndOnlyLinksTheOpenableOnes() throws {
-        _ = WalletResourcesBundle.bundle.load()
-        let line = try XCTUnwrap(AgentNewsSourceLine(sources: [
-            .init(name: "  CoinDesk \n", url: "https://www.coindesk.com/a"),
-            .init(name: " ", url: "not a link"),
-            .init(url: "https://WWW.theblock.co/b"),
-            .init(name: "COINDESK", url: "https://example.com/duplicate"),
-            .init(name: "Transfer", url: "\(SELF_PROTOCOL)transfer?amount=1"),
-            .init(name: "Fourth", url: "https://example.com/fourth"),
-        ]))
-        XCTAssertEqual(line.entries, [
-            .init(name: "CoinDesk", url: "https://www.coindesk.com/a"),
-            .init(name: "theblock.co", url: "https://WWW.theblock.co/b"),
-            .init(name: "Transfer", url: nil),
-        ])
-        XCTAssertEqual(line.text, makeSourcesLineText(["CoinDesk", "theblock.co", "Transfer"]))
-        XCTAssertEqual(line.links.map { (line.text as NSString).substring(with: $0.range) }, ["CoinDesk", "theblock.co"])
-
-        // The links keep to their names with a comma of another length, as Chinese's "、"
-        let chinese = try XCTUnwrap(withMessageLanguage("zh-Hans") {
-            AgentNewsSourceLine(sources: [
-                .init(name: "Plain", url: "javascript:alert(1)"),
-                .init(name: "First", url: "https://example.com/first"),
-                .init(name: "Second", url: "https://example.com/second"),
-            ])
-        })
-        let chineseComma = withMessageLanguage("zh-Hans") { lang("$joining_comma") }
-        XCTAssertNotEqual((chineseComma as NSString).length, (", " as NSString).length)
-        XCTAssertTrue(chinese.text.contains(["Plain", "First", "Second"].joined(separator: chineseComma)))
-        XCTAssertEqual(chinese.links.map { (chinese.text as NSString).substring(with: $0.range) }, ["First", "Second"])
-
-        for unsafeURL in ["javascript:alert(1)", "https://user:password@example.com/a", "ton://transfer/EQaddress"] {
-            XCTAssertEqual(AgentNewsSourceLine(sources: [.init(name: "Site", url: unsafeURL)])?.links, [], unsafeURL)
-        }
-        let single = try XCTUnwrap(AgentNewsSourceLine(sources: [.init(url: "http://www.example.com/a")]))
-        XCTAssertEqual(single.text, L10n.agentNewsSource(sources: "example.com"))
-        XCTAssertEqual(single.links.map(\.url), ["http://www.example.com/a"])
-        XCTAssertEqual(
-            AgentNewsSourceLine(sources: [.init(url: "")], legacySource: "  Old source ")?.entries,
-            [.init(name: "Old source", url: nil)]
-        )
-        XCTAssertEqual(AgentNewsSourceLine(sources: [.init(url: "https://a.example")], legacySource: "Old")?.entries.map(\.name), ["a.example"])
-        XCTAssertNil(AgentNewsSourceLine(sources: [], legacySource: " "))
-        XCTAssertNil(AgentNewsSourceLine(sources: [.init(url: "")]))
+        XCTAssertEqual(element.accessibilityLabel, "Headline, A bold report., \(AgentNewsFeedCardCell.timeText(for: item.deliveredAt))")
     }
 
     /// A card shows its time alone, on the device's 12- or 24-hour clock whatever the language, in the device's time zone
@@ -212,11 +157,7 @@ final class AgentNewsFeedCardTests: XCTestCase {
     func testCardIsTheDiscussionPostWithATelegramDiscussionStrip() throws {
         _ = WalletResourcesBundle.bundle.load()
         let cell = AgentNewsFeedCardCell(frame: CGRect(x: 0, y: 0, width: 370, height: 100))
-        let item = makeItem(sources: [
-            .init(name: "First", url: "https://example.com/first"),
-            .init(name: "Second", url: "https://example.com/second"),
-            .init(name: "Third", url: "javascript:alert(1)"),
-        ])
+        let item = makeItem(sources: [.init(name: "First source", url: "https://example.com/first")])
         cell.configure(with: item)
         cell.frame.size.height = preferredHeight(of: cell)
         cell.layoutIfNeeded()
@@ -230,35 +171,11 @@ final class AgentNewsFeedCardTests: XCTestCase {
         XCTAssertEqual(bubbleFrame.maxX, 370 - AgentMessageCellMetrics.incomingTrailingInset, accuracy: 0.5)
         let meta = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsMetaView }.first)
         XCTAssertEqual(meta.timeLabel.text, AgentNewsFeedCardCell.timeText(for: item.deliveredAt))
+        XCTAssertFalse(descendants(cell).compactMap { $0 as? UILabel }.contains { $0.text?.contains("First source") == true })
         // The time ends as far from the bubble's trailing edge as a channel post's time in Telegram
         let time = meta.timeLabel
         let timeFrame = time.convert(time.bounds, to: bubble)
         XCTAssertEqual(timeFrame.maxX, bubble.bounds.width - AgentNewsMetaView.trailingInset, accuracy: 0.5)
-
-        // The source line stands under the body where the time stood, in the time's gray, with the time 4 pt under it
-        let body = try XCTUnwrap(descendants(cell).compactMap { $0 as? UILabel }.first { $0.attributedText?.string == "A bold report." })
-        let line = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsSourceLineLabel }.first)
-        XCTAssertEqual(line.text, makeSourcesLineText(["First", "Second", "Third"]))
-        XCTAssertEqual(line.font, time.font)
-        XCTAssertEqual(line.textColor, time.textColor)
-        XCTAssertEqual(line.textAlignment, .natural)
-        XCTAssertEqual(line.numberOfLines, 0)
-        let bodyFrame = body.convert(body.bounds, to: bubble)
-        let lineFrame = line.convert(line.bounds, to: bubble)
-        XCTAssertEqual(lineFrame.minX, 16, accuracy: 0.5)
-        XCTAssertEqual(lineFrame.minY - bodyFrame.maxY, 8, accuracy: 0.5)
-        XCTAssertEqual(timeFrame.minY - lineFrame.maxY, 4, accuracy: 0.5)
-        XCTAssertEqual(lineFrame.height, line.sizeThatFits(CGSize(width: lineFrame.width, height: .infinity)).height, accuracy: 1)
-        XCTAssertLessThan(lineFrame.height, line.font.lineHeight * 1.5)
-
-        // A tap opens its entry's own source; the unsafe entry and the label are plain text
-        var openedSources: [String] = []
-        cell.openSourceAction = { openedSources.append($0) }
-        try tap("Second", in: line)
-        try tap("Third", in: line)
-        try tap(String(XCTUnwrap(line.text?.split(separator: " ").first)), in: line)
-        try tap("First", in: line)
-        XCTAssertEqual(openedSources, ["https://example.com/second", "https://example.com/first"])
 
         // Telegram's comments button: its 30 pt avatar 8 pt from the top and the bottom, a 17 pt regular title and its
         // 24 pt arrow box 9 pt from the edge
@@ -273,15 +190,6 @@ final class AgentNewsFeedCardTests: XCTestCase {
         let arrowFrame = arrow.convert(arrow.bounds, to: button)
         XCTAssertEqual(arrowFrame.maxX, button.bounds.width - AgentNewsDiscussionMetrics.arrowTrailingInset, accuracy: 0.5)
         XCTAssertEqual(arrowFrame.midY, button.bounds.midY + AgentNewsDiscussionMetrics.verticalOffset, accuracy: 0.5)
-
-        // Without sources there is no line, and the time stands under the body as before
-        let height = cell.frame.height
-        cell.configure(with: makeItem())
-        cell.frame.size.height = preferredHeight(of: cell)
-        cell.layoutIfNeeded()
-        XCTAssertTrue(line.isHidden)
-        XCTAssertEqual(time.convert(time.bounds, to: bubble).minY - body.convert(body.bounds, to: bubble).maxY, 8, accuracy: 0.5)
-        XCTAssertEqual(height - cell.frame.height, lineFrame.height + 4, accuracy: 1)
     }
 
     /// A digest shows its headlines, each opening its news item, the news it leaves out when there are more, and Discuss
@@ -292,9 +200,9 @@ final class AgentNewsFeedCardTests: XCTestCase {
         cell.configure(with: digest)
         let labels = descendants(cell).compactMap { $0 as? UILabel }
         XCTAssertTrue(labels.contains { $0.text == lang("$agent_digest_title") })
-        XCTAssertTrue(labels.contains {
-            $0.text == L10n.agentDigestMeta(count: 26, time: AgentNewsFeedCardCell.timeText(for: digest.deliveredAt))
-        })
+        XCTAssertTrue(labels.contains { $0.text == L10n.agentDigestMeta(count: 26) })
+        // The time stands in the bubble's trailing corner, as on a news card
+        XCTAssertTrue(labels.contains { $0.text == AgentNewsFeedCardCell.timeText(for: digest.deliveredAt) })
         XCTAssertTrue(labels.contains { $0.text == L10n.agentDigestMore(count: 24) })
         XCTAssertTrue(labels.contains { $0.text == lang("$agent_news_discuss") })
         let headlines = descendants(cell).compactMap { $0 as? UIButton }.filter { $0.accessibilityIdentifier?.hasPrefix("AgentNewsDigestHeadline-") == true }
@@ -302,7 +210,17 @@ final class AgentNewsFeedCardTests: XCTestCase {
         let discuss = try XCTUnwrap(descendants(cell).compactMap { $0 as? UIButton }.first {
             $0.accessibilityIdentifier == "AgentNewsDigestDiscussion-\(digest.id)"
         })
-        XCTAssertEqual((cell.accessibilityElements as? [UIView])?.count, 5)
+        let elements = try XCTUnwrap(cell.accessibilityElements as? [UIView])
+        XCTAssertEqual(elements.count, 5)
+        XCTAssertTrue(elements[0].isAccessibilityElement)
+        XCTAssertEqual(elements[0].accessibilityCustomActions?.map(\.name), [lang("More actions")])
+        // The headlines' arrows are gray and line up with Discuss's
+        cell.layoutIfNeeded()
+        let arrows = descendants(cell).compactMap { $0 as? UIImageView }.filter { $0.image == AgentNewsDiscussionStrip.arrowImage }
+        XCTAssertEqual(arrows.count, 3)
+        XCTAssertEqual(arrows.filter { $0.tintColor == UIColor.air.secondaryLabel }.count, 2)
+        let arrowEnds = arrows.map { $0.convert($0.bounds, to: cell.bubbleView).maxX }
+        XCTAssertEqual(arrowEnds.max()! - arrowEnds.min()!, 0, accuracy: 0.5)
 
         var openedEventIds: [Int] = []
         var discussions = 0
@@ -318,6 +236,48 @@ final class AgentNewsFeedCardTests: XCTestCase {
         cell.configure(with: try makeDigest(total: 1, headlines: ["Only news"]))
         XCTAssertFalse(descendants(cell).compactMap { $0 as? UILabel }.contains { $0.text == L10n.agentDigestMore(count: 24) })
         XCTAssertEqual((cell.accessibilityElements as? [UIView])?.count, 3)
+    }
+
+    /// In the digests view no news stand above the card, so its remainder line only counts the news it leaves out
+    func testDigestCardInTheDigestsViewCountsTheRemainderWithoutPointingAtTheFeed() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let cell = AgentNewsDigestCardCell(frame: CGRect(x: 0, y: 0, width: 375, height: 600))
+        let digest = try makeDigest(total: 26, headlines: ["Binance restored its tokens", "BlackRock sold Bitcoin"])
+        cell.configure(with: digest, isInDigestsView: true)
+        let texts = descendants(cell).compactMap { ($0 as? UILabel)?.text }
+        XCTAssertTrue(texts.contains(L10n.agentDigestMoreCount(count: 24)))
+        XCTAssertFalse(texts.contains(L10n.agentDigestMore(count: 24)))
+    }
+
+    /// A headline shorter than its picture stands centred on it, and a longer one starts at its top
+    func testDigestCardCentresAShortHeadlineOnItsPicture() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let short = "Short"
+        let long = Array(repeating: "Binance restored the tokens it had frozen", count: 3).joined(separator: " ")
+        let digest = try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: JSONSerialization.data(withJSONObject: [
+            "id": "en:2026-11-08T18:00:00.000Z", "deliveredAt": "2026-11-08T18:00:00.000Z", "total": 2, "top": [
+                ["eventId": 1, "headline": short, "imageUrl": "https://example.com/1.png"],
+                ["eventId": 2, "headline": long, "imageUrl": "https://example.com/2.png"],
+            ],
+        ]))
+        let cell = AgentNewsDigestCardCell(frame: CGRect(x: 0, y: 0, width: 375, height: 600))
+        cell.configure(with: digest)
+        cell.frame.size.height = cell.systemLayoutSizeFitting(
+            CGSize(width: 375, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
+        cell.layoutIfNeeded()
+        let view = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsDigestHeadlinesView }.first)
+        let labels = descendants(view).compactMap { $0 as? UILabel }
+        func getFrame(_ view: UIView) -> CGRect { view.convert(view.bounds, to: cell) }
+        let shortLabel = try XCTUnwrap(labels.first { $0.text == short })
+        let longLabel = try XCTUnwrap(labels.first { $0.text == long })
+        let pictures = view.thumbnails.map { getFrame($0.button) }
+        XCTAssertEqual(pictures.count, 2)
+        XCTAssertGreaterThan(longLabel.intrinsicContentSize.height, pictures[1].height)
+        XCTAssertEqual(getFrame(shortLabel).midY, pictures[0].midY, accuracy: 0.5)
+        XCTAssertEqual(getFrame(longLabel).minY, pictures[1].minY, accuracy: 0.5)
     }
 
     private func makeDigest(total: Int, headlines: [String]) throws -> ApiAgentV2NewsFeedDigest {

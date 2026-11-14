@@ -56,34 +56,45 @@ export async function buildTransactionList(
     throw unavailable('Wallet transactions are unavailable.');
   }
   const selectedAccounts = accounts.slice(0, MAX_ACTIVITY_ACCOUNTS);
+  const tokenSlug = transactionTokenSlug(args.filters);
+  const periodStart = getTransactionPeriodStart(args.filters);
   const scans = await mapWithConcurrency(selectedAccounts, MAX_ACTIVITY_CONCURRENCY, (account) => (
-    scanTransactionAccount(dependencies, account, transactionTokenSlug(args.filters))
+    scanTransactionAccount(dependencies, account, { tokenSlug, periodStart })
   ));
-  const candidates = scans.flatMap(({ account, activities }) => activities.flatMap((activity) => {
+  const matching = dedupeRows(scans.flatMap(({ account, activities }) => activities.flatMap((activity) => {
     if (activity.shouldHide) return [];
     const row = projectTransaction(dependencies, snapshot, account, activity);
-    return (!args.chains.length || args.chains.includes(row.chain))
-      && matchesTransactionFilters(row, args.filters) && matchesRisk(row.riskVerdict, args.riskMode)
+    return (!args.chains.length || args.chains.includes(row.chain)) && matchesTransactionFilters(row, args.filters)
       ? [row]
       : [];
-  })).sort(compareTransactions);
-  const unique = dedupeRows(candidates);
+  })));
+  const unique = matching
+    .filter(({ riskVerdict }) => matchesRisk(riskVerdict, args.riskMode))
+    .sort(compareTransactions);
   const transactions = unique.slice(0, args.pageSize);
-  const sourceOmitted = scans.reduce((sum, scan) => sum + (scan.hasMore ? 1 : 0), 0);
+  const sourceOmitted = scans.filter(({ hasMore, hasPassedPeriodStart }) => (
+    hasMore && !hasPassedPeriodStart
+  )).length;
   const omitted = Math.max(0, unique.length - transactions.length);
   const failed = scans.filter(({ failed }) => failed).length;
+  const accountsRequested = requestedAccountCount(dependencies, accounts);
+  const accountsIncluded = scans.length - failed;
+  const hasHistoryLimit = sourceOmitted > 0 || accounts.length > MAX_ACTIVITY_ACCOUNTS;
   const limitations = uniqueLimitations([
     ...(omitted ? ['row_limit' as const] : []),
-    ...(sourceOmitted || accounts.length > MAX_ACTIVITY_ACCOUNTS ? ['history_limit' as const] : []),
+    ...(hasHistoryLimit ? ['history_limit' as const] : []),
     ...(failed ? ['source_partial' as const] : []),
   ]);
   const policyAccuracy = sourceOmitted || failed ? 'lower_bound' : 'exact';
-  const spamCount = scans.reduce((sum, scan) => sum + scan.activities.filter(({ isScam }) => isScam).length, 0);
+  const spamCount = matching.filter(({ riskVerdict }) => riskVerdict === 'spam').length;
   return {
     ...resolvedBase(dependencies, resolvedScope, makeCoverage({
       domain: 'transactions',
-      accountsRequested: requestedAccountCount(dependencies, accounts),
-      accountsIncluded: scans.filter(({ failed: didFail }) => !didFail).length,
+      // Every scanned row was read, so a history cut by the scan limit is no reason to call the source unloaded
+      ...(hasHistoryLimit && accountsIncluded === accountsRequested && !transactions.length
+        ? { sourceStatus: 'complete_empty' as const } : {}),
+      accountsRequested,
+      accountsIncluded,
       rowsOmitted: omitted,
       limitations,
       rowCount: transactions.length,
@@ -110,7 +121,7 @@ export async function buildTransactionDetail(
   if (!dependencies.fetchPastActivities) throw unavailable('Wallet transactions are unavailable.');
   const selectedAccounts = accounts.slice(0, MAX_ACTIVITY_ACCOUNTS);
   const scans = await mapWithConcurrency(selectedAccounts, MAX_ACTIVITY_CONCURRENCY, (account) => (
-    scanTransactionAccount(dependencies, account, undefined, args.hash)
+    scanTransactionAccount(dependencies, account, { targetHash: args.hash })
   ));
   const match = scans.flatMap(({ account, activities }) => activities.map((activity) => ({ account, activity })))
     .find(({ activity }) => activityHasTransactionHash(activity, args.hash));
@@ -269,16 +280,28 @@ function transactionFee(
   if (!asset) return undefined;
   if (activity.kind === 'transaction') {
     if (activity.fee === 0n) return undefined;
+    const feeAsset = activity.extra?.isGasless
+      ? resolveAsset(dependencies, account, activity.slug)
+      : asset;
+    if (!feeAsset) return undefined;
     return {
-      asset: projectAsset(asset),
-      quantity: toDecimal(activity.fee < 0n ? -activity.fee : activity.fee, asset.decimals, true),
-      decimals: asset.decimals,
+      asset: projectAsset(feeAsset),
+      quantity: toDecimal(activity.fee < 0n ? -activity.fee : activity.fee, feeAsset.decimals, true),
+      decimals: feeAsset.decimals,
     };
   }
   if (!activity.networkFee || !isCanonicalDecimal(activity.networkFee) || isZeroDecimal(activity.networkFee)) {
     return undefined;
   }
-  return { asset: projectAsset(asset), quantity: canonicalDecimal(activity.networkFee), decimals: asset.decimals };
+  const feeAsset = activity.extra?.isGasless
+    ? resolveAsset(dependencies, account, activity.from)
+    : asset;
+  if (!feeAsset) return undefined;
+  return {
+    asset: projectAsset(feeAsset),
+    quantity: canonicalDecimal(activity.networkFee),
+    decimals: feeAsset.decimals,
+  };
 }
 
 function transactionCounterparty(
@@ -367,6 +390,13 @@ function matchesTransactionFilters(row: AgentWalletDataTransactionRowV3, filters
 function transactionTokenSlug(filters: AgentWalletFilterSetV1) {
   const assets = filters.clauses.find((clause) => clause.field === 'transaction.asset');
   return assets?.field === 'transaction.asset' && assets.values.length === 1 ? assets.values[0].slug : undefined;
+}
+
+function getTransactionPeriodStart(filters: AgentWalletFilterSetV1) {
+  const starts = filters.clauses.flatMap((clause) => (
+    clause.field === 'transaction.timestamp' ? [Date.parse(clause.range.fromInclusive)] : []
+  ));
+  return starts.length ? Math.max(...starts) : undefined;
 }
 
 function getPrimaryChain(activity: ApiActivity): AgentApiChain {

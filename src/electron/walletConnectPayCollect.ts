@@ -219,6 +219,13 @@ function openCollectWindow(url: string, confirmStrings: CollectConfirmStrings): 
       }
     });
 
+    webContents.on('will-redirect', (event) => {
+      if (event.isMainFrame && !checkIsKycUrlAllowed(event.url)) {
+        event.preventDefault();
+        finish(() => reject(new Error('Blocked disallowed KYC redirect')));
+      }
+    });
+
     let isConfirmingCancel = false;
 
     const confirmCancel = async () => {

@@ -6,7 +6,7 @@ import type { ApiChain } from '../../../../../api/types';
 import type { Account } from '../../../../../global/types';
 import type { IAnchorPosition } from '../../../../../global/types';
 import type { Layout } from '../../../../../hooks/useMenuPosition';
-import type { SubMenuPosition } from './calculateSubMenuPosition';
+import type { SubMenuPosition } from '../../../../ui/helpers/calculateSubMenuPosition';
 import type { AddressMenuItem } from './MenuItem';
 
 import { selectCurrentAccount, selectCurrentAccountChainDisplay } from '../../../../../global/selectors';
@@ -14,15 +14,16 @@ import buildClassName from '../../../../../util/buildClassName';
 import { getChainTitle } from '../../../../../util/chain';
 import { copyTextToClipboard } from '../../../../../util/clipboard';
 import { stopEvent } from '../../../../../util/domEvents';
+import getTestId from '../../../../../util/getTestId';
 import { shareUrl } from '../../../../../util/share';
 import { shortenDomain } from '../../../../../util/shortenDomain';
 import { getViewAccountUrl } from '../../../../../util/url';
 import { IS_TOUCH_ENV } from '../../../../../util/windowEnvironment';
 import windowSize from '../../../../../util/windowSize';
-import calculateSubMenuPosition from './calculateSubMenuPosition';
+import calculateSubMenuPosition from '../../../../ui/helpers/calculateSubMenuPosition';
 import { MOUSE_LEAVE_TIMEOUT } from './useAddressMenu';
-import useDelayedAction from './useDelayedAction';
 
+import useDelayedAction from '../../../../../hooks/useDelayedAction';
 import useLang from '../../../../../hooks/useLang';
 import useLastCallback from '../../../../../hooks/useLastCallback';
 
@@ -352,6 +353,7 @@ function AddressMenu({
         onClose={onClose}
       >
         <ShareButton
+          testId={isOpen ? getTestId('address_share') : undefined}
           onClick={handleShareClick}
           onMouseEnter={withHover ? scheduleSubMenusClose : undefined}
         />
@@ -360,6 +362,8 @@ function AddressMenu({
             key={item.chain}
             item={item}
             withDelimiter={index === 0}
+            testId={isOpen ? getTestId('address_row') : undefined}
+            actionTestId={isOpen ? getTestId('address_qr') : undefined}
             onClick={handleMainRowClick}
             onMouseEnter={withHover ? handleMainRowMouseEnter : undefined}
             onActionMouseEnter={withHover ? scheduleSubMenusClose : undefined}

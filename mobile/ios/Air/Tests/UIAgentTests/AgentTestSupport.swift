@@ -1,6 +1,5 @@
 import UIKit
 import UIComponents
-import WalletContext
 import XCTest
 @testable import UIAgent
 
@@ -11,6 +10,15 @@ func makeKeyWindow(showing rootViewController: UIViewController) -> UIWindow {
     window.rootViewController = rootViewController
     window.makeKeyAndVisible()
     return window
+}
+
+/// Runs the handler of `alert`'s action titled `title`, as a tap on it does, without the alert's own dismissal
+@MainActor
+func performAlertAction(titled title: String, in alert: UIAlertController) {
+    typealias Handler = @convention(block) (UIAlertAction) -> Void
+    guard let action = alert.actions.first(where: { $0.title == title }),
+          let block = action.value(forKey: "handler") else { return }
+    unsafeBitCast(block as AnyObject, to: Handler.self)(action)
 }
 
 /// Makes the chat of `threadId` count as one this device never showed, which opens at its latest message: a chat shown
@@ -137,29 +145,17 @@ func findDescendants(of view: UIView) -> [UIView] {
     view.subviews.flatMap { [$0] + findDescendants(of: $0) }
 }
 
-/// The source line of several `names`, joined by the language's comma
-func makeSourcesLineText(_ names: [String]) -> String {
-    L10n.agentNewsSources(sources: names.joined(separator: lang("$joining_comma")))
-}
-
-/// Taps the middle of `entry` in a one-line, left-to-right news source line
-@MainActor
-func tap(_ entry: String, in line: AgentNewsSourceLineLabel) throws {
-    let text = try XCTUnwrap(line.text) as NSString
-    let font = try XCTUnwrap(line.font)
-    let range = text.range(of: entry)
-    XCTAssertNotEqual(range.location, NSNotFound, entry)
-    let start = text.substring(to: range.location).size(withAttributes: [.font: font]).width
-    let width = (entry as NSString).size(withAttributes: [.font: font]).width
-    line.openLink(at: CGPoint(x: start + width / 2, y: line.bounds.midY))
-}
-
 /// A chat of `messages` in a key window, over a backend that answers nothing
 @MainActor
 final class AgentTestChat {
     final class Backend: AgentBackend {
         var context: AgentBackendContext?
         var isLoadingOlderMessages = false
+        /// A question goes at once, or with only `canAcceptMessages` waits for the answer being written
+        var canSendMessages = true
+        var canAcceptMessages = true
+        /// The Agent thinks on each question that goes, its typing row coming once the chat has brought the question up
+        var isThinkingOnSend = false
 
         func attach(to context: AgentBackendContext) { self.context = context }
         func detach() { context = nil }
@@ -170,7 +166,10 @@ final class AgentTestChat {
             userMessageID: AgentItemID,
             source: AgentBackendSendSource,
             editContext: AgentBackendEditContext?
-        ) {}
+        ) {
+            guard isThinkingOnSend else { return }
+            context?.append(.typingIndicator(AgentTypingIndicator()), animated: true)
+        }
         func clearConversation() {}
     }
 

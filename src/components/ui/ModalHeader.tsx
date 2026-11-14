@@ -19,6 +19,7 @@ type OwnProps<T extends string> = {
   className?: string;
   withNotch?: boolean;
   titleClassName?: string;
+  titleTestId?: string;
   closeClassName?: string;
   menuItems?: DropdownItem<T>[];
   onClose?: NoneToVoidFunction;
@@ -32,6 +33,7 @@ function ModalHeader<T extends string>({
   className,
   withNotch,
   titleClassName,
+  titleTestId,
   closeClassName,
   menuItems,
   onClose,
@@ -94,12 +96,14 @@ function ModalHeader<T extends string>({
         </Button>
       )}
       {title !== undefined && (
-        <div className={buildClassName(
-          modalStyles.title,
-          typeof title === 'string' && modalStyles.singleTitle,
-          !onBackButtonClick && modalStyles.titleFullWidth,
-          titleClassName,
-        )}
+        <div
+          className={buildClassName(
+            modalStyles.title,
+            typeof title === 'string' && modalStyles.singleTitle,
+            !onBackButtonClick && modalStyles.titleFullWidth,
+            titleClassName,
+          )}
+          data-testid={titleTestId}
         >
           {title}
         </div>

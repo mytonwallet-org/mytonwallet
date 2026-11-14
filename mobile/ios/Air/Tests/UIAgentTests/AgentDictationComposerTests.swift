@@ -279,6 +279,47 @@ final class AgentDictationComposerTests: XCTestCase {
         XCTAssertTrue(controller.state.canDictateMore)
     }
 
+    /// A held recording released while an answer is written still sends its transcript as the question, which the chat
+    /// keeps waiting for the answer, as it accepts questions then; it doesn't stay in the field
+    @MainActor
+    func testHeldRecordingReleasedDuringAnAnswerSendsItsTranscript() async throws {
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(true) }
+        let scheduler = AgentDictationTestScheduler()
+        var recordings = 0
+        let controller = AgentDictationController(
+            scheduler: scheduler,
+            requestPermission: { true },
+            makeRecorder: { AgentDictationTestRecorder() },
+            transcribe: { _ in .init(outcome: .transcribed, text: "Раз, два") },
+            haptic: { recordings += 1 },
+            gestureFeedback: {},
+            observeLifecycle: false
+        )
+        defer { controller.cancel() }
+        let composer = AgentComposerView()
+        composer.dictationController = controller
+        composer.onDraftTextChanged = { [weak composer] in
+            composer?.setSendEnabled(composer?.draftText?.isEmpty == false)
+        }
+        var sent: [String] = []
+        composer.onSend = { [weak composer] in
+            sent.append(composer?.draftText ?? "")
+            composer?.clearDraft()
+        }
+
+        controller.touchBegan()
+        for _ in 0..<100 where recordings < 1 { await Task.yield() }
+        scheduler.advance(by: 1)
+        XCTAssertTrue(controller.state.isHeld)
+        // An answer starts meanwhile, and the chat takes questions sent during it
+        composer.setStopAvailable(true)
+        controller.touchEnded()
+        for _ in 0..<100 where controller.state.phase != .idle { await Task.yield() }
+        XCTAssertEqual(sent, ["Раз, два"], "Sent, for the chat to keep waiting")
+        XCTAssertEqual(composer.draftText ?? "", "")
+    }
+
     /// The pause hint rises only for a hold, once the touch is one, out from behind the recording circle as Telegram's
     /// lock panel does; a tap never shows it
     @MainActor
@@ -816,6 +857,30 @@ final class AgentDictationComposerTests: XCTestCase {
                 "Above the recording circle"
             )
         }
+    }
+
+    /// The recording circle's glyph takes the colour of content on the accent, black on the white accent of the dark
+    /// theme, and is white on a failure's red circle
+    @MainActor
+    func testRecordingGlyphReadsOnTheWhiteAccent() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let touchView = AgentDictationTouchView()
+        touchView.tintColor = .white
+        window.addSubview(touchView)
+        touchView.setAnchor(CGPoint(x: 340, y: 800), fieldTop: 776)
+        touchView.update(AgentDictationState(phase: .handsFree), isRightToLeft: false)
+        let glyph = try XCTUnwrap(
+            descendants(of: touchView).compactMap { $0 as? UIImageView }.first { $0.superview is AgentVoiceBlobView }
+        )
+        XCTAssertEqual(glyph.tintColor.resolvedColor(with: touchView.traitCollection), .black, "On the white circle")
+
+        // The failure plays only in motion
+        UIView.setAnimationsEnabled(true)
+        touchView.update(AgentDictationState(phase: .failed), isRightToLeft: false)
+        XCTAssertNotNil(touchView.failureCenter, "The failure shows")
+        XCTAssertEqual(glyph.tintColor.resolvedColor(with: touchView.traitCollection), .white, "On the red circle")
     }
 
     /// The floating microphone comes up out of the trailing circle as a stop's transcript is recognized, and out of
@@ -1648,7 +1713,8 @@ final class AgentDictationComposerTests: XCTestCase {
 
     /// The first character typed into a fresh composer brings Send into the circle and the small floating microphone
     /// above the field, and no recording circle at any moment, over the circle or anywhere, nor as the field empties.
-    /// With an answer to stop, Stop stays in the circle.
+    /// With an answer to stop, Send takes the circle too, as a question sent during the answer waits for it, and Stop
+    /// comes back as the field empties.
     @MainActor
     func testFirstTypedCharacterShowsSendInTheCircleAndNoRecordingCircleOverIt() async throws {
         let controller = AgentDictationController(
@@ -1719,13 +1785,9 @@ final class AgentDictationComposerTests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(50))
                 window.layoutIfNeeded()
             }
-            if isStopAvailable {
-                XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_stop_answer"), "Stop stays in the circle")
-                XCTAssertGreaterThan(shownOpacity(of: microphone), 0.95)
-            } else {
-                let send = try XCTUnwrap(findButton(labelled: lang("Send"), in: composer), "Send shows")
-                XCTAssertGreaterThan(shownOpacity(of: send), 0.95)
-            }
+            let send = try XCTUnwrap(findButton(labelled: lang("Send"), in: composer), "\(moment): Send shows")
+            XCTAssertGreaterThan(shownOpacity(of: send), 0.95)
+            XCTAssertEqual(shownOpacity(of: microphone), 0, "\(moment): neither the microphone nor Stop over Send")
             let resume = try XCTUnwrap(findButton(labelled: lang("$agent_voice_resume"), in: composer))
             XCTAssertEqual(resume.bounds.width, AgentVoiceResumeButton.diameter, "The floating microphone is the small one")
 
@@ -1733,6 +1795,9 @@ final class AgentDictationComposerTests: XCTestCase {
             textView.deleteBackward()
             textView.delegate?.textViewDidChange?(textView)
             XCTAssertFalse(controller.state.canDictateMore)
+            if isStopAvailable {
+                XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_stop_answer"), "Emptied, Stop comes back")
+            }
             for step in 0..<10 {
                 XCTAssertEqual(touchView.recordingCircleAlpha, 0, "\(moment), emptied, \(step * 50) ms in")
                 try await Task.sleep(for: .milliseconds(50))
@@ -1932,8 +1997,8 @@ final class AgentDictationComposerTests: XCTestCase {
     }
 
     /// While an answer that can be stopped is being written, Stop takes the microphone's place and stops the answer
-    /// instead of recording. Text in the field keeps Stop in the send button's place, as sending waits for the answer,
-    /// and the microphone comes back once the answer can't be stopped.
+    /// instead of recording. Text in the field keeps the send button, and the microphone comes back once the answer
+    /// can't be stopped.
     @MainActor
     func testStopTakesTheMicrophonesPlaceWhileAnAnswerCanBeStopped() throws {
         let controller = AgentDictationController(
@@ -1966,11 +2031,13 @@ final class AgentDictationComposerTests: XCTestCase {
         XCTAssertEqual(controller.state.phase, .idle)
 
         composer.setDraftText("Hello", focus: false)
-        XCTAssertFalse(microphone.isHidden)
+        XCTAssertTrue(microphone.isHidden, "Text in the field keeps the send button")
+        XCTAssertFalse(send.isHidden)
+        composer.setDraftText("", focus: false)
+        XCTAssertFalse(microphone.isHidden, "Stop comes back to the emptied field")
         XCTAssertTrue(send.isHidden)
         XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_stop_answer"))
-        composer.setDraftText("", focus: false)
-        XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_stop_answer"))
+        XCTAssertFalse(recognizer.isEnabled)
 
         composer.setStopAvailable(false)
         XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_dictation_start"))
@@ -1979,11 +2046,11 @@ final class AgentDictationComposerTests: XCTestCase {
         XCTAssertEqual(stops, 2)
     }
 
-    /// While an answer can be stopped, the circle keeps Stop over a draft, as sending waits for the answer. An answer
-    /// that ends under a draft turns Stop into Send: the circle keeps Stop's glyph as it goes into the field, so the
-    /// microphone never shows in between, and comes back out of the field as the microphone.
+    /// While an answer can be stopped, typing turns Stop into Send and clearing the field turns Send back into Stop:
+    /// the circle keeps Stop's glyph as it goes into the field and comes back out of it, so the microphone never shows
+    /// in between. Without an answer to stop, the circle comes back as the microphone.
     @MainActor
-    func testStopStaysOverADraftAndTurnsIntoSendWithoutTheMicrophoneOnceTheAnswerEnds() throws {
+    func testTypingAndClearingWhileAnAnswerCanBeStoppedTurnsStopAndSendIntoEachOther() throws {
         let composer = AgentComposerView()
         composer.dictationController = AgentDictationController(
             scheduler: AgentDictationTestScheduler(),
@@ -2008,18 +2075,23 @@ final class AgentDictationComposerTests: XCTestCase {
         let stopImage = try XCTUnwrap(glyph.image)
         XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_stop_answer"))
 
-        for text in ["H", "Hello", "H", ""] {
+        for text in ["H", "Hello"] {
             composer.setDraftText(text, focus: false)
-            XCTAssertTrue(send.isHidden, "Stop keeps the send button's place with \"\(text)\"")
-            XCTAssertFalse(microphone.isHidden)
-            XCTAssertTrue(glyph.image === stopImage, "The circle keeps Stop's glyph with \"\(text)\"")
-            XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_stop_answer"))
+            XCTAssertFalse(send.isHidden, "Send shows with \"\(text)\"")
+            XCTAssertTrue(microphone.isHidden)
+            XCTAssertTrue(glyph.image === stopImage, "The circle in the field keeps Stop's glyph with \"\(text)\"")
         }
+        for text in ["H", ""] {
+            composer.setDraftText(text, focus: false)
+            XCTAssertTrue(glyph.image === stopImage, "The circle keeps Stop's glyph with \"\(text)\"")
+        }
+        XCTAssertTrue(send.isHidden)
+        XCTAssertFalse(microphone.isHidden)
+        XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_stop_answer"))
 
         composer.setDraftText("Hello", focus: false)
         composer.setStopAvailable(false)
         XCTAssertFalse(send.isHidden, "An answer that ends while the field has text leaves Send")
-        XCTAssertTrue(glyph.image === stopImage, "The circle goes into the field with Stop's glyph")
         composer.setDraftText("", focus: false)
         XCTAssertTrue(glyph.image === microphoneImage, "Without an answer to stop, the microphone comes back")
         XCTAssertEqual(microphone.accessibilityLabel, lang("$agent_dictation_start"))

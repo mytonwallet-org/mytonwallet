@@ -6,8 +6,6 @@ import type {
 } from '../../api/agentV2/protocol/types';
 import type { AgentMessage } from '../../global/types';
 
-import { formatTime } from '../../util/dateFormat';
-
 import AgentNewsBubble from './AgentNewsBubble';
 import AgentNewsPost from './AgentNewsPost';
 
@@ -21,6 +19,11 @@ jest.mock('./AgentNewsBubble', () => ({
   __esModule: true,
   default: jest.fn(() => undefined),
 }));
+const mockOpenMediaViewer = jest.fn();
+jest.mock('../../global', () => {
+  const actual = jest.requireActual<typeof import('../../global')>('../../global');
+  return { ...actual, getActions: () => ({ ...actual.getActions(), openMediaViewer: mockOpenMediaViewer }) };
+});
 // Every style module maps to the same stub, so its one mock names the post's tailless class
 jest.mock('../agent/MessageBubble.module.scss', () => ({ tailless: 'tailless' }));
 
@@ -129,27 +132,62 @@ describe('AgentNewsPost', () => {
     expect(getBubbleClassName()).toBe('tailless');
   });
 
-  it('shows a digest\'s post: its name and time, its title, its headlines in a line, its suggestions', async () => {
-    renderPost(FOLLOWUPS, { digest: DIGEST });
+  it('shows a digest\'s post: its name and time, title, the headlines as on the card, its suggestions', async () => {
+    const onOpenDigestNews = jest.fn();
+    renderPost(FOLLOWUPS, { digest: DIGEST, onOpenDigestNews });
     await advance(100);
 
     const bubbleProps = jest.mocked(AgentNewsBubble).mock.calls.at(-1)![0];
-    expect(bubbleProps.news).toEqual({ headline: '$agent_digest_title', body: 'News headline · Other headline' });
+    // The headlines are copied one per line
+    expect(bubbleProps.news).toEqual({ headline: '$agent_digest_title', body: '• News headline\n• Other headline' });
     expect(bubbleProps.timeDateTime).toBe(DIGEST.windowEnd);
     // A digest has no picture
     expect(bubbleProps.pictureId).toBeUndefined();
     const header = document.createElement('div');
     TeactDOM.render(<div>{bubbleProps.header}</div>, header);
-    expect(header.textContent).toBe(`$agent_digest_post_header ${formatTime(DIGEST.windowEnd)}`);
+    expect(header.textContent).toBe('News');
     TeactDOM.render(undefined, header);
+    // In the page, where the app's click handlers listen
+    const content = document.body.appendChild(document.createElement('div'));
+    TeactDOM.render(<div>{bubbleProps.content}</div>, content);
+    const headlines = content.querySelectorAll<HTMLButtonElement>('[data-agent-news-digest-headline]');
+    expect(Array.from(headlines, (headline) => headline.textContent)).toEqual(['News headline', 'Other headline']);
+    expect(content.textContent).toContain('$agent_digest_more 5');
+    headlines[1].click();
+    expect(onOpenDigestNews).toHaveBeenCalledWith(8);
+    TeactDOM.render(undefined, content);
+    content.remove();
     expect(root.querySelector('[data-agent-digest-post-id="digest-1"]')).not.toBeNull();
+    expect(root.querySelector('[data-agent-news-post-key="digest-digest-1"]')).not.toBeNull();
     expect(root.querySelectorAll(FOLLOWUP_SELECTOR)).toHaveLength(2);
+  });
+
+  it('opens its picture in the viewer, which shares it in the discussion\'s language, apart from the app\'s', () => {
+    TeactDOM.render(
+      <AgentNewsPost
+        news={{ ...NEWS, imageUrl: 'https://pulse.mytonwallet.org/images/7.jpg' }}
+        locale="ru"
+        message={{ id: 1, text: NEWS.headline, timestamp: 0, isOutgoing: false, isNewsPost: true }}
+        isDisabled={false}
+        shouldShowFollowups={false}
+      />,
+      root,
+    );
+
+    jest.mocked(AgentNewsBubble).mock.calls.at(-1)![0].onOpenPicture!();
+    const { pictures } = mockOpenMediaViewer.mock.calls[0][0];
+    expect(pictures.byId['agent-news-post-7'].news).toMatchObject({ eventId: 7, locale: 'ru' });
   });
 
   function renderPost(
     followups?: AgentPublicFollowUpV2[],
-    { hasLoadFailed = false, shouldShowFollowups = true, digest }: {
-      hasLoadFailed?: boolean; shouldShowFollowups?: boolean; digest?: AgentThreadDigestCardV2;
+    {
+      hasLoadFailed = false, shouldShowFollowups = true, digest, onOpenDigestNews,
+    }: {
+      hasLoadFailed?: boolean;
+      shouldShowFollowups?: boolean;
+      digest?: AgentThreadDigestCardV2;
+      onOpenDigestNews?: (eventId: number) => void;
     } = {},
   ) {
     const message: AgentMessage = {
@@ -162,6 +200,7 @@ describe('AgentNewsPost', () => {
         isDisabled={false}
         shouldShowFollowups={shouldShowFollowups}
         hasLoadFailed={hasLoadFailed}
+        onOpenDigestNews={onOpenDigestNews}
       />,
       root,
     );

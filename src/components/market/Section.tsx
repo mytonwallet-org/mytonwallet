@@ -3,6 +3,7 @@ import React, { memo, useRef } from '../../lib/teact/teact';
 import type { MarketSection } from './helpers/buildMarketSections';
 
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 
 import useDragScroll from '../../hooks/useDragScroll';
@@ -78,7 +79,12 @@ function Section({ section, onTokenClick, onShowAllClick }: OwnProps) {
         <h2 className={styles.sectionTitle}>{title}</h2>
         {/* The backend decides which sections continue on the "Show All" screen, a trimmed grid alone does not */}
         {hasMore && (
-          <button type="button" className={styles.showAll} onClick={handleShowAllClick}>
+          <button
+            type="button"
+            className={styles.showAll}
+            data-testid={getTestId('market_see_all')}
+            onClick={handleShowAllClick}
+          >
             {lang('Show All')}
           </button>
         )}

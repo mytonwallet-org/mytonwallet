@@ -254,6 +254,7 @@ public final class _TokenStore: Sendable {
             codeHash: incoming.codeHash?.nilIfEmpty ?? cached.codeHash,
             label: incoming.label?.nilIfEmpty ?? cached.label,
             isFromBackend: incoming.isFromBackend ?? cached.isFromBackend,
+            precision: incoming.precision ?? cached.precision,
             priceUsd: arePricesFresh ? incoming.priceUsd ?? cached.priceUsd : cached.priceUsd ?? incoming.priceUsd,
             percentChange24h: arePricesFresh
                 ? incoming.percentChange24h ?? cached.percentChange24h
@@ -412,8 +413,7 @@ public final class _TokenStore: Sendable {
     public func setPriceHistory(tokenSlug: String, period: ApiPriceHistoryPeriod, history: ApiPriceHistory, baseCurrency: MBaseCurrency) -> Bool {
         let isAccepted = _baseCurrency.withLock { currentCurrency in
             guard (currentCurrency ?? DEFAULT_PRICE_CURRENCY) == baseCurrency else { return false }
-            let isEmpty = history.points.isEmpty && history.backfill?.points.isEmpty != false
-            _priceHistory.withLock { $0[tokenSlug, default: [:]][period.rawValue] = isEmpty ? nil : history }
+            _priceHistory.withLock { $0[tokenSlug, default: [:]][period.rawValue] = history.points.isEmpty ? nil : history }
             return true
         }
         guard isAccepted else { return false }
@@ -446,7 +446,7 @@ public final class _TokenStore: Sendable {
     }
 
     private static func isPriceHistoryFresh(_ history: ApiPriceHistory, period: ApiPriceHistoryPeriod) -> Bool {
-        guard let lastTimestamp = history.points.last?.first ?? history.backfill?.points.last?.first else { return false }
+        guard let lastTimestamp = history.points.last?.first else { return false }
         return Date.now.timeIntervalSince1970 - lastTimestamp <= period.maxCacheAge
     }
 

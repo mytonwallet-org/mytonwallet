@@ -115,17 +115,25 @@ describe('persistCache', () => {
     });
   });
 
-  it('keeps which first reactions the Agent has explained in a toast after relaunch', () => {
+  it.each([undefined, { dislike: true }])('keeps agent and support reaction toasts after relaunch (%j)', (
+    shownSupport,
+  ) => {
     setGlobal({
       ...INITIAL_STATE,
       currentAccountId: ACCOUNT_ID,
       accounts: { byId: { [ACCOUNT_ID]: { type: 'mnemonic', byChain: {} } } },
-      settings: { ...INITIAL_STATE.settings, shownAgentFeedbackToasts: { like: true } },
+      settings: {
+        ...INITIAL_STATE.settings,
+        shownAgentFeedbackToasts: { like: true },
+        shownAgentSupportFeedbackToasts: shownSupport,
+      },
     });
 
     persistCache();
 
-    expect(loadCache(INITIAL_STATE).settings.shownAgentFeedbackToasts).toEqual({ like: true });
+    const { settings } = loadCache(INITIAL_STATE);
+    expect(settings.shownAgentFeedbackToasts).toEqual({ like: true });
+    expect(settings.shownAgentSupportFeedbackToasts).toEqual(shownSupport);
   });
 
   it('stores price history of the selected period, preferring the history of this session', () => {

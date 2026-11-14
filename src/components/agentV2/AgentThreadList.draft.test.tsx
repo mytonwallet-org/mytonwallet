@@ -8,6 +8,7 @@ import { startOpeningTextFlight } from './agentOpeningQuestion';
 
 import { PORTRAIT_SCREEN_QUERY } from '../../hooks/useDeviceScreen';
 
+import { getIsAnyModalOpen } from '../ui/Modal';
 import AgentThreadList from './AgentThreadList';
 
 jest.mock('../../api', () => ({ callApi: jest.fn().mockResolvedValue(undefined) }));
@@ -21,12 +22,17 @@ jest.mock('./agentOpeningQuestion', () => ({
   startOpeningTextFlight: jest.fn(),
 }));
 
+jest.mock('../ui/Modal', () => ({
+  ...jest.requireActual('../ui/Modal'),
+  getIsAnyModalOpen: jest.fn(() => false),
+}));
+
 let mockComposer: AgentConversationComposerProps;
 jest.mock('./AgentV2Composer', () => ({
   __esModule: true,
-  default: (props: AgentConversationComposerProps) => {
+  default: (props: AgentConversationComposerProps & { onFocus: NoneToVoidFunction }) => {
     mockComposer = props;
-    return undefined;
+    return <textarea ref={props.inputRef} onFocus={props.onFocus} />;
   },
 }));
 
@@ -76,7 +82,7 @@ it.each(['typing', 'dictation', 'clear', 'send', 'immediate send'] as const)(
     switchLayout();
     const expected = action === 'typing' ? 'A question' : action === 'dictation' ? 'A question in progress' : '';
     expect(getAgentV2LocalState().draftOnMount).toBe(expected);
-    if (action.endsWith('send')) expect(onStartChat).toHaveBeenCalledWith('A question', false);
+    if (action.endsWith('send')) expect(onStartChat).toHaveBeenCalledWith('A question', false, undefined);
 
     TeactDOM.render(undefined, root);
     renderList();
@@ -108,13 +114,77 @@ it.each([
   } else {
     expect(startOpeningTextFlight).not.toHaveBeenCalled();
   }
-  expect(onStartChat).toHaveBeenCalledWith(question, false);
+  expect(onStartChat).toHaveBeenCalledWith(question, false, undefined);
 });
 
-function renderList() {
+describe('field focus', () => {
+  beforeEach(() => {
+    jest.mocked(getIsAnyModalOpen).mockReturnValue(false);
+  });
+
+  it('focuses the field as the Agent opens on the list, but not under a chat, a modal or on coming back', async () => {
+    renderList();
+    await flushUi();
+    expect(document.activeElement).toBe(getField());
+    expect(getIsComposing()).toBe(false);
+
+    TeactDOM.render(undefined, root);
+    getField()?.blur();
+    jest.mocked(getIsAnyModalOpen).mockReturnValue(true);
+    renderList();
+    await flushUi();
+    expect(document.activeElement).toBe(document.body);
+    jest.mocked(getIsAnyModalOpen).mockReturnValue(false);
+
+    // The Agent opens on a chat, and Back leaves the focus to the chats' stack
+    TeactDOM.render(undefined, root);
+    renderList({ isActive: false });
+    await flushUi();
+    renderList();
+    await flushUi();
+    expect(document.activeElement).toBe(document.body);
+
+    // The Agent opens again on the list
+    renderList({ isActive: false, isAgentActive: false });
+    await flushUi();
+    renderList();
+    await flushUi();
+    expect(document.activeElement).toBe(getField());
+  });
+
+  it('moves the focus to the field on Tab only while nothing has focus', async () => {
+    renderList({ isAgentActive: false });
+    await flushUi();
+    expect(document.activeElement).toBe(document.body);
+
+    expect(pressTab(document.body).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(getField());
+    expect(getIsComposing()).toBe(false);
+
+    const button = document.createElement('button');
+    root.appendChild(button);
+    button.focus();
+    expect(pressTab(button).defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(button);
+  });
+
+  it.each(['click', 'input'] as const)('starts composing on a %s into the focused field', async (type) => {
+    renderList();
+    await flushUi();
+    expect(document.activeElement).toBe(getField());
+    expect(getIsComposing()).toBe(false);
+
+    getField()!.dispatchEvent(new Event(type, { bubbles: true }));
+    await flushUi();
+    expect(getIsComposing()).toBe(true);
+  });
+});
+
+function renderList({ isActive = true, isAgentActive = true } = {}) {
   TeactDOM.render(
     <AgentThreadList
-      isActive
+      isActive={isActive}
+      isAgentActive={isAgentActive}
       hasMore={false}
       isRetrying={false}
       newsUnreadCount={0}
@@ -131,6 +201,20 @@ function renderList() {
     />,
     root,
   );
+}
+
+function getField() {
+  return root.querySelector('textarea');
+}
+
+function getIsComposing() {
+  return root.textContent!.includes('New Chat');
+}
+
+function pressTab(target: HTMLElement) {
+  const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+  target.dispatchEvent(event);
+  return event;
 }
 
 function switchLayout() {

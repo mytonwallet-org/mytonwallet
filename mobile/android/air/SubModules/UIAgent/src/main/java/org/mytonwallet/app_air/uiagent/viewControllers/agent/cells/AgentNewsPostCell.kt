@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent.cells
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Outline
 import android.graphics.Rect
 import android.os.Bundle
@@ -15,7 +14,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import androidx.core.graphics.createBitmap
 import androidx.core.view.AccessibilityDelegateCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
@@ -29,21 +27,21 @@ import androidx.recyclerview.widget.RecyclerView
 import java.util.Date
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsFlightSource
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsPostContent
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentIncomingBubbleColor
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.makeAgentBubbleFlightSnapshot
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_BUBBLE_RADIUS
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_BUBBLE_TAIL_WIDTH
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBubbleDrawable
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentTailMorph
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentImagePinchZoom
+import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsDigestPictures
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsDiscussStrip
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsIconView
-import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsSource
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsTextBlock
-import org.mytonwallet.app_air.uiagent.viewControllers.news.makeAgentNewsSources
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -56,9 +54,8 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
-import org.mytonwallet.app_air.walletbasecontext.utils.x
-import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsDigestHeadline
 
 /** A WRecyclerView takes multi-finger touches from its rows, so the list must leave this pinch to the row. */
 internal fun isAgentPicturePinchStart(list: RecyclerView, event: MotionEvent): Boolean {
@@ -76,7 +73,8 @@ internal class AgentNewsPostCell(
     textCache: AgentMessageTextCache,
     style: Style = Style.DISCUSSION_POST
 ) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
-    WThemedView {
+    WThemedView,
+    AgentNewsFlightSource {
     enum class Style { DISCUSSION_POST, FEED_CARD }
 
     private val isFeedCard = style == Style.FEED_CARD
@@ -149,9 +147,20 @@ internal class AgentNewsPostCell(
     /** Rows where the menu leaves the bubble undimmed */
     var menuRows: AgentMenuRows = { getAgentListRows(this) }
     private var openSourceAction: Int? = null
-    private var sourceLinkActions = emptyList<Int>()
 
     var onOpenSource: ((url: String) -> Unit)? = null
+
+    /** A tap on a digest's headline, which opens its news item's discussion */
+    var onDigestHeadlineClick: ((AgentV2NewsDigestHeadline) -> Unit)? = null
+    private var digestHeadlineActions = emptyList<Int>()
+    private var digestPictureActions = emptyList<Int>()
+
+    /** A tap on a digest's headline picture, which opens the digest's pictures in the media viewer */
+    var onDigestPictureClick: ((AgentNewsDigestPictures) -> Unit)?
+        get() = textBlock.digestHeadlines.onPictureClick
+        set(value) {
+            textBlock.digestHeadlines.onPictureClick = value
+        }
     var onPopupVisibilityChanged: ((visible: Boolean) -> Unit)? = null
 
     var onCopied: (() -> Unit)? = null
@@ -204,21 +213,13 @@ internal class AgentNewsPostCell(
         discussStrip?.let {
             bubble.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
-        // A tap or a long press opens the post's menu, as in Telegram; the picture and the source links keep their own
+        // A tap or a long press opens the post's menu, as in Telegram; the picture keeps its own
         bubble.setOnLongClickListener {
             requestMenu(menuTouch.take(bubble))
             true
         }
-        textBlock.onOpenSource = { url -> onOpenSource?.invoke(url) }
-        textBlock.sourceLabel.setOnLongClickListener {
-            requestMenu(menuTouch.take(bubble))
-            true
-        }
-        textBlock.sourceLabel.setMessageMenuTapListener {
-            if (!menuTouch.isOnLink(textBlock.sourceLabel) && canOpenMenuOnTap()) {
-                requestMenu(menuTouch.take(bubble))
-            }
-        }
+        textBlock.digestHeadlines.onHeadlineClick = { onDigestHeadlineClick?.invoke(it) }
+        textBlock.digestHeadlines.onPicturesChanged = ::updateDigestPictureActions
         bubble.setMessageMenuTapListener {
             if (!menuTouch.isOn(imageContainer)) {
                 if (canOpenMenuOnTap()) requestMenu(menuTouch.take(bubble))
@@ -327,28 +328,23 @@ internal class AgentNewsPostCell(
                 AgentNewsTextBlock.formatPostTime(context, it)
             }
         }.orEmpty()
-        header.text = if (post.isDigest) {
-            LocaleController.getString("\$agent_digest_post_header").replace(
-                "%time%",
-                publishedDate?.let { formatAgentChatTime(context, it) }.orEmpty()
-            )
-        } else {
-            LocaleController.getString("News")
-        }
-        val sources = makeAgentNewsSources(post.sources, post.legacySource)
-        textBlock.configure(id, post.headline, post.body, sources, timeText)
+        // A digest's post is headed by News too
+        header.text = LocaleController.getString("News")
+        textBlock.configure(id, post.headline, post.body, timeText)
+        textBlock.configureDigest(post.digestHeadlines, post.digestRemainder)
         bubble.contentDescription =
             listOf(
                 header.text.toString().takeUnless { isFeedCard },
                 post.headline,
                 textBlock.bodyText.toString(),
-                textBlock.sourceLineText.toString(),
+                post.digestHeadlines.joinToString(", ") { it.headline },
+                post.digestRemainder,
                 timeText
             )
                 .filter { !it.isNullOrEmpty() }
                 .joinToString(", ")
         updateOpenSourceAction()
-        updateSourceLinkActions(sources)
+        updateDigestHeadlineActions(post.digestHeadlines)
         val nextImageUrl = post.imageUrl?.takeIf { it.isNotBlank() }
         // The same picture binds without loading again, so a post rebound under the card flying in keeps it
         if (nextImageUrl != imageUrl) {
@@ -394,6 +390,9 @@ internal class AgentNewsPostCell(
         return MediaViewerVC.Source(image, pictureCornerRadius, imageAspectRatio, menuRows())
     }
 
+    fun makeDigestPictureSource(headline: AgentV2NewsDigestHeadline): MediaViewerVC.Source? =
+        textBlock.digestHeadlines.makePictureSource(headline, menuRows())
+
     override fun updateTheme() {
         bubbleDrawable.setBubbleColor(agentIncomingBubbleColor)
         header.setTextColor(WColor.Tint)
@@ -436,13 +435,24 @@ internal class AgentNewsPostCell(
         }
     }
 
-    // TalkBack reads the source line as the bubble's text, so each of its links is an action of the bubble
-    private fun updateSourceLinkActions(sources: List<AgentNewsSource>) {
-        sourceLinkActions.forEach { ViewCompat.removeAccessibilityAction(bubble, it) }
-        sourceLinkActions = sources.mapNotNull { source ->
-            val url = source.url ?: return@mapNotNull null
-            ViewCompat.addAccessibilityAction(bubble, source.name) { _, _ ->
-                onOpenSource?.invoke(url)
+    // TalkBack reads a digest's headlines as the bubble's text, so each opens from an action of the bubble
+    private fun updateDigestHeadlineActions(headlines: List<AgentV2NewsDigestHeadline>) {
+        digestHeadlineActions.forEach { ViewCompat.removeAccessibilityAction(bubble, it) }
+        digestHeadlineActions = headlines.map { headline ->
+            ViewCompat.addAccessibilityAction(bubble, headline.headline) { _, _ ->
+                onDigestHeadlineClick?.invoke(headline)
+                true
+            }
+        }
+        updateDigestPictureActions()
+    }
+
+    // Each picture that shows opens from an action of the bubble too, as its headline does
+    private fun updateDigestPictureActions() {
+        digestPictureActions.forEach { ViewCompat.removeAccessibilityAction(bubble, it) }
+        digestPictureActions = textBlock.digestHeadlines.buildPictureActions().map { action ->
+            ViewCompat.addAccessibilityAction(bubble, action.label) { _, _ ->
+                action.open()
                 true
             }
         }
@@ -496,19 +506,9 @@ internal class AgentNewsPostCell(
         )
     }
 
-    fun makeFlightSnapshot(): Pair<Bitmap, Rect>? {
-        val width = bubble.width - bubble.paddingLeft - bubble.paddingRight
-        if (width <= 0 || bubble.height <= 0) return null
-        val bitmap = createBitmap(width, bubble.height)
-        val canvas = Canvas(bitmap)
-        canvas.translate(-bubble.paddingLeft.toFloat(), 0f)
-        bubble.draw(canvas)
-        val location = bubble.getLocationInWindow()
-        val left = location.x + bubble.paddingLeft
-        return bitmap to Rect(left, location.y, left + width, location.y + bubble.height)
-    }
+    override fun makeFlightSnapshot(): Pair<Bitmap, Rect>? = makeAgentBubbleFlightSnapshot(bubble)
 
-    fun setFlightSourceHidden(isHidden: Boolean) {
+    override fun setFlightSourceHidden(isHidden: Boolean) {
         bubble.alpha = if (isHidden) 0f else 1f
     }
 

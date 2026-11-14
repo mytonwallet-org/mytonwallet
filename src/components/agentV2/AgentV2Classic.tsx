@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type {
   AgentPublicFollowUpV2, AgentThreadSummaryV2, AgentV2ErrorCode,
 } from '../../api/agentV2/protocol/types';
-import type { AgentV2ComposerStatus } from '../../api/agentV2/types';
+import type { AgentV2ComposerStatus, AgentV2SupportRequestSource } from '../../api/agentV2/types';
 import type { AgentMessage, AnimationLevel } from '../../global/types';
 import type { LangFn } from '../../hooks/useLang';
 import type {
@@ -18,11 +18,14 @@ import type {
   AgentConversationSessionStore,
 } from '../agent/AgentConversationShell';
 import type { AgentRunActivityType } from '../agent/AgentRunActivity';
+import type { AgentV2StarterHintEntryPoint } from '../agent/hooks/agentV2RunController';
 import type { AgentV2ChatTarget } from '../agent/hooks/useAgentV2Messages';
 import type { AgentThreadUnreadStart } from './agentThreadReadState';
 
+import { getIsAgentV2SupportActive } from '../../global/agentV2/uiCapabilities';
 import { getIsAgentV2ThreadStarted } from '../../api/agentV2/threadStarted';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
+import { getChatTargetNewsLocale } from './agentNewsFeedItems';
 import { findAgentThreadFirstUnreadMessage, getAgentThreadUnreadStart } from './agentThreadReadState';
 import { updateAgentV2InputBarSpacing } from './inputBarSpacing';
 import useRegenerationDissolve from './useRegenerationDissolve';
@@ -42,6 +45,7 @@ import MessageBubble from '../agent/MessageBubble';
 import AgentNewsPost from './AgentNewsPost';
 import { AgentComposerStatus } from './AgentStatusNotice';
 import AgentSupportEventLine from './AgentSupportEventLine';
+import AgentSupportRequestModal from './AgentSupportRequestModal';
 import AgentV2Composer from './AgentV2Composer';
 
 interface OwnProps {
@@ -52,6 +56,9 @@ interface OwnProps {
   target?: AgentV2ChatTarget;
   /** Shown at once and sent once the chat is ready, as when a question typed under the chat list opens a new chat */
   initialMessage?: string;
+  /** The starter hint `initialMessage` is the title of, when the user tapped one under the chat list */
+  initialHintEntryPoint?: AgentV2StarterHintEntryPoint;
+  shouldRequestSupport?: boolean;
   /** What the chat list knows of the thread, shown in the header until its history loads */
   initialThread?: AgentThreadSummaryV2;
   /** Where the messages the user has not seen start; the chat opens there, under the "New" line */
@@ -65,12 +72,14 @@ interface OwnProps {
   onScroll?: (event: React.UIEvent<HTMLDivElement>) => void;
   /** Shows the Back button, which goes back to the chat list the chat opened over */
   onBack?: NoneToVoidFunction;
-  onThreadResolved?: (chatKey: number, threadId: string) => void;
+  onThreadResolved?: (chatKey: number, threadId: string, target?: AgentV2ChatTarget) => void;
   /** The thread as its history brings it, which the chat shows from the start when it mounts again */
   onThreadLoaded?: (thread: AgentThreadSummaryV2) => void;
   onThreadNotFound?: NoneToVoidFunction;
   /** What the Agent is doing in the chat's thread, as a localization key, or nothing once it is not answering */
   onAnswerChange?: (threadId: string, activityLangKey: string | undefined) => void;
+  /** A headline of a digest's post opens its news item's discussion */
+  onOpenDigestNews?: (eventId: number, digestId: string) => void;
   /** Asks to delete the chat's thread, from the chat menu */
   onDelete?: (
     thread: AgentThreadSummaryV2 | undefined, cancelPendingRequests: () => Promise<string | undefined>,
@@ -87,6 +96,7 @@ interface OwnProps {
 
 interface StateProps {
   animationLevel: AnimationLevel;
+  hasWallet?: boolean;
 }
 
 const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingRequest' };
@@ -94,6 +104,7 @@ const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingReque
 const STOPPED_ACTIVITY_DURATION_MS = 1600;
 const WRITING_ACTIVITY_LANG_KEY = '$agent_activity_writing';
 const NO_MESSAGES: AgentMessage[] = [];
+const NEWS_POST_PLACEHOLDER_LAYOUT = { messageCount: 1, isNews: true };
 // The limits whose status a request's failure stands for
 const STATUS_KIND_BY_ERROR_CODE: Partial<Record<AgentV2ErrorCode, AgentV2ComposerStatus['kind']>> = {
   agent_capacity_exhausted: 'capacity',
@@ -106,11 +117,14 @@ export function AgentV2Classic({
   chatKey,
   target,
   initialMessage,
+  initialHintEntryPoint,
+  shouldRequestSupport = false,
   initialThread,
   unreadStart,
   isUnreadStateUnknown = false,
   session,
   animationLevel,
+  hasWallet = false,
   onInitialMessageSent,
   onUnreadStartResolved,
   onScroll,
@@ -119,6 +133,7 @@ export function AgentV2Classic({
   onThreadLoaded,
   onThreadNotFound,
   onAnswerChange,
+  onOpenDigestNews,
   onDelete,
   hasConsent,
   onRequestConsent,
@@ -130,12 +145,13 @@ export function AgentV2Classic({
   // Creation can resolve its original selection after this screen unmounts. Teact clears a component's refs on
   // unmount, and `useLastCallback` keeps its callback in a ref, so this callback is memoized instead.
   const handleThreadResolved = useMemo(
-    () => (threadId: string) => onThreadResolved?.(chatKey!, threadId), [chatKey, onThreadResolved],
+    () => (threadId: string) => onThreadResolved?.(chatKey!, threadId, target), [chatKey, onThreadResolved, target],
   );
   const {
     messages: loadedMessages,
     thread: loadedThread,
     news: loadedNews,
+    digest: loadedDigest,
     isOpeningNews,
     hints,
     activity,
@@ -144,11 +160,17 @@ export function AgentV2Classic({
     isOpenedWithCachedHistory,
     hasPendingQuestion,
     isInputDisabled,
+    isSendDisabled,
+    isSendQueued,
+    sentQueuedMessage,
+    queuedMessageCount,
+    failedQueueFailureId,
     isRunActive,
     canStopRun,
     stopRun,
     isConsentAccepted,
     checkConsentAgain,
+    prepareSend,
     textRevealPresentations,
     hasOlderMessages,
     isLoadingOlderMessages,
@@ -164,26 +186,38 @@ export function AgentV2Classic({
     composerStatus,
     retryMessage,
     isMessageRegenerable,
+    isMessageEditable,
     retryAdmission,
     refreshExpiredComposerStatus,
     activateAction,
     consumeTextRevealSession,
     settleTextRevealSession,
     support,
-    canEditMessages,
+    requestSupport,
+    isSupportRequestVisible,
+    canRequestSupport,
   } = useAgentV2Messages({
-    isActive, lang, target, initialThread, initialMessage, hasConsent, isUnreadStateUnknown,
-    onInitialMessageSent: handleInitialMessageSent, onThreadResolved: handleThreadResolved, onThreadNotFound,
+    isActive, lang, target, initialThread, initialMessage, initialHintEntryPoint, shouldRequestSupport, hasConsent,
+    isUnreadStateUnknown, onInitialMessageSent: handleInitialMessageSent, onThreadResolved: handleThreadResolved,
+    onThreadNotFound,
   });
   const {
     messages, regeneratingMessageId, dissolvingMessageIds, markRegenerating, releaseMessages,
   } = useRegenerationDissolve(loadedMessages, isRunActive);
   const thread = loadedThread ?? initialThread;
+  const deferredDiscussion = (target?.kind === 'news' || target?.kind === 'digest') && target.shouldDeferCreation
+    ? target : undefined;
+  const isUncreatedDiscussion = Boolean(deferredDiscussion) && !thread;
+  // A news or digest discussion opened without the feed's copy of its post, as from a digest's headline, loads the post
+  // under the placeholder of one
+  const [isPostLoadedUnderPlaceholder] = useState(() => (
+    (target?.kind === 'news' && !target.preview) || (target?.kind === 'digest' && !target.digestPreview)
+  ));
   // What the chat's list row says it holds, read once, so that its placeholder keeps one shape until the history comes
   const [historyPlaceholderLayout] = useState(() => (initialThread ? {
     messageCount: initialThread.messageCount, isNews: Boolean(initialThread.news),
-  } : undefined));
-  const isWithSupport = support?.state === 'waiting' || support?.state === 'operator';
+  } : isPostLoadedUnderPlaceholder ? NEWS_POST_PLACEHOLDER_LAYOUT : undefined));
+  const isWithSupport = getIsAgentV2SupportActive({ support });
   // Once an operator has joined, every answer in the chat names its author, the agent's before it too, as in the design
   const supportOperator = useMemo(() => findLatestOperator(messages), [messages]);
   const news = loadedNews ?? initialThread?.news;
@@ -207,6 +241,34 @@ export function AgentV2Classic({
   // discussion opens before it, and asks for it before it sends, dictates or takes a suggestion.
   const isInputVisible = isConsentAccepted !== false;
   const isAwaitingConsent = !hasConsent && Boolean(onRequestConsent);
+  const [pendingAction, setPendingAction] = useState<{ action: NoneToVoidFunction }>();
+  const isPreparingActionRef = useRef(false);
+  const requestPreparedAction = useLastCallback((
+    action: NoneToVoidFunction, field?: HTMLElement, onDecline?: NoneToVoidFunction,
+  ) => {
+    if (isAwaitingConsent) onRequestConsent(prepare, field, onDecline);
+    else void prepare();
+
+    async function prepare() {
+      if (isPreparingActionRef.current) return;
+      isPreparingActionRef.current = true;
+      if (!await prepareSend()) {
+        isPreparingActionRef.current = false;
+        return;
+      }
+      setPendingAction({ action });
+    }
+  });
+  const requestAction = isAwaitingConsent
+    ? (isUncreatedDiscussion ? requestPreparedAction : onRequestConsent)
+    : undefined;
+  // The shell clears its draft when sent, after the status read has rendered the allowed composer
+  useEffect(() => {
+    if (!pendingAction || isSendDisabled || !isActive) return;
+    setPendingAction(undefined);
+    isPreparingActionRef.current = false;
+    pendingAction.action();
+  }, [isActive, isSendDisabled, pendingAction]);
   const visibleComposerStatus = isInputVisible ? composerStatus : undefined;
   // While a limit holds, no request can be retried, and the limit the latest request ran into tells its failure in
   // place of the failure's own caption
@@ -214,15 +276,20 @@ export function AgentV2Classic({
   const statusFailedMessage = isLimitHolding
     ? getStatusFailedMessage(lastMessage, visibleComposerStatus)
     : undefined;
-  // Once the answer message exists, it hosts the run indicator in place of its bubble
-  const isActivityInFooter = !lastMessage || lastMessage.isOutgoing;
-  // The indicator a Stop while the Agent thinks keeps for a moment at the chat's end, where it shows the Stop
+  // The answer being produced comes before the questions that wait for it, as on mobile: the last message that doesn't
+  // wait is the question being answered, or its answer once the answer's message exists
+  const runningMessage = messages[messages.length - 1 - queuedMessageCount];
+  // Once the answer message exists, it hosts the run indicator in place of its bubble; until then the indicator follows
+  // the question
+  const isActivityAfterQuestion = !runningMessage || runningMessage.isOutgoing;
+  // The indicator a Stop while the Agent thinks keeps for a moment at the chat's end, where it shows the Stop. A Stop
+  // with questions queued sends the next one at once, whose run takes the indicator.
   const [stoppedActivity, setStoppedActivity] = useState<AgentRunActivityType>();
   const stoppedActivityTimeoutRef = useRef<number>();
   const handleStop = useLastCallback(() => {
     // Before any of the answer has come, the Agent is still thinking
-    const isThinking = isRunActive && (!lastMessage || lastMessage.isOutgoing || !lastMessage.text);
-    if (isThinking && getCanAnimate()) {
+    const isThinking = isRunActive && (isActivityAfterQuestion || !runningMessage.text);
+    if (isThinking && !queuedMessageCount && getCanAnimate()) {
       setStoppedActivity(activity ?? ANALYZING_REQUEST_ACTIVITY);
       window.clearTimeout(stoppedActivityTimeoutRef.current);
       stoppedActivityTimeoutRef.current = window.setTimeout(
@@ -239,7 +306,7 @@ export function AgentV2Classic({
   }, [isRunActive]);
   useEffect(() => () => window.clearTimeout(stoppedActivityTimeoutRef.current), []);
   const answerLangKey = isRunActive
-    ? (lastMessage?.isStreaming && !lastMessage.isOutgoing
+    ? (runningMessage?.isStreaming && !runningMessage.isOutgoing
       ? WRITING_ACTIVITY_LANG_KEY
       : getAgentRunActivityLangKey(activity ?? ANALYZING_REQUEST_ACTIVITY))
     : undefined;
@@ -268,8 +335,13 @@ export function AgentV2Classic({
     }
   }, [chatKey, firstUnreadPosition, onUnreadStartResolved, unreadStart]);
 
+  const handleDigestNewsOpen = useLastCallback((eventId: number) => {
+    const digestId = (loadedDigest ?? thread?.digest)?.id;
+    if (digestId) onOpenDigestNews?.(eventId, digestId);
+  });
+
   const handleFollowup = useLastCallback((messageId: number, followup: AgentPublicFollowUpV2) => {
-    if (isAwaitingConsent) onRequestConsent(send);
+    if (requestAction) requestAction(send);
     else send();
 
     function send() {
@@ -284,8 +356,8 @@ export function AgentV2Classic({
     retryMessage(messageId);
   });
 
-  // The run's indicator moves from the chat's end into the answer's message as the message starts, its top going on
-  // spinning and its step blurring into the next
+  // The run's indicator moves from under the question into the answer's message as the message starts, its top going
+  // on spinning and its step blurring into the next
   const activityHandoff = useMemo(createAgentRunActivityHandoff, []);
 
   const renderMessage = useLastCallback((
@@ -294,26 +366,34 @@ export function AgentV2Classic({
   ) => {
     requestLiveTailRef.current = context.onRequestLiveTail;
     const isLatest = message.id === lastMessage?.id;
+    const isActivityHost = message.id === runningMessage?.id;
     const isRegenerating = message.id === regeneratingMessageId;
-    // Answering again needs the same free composer as a follow-up does
-    const canRegenerate = !isInputDisabled && !isRunActive && isMessageRegenerable(message.id);
+    // Answering again and editing need the same free composer as a follow-up does, as on mobile: no answer being
+    // produced and no question waiting
+    const isComposerFree = !isInputDisabled && !isRunActive;
+    const canRegenerate = isComposerFree && isMessageRegenerable(message.id);
     if (message.supportEvent) {
       return <AgentSupportEventLine key={message.id} event={message.supportEvent} timestamp={message.timestamp} />;
     }
-    // A digest's discussion opens with the digest's post, which its thread describes
-    const digest = thread?.digest;
+    // A digest's discussion opens with the digest's post, which its thread describes, or the feed's copy of the digest
+    // until the thread comes
+    const digest = loadedDigest ?? thread?.digest;
     if (message.isNewsPost && (news || digest)) {
       return (
         <AgentNewsPost
           key={message.id}
           {...(news ? { news } : { digest: digest! })}
+          locale={getChatTargetNewsLocale(target)}
           message={message}
           isDisabled={isInputDisabled}
-          shouldShowFollowups={isLatest && !isRunActive}
+          shouldShowFollowups={
+            isLatest && !isRunActive && (!isUncreatedDiscussion || Boolean(message.followups?.length))
+          }
           hasLoadFailed={Boolean(historyFailure)}
           shouldAnimateFollowups={context.shouldAnimateTextStreaming}
           onFollowup={handleFollowup}
           onFollowupsGrowthFrame={context.onTextRevealProgress}
+          onOpenDigestNews={handleDigestNewsOpen}
         />
       );
     }
@@ -322,9 +402,11 @@ export function AgentV2Classic({
       <MessageBubble
         key={message.id}
         message={message}
-        isDisabled={isInputDisabled}
+        // Retry of questions a wallet switch failed queues them behind the answer being produced, as on Android
+        isDisabled={message.id === failedQueueFailureId ? isSendDisabled : isInputDisabled}
         shouldAnimateTextStreaming={context.shouldAnimateTextStreaming}
         isLatest={isLatest}
+        isActivityHost={isActivityHost}
         hasAuthor={Boolean(supportOperator)}
         // A suggestion tapped while support has the chat would go to the operator, so none is offered then. The
         // device's copy of the history left with a failure offers none either: the chat takes none until it loads.
@@ -333,12 +415,13 @@ export function AgentV2Classic({
         areFollowupsInactive={isHistoryCached}
         // The answer being answered again keeps its place until it turns to dust; the activity comes after it
         isRegenerating={isRegenerating}
-        activity={isLatest && !isRegenerating ? activity : undefined}
+        activity={isActivityHost && !isRegenerating ? activity : undefined}
         activityHandoff={activityHandoff}
         textRevealPresentation={context.textRevealPresentation}
         isJustAdded={context.isJustAdded}
-        // Support reads every message as it was sent, so none is edited while support has the chat
-        onEdit={canEditMessages ? context.onEditMessage : undefined}
+        // Only a question the server stores is edited, and none while support has the chat, which reads every message
+        // as it was sent
+        onEdit={isComposerFree && isMessageEditable(message.id) ? context.onEditMessage : undefined}
         onFollowup={handleFollowup}
         onAction={activateAction}
         onRetry={message.isRetryAvailable && !isLimitHolding && !isWithSupport ? handleRegenerate : undefined}
@@ -367,10 +450,10 @@ export function AgentV2Classic({
     );
   });
 
-  // A question a limit kept from starting offers Retry once the limit has reset, unless a failure under it does
+  // A question a limit kept from starting offers Retry once the limit has reset, unless its caption already does
   const canRetryAdmission = visibleComposerStatus?.mode === 'informational'
     && Boolean(visibleComposerStatus.clientRunId)
-    && !getIsFailure(lastMessage);
+    && !lastMessage?.isRetryAvailable;
   // Retry turns the failure under the question to dust, as Retry under a failed answer does
   const [isStatusRetried, markStatusRetried, unmarkStatusRetried] = useFlag();
   const handleRetryAdmission = useLastCallback(() => {
@@ -426,12 +509,13 @@ export function AgentV2Classic({
       || (isHistoryCached && !isCachedHistoryHidden),
     hasOpeningQuestion: hasPendingQuestion,
     // A new chat has no history to wait for, nor does a chat that opens with the history it had
-    hasHistoryPlaceholder: target?.kind === 'thread' && !isOpenedWithCachedHistory,
+    hasHistoryPlaceholder: (target?.kind === 'thread' && !isOpenedWithCachedHistory) || isPostLoadedUnderPlaceholder,
     // The placeholder takes the shape of what the chat's list row says it holds
     historyPlaceholderLayout,
     unreadMessageId: firstUnread?.messageId,
     loadFailure: historyFailure && { ...historyFailure, onRetry: retryHistory },
     isRunActive,
+    queuedMessageCount,
     textRevealPresentations,
     dissolvingMessageIds,
     isFooterDissolving: isStatusDissolving,
@@ -440,22 +524,25 @@ export function AgentV2Classic({
   }), [
     dissolvingMessageIds, firstUnread, handleDissolveStart, hasPendingQuestion, historyFailure,
     historyPlaceholderLayout, hints, isCachedHistoryHidden, isHistoryCached, isInitialLoadComplete,
-    isOpenedWithCachedHistory, isOpeningNews, isRunActive, isStatusDissolving, messages, renderMessage, retryHistory,
-    target, textRevealPresentations,
+    isOpenedWithCachedHistory, isOpeningNews, isPostLoadedUnderPlaceholder, isRunActive, isStatusDissolving, messages,
+    queuedMessageCount, renderMessage, retryHistory, target, textRevealPresentations,
   ]);
+  // A question sent during an answer is queued behind it, so the field sends while Stop waits in the microphone's place
   const composer = useMemo(() => ({
-    isDisabled: isInputDisabled,
+    isDisabled: isSendDisabled,
+    isQueueing: isSendQueued,
+    sentQueuedMessage,
     shouldHide: !isInputVisible,
     canStop: canStopRun,
     onStop: handleStop,
     onSendMessage: sendMessage,
     onSendHint: sendHint,
     onHeightChange: handleComposerHeightChange,
-    onRequestConsent: isAwaitingConsent ? onRequestConsent : undefined,
+    onRequestConsent: requestAction,
     render: renderComposer,
   }), [
-    canStopRun, handleComposerHeightChange, isAwaitingConsent, isInputDisabled, isInputVisible, onRequestConsent,
-    handleStop, renderComposer, sendHint, sendMessage,
+    canStopRun, handleComposerHeightChange, handleStop, isInputVisible, isSendDisabled, isSendQueued,
+    renderComposer, requestAction, sendHint, sendMessage, sentQueuedMessage,
   ]);
   const history = useMemo<AgentConversationHistory>(() => ({
     hasOlderMessages,
@@ -464,22 +551,25 @@ export function AgentV2Classic({
     loadOlderMessages,
   }), [hasOlderMessages, isLoadingOlderMessages, loadOlderMessages]);
   const slots = useMemo(() => ({
-    messageListFooter: chatStatus
-      ?? (isActivityInFooter
-        ? (
-          <AgentRunActivity
-            key="activity"
-            activity={stoppedActivity ?? activity}
-            isStopped={Boolean(stoppedActivity)}
-            handoff={activityHandoff}
-          />
-        )
-        : undefined),
+    messageListFooter: chatStatus,
+    runActivity: !chatStatus && isActivityAfterQuestion
+      ? (
+        <AgentRunActivity
+          key="activity"
+          activity={stoppedActivity ?? activity}
+          isStopped={Boolean(stoppedActivity)}
+          handoff={activityHandoff}
+        />
+      )
+      : undefined,
     bottomStickDependency: chatStatus ?? activity,
-  }), [activity, activityHandoff, chatStatus, isActivityInFooter, stoppedActivity]);
+  }), [activity, activityHandoff, chatStatus, isActivityAfterQuestion, stoppedActivity]);
   // The server keeps a thread nameless until it holds a message; the question shows until then, as on mobile
   const isNamedThread = Boolean(thread?.messageCount);
-  const firstQuestion = firstOutgoingMessage?.text ?? initialMessage ?? news?.headline;
+  const discussionNaming = deferredDiscussion?.discussionNaming;
+  // A digest's discussion that has no thread yet goes by the title of the digest's post, as a news one by its headline
+  const firstQuestion = firstOutgoingMessage?.text ?? initialMessage ?? news?.headline
+    ?? (deferredDiscussion?.kind === 'digest' ? lang('$agent_digest_title') : undefined);
   const hasMessages = messages.length > 0;
   // A chat whose thread is known or on its way has the menu
   const hasMenu = Boolean(target || thread) || hasMessages || isOpeningNews;
@@ -487,14 +577,16 @@ export function AgentV2Classic({
   const header = useMemo<AgentConversationHeader | undefined>(() => (target ? {
     // A known thread whose history has not loaded yet has a name that is not known yet either.
     // An empty name is no name, so the header keeps the question rather than going blank.
-    title: ((isNamedThread ? thread?.title : undefined) || firstQuestion)
+    title: ((isNamedThread ? thread?.title : undefined) || discussionNaming?.title || firstQuestion)
       ?? (target.kind === 'thread' && !thread ? '' : lang('New Chat')),
-    icon: isNamedThread ? thread?.icon : undefined,
-    subtitle: isWithSupport ? getSupportSubtitle(lang, support.state, supportOperator?.name) : undefined,
+    icon: isNamedThread ? thread?.icon : discussionNaming?.icon,
+    subtitle: isWithSupport ? getSupportSubtitle(lang, support!.state, supportOperator?.name) : undefined,
     hasBackButton: Boolean(onBack),
     hasMenu,
+    canRequestSupport,
   } : undefined), [
-    firstQuestion, hasMenu, isNamedThread, isWithSupport, lang, onBack, support, supportOperator, target, thread,
+    canRequestSupport, discussionNaming, firstQuestion, hasMenu, isNamedThread, isWithSupport, lang, onBack, support,
+    supportOperator, target, thread,
   ]);
   const handleDelete = useLastCallback(() => {
     onDelete!(thread, cancelPendingRequests);
@@ -505,39 +597,53 @@ export function AgentV2Classic({
     || (target?.kind === 'thread' && target.isNews)) && !firstOutgoingMessage
     && !(thread && getIsAgentV2ThreadStarted(thread));
   const canDelete = Boolean(onDelete && hasMenu && !isUntouchedNews);
+  // The header's button asks before the chat is handed to an operator
+  const [supportRequestSource, setSupportRequestSource] = useState<AgentV2SupportRequestSource>();
+  const closeSupportRequest = useLastCallback(() => setSupportRequestSource(undefined));
+  const confirmSupportRequest = useLastCallback(() => {
+    if (supportRequestSource && canRequestSupport) requestSupport(supportRequestSource);
+  });
   const actions = useMemo(() => ({
     onBack: onBack ?? switchToWallet,
     onReportProblem: reportProblem,
+    onRequestSupport: isSupportRequestVisible ? setSupportRequestSource : undefined,
     onScroll,
     onDelete: canDelete ? handleDelete : undefined,
-  }), [canDelete, handleDelete, onBack, onScroll, reportProblem, switchToWallet]);
+  }), [canDelete, handleDelete, isSupportRequestVisible, onBack, onScroll, reportProblem, switchToWallet]);
 
   return (
-    <AgentConversationShell
-      isActive={isActive}
-      animationLevel={animationLevel}
-      conversation={conversation}
-      composer={composer}
-      history={history}
-      slots={slots}
-      header={header}
-      actions={actions}
-      session={session}
-      // An operator answers in seconds or minutes, if at all, so the chat scrolls as a messenger does
-      noLiveTail={isWithSupport}
-    />
+    <>
+      <AgentConversationShell
+        isActive={isActive}
+        animationLevel={animationLevel}
+        conversation={conversation}
+        composer={composer}
+        history={history}
+        slots={slots}
+        header={header}
+        actions={actions}
+        session={session}
+        // An operator answers in seconds or minutes, if at all, so the chat scrolls as a messenger does
+        noLiveTail={isWithSupport}
+      />
+      <AgentSupportRequestModal
+        isOpen={Boolean(supportRequestSource)}
+        // The server sends the operator no addresses without consent or a wallet
+        hasWalletAddresses={isConsentAccepted === true && hasWallet}
+        canConfirm={canRequestSupport}
+        onClose={closeSupportRequest}
+        onConfirm={confirmSupportRequest}
+      />
+    </>
   );
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
     animationLevel: global.settings.animationLevel,
+    hasWallet: Boolean(global.currentAccountId),
   };
 })(AgentV2Classic));
-
-function getIsFailure(message: AgentMessage | undefined) {
-  return Boolean(message && !message.isOutgoing && (message.error || message.failureText));
-}
 
 function getStatusFailedMessage(lastMessage: AgentMessage | undefined, status: AgentV2ComposerStatus) {
   const code = lastMessage?.error?.code;

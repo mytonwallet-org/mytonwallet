@@ -134,27 +134,28 @@ function SwapActivityModal({
   let isCountdownFinished = false;
 
   const fromToken = useMemo(() => {
-    if (!renderedActivity?.from || !swapTokensBySlug || !tokensBySlug) return undefined;
+    if (!renderedActivity?.from) return undefined;
 
-    const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, renderedActivity.from);
-    if (!prioritySwapToken) {
-      return resolveSwapAsset(tokensBySlug, renderedActivity.from);
-    }
+    const prioritySwapToken = swapTokensBySlug
+      ? resolveSwapAsset(swapTokensBySlug, renderedActivity.from)
+      : undefined;
+    if (prioritySwapToken) return prioritySwapToken;
 
-    return prioritySwapToken;
+    return tokensBySlug ? resolveSwapAsset(tokensBySlug, renderedActivity.from) : undefined;
   }, [renderedActivity?.from, swapTokensBySlug, tokensBySlug]);
 
   const toToken = useMemo(() => {
-    if (!renderedActivity?.to || !swapTokensBySlug || !tokensBySlug) {
-      return renderedActivity && getLifiReceivedToken(renderedActivity);
-    }
+    if (!renderedActivity) return undefined;
 
-    const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, renderedActivity.to);
-    if (!prioritySwapToken) {
-      return getLifiReceivedToken(renderedActivity, resolveSwapAsset(tokensBySlug, renderedActivity.to));
-    }
+    const prioritySwapToken = renderedActivity.to && swapTokensBySlug
+      ? resolveSwapAsset(swapTokensBySlug, renderedActivity.to)
+      : undefined;
+    if (prioritySwapToken) return getLifiReceivedToken(renderedActivity, prioritySwapToken);
 
-    return getLifiReceivedToken(renderedActivity, prioritySwapToken);
+    const token = renderedActivity.to && tokensBySlug
+      ? resolveSwapAsset(tokensBySlug, renderedActivity.to)
+      : undefined;
+    return getLifiReceivedToken(renderedActivity, token);
   }, [renderedActivity, swapTokensBySlug, tokensBySlug]);
 
   const isInternalSwap = getIsInternalSwap({
@@ -444,9 +445,7 @@ function SwapActivityModal({
       return undefined;
     }
 
-    const terms = {
-      native: networkFee,
-    };
+    const terms = renderedActivity?.extra?.isGasless ? { token: networkFee } : { native: networkFee };
 
     return (
       <TransactionFee

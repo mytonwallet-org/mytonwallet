@@ -74,6 +74,34 @@ struct UniversalSearchRankingTests {
     }
 
     @Test
+    func `any token outranks a held and selected futures market with the same name`() {
+        let futures = document(
+            id: "futures:btc",
+            kind: .futuresMarket,
+            title: "Bitcoin",
+            traits: [.held],
+            interaction: .init(lastSelectedAt: now, selectionCount: 50)
+        )
+        let unknownToken = document(id: "token:btc", title: "Bitcoin")
+        let stock = document(id: "stock:btc", kind: .stock, title: "Bitcoin")
+
+        #expect(engine.search("bitcoin", in: [futures, unknownToken, stock], now: now).last?.id == futures.id)
+    }
+
+    @Test
+    func `held futures markets lead the others`() {
+        let held = document(id: "futures:sol", kind: .futuresMarket, title: "Solana", traits: [.held])
+        let other = document(
+            id: "futures:a-sol",
+            kind: .futuresMarket,
+            title: "Solana",
+            interaction: .init(lastSelectedAt: now, selectionCount: 5)
+        )
+
+        #expect(engine.search("solana", in: [other, held], now: now).map(\.id) == [held.id, other.id])
+    }
+
+    @Test
     func `recommendations break ties but do not beat relevance`() {
         let source = SearchSourceID("backend:recommendations")
         let recommended = document(

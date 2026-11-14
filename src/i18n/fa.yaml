@@ -618,6 +618,7 @@ Buy crypto or choose another token to sell.: رمزارز بخرید یا توک
 Your balances are small. Add funds or choose another token to swap.: موجودی‌های شما کم است. موجودی اضافه کنید یا توکن دیگری برای مبادله انتخاب کنید.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: برای خرید %buy_token%، ابتدا %token% بخرید، سپس آن را با %buy_token% مبادله کنید.
 Open %provider% to swap this pair in the browser.: برای مبادله این جفت در مرورگر، %provider% را باز کنید.
+"Better rate is available if you add %amount% %symbol% for network fee.": "اگر %amount% %symbol% برای کارمزد شبکه اضافه کنید، نرخ بهتری در دسترس است."
 Buy %token%: خرید %token%
 Open %provider%: باز کردن %provider%
 Cannot load widget: ابزارک بارگذاری نمی‌شود
@@ -1323,8 +1324,8 @@ $agent_consent_allow_button: اجازه دادن به عامل
 $agent_consent_feature_answers: پاسخ‌هایی درباره %app_name%، توکن‌ها و فعالیت کیف پول دریافت کنید.
 $agent_consent_feature_actions: اقدامات پشتیبانی‌شده مانند ارسال، دریافت و استیکینگ را آماده کنید.
 $agent_consent_feature_context: از زمینه کیف پول استفاده کنید تا پاسخ‌ها بتوانند به دارایی‌ها و آدرس‌های مرتبط ارجاع دهند.
-$agent_consent_disclosure_text: با ضربه زدن روی اجازه دادن به عامل، به %app_name% اجازه می‌دهید که پیام‌های عامل و زمینه مرتبط کیف پول شما را به %app_name% Agent (agent.mywallet.io) و Anthropic Claude API، ارائه‌دهنده هوش مصنوعی شخص ثالث ما، برای پردازش درخواست‌های شما ارسال کند. زمینه کیف پول ممکن است شامل آدرس‌های کیف پول، موجودی‌ها، توکن‌ها، فعالیت و جزئیات اقدام درخواست‌شده باشد. داده‌ها تنها برای ارائه پاسخ‌های عامل و آماده‌سازی اقداماتی که درخواست می‌کنید استفاده می‌شوند.
-$agent_consent_search_disclosure_text: برای جست‌وجوی وب، فقط عبارت‌های جست‌وجو ممکن است به Serper ارسال شوند؛ زمینه کیف پول و تاریخچه گفت‌وگو ارسال نمی‌شوند.
+$agent_consent_disclosure_text: با ضربه زدن روی اجازه دادن به عامل، به %app_name% اجازه می‌دهید که پیام‌های عامل و زمینه مرتبط کیف پول شما را به %app_name% Agent (agent.mywallet.io) و ارائه‌دهندگان هوش مصنوعی شخص ثالث ما، OpenAI و Anthropic، برای پردازش درخواست‌های شما ارسال کند. زمینه کیف پول ممکن است شامل آدرس‌های کیف پول، موجودی‌ها، توکن‌ها، فعالیت و جزئیات اقدام درخواست‌شده باشد. در صورت استفاده از ورودی صوتی، صدای ضبط‌شده شما برای تبدیل به متن به Inworld و در صورت نیاز به ElevenLabs از طریق OpenRouter ارسال می‌شود. داده‌ها تنها برای ارائه پاسخ‌های عامل و آماده‌سازی اقداماتی که درخواست می‌کنید استفاده می‌شوند.
+$agent_consent_search_disclosure_text: برای جست‌وجوی وب، فقط عبارت‌های جست‌وجو به OpenAI و در صورت نیاز به Serper ارسال می‌شوند؛ زمینه کیف پول و تاریخچه گفت‌وگو ارسال نمی‌شوند.
 $settings_token_change_threshold: آستانه تغییر %
 $settings_token_change_threshold_description: تغییرات درصدی ۲۴ ساعته کمتر از آستانه انتخاب‌شده را پنهان می‌کند.
 $settings_token_change_threshold_off: خاموش
@@ -1382,14 +1383,29 @@ $agent_prompt_token_price: "قیمت %token% را تحلیل کن."
 $agent_hint_capabilities_title: چه کارهایی می‌توانی انجام دهی؟
 $agent_hint_portfolio_title: عملکرد پرتفوی
 $agent_hint_portfolio_prompt: عملکرد پرتفوی من را تحلیل کنید.
-$agent_hint_swap_title: سواپ‌ها چگونه کار می‌کنند
+$agent_hint_swap_title: سواپ‌ها چگونه کار می‌کنند؟
 $agent_hint_swap_prompt: توضیح دهید که سواپ توکن‌ها چگونه کار می‌کند.
-$agent_hint_staking_title: استیکینگ چیست
+$agent_hint_staking_title: استیکینگ چیست؟
 $agent_hint_staking_prompt: استیکینگ را از پایه توضیح دهید، انگار که من هرگز از رمز ارز استفاده نکرده‌ام.
-$agent_hint_security_title: امنیت کیف پول
+$agent_hint_security_title: چطور از کیف پولم محافظت کنم؟
 $agent_hint_security_prompt: نشان دهید چگونه کیف پولم را امن نگه دارم.
 $agent_hint_receive_title: دریافت توکن‌ها
 $agent_hint_receive_prompt: به من کمک کنید تا توکن‌ها را دریافت کنم.
+$agent_hint_assets_title: دارایی‌هایم را نشان بده
+$agent_hint_total_title: موجودی کل من چقدر است؟
+$agent_hint_spending_title: این هفته برای چه چیزهایی خرج کردم؟
+$agent_hint_last_transfer_title: آخرین انتقالم را نشان بده
+$agent_hint_fund_title: چطور کیف پولم را شارژ کنم؟
+$agent_hint_market_today_title: امروز بازار چه خبر است؟
+$agent_hint_news_today_title: مهم‌ترین خبرهای امروز
+$agent_hint_bitcoin_title: با بیت‌کوین چه خبر است؟
+$agent_hint_price_title: ۰٫۵ ETH چقدر می‌ارزد؟
+$agent_hint_staking_yield_title: بازده کجا بیشتر است؟
+$agent_hint_staking_options_title: چه گزینه‌های استیکینگی وجود دارد؟
+$agent_hint_multisend_title: چطور به چند نفر ارسال کنم؟
+$agent_hint_action_swap_title: سواپ توکن‌ها
+$agent_hint_action_send_title: ارسال رمز ارز
+$agent_hint_action_stake_title: شروع استیکینگ
 $agent_notice_content_over_budget: نتیجه خیلی بزرگ است و نمی‌توان آن را به طور کامل نمایش داد.
 $agent_notice_web_search_no_results: اطلاعاتی مطابق با درخواست شما پیدا نشد.
 $agent_error_session: جلسه عامل شما منقضی شده است. عامل را دوباره باز کنید و دوباره امتحان کنید.
@@ -2125,8 +2141,7 @@ News: "اخبار"
 Crypto Market News: "اخبار بازار رمزارزها"
 $agent_news_new: "جدید"
 $agent_news_open_source: "باز کردن منبع"
-$agent_news_source: "منبع: %sources%"
-$agent_news_sources: "منابع: %sources%"
+$agent_news_sources: "منابع"
 $agent_news_unavailable: "اخبار در حال حاضر در دسترس نیست"
 $agent_news_read_more: "بیشتر بخوانید"
 $agent_news_discuss: "گفتگو"
@@ -2138,6 +2153,9 @@ $agent_news_quote_accessibility: "خبر MyPulse: %headline%"
 $agent_news_unread_count:
   oneValue: "%count% خبر خوانده‌نشده"
   otherValue: "%count% خبر خوانده‌نشده"
+$agent_news_unread_digests_count:
+  oneValue: "%count% خلاصهٔ خوانده‌نشده"
+  otherValue: "%count% خلاصهٔ خوانده‌نشده"
 Explorer mode: حالت اکسپلورر
 Open a link to a wallet, transfer, token or collectible to see its details here.: یک لینک به کیف پول، انتقال، توکن یا کالکتیبل را باز کنید تا جزئیات آن را اینجا ببینید.
 
@@ -2397,7 +2415,7 @@ $agent_chats_unavailable: "امکان بارگذاری گفتگوها وجود �
 "View your assets and activity": "دارایی‌ها و فعالیت خود را ببینید"
 "Ask AI and follow the news": "از هوش مصنوعی بپرسید و اخبار را دنبال کنید"
 $underlying_stock: 'سهام %symbol%'
-$agent_support_requested: "درخواست پشتیبانی کردید. یک کارشناس همین‌جا پاسخ می‌دهد"
+$agent_support_requested: "درخواست پشتیبانی کردید. یک کارشناس همین‌جا پاسخ می‌دهد، معمولاً ظرف چند دقیقه"
 $agent_support_operator_joined: "پشتیبانی به گفتگو پیوست: %name%"
 $agent_support_closed_operator: "پشتیبانی درخواست را بست. از این به بعد دستیار پاسخ می‌دهد"
 $agent_support_closed_inactivity: "درخواست پس از ۴۸ ساعت بدون پاسخ بسته شد. از این به بعد دستیار پاسخ می‌دهد"
@@ -2417,22 +2435,41 @@ $send_only_chain_and_token: تنها %symbol%، %tokenSymbol% یا سایر دا
 $agent_digest_unavailable: "این خلاصه دیگر در دسترس نیست"
 $agent_digest_title: "مهم‌ترین خبرهای روز"
 $agent_digest_meta:
-  oneValue: "%count% خبر · %time%"
-  otherValue: "%count% خبر · %time%"
+  oneValue: "%count% خبر"
+  otherValue: "%count% خبر"
 $agent_digest_more:
   oneValue: "و %count% خبر دیگر — بالاتر در فید است"
   otherValue: "و %count% خبر دیگر — بالاتر در فید هستند"
+$agent_digest_more_count:
+  oneValue: "و %count% خبر دیگر"
+  otherValue: "و %count% خبر دیگر"
 $agent_digest_settings_title: "خلاصه و اعلان‌ها"
 $agent_digest_settings_text: "روزی یک بار خلاصه‌ای از مهم‌ترین خبرهای روز در فید نمایش داده می‌شود."
 $agent_digest_time: "زمان خلاصه"
-$agent_digest_time_zone: "بر اساس منطقه زمانی تلفن شما."
+$agent_digest_time_hint: "خلاصه در این ساعت در فید شما نمایش داده می‌شود، حتی وقتی اعلان‌ها خاموش است."
 $agent_digest_notifications_off: "خاموش"
-$agent_digest_notifications_off_hint: "خلاصه فقط در فید نمایش داده می‌شود"
 $agent_digest_notifications_daily: "خلاصه روزانه"
-$agent_digest_notifications_daily_hint: "ساعت %time%، مهم‌ترین خبرها در یک اعلان"
+$agent_digest_notifications_daily_hint: "یک اعلان در ساعت %time% با مهم‌ترین خبرهای روز."
 $agent_digest_notifications_every: "هر خبر"
-$agent_digest_notifications_every_hint: "یک اعلان جداگانه برای هر خبر"
-$agent_digest_post_header: "MyPulse · خلاصه · %time%"
 $agent_digest_sheet_title: "خلاصه روزانه"
-$agent_digest_device_time_zone: "بر اساس منطقه زمانی این دستگاه."
 $agent_dictation_microphone_denied_device: "برای دیکته، در تنظیمات دستگاه اجازه دسترسی به میکروفون را بدهید."
+"$perps_funding_usdc_fees": "برای باز کردن موقعیت، حداقل به %minUSDC% USDC در Arbitrum نیاز دارید: %amount% USDC به‌علاوه %fees% USDC کارمزد."
+"$perps_funding_usdc_increase_fees": "برای افزایش این موقعیت، حداقل به %minUSDC% USDC در Arbitrum نیاز دارید: %amount% USDC به‌علاوه %fees% USDC کارمزد."
+"PerpsOrderNotPlaced": "سفارش ثبت نشد. USDC منتقل‌شده برای آن در موجودی Hyperliquid شما باقی می‌ماند."
+$agent_feedback_support_liked_toast: "سپاس! امتیاز شما به تیم پشتیبانی ارسال خواهد شد."
+$agent_feedback_support_disliked_toast: "تیم پشتیبانی این پاسخ را بررسی خواهد کرد."
+$agent_support_request_message: "می‌خواهم با یک انسان صحبت کنم"
+$agent_support_contact: "تماس با پشتیبانی"
+$agent_support_confirm_title: "اپراتور را فراخوانی می‌کنید؟"
+$agent_support_confirm_text: "اپراتور پشتیبانی این گفتگو و آدرس‌های کیف پول شما را می‌بیند و همین‌جا پاسخ می‌دهد."
+$agent_support_confirm_text_no_wallet: "اپراتور پشتیبانی این گفتگو را می‌بیند و همین‌جا پاسخ می‌دهد."
+$agent_support_confirm_action: "فراخوانی"
+$agent_support_rate_limited: "امروز سه بار با پشتیبانی تماس گرفته‌اید. فردا دوباره تلاش کنید یا در تلگرام به @mysupport پیام دهید."
+$agent_news_digests_empty: "هنوز خلاصه‌ای نیست"
+$agent_news_view_all: "همه خبرها"
+$agent_news_view_digests: "خلاصه‌ها"
+$agent_digest_hours: "ساعت"
+$agent_digest_minutes: "دقیقه"
+$swap_one_to_one: نرخ بهتر (۱:۱) از %value% در دسترس است.
+$swap_better_rate_minimum: "نرخ بهتر از %value% در دسترس است."
+$agent_daily_limit_resets_at: "سقف روزانهٔ عامل پر شده است. در ساعت %time% بازنشانی می‌شود."

@@ -46,7 +46,9 @@ data class Content(
     companion object {
         const val STOCK_TOKEN_CORNER_RADIUS_RATIO = 0.3f
 
-        private fun roundingFor(token: IApiToken): Rounding = if (token.isRwaStock) {
+        private fun roundingFor(token: IApiToken): Rounding = roundingFor(token.isRwaStock)
+
+        private fun roundingFor(isRwaStock: Boolean): Rounding = if (isRwaStock) {
             Rounding.RadiusRatio(STOCK_TOKEN_CORNER_RADIUS_RATIO)
         } else {
             Rounding.Default
@@ -156,8 +158,10 @@ data class Content(
 
         fun chain(chain: MBlockchain) = Content(image = Image.Res(chain.icon))
 
-        fun ofUrl(url: String): Content = Content(
-            image = Image.Url(url)
+        fun ofUrl(url: String, isRwaStock: Boolean = false): Content = Content(
+            image = Image.Url(url),
+            rounding = roundingFor(isRwaStock),
+            withBlackBackground = isRwaStock
         )
     }
 }

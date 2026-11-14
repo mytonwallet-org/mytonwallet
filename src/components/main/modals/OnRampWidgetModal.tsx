@@ -15,6 +15,7 @@ import {
 } from '../../../global/selectors';
 import { buildAvanchangeUrl } from '../../../util/avanchange';
 import buildClassName from '../../../util/buildClassName';
+import getTestId from '../../../util/getTestId';
 import { mapValues } from '../../../util/iteratees';
 import {
   getDefaultRampCurrency, getEffectiveRampCurrencies, getOnRampBaselineCurrencies,
@@ -271,6 +272,7 @@ function OnRampWidgetModal({
             shouldTranslateOptions
             menuClassName={styles.dropdown}
             itemClassName={styles.dropdownValue}
+            testId={getTestId('buy_card_currency')}
             onChange={handleCardTypeChange}
           />
         </div>

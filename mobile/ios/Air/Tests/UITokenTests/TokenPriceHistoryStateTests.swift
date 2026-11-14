@@ -72,7 +72,7 @@ struct TokenPriceHistoryStateTests {
     }
 
     @Test(arguments: [false, true])
-    func `reopening and refreshing preserve the complete stock chart`(hasTokenHistory: Bool) async throws {
+    func `reopening restores only stock charts with token history`(hasTokenHistory: Bool) async throws {
         let backfill = ApiPriceHistoryBackfill(symbol: "TSLA", points: [[Date.now.timeIntervalSince1970 - 120, 300]])
         let fixture = try Fixture(backfill: backfill)
         defer { fixture.close() }
@@ -91,19 +91,20 @@ struct TokenPriceHistoryStateTests {
         reopened.reachability.whenUnreachable = nil
         reopened.reachability.stopNotifier()
         defer { reopened.stopAllObservers() }
-        #expect(reopened.historyData == history)
-        #expect(reopened.backfill == backfill)
+        #expect(reopened.selectedPeriod == .all)
+        #expect(reopened.historyData == (hasTokenHistory ? history : nil))
+        #expect(reopened.backfill == (hasTokenHistory ? backfill : nil))
         #expect(reopened.isHistoryRestored)
 
         fixture.model.loadPriceHistory(period: .all)
         #expect(await updates.next() == .loading)
         let refresh = try #require(await requests.next())
-        #expect(fixture.model.historyData == history)
-        #expect(fixture.model.backfill == backfill)
+        #expect(fixture.model.historyData == (hasTokenHistory ? history : nil))
+        #expect(fixture.model.backfill == (hasTokenHistory ? backfill : nil))
         refresh.continuation.resume(throwing: Failure.offline)
         #expect(await updates.next() == .failed)
-        #expect(fixture.model.historyData == history)
-        #expect(fixture.model.backfill == backfill)
+        #expect(fixture.model.historyData == (hasTokenHistory ? history : nil))
+        #expect(fixture.model.backfill == (hasTokenHistory ? backfill : nil))
     }
 
     @Test

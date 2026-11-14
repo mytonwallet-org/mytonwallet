@@ -38,6 +38,7 @@ export type TransitionProps = {
   wrapExceptionKey?: number;
   isScrollOnWrap?: boolean;
   id?: string;
+  testId?: string;
   className?: string;
   slideClassName?: string;
   withSwipeControl?: boolean;
@@ -76,6 +77,7 @@ function Transition({
   wrapExceptionKey,
   isScrollOnWrap,
   id,
+  testId,
   className,
   slideClassName,
   withSwipeControl,
@@ -371,6 +373,7 @@ function Transition({
       onScroll={!isScrollOnWrap ? onScroll : undefined}
       onClick={onContainerClick}
       id={id}
+      data-testid={testId}
       className={buildClassName('Transition', className)}
       teactFastList={asFastList}
     >

@@ -11,6 +11,8 @@ export interface ApiSetNewsNotificationsProps {
   langCode: string;
   // Integer from 0 to 23, used for `digest`
   digestHour: number;
+  // 0, 15, 30 or 45, used for `digest`
+  digestMinute: number;
   // IANA time zone, used for `digest`
   timeZone: string;
 }

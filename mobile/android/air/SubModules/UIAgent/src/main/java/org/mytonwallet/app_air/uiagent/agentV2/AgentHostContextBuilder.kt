@@ -35,6 +35,10 @@ internal val AGENT_UI_CAPABILITY_FLAGS = mapOf(
     "supportsSupportHandoff" to true
 )
 
+/** The chat offers to call a support operator only while it declares the handoff to the agent */
+internal val isAgentSupportHandoffDeclared: Boolean
+    get() = AGENT_UI_CAPABILITY_FLAGS["supportsSupportHandoff"] == true
+
 internal class AgentHostContextSnapshot(val accountId: String?, val json: JSONObject)
 
 private class AgentV2PositionsProjection(

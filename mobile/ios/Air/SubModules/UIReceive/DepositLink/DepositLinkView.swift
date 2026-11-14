@@ -48,7 +48,9 @@ struct DepositLinkView: View {
                     explainedFee: nil,
                     isFocused: $model.amountFocused,
                     onTokenSelect: model.onTokenTapped,
-                    onUseAll: {}
+                    onUseAll: {},
+                    amountIdentifier: "deposit_link_amount_input",
+                    tokenPickerIdentifier: "deposit_link_token_selector"
                 )
                 .padding(.bottom, -8)
                 
@@ -62,6 +64,7 @@ struct DepositLinkView: View {
                         .textStyle(.body, scaling: .dynamic)
                         .writingToolsDisabled()
                         .focused($commentIsFocused)
+                        .accessibilityIdentifier("deposit_link_comment_input")
                     }
                     .contentShape(.rect)
                     .onTapGesture {
@@ -107,6 +110,7 @@ struct TappableDepositLink: View {
             )
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
+            .accessibilityIdentifier("deposit_link_url")
             .contextMenuSource {
                 makeMenuConfiguration()
             }

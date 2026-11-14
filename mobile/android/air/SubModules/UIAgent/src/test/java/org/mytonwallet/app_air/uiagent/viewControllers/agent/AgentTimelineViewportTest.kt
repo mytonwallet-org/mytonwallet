@@ -2,9 +2,29 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
 import java.util.Date
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentTimelineViewportTest {
+    private val scrollButtonThreshold = 60
+
+    @Test
+    fun queuedQuestionComesUpAsItGoesWhileTheChatFollowsItsEnd() {
+        // The latest row ends above the composer, or reaches under it by no more than the threshold
+        assertFalse(isAgentLatestRowOutOfSight(-400, scrollButtonThreshold))
+        assertFalse(isAgentLatestRowOutOfSight(0, scrollButtonThreshold))
+        assertFalse(isAgentLatestRowOutOfSight(scrollButtonThreshold, scrollButtonThreshold))
+    }
+
+    @Test
+    fun listStaysAsAQueuedQuestionGoesWhileTheScrollButtonShows() {
+        // Read above the end, or at a pinned question whose answer runs past the screen's bottom
+        assertTrue(isAgentLatestRowOutOfSight(scrollButtonThreshold + 1, scrollButtonThreshold))
+        // The latest row isn't laid out
+        assertTrue(isAgentLatestRowOutOfSight(Int.MAX_VALUE, scrollButtonThreshold))
+    }
+
     @Test
     fun firstQuestionKeepsItsNaturalPositionBelowTheDate() {
         val question = AgentMessage(role = AgentMessageRole.USER, text = "What is TON?")

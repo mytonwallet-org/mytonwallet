@@ -1,3 +1,4 @@
+import type { AgentNewsFeedLocaleV2 } from '../api/agentV2/protocol/types';
 import type { ApiChain, ApiNft, ApiToken } from '../api/types';
 import type { LangCode } from '../global/types';
 
@@ -348,6 +349,11 @@ export function getViewTokenUrl(
     : `${SELF_UNIVERSAL_HOST_URL}/token/${slug}`;
 
   return isTestnet ? `${url}?testnet=true` : url;
+}
+
+// The link iOS, Android and the preview on the short-link host read, with its parameters in this order
+export function getAgentNewsShareUrl(eventId: number, locale: AgentNewsFeedLocaleV2): string {
+  return `${SELF_UNIVERSAL_HOST_URL}/agent?news=${eventId}&lang=${locale}&utm_source=pulse_share`;
 }
 
 export function getExplorerByUrl(url: string): { chain: ApiChain; explorerId: string } | undefined {

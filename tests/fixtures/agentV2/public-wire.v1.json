@@ -15,6 +15,12 @@
           "locale": "ru",
           "digestHour": 21,
           "timeZone": "Europe/Moscow"
+        },
+        {
+          "locale": "ru",
+          "digestHour": 21,
+          "digestMinute": 45,
+          "timeZone": "Asia/Kolkata"
         }
       ],
       "invalid": [
@@ -40,6 +46,17 @@
         {
           "locale": "ru",
           "digestHour": 24,
+          "timeZone": "Europe/Moscow"
+        },
+        {
+          "locale": "ru",
+          "digestHour": 21,
+          "digestMinute": 10,
+          "timeZone": "Europe/Moscow"
+        },
+        {
+          "locale": "ru",
+          "digestMinute": 15,
           "timeZone": "Europe/Moscow"
         }
       ]
@@ -69,6 +86,11 @@
               "discussion": {
                 "threadId": "33333333-3333-4333-8333-333333333333",
                 "icon": "📰"
+              },
+              "discussionNaming": {
+                "title": "Network update",
+                "icon": "📰",
+                "followups": ["What changed?"]
               }
             },
             {
@@ -90,13 +112,23 @@
               "top": [
                 {
                   "eventId": 42,
-                  "headline": "TON network update"
+                  "headline": "TON network update",
+                  "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg"
+                },
+                {
+                  "eventId": 43,
+                  "headline": "Bitcoin reaches a new high"
                 }
               ],
               "total": 2,
               "discussion": {
                 "threadId": "44444444-4444-4444-8444-444444444444",
                 "icon": "🗞️"
+              },
+              "discussionNaming": {
+                "title": "Network and market news",
+                "icon": "🗞️",
+                "followups": ["What else happened that day?"]
               }
             }
           ]
@@ -869,7 +901,8 @@
           "top": [
             {
               "eventId": 42,
-              "headline": "TON network update"
+              "headline": "TON network update",
+              "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg"
             },
             {
               "eventId": 43,
@@ -1030,7 +1063,8 @@
             "top": [
               {
                 "eventId": 42,
-                "headline": "TON network update"
+                "headline": "TON network update",
+                "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg"
               },
               {
                 "eventId": 43,
@@ -1325,6 +1359,13 @@
             "code": "digest_unavailable",
             "retryable": false
           }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "support_escalation_rate_limited",
+            "retryable": false
+          }
         }
       ],
       "invalid": [
@@ -1360,6 +1401,13 @@
           "protocolVersion": 3,
           "error": {
             "code": "digest_unavailable",
+            "retryable": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "support_escalation_rate_limited",
             "retryable": true
           }
         }
@@ -4571,6 +4619,18 @@
         {
           "kind": "pulseNews",
           "eventId": 2147483647
+        },
+        {
+          "kind": "supportRequest",
+          "source": "starterHint"
+        },
+        {
+          "kind": "supportRequest",
+          "source": "header"
+        },
+        {
+          "kind": "supportRequest",
+          "source": "menu"
         }
       ],
       "invalid": [
@@ -4597,6 +4657,13 @@
           "kind": "pulseNews",
           "eventId": 1,
           "headline": "App-supplied headline"
+        },
+        {
+          "kind": "supportRequest"
+        },
+        {
+          "kind": "supportRequest",
+          "source": "unknown"
         }
       ]
     },
@@ -4972,6 +5039,42 @@
               "id": "00000000-0000-4000-8000-000000000002",
               "text": "Continue"
             }
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "clientRunId": "00000000-0000-4000-8000-000000000001",
+          "expectedThreadRevision": 0,
+          "input": {
+            "kind": "append",
+            "message": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "text": "Please connect me to support."
+            }
+          },
+          "context": {
+            "platform": "classic",
+            "client": "web",
+            "lang": "en",
+            "baseCurrency": "USD",
+            "permissions": {
+              "agentConsentAccepted": false
+            }
+          },
+          "capabilities": {
+            "protocolVersion": 3,
+            "supportedActions": [],
+            "features": [
+              "supportHandoff"
+            ]
+          },
+          "walletContext": {
+            "mode": "none",
+            "reason": "noConsent"
+          },
+          "entryPoint": {
+            "kind": "supportRequest",
+            "source": "header"
           }
         }
       ],

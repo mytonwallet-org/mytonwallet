@@ -144,9 +144,23 @@ class AgentThreadRowCell: UICollectionViewListCell {
         didSet {
             guard isPreviewImageShown != oldValue else { return }
             previewImageView.isHidden = !isPreviewImageShown
-            if let preview = previewLabel.attributedText?.string {
-                previewLabel.attributedText = makePreviewText(preview)
+            updatePreviewLeadingViews()
+        }
+    }
+    /// The label of a chat with support, before the preview's text and after its picture, as in Classic
+    let supportLabelView = AgentSupportLabelView()
+    private var supportLabelLeadingConstraint: NSLayoutConstraint!
+    private var supportLabelWidth: CGFloat = 0
+    /// The support label's look; nil hides it
+    var supportLabelStyle: AgentSupportPresentation.LabelStyle? {
+        didSet {
+            guard supportLabelStyle != oldValue else { return }
+            supportLabelView.isHidden = supportLabelStyle == nil
+            if let supportLabelStyle {
+                supportLabelView.configure(style: supportLabelStyle)
+                supportLabelWidth = ceil(supportLabelView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width)
             }
+            updatePreviewLeadingViews()
         }
     }
     /// The touched row's highlight, as in the wallet's token list: it comes in quickly as the finger lands and fades
@@ -260,8 +274,21 @@ class AgentThreadRowCell: UICollectionViewListCell {
     }
 
     private func makePreviewText(_ preview: String) -> NSAttributedString {
-        let indent = isPreviewImageShown ? AgentThreadRowMetrics.previewImageSize + AgentThreadRowMetrics.previewImageSpacing : 0
-        return NSAttributedString(string: preview, attributes: AgentThreadRowMetrics.makePreviewAttributes(firstLineIndent: indent))
+        let imageIndent = isPreviewImageShown ? AgentThreadRowMetrics.previewImageSize + AgentThreadRowMetrics.previewImageSpacing : 0
+        let labelIndent = supportLabelStyle == nil ? 0 : supportLabelWidth + AgentSupportLabelView.spacing
+        return NSAttributedString(
+            string: preview,
+            attributes: AgentThreadRowMetrics.makePreviewAttributes(firstLineIndent: imageIndent + labelIndent)
+        )
+    }
+
+    private func updatePreviewLeadingViews() {
+        supportLabelLeadingConstraint.constant = isPreviewImageShown
+            ? AgentThreadRowMetrics.previewImageSize + AgentThreadRowMetrics.previewImageSpacing
+            : 0
+        if let preview = previewLabel.attributedText?.string {
+            previewLabel.attributedText = makePreviewText(preview)
+        }
     }
 
     override func layoutSubviews() {
@@ -412,6 +439,10 @@ class AgentThreadRowCell: UICollectionViewListCell {
         previewImageView.isHidden = true
         previewImageView.isAccessibilityElement = false
         previewLabel.addSubview(previewImageView)
+        supportLabelView.translatesAutoresizingMaskIntoConstraints = false
+        supportLabelView.isHidden = true
+        previewLabel.addSubview(supportLabelView)
+        supportLabelLeadingConstraint = supportLabelView.leadingAnchor.constraint(equalTo: previewLabel.leadingAnchor)
         unreadBadge.translatesAutoresizingMaskIntoConstraints = false
         unreadBadge.isHidden = true
         unreadBadge.setContentHuggingPriority(.required, for: .horizontal)
@@ -467,6 +498,11 @@ class AgentThreadRowCell: UICollectionViewListCell {
             ),
             previewImageView.widthAnchor.constraint(equalToConstant: AgentThreadRowMetrics.previewImageSize),
             previewImageView.heightAnchor.constraint(equalToConstant: AgentThreadRowMetrics.previewImageSize),
+            supportLabelLeadingConstraint,
+            supportLabelView.centerYAnchor.constraint(
+                equalTo: previewLabel.topAnchor,
+                constant: AgentThreadRowMetrics.previewLineHeight / 2
+            ),
 
             unreadBadge.trailingAnchor.constraint(equalTo: rowLayoutGuide.trailingAnchor, constant: -inset),
             unreadBadge.centerYAnchor.constraint(
@@ -746,7 +782,8 @@ final class AgentThreadCell: AgentThreadRowCell, UIGestureRecognizerDelegate {
     private func updateAccessibilityLabel() {
         let preview = activityText ?? previewLabel.text
         let unread = unreadMark != nil ? lang("Unread") : nil
-        accessibilityLabel = [titleLabel.text, preview, timeLabel.text, isPinnedThread ? lang("Pinned") : nil, unread]
+        let supportLabel = supportLabelStyle == nil ? nil : supportLabelView.text
+        accessibilityLabel = [titleLabel.text, supportLabel, preview, timeLabel.text, isPinnedThread ? lang("Pinned") : nil, unread]
             .compactMap { $0?.nilIfEmpty }
             .joined(separator: ", ")
     }
@@ -978,7 +1015,14 @@ final class AgentThreadCell: AgentThreadRowCell, UIGestureRecognizerDelegate {
             shouldShowDateWhenNotToday: isPinned,
             relativeTo: now
         )
-        setTexts(title: title ?? preview ?? lang("New Chat"), preview: title == nil ? nil : preview, time: time)
+        // A chat with support carries its label on the preview's line, which shows for it without a preview too
+        supportLabelStyle = AgentSupportPresentation.getLabelStyle(for: thread.support)
+        let shownPreview = title == nil ? nil : preview
+        setTexts(
+            title: title ?? preview ?? lang("New Chat"),
+            preview: shownPreview ?? (supportLabelStyle == nil ? nil : ""),
+            time: time
+        )
         // A row shows the picture of its latest message, as Telegram's chat list does. Only a news post has one, and it
         // is a discussion's latest message while it is the thread's only one.
         let isNewsPostLatest = thread.messageCount <= 1

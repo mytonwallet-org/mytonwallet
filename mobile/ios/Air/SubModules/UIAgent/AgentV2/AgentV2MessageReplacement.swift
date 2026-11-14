@@ -110,7 +110,7 @@ struct AgentV2MessageReplacement {
     func seenMessageCount(_ count: Int?, messages: [AgentV2NativeMessage]) -> Int? {
         guard let count else { return nil }
         return count - messages.filter {
-            ignoredNativeIDs.contains($0.id) && !$0.status.isStreaming
+            ignoredNativeIDs.contains($0.id) && $0.role != .event && !$0.status.isStreaming
         }.count
     }
 }

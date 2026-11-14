@@ -4,11 +4,17 @@ import { requestMutation } from '../lib/fasterdom/fasterdom';
 import animateHorizontalScroll from '../util/animateHorizontalScroll';
 import { applyStyles } from '../util/animation';
 import { stopEvent } from '../util/domEvents';
+import { clamp } from '../util/math';
 import useLastCallback from './useLastCallback';
 
 interface OwnProps {
   containerRef: ElementRef<HTMLDivElement>;
   isDisabled?: boolean;
+  dragThreshold?: number;
+  getScrollBounds?: () => [number, number] | undefined;
+  onDragStart?: NoneToVoidFunction;
+  /** Replaces the built-in momentum. The velocity is in pixels per millisecond, and a resting pointer gives zero */
+  onDragEnd?: (velocity: number) => void;
 }
 
 interface MousePointerSample {
@@ -22,7 +28,14 @@ const MOMENTUM_DURATION_MS = 300;
 const MOMENTUM_MULTIPLIER = 0.6;
 const MOMENTUM_MIN_PX = 1;
 
-function useDragScroll({ containerRef, isDisabled }: OwnProps) {
+function useDragScroll({
+  containerRef,
+  isDisabled,
+  dragThreshold = DRAG_THRESHOLD_PX,
+  getScrollBounds,
+  onDragStart,
+  onDragEnd,
+}: OwnProps) {
   const cleanupDragRef = useRef<NoneToVoidFunction | undefined>();
 
   const handleMouseDown = useLastCallback((e: MouseEvent) => {
@@ -32,16 +45,26 @@ function useDragScroll({ containerRef, isDisabled }: OwnProps) {
     if (!container) return;
 
     const startX = e.pageX;
-    const startScrollLeft = container.scrollLeft;
+    let startScrollLeft = container.scrollLeft;
     let hasDragged = false;
+    let hasReportedEnd = false;
     let pendingScrollLeft = container.scrollLeft;
     const mousePointerSamples: MousePointerSample[] = [{ x: e.pageX, t: Date.now() }];
 
     function handleMouseMove(moveEvent: MouseEvent) {
+      // The page does not always receive a `mouseup` from outside the window
+      if (!moveEvent.buttons) {
+        handleMouseUp();
+        return;
+      }
+
       const deltaX = moveEvent.pageX - startX;
       if (!hasDragged) {
-        if (Math.abs(deltaX) < DRAG_THRESHOLD_PX) return;
+        if (Math.abs(deltaX) < dragThreshold) return;
         hasDragged = true;
+        // A running scroll animation can move the container between the press and this moment
+        startScrollLeft = container!.scrollLeft;
+        onDragStart?.();
         // Disable `scroll-snap` so programmatic `scrollLeft` isn't overridden by browser snap
         requestMutation(() => {
           applyStyles(container!, { scrollSnapType: 'none' });
@@ -57,9 +80,12 @@ function useDragScroll({ containerRef, isDisabled }: OwnProps) {
         mousePointerSamples.shift();
       }
 
-      pendingScrollLeft = startScrollLeft - deltaX;
+      const bounds = getScrollBounds?.();
+
+      pendingScrollLeft = bounds ? clamp(startScrollLeft - deltaX, bounds[0], bounds[1]) : startScrollLeft - deltaX;
       requestMutation(() => {
-        container!.scrollLeft = pendingScrollLeft;
+        // The position belongs to `onDragEnd` after the release
+        if (!hasReportedEnd) container!.scrollLeft = pendingScrollLeft;
       });
     }
 
@@ -72,6 +98,7 @@ function useDragScroll({ containerRef, isDisabled }: OwnProps) {
     function cleanupWindowListeners() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('blur', handleMouseUp);
       cleanupDragRef.current = undefined;
     }
 
@@ -94,6 +121,21 @@ function useDragScroll({ containerRef, isDisabled }: OwnProps) {
         }
       }
 
+      window.addEventListener('click', stopEvent, { capture: true, once: true });
+      // A release without its own `click`, such as outside the window, must keep the next real click
+      setTimeout(() => window.removeEventListener('click', stopEvent, { capture: true }));
+
+      if (onDragEnd) {
+        const { t: lastMoveAt } = mousePointerSamples[mousePointerSamples.length - 1];
+
+        // The callback reads the position, so the last move is written here instead of in its queued mutation
+        hasReportedEnd = true;
+        container!.scrollLeft = pendingScrollLeft;
+        onDragEnd(Date.now() - lastMoveAt < VELOCITY_WINDOW_MS ? velocityPxPerMs : 0);
+        restoreScrollSnap();
+        return;
+      }
+
       const momentum = velocityPxPerMs * MOMENTUM_MULTIPLIER * MOMENTUM_DURATION_MS;
       if (Math.abs(momentum) > MOMENTUM_MIN_PX) {
         // Restore `scroll-snap` in case `animateHorizontalScroll` returns early at scroll edge (`path === 0`)
@@ -103,12 +145,11 @@ function useDragScroll({ containerRef, isDisabled }: OwnProps) {
         // No momentum — restore `scroll-snap` so browser re-snaps to nearest item
         restoreScrollSnap();
       }
-
-      window.addEventListener('click', stopEvent, { capture: true, once: true });
     }
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('blur', handleMouseUp);
     cleanupDragRef.current = cleanupWindowListeners;
   });
 

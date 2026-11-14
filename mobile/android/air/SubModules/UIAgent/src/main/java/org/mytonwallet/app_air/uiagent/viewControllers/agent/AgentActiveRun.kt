@@ -14,6 +14,8 @@ internal class AgentActiveRun(
     val clientRunId: String,
     val inputPresentationId: String,
     val authority: AgentV2AuthorityBinding,
+    /** A support request, which a limit never holds back for Retry */
+    val isSupportRequest: Boolean = false,
     var canResendSupportConflict: Boolean = false,
     val editedMessage: AgentMessage? = null,
     val editFallbackMessages: List<AgentMessage>? = null,
@@ -63,12 +65,19 @@ internal data class AgentLimitRetry(
     val isRateLimit: Boolean,
     val resetAt: Long?,
     val failedAt: Long,
+    /** The wallet the question was asked for, the only one the SDK sends it again for */
+    val authority: AgentV2AuthorityBinding,
     val inputPresentationId: String? = null,
     val failureMessageId: String? = null,
     val editedMessage: AgentMessage? = null,
     val editFallbackMessages: List<AgentMessage>? = null,
     val regenerationTargetId: String? = null,
-    val replacedStoppedAnswerIds: Set<String> = emptySet()
+    val replacedStoppedAnswerIds: Set<String> = emptySet(),
+    /**
+     * The limit blocked new questions when it held this one back, so the questions queued behind
+     * it wait for it, and it goes first, by itself, once the limit resets
+     */
+    val isHoldingQueue: Boolean = false
 ) {
     val expiresAt: Long
         get() = minOf(
@@ -79,7 +88,8 @@ internal data class AgentLimitRetry(
 
 internal fun AgentV2Update.RunFailed.toLimitRetry(
     hasReceivedStreamEvent: Boolean,
-    failedAt: Long
+    failedAt: Long,
+    authority: AgentV2AuthorityBinding
 ): AgentLimitRetry? {
     if (!retryable || hasReceivedStreamEvent) return null
     val isRateLimit = when {
@@ -87,5 +97,5 @@ internal fun AgentV2Update.RunFailed.toLimitRetry(
         code == "user_quota_exhausted" && runId == null -> false
         else -> return null
     }
-    return AgentLimitRetry(clientRunId, isRateLimit, resetAt, failedAt)
+    return AgentLimitRetry(clientRunId, isRateLimit, resetAt, failedAt, authority)
 }

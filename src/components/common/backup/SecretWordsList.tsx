@@ -3,6 +3,7 @@ import React, { memo } from '../../../lib/teact/teact';
 import renderText from '../../../global/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
 import { copyTextToClipboard } from '../../../util/clipboard';
+import getTestId from '../../../util/getTestId';
 
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
@@ -44,7 +45,7 @@ function SecretWordsList({
         {lang('Copy to Clipboard')}
       </Button>
 
-      <ol className={styles.words} dir="ltr">
+      <ol className={styles.words} dir="ltr" data-testid={getTestId('secret_words_list')}>
         {mnemonic?.map((word, i) => (
 
           <li key={i} className={styles.word}>{word}</li>

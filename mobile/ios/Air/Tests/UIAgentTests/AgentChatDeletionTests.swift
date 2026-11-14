@@ -96,6 +96,8 @@ final class AgentChatDeletionTests: XCTestCase {
         var deletion: CheckedContinuation<Void, Never>?
         client.beforeThreadDeletion = { await withCheckedContinuation { deletion = $0 } }
         let model = AgentV2Model(client: client, thread: history.thread)
+        var stopCount = 0
+        model.onStop = { stopCount += 1 }
         await model.waitForInitialLoad()
         let navigation = UINavigationController(rootViewController: UIViewController())
         let window = makeChatWindow(showing: navigation)
@@ -119,6 +121,7 @@ final class AgentChatDeletionTests: XCTestCase {
         try await waitUntil { deletion != nil && navigation.viewControllers.count == 1 }
         chat = nil
         try await waitUntil { releasedChat == nil }
+        for _ in 0..<20 { await Task.yield() }
         XCTAssertNil(releasedChat)
         XCTAssertTrue(errors.isEmpty)
         deletion?.resume()
@@ -126,6 +129,7 @@ final class AgentChatDeletionTests: XCTestCase {
         try await waitUntil { errors.count == 1 }
         XCTAssertEqual(client.deletedThreadIds, ["thread-b"])
         XCTAssertFalse(model.canDeleteChat)
+        XCTAssertEqual(stopCount, 1)
     }
 
     func testImmediateDeleteFailureShowsToastOnlyAfterPop() async throws {

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from '../../lib/teact/teact';
 import type { AgentThreadListItemV2, AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
 import type { AgentV2OperationError } from '../../api/agentV2/types';
 
+import { getIsAgentV2SupportActive } from '../../global/agentV2/uiCapabilities';
 import { agentThreadListListeners, getAgentV2LocalState } from '../../util/agent/agentV2LocalState';
 import { subscribeToAgentV2Updates } from '../../util/agentV2Updates';
 import { getIsInBackground } from '../../util/backgroundMode';
@@ -402,6 +403,15 @@ export default function useAgentV2ThreadList({
 function applyPinned(thread: AgentThreadSummaryV2, isPinned: boolean): AgentThreadSummaryV2 {
   const { isPinned: _wasPinned, ...unpinned } = thread;
   return isPinned ? { ...unpinned, isPinned: true } : unpinned;
+}
+
+export function findAgentV2SupportThread(items: readonly AgentThreadListItemV2[]) {
+  let latest: AgentThreadSummaryV2 | undefined;
+  for (const { thread } of items) {
+    if (!getIsAgentV2SupportActive(thread)) continue;
+    if (!latest || Date.parse(thread.lastActivityAt) > Date.parse(latest.lastActivityAt)) latest = thread;
+  }
+  return latest;
 }
 
 function reuseUnchangedItems(current: AgentThreadListItemV2[], next: AgentThreadListItemV2[]) {

@@ -73,6 +73,32 @@ export function getRectCenter({
   return { x: left + width / 2, y: top + height / 2 };
 }
 
+/** `rect`, in the viewport, in a motion layer standing at `layerRect` */
+export function getLayerRect(rect: MotionRect, layerRect: MotionRect): MotionRect {
+  return {
+    left: rect.left - layerRect.left, top: rect.top - layerRect.top, width: rect.width, height: rect.height,
+  };
+}
+
+/** The corners of a box styled with `style`: top left, top right, bottom right and bottom left */
+export function getBorderRadii(style: CSSStyleDeclaration) {
+  return [
+    style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius,
+  ];
+}
+
+/**
+ * Returns `find`, which looks for its element again only once the element it found has left the document, as when the
+ * list renders it anew, so that a motion following the element does not search the document in each frame
+ */
+export function cacheWhileConnected<T extends Element>(find: () => T | undefined) {
+  let element: T | undefined;
+  return () => {
+    if (!element?.isConnected) element = find();
+    return element;
+  };
+}
+
 /**
  * A picture of `element`'s text, as wide as the text shows, so that its lines break where the text's do. It reads the
  * element's style, so it is called in a measure phase.

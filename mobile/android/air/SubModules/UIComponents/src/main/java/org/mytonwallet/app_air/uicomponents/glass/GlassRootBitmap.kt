@@ -12,6 +12,7 @@ import android.view.ViewTreeObserver
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import kotlin.math.max
+import org.mytonwallet.app_air.blur3.compat.Blur3Settings
 import org.mytonwallet.app_air.blur3.source.BlurredBackgroundSourceBitmap
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -45,6 +46,7 @@ internal class GlassRootBitmap private constructor(root: ViewGroup) :
     private var observer: ViewTreeObserver? = null
     private var lastHash = 0L
     private var blurInFlight = false
+    private var isContentDirty = false
     private var retiredBitmap: Bitmap? = null
     private var freeBitmap: Bitmap? = null
 
@@ -129,9 +131,39 @@ internal class GlassRootBitmap private constructor(root: ViewGroup) :
         }
         if (blurInFlight) return
         val hash = contentHash(root)
-        if (hash == lastHash && source.bitmap != null) return
+        if (!isContentDirty && hash == lastHash && source.bitmap != null) return
         lastHash = hash
+        isContentDirty = false
         capture(root)
+    }
+
+    private fun markContentDirty(view: View) {
+        val root = rootRef.get() ?: return
+        if (!isWithinBlurReach(root, view)) return
+        isContentDirty = true
+        root.invalidate()
+    }
+
+    /** Whether [view] is close enough to a visible consumer for the blur to carry it there */
+    private fun isWithinBlurReach(root: ViewGroup, view: View): Boolean {
+        val reach = 2 * blurRadius(root.width, root.height) * DOWN_SCALE.toInt()
+        view.getLocationInWindow(viewLocation)
+        val left = viewLocation[0]
+        val top = viewLocation[1]
+        val right = left + view.width
+        val bottom = top + view.height
+        for (consumer in consumers) {
+            if (!consumer.isShown) continue
+            consumer.getLocationInWindow(viewLocation)
+            if (left < viewLocation[0] + consumer.width + reach &&
+                right > viewLocation[0] - reach &&
+                top < viewLocation[1] + consumer.height + reach &&
+                bottom > viewLocation[1] - reach
+            ) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun contentHash(root: ViewGroup): Long {
@@ -201,7 +233,7 @@ internal class GlassRootBitmap private constructor(root: ViewGroup) :
             GlassCapture.capturing = false
         }
         blurInFlight = true
-        val radius = max(4, max(bw, bh) / 12)
+        val radius = blurRadius(root.width, root.height)
         blurHandler.post {
             boxBlur(bitmap, radius)
             mainHandler.post { publish(bitmap) }
@@ -230,6 +262,23 @@ internal class GlassRootBitmap private constructor(root: ViewGroup) :
         fun of(root: ViewGroup): GlassRootBitmap = synchronized(registry) {
             registry[root] ?: GlassRootBitmap(root).also { registry[root] = it }
         }
+
+        /**
+         * Captures again every root that holds [view]. For content that changes what a view
+         * draws without moving it, such as an image that finishes loading.
+         */
+        fun notifyContentChanged(view: View) {
+            if (Blur3Settings.isRenderNodeGlassAvailable()) return
+            var parent = view.parent
+            while (parent is ViewGroup) {
+                synchronized(registry) { registry[parent] }?.markContentDirty(view)
+                parent = parent.parent
+            }
+        }
+
+        /** The box blur radius, in capture pixels, for a root of the given size */
+        private fun blurRadius(rootWidth: Int, rootHeight: Int): Int =
+            max(4, (max(rootWidth, rootHeight) / DOWN_SCALE).toInt() / 12)
 
         private val mainHandler = Handler(Looper.getMainLooper())
         private val blurHandler by lazy {

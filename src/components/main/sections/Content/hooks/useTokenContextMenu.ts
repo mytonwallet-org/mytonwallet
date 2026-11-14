@@ -11,6 +11,7 @@ import {
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   STAKING_SLUG_PREFIX,
 } from '../../../../../config';
+import getTestId from '../../../../../util/getTestId';
 import { vibrate } from '../../../../../util/haptics';
 import { compact } from '../../../../../util/iteratees';
 import { getIsNewStakeAllowed, getStakingStateStatus } from '../../../../../util/staking';
@@ -80,10 +81,12 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
         fontIcon: isPinned ? 'menu-unpin' : 'menu-pin',
         value: 'pin',
         withDelimiter: true,
+        testId: getTestId(isPinned ? 'token_menu_unpin' : 'token_menu_pin'),
       } satisfies DropdownItem<MenuHandler>, {
         name: 'Manage Tokens',
         fontIcon: 'menu-params',
         value: 'settings',
+        testId: getTestId('token_menu_manage_assets'),
       } satisfies DropdownItem<MenuHandler>,
     ];
 
@@ -111,20 +114,24 @@ function useTokenContextMenu(ref: ElementRef<HTMLButtonElement>, options: {
         name: 'Fund',
         fontIcon: 'menu-plus',
         value: 'add',
+        testId: getTestId('token_menu_add'),
       } satisfies DropdownItem<MenuHandler>, {
         name: 'Send',
         fontIcon: 'menu-send',
         value: 'send',
+        testId: getTestId('token_menu_send'),
       } satisfies DropdownItem<MenuHandler>,
       !isSwapDisabled && {
         name: 'Swap',
         fontIcon: 'menu-swap',
         value: 'swap',
+        testId: getTestId('token_menu_trade'),
       } satisfies DropdownItem<MenuHandler>,
       isStakingAvailable && {
         name: 'Stake',
         fontIcon: 'menu-percent',
         value: 'stake',
+        testId: getTestId('token_menu_stake'),
       } satisfies DropdownItem<MenuHandler>];
 
     return compact(result.concat(mandatoryItems));

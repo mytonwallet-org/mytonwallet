@@ -306,6 +306,7 @@ $swipeCardRadius: 1.625rem;
 }
 
 .swipeRename {
+  color: var(--color-accent-button-text);
   background-color: var(--color-accent);
 }
 
@@ -662,7 +663,7 @@ $swipeCardRadius: 1.625rem;
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
-  background-color: var(--color-activity-gray-background);
+  background-color: var(--agent-bubble-background);
 
   &::before {
     content: "";

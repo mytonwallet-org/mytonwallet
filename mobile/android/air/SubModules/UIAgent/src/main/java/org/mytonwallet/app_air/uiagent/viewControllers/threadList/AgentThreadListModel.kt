@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentCachedHistories
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSession
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.findAgentSupportThread
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
@@ -105,6 +106,9 @@ internal class AgentThreadListModel(
         private set
     private var loadJob: Job? = null
     private var loadChanges: MutableMap<String, AgentV2ThreadSummary?>? = null
+
+    // Contact Support waiting for the server's chats, to open the one support has or a new one
+    private var supportRequest: ((AgentV2ThreadSummary?) -> Unit)? = null
     private val mutations = mutableMapOf<String, Job>()
 
     /**
@@ -126,6 +130,7 @@ internal class AgentThreadListModel(
     private val runRevisions = mutableMapOf<String, Int>()
 
     fun reset() {
+        supportRequest = null
         invalidateLoad()
         mutations.values.toList().forEach { it.cancel() }
         mutations.clear()
@@ -142,6 +147,19 @@ internal class AgentThreadListModel(
     /** Reloads at least as many chats as the list shows, following cursors */
     fun refresh() {
         load(cursor = null, minimumCount = if (isCacheShown) 0 else items.size)
+    }
+
+    /**
+     * Hands [open] the most recently active chat that support has, or null for a new chat, from the server's chats. The
+     * request waits for them behind the device's copy and is dropped when they fail to load.
+     */
+    fun requestSupportThread(open: (AgentV2ThreadSummary?) -> Unit) {
+        if (hasLoaded && !isCacheShown && !hasLoadFailed && !isLoading) {
+            open(findAgentSupportThread(items))
+            return
+        }
+        supportRequest = open
+        refresh()
     }
 
     fun loadMore() {
@@ -180,13 +198,24 @@ internal class AgentThreadListModel(
         }
     }
 
-    fun delete(thread: AgentV2ThreadSummary, onFailure: (() -> Unit)? = null) {
+    /** Deletes the thread unless a change of it is under way, and returns whether it does */
+    fun delete(thread: AgentV2ThreadSummary, onFailure: (() -> Unit)? = null): Boolean =
         mutate(thread.id, onFailure) {
-            val response = client.delete(thread.id)
-            currentCoroutineContext().ensureActive()
-            removeLoadedThread(response.threadId)
+            val loadedModel = AgentSession.findLoadedModel(thread.id)
+            loadedModel?.holdQueueForDeletion()
+            try {
+                val response = client.delete(thread.id)
+                currentCoroutineContext().ensureActive()
+                AgentSession.dropDeletedChat(response.threadId)
+                removeLoadedThread(response.threadId)
+            } catch (error: CancellationException) {
+                AgentSession.dropDeletedChat(thread.id)
+                throw error
+            } catch (error: Throwable) {
+                loadedModel?.resumeQueueAfterFailedDeletion()
+                throw error
+            }
         }
-    }
 
     /** Drops a thread deleted elsewhere, such as from its chat. The list's own deletions remove their rows. */
     fun removeDeletedThread(threadId: String) {
@@ -302,8 +331,12 @@ internal class AgentThreadListModel(
         onChange?.invoke(change)
     }
 
-    private fun mutate(id: String, onFailure: (() -> Unit)? = null, operation: suspend () -> Unit) {
-        if (mutations.containsKey(id)) return
+    private fun mutate(
+        id: String,
+        onFailure: (() -> Unit)? = null,
+        operation: suspend () -> Unit
+    ): Boolean {
+        if (mutations.containsKey(id)) return false
         val operationJob = scope.launch(start = CoroutineStart.LAZY) {
             val owner = currentCoroutineContext().job
             try {
@@ -319,6 +352,7 @@ internal class AgentThreadListModel(
         }
         mutations[id] = operationJob
         operationJob.start()
+        return true
     }
 
     private fun invalidateLoad() {
@@ -344,6 +378,7 @@ internal class AgentThreadListModel(
                 null
             }
             var released = emptySet<String>()
+            var hasLoadedFirstPage = false
             try {
                 val merged = if (cursor == null) {
                     linkedMapOf<String, AgentV2ThreadListItem>()
@@ -373,6 +408,7 @@ internal class AgentThreadListModel(
                     pageCursor = response.nextCursor?.takeUnless { it in requestedCursors }
                 } while (merged.size < minimumCount && pageCursor != null)
                 items = sortAgentThreads(merged.values.toList())
+                hasLoadedFirstPage = cursor == null
                 nextCursor = pageCursor
                 isCacheShown = false
                 hasLoadFailed = false
@@ -416,12 +452,20 @@ internal class AgentThreadListModel(
                     hasLoaded = true
                     onChange?.invoke(AgentThreadListChange.DATA)
                     notifyActivityChange(released)
+                    // A load the next one cancelled leaves the request to it
+                    if (cursor == null && owner.isActive) settleSupportRequest(hasLoadedFirstPage)
                 }
             }
         }
         loadJob = request
         heldActivities.values.forEach { it.releasingLoad = request }
         request.start()
+    }
+
+    private fun settleSupportRequest(hasLoadedFirstPage: Boolean) {
+        val open = supportRequest ?: return
+        supportRequest = null
+        if (hasLoadedFirstPage) open(findAgentSupportThread(items))
     }
 
     /**
@@ -570,6 +614,19 @@ internal object AgentThreadDateFormatting {
         val group = dayGroup(date, now, timeZone)
         if (group == DayGroup.TODAY) return today
         if (group == DayGroup.YESTERDAY) return yesterday
+        return formatDayText(date, now, langCode, timeZone)
+    }
+
+    /**
+     * The day and month of [date], with the year when it isn't [now]'s, as "November 10" or "7 ноября 2025", without
+     * Today and Yesterday. Persian dates take the Persian calendar, as the app's other dates do.
+     */
+    fun formatDayText(
+        date: Date,
+        now: Date,
+        langCode: String,
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): String {
         val locale = Locale.forLanguageTag(langCode)
         val skeleton = if (isSameYear(date, now, timeZone)) "MMMMd" else "yMMMMd"
         val pattern = removeYearSuffix(getLocalizedPattern(locale, skeleton))

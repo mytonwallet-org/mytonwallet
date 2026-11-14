@@ -67,6 +67,7 @@ export interface ApiToken {
   symbol: string;
   slug: string;
   decimals: number;
+  precision?: number;
   chain: ApiChain;
   type?: ApiTokenType;
   tokenAddress?: string;

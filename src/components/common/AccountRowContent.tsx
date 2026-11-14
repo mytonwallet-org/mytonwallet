@@ -31,6 +31,7 @@ export interface AccountRowContentProps {
   className?: string;
   avatarClassName?: string;
   avatarUrl?: string;
+  testId?: string;
   onClick?: (accountId: string) => void;
   onMouseDown?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -54,6 +55,7 @@ function AccountRowContent({
   className,
   avatarClassName,
   avatarUrl,
+  testId,
   onClick,
   onMouseDown,
   onContextMenu,
@@ -76,6 +78,7 @@ function AccountRowContent({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick && !isDisabled ? 0 : -1}
       className={fullClassName}
+      data-testid={testId}
       onClick={!isDisabled ? handleClick : undefined}
       onMouseDown={onMouseDown}
       onContextMenu={onContextMenu}

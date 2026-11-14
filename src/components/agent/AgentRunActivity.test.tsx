@@ -150,11 +150,12 @@ describe('AgentRunActivity', () => {
     await waitForCondition(() => root.querySelector('[role="status"]')?.classList.contains('open') === true);
     expect(getStepText(root)).toBe('Preparing your answer…');
 
+    const closedAt = Date.now();
     TeactDOM.render(<AgentRunActivity isAnswerPlaceholder />, root);
-    // Past the 200 ms an indicator at the chat's end takes to fade
-    await pause(300);
-    expect(root.querySelector('[role="status"]')?.classList.contains('closing')).toBe(true);
+    await waitForCondition(() => root.querySelector('[role="status"]')?.classList.contains('closing') === true);
     await waitForCondition(() => !root.querySelector('[role="status"]'));
+    // Past the 200 ms an indicator at the chat's end takes to fade
+    expect(Date.now() - closedAt).toBeGreaterThanOrEqual(300);
 
     TeactDOM.render(undefined, root);
     root.remove();

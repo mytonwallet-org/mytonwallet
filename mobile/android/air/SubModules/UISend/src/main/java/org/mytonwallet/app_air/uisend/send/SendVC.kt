@@ -202,11 +202,14 @@ class SendVC(
     private val gap1 by lazy { Space(context) }
 
     private val amountInputView by lazy {
-        TokenAmountInputView(context, isFirstItem = false).apply {
+        TokenAmountInputView(
+            context,
+            isFirstItem = false,
+            amountEditTextId = UIComponentsR.id.send_amount_input,
+            tokenSelectorId = UIComponentsR.id.send_token_selector,
+            maxBalanceButtonId = UIComponentsR.id.send_max_button
+        ).apply {
             id = generateViewId()
-            amountEditText.id = UIComponentsR.id.send_amount_input
-            tokenSelectorView.id = UIComponentsR.id.send_token_selector
-            maxBalanceButton.id = UIComponentsR.id.send_max_button
         }
     }
     private val addressInputView by lazy {

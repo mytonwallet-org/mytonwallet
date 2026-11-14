@@ -1,5 +1,6 @@
 import { requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
 import { animate } from '../../util/animation';
+import { cacheWhileConnected } from '../agent/helpers/agentMotion';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
 import {
   createSentTextPicture,
@@ -44,10 +45,10 @@ export function startOpeningTextFlight(input: HTMLTextAreaElement, questionText:
       picture,
       bubble,
       text,
-      () => findOpeningQuestion(questionText)?.bubble,
+      () => findOpeningQuestion(conversation, questionText)?.bubble,
       layer,
-      () => conversation.querySelector(COMPOSER_SELECTOR)?.getBoundingClientRect().top,
-      Math.max(SENT_QUESTION_FLIGHT_DURATION, getRemainingScreenMotion(bubble)),
+      () => conversation.querySelector(COMPOSER_SELECTOR) ?? undefined,
+      () => getFlightDuration(bubble),
       onEnd,
     )
   ));
@@ -62,8 +63,10 @@ export function startOpeningSuggestionMorph(button: HTMLElement, questionText: s
   if (!source) return;
 
   const layer = createOpeningLayer();
-  playOpeningQuestion(layer, questionText, undefined, ({ bubble, text }, onEnd) => (
-    measureFollowupMorph(source, bubble, text, () => findOpeningQuestion(questionText)?.bubble, layer, onEnd)
+  playOpeningQuestion(layer, questionText, undefined, ({ conversation, bubble, text }, onEnd) => (
+    measureFollowupMorph(
+      source, bubble, text, () => findOpeningQuestion(conversation, questionText)?.bubble, layer, onEnd,
+    )
   ));
 }
 
@@ -87,9 +90,12 @@ function playOpeningQuestion(
   measureMotion: (question: OpeningQuestion, onEnd: NoneToVoidFunction) => (() => NoneToVoidFunction) | undefined,
 ) {
   const startedAt = Date.now();
+  // The chat that opens takes the place of any chat screen left in the stack, so the conversation found stays the last
+  // one until it leaves the document
+  const findConversation = cacheWhileConnected(findLastConversation);
 
   animate(() => {
-    const question = findOpeningQuestion(questionText);
+    const question = findOpeningQuestion(findConversation(), questionText);
     if (!question && Date.now() - startedAt < QUESTION_WAIT) return true;
 
     const startMotion = question && measureMotion(question, () => layer.remove());
@@ -106,26 +112,39 @@ function playOpeningQuestion(
   }, requestMeasure);
 }
 
-// The question as the chat that opened last shows it
-function findOpeningQuestion(questionText: string): OpeningQuestion | undefined {
+// The chat that opened last
+function findLastConversation() {
   const conversations = document.querySelectorAll<HTMLElement>(CONVERSATION_SELECTOR);
-  const conversation = conversations[conversations.length - 1];
+  return conversations.length ? conversations[conversations.length - 1] : undefined;
+}
+
+// The question as `conversation` shows it
+function findOpeningQuestion(conversation: HTMLElement | undefined, questionText: string): OpeningQuestion | undefined {
   const text = Array.from(conversation?.querySelectorAll<HTMLElement>(QUESTION_TEXT_SELECTOR) ?? [])
     .find((element) => element.textContent === questionText);
   const bubble = text?.parentElement;
   return conversation && text && bubble ? { conversation, bubble, text } : undefined;
 }
 
-// How much longer the screens `element` lies in go on moving, as a chat slides or fades in over the list
+// The flight's time into `bubble`, stretched over the rest of the transition of the screens it lies in. None while
+// one of them has yet to start, as its start, which the flight keeps to, is not known before.
+function getFlightDuration(bubble: HTMLElement) {
+  const remaining = getRemainingScreenMotion(bubble);
+  return remaining === undefined ? undefined : Math.max(SENT_QUESTION_FLIGHT_DURATION, remaining);
+}
+
+// How much longer the screens `element` lies in go on moving, as a chat slides or fades in over the list, or none while
+// a screen has yet to start moving
 function getRemainingScreenMotion(element: HTMLElement) {
   let remaining = 0;
   for (let ancestor: HTMLElement | null = element; ancestor; ancestor = ancestor.parentElement) {
-    ancestor.getAnimations().forEach((animation) => {
+    for (const animation of ancestor.getAnimations()) {
       const { endTime } = animation.effect?.getComputedTiming() ?? {};
-      if (typeof endTime !== 'number' || !Number.isFinite(endTime)) return;
+      if (typeof endTime !== 'number' || !Number.isFinite(endTime)) continue;
+      if (animation.pending) return undefined;
 
       remaining = Math.max(remaining, endTime - (Number(animation.currentTime) || 0));
-    });
+    }
   }
 
   return remaining;

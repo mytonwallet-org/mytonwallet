@@ -9,7 +9,7 @@ import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/account
 import { patchSwapItem } from '../../common/swap';
 import { getTokenByAddress } from '../../common/tokens';
 import { callHook } from '../../hooks';
-import { submitBatchUserOp, validateEvmSwapCalls } from './smartAccount/batch';
+import { estimateBatchUserOpFee, submitBatchUserOp, validateEvmSwapCalls } from './smartAccount/batch';
 import { isAlchemy7702Delegated } from './smartAccount/delegation';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import { UNISWAP_PERMIT2_ADDRESS } from './constants';
@@ -536,6 +536,7 @@ describe('LI.FI Permit2 wrapping', () => {
       '0xprivate',
       { ...LIFI_PERMIT2_PAYLOAD, approval: undefined },
       false,
+      false,
     );
 
     expect(result).toEqual({ txHash: '0xdirect' });
@@ -559,6 +560,7 @@ describe('LI.FI Permit2 wrapping', () => {
       '0xprivate',
       LIFI_PERMIT2_PAYLOAD,
       true,
+      false,
     );
 
     expect(result).toEqual({ txHash: '0xbatch' });
@@ -578,6 +580,33 @@ describe('LI.FI Permit2 wrapping', () => {
 });
 
 describe('buildOnchainSwapTransfer', () => {
+  it('quotes a token Uniswap swap as a gasless user operation when diesel was requested', async () => {
+    jest.mocked(estimateBatchUserOpFee).mockResolvedValue({ maxCost: 10n });
+    jest.mocked(isAlchemy7702Delegated).mockResolvedValue(true);
+    provider.getBalance.mockResolvedValue(0n);
+    const payload = {
+      ...PERMIT2_APPROVAL_PAYLOAD,
+      approval: undefined,
+      swap: { ...PERMIT2_APPROVAL_PAYLOAD.swap, from: OWNER },
+    };
+
+    const result = await buildOnchainSwapTransfer('ethereum', {
+      accountId: '0-mainnet', enclaveToken: 'enclave', authToken: 'auth', swapId: 'usdc-sale',
+      request: { from: USDC_ETHEREUM, to: 'eth', fromAmount: '0.1', shouldTryDiesel: true },
+      transaction: JSON.stringify(payload),
+    } as never);
+
+    expect(result).toEqual(expect.objectContaining({ id: 'usdc-sale' }));
+    expect(estimateBatchUserOpFee).toHaveBeenCalledWith(
+      'ethereum',
+      'mainnet',
+      OWNER,
+      [expect.objectContaining({ to: payload.swap.to })],
+      { needsGasless: true, gasToken: USDC_ETHEREUM },
+    );
+    expect(provider.estimateGas).not.toHaveBeenCalled();
+  });
+
   it('refuses a payload the binding rejects before the key signs anything', async () => {
     const result = await buildOnchainSwapTransfer('ethereum', {
       accountId: '0-mainnet', enclaveToken: 'enclave', authToken: 'auth', swapId: 'hostile-backend',
@@ -740,6 +769,42 @@ describe('submitOnchainSwapTransfer', () => {
       swapId: 'lifi-backend',
       msgHash: '0xdirect',
     }));
+  });
+
+  it('sends the backend LI.FI transaction as a gasless user operation when the native fee is short', async () => {
+    const localSwap = {
+      id: 'lifi-local',
+      kind: 'swap',
+      timestamp: 1_700_000_000,
+      status: 'pendingTrusted',
+      hashes: [],
+      transactionIds: {},
+    };
+    const payload = { ...LIFI_PERMIT2_PAYLOAD, approval: undefined };
+
+    rememberBuiltIntent('ethereum', 'lifi-gasless', { from: USDC_ETHEREUM, to: 'eth', fromAmount: '1' });
+
+    const result = await submitOnchainSwapTransfer('ethereum', {
+      accountId: '0-mainnet',
+      enclaveToken: 'enclave',
+      authToken: 'auth',
+      localSwap,
+      swapId: 'lifi-gasless',
+      transaction: JSON.stringify(payload),
+      needsBatch: false,
+      isGasless: true,
+    } as never, jest.fn());
+
+    expect(result).toEqual({ activityId: 'lifi-local', submittedHashes: ['0xbatch'] });
+    expect(submitBatchUserOp).toHaveBeenCalledWith(
+      'ethereum',
+      'mainnet',
+      OWNER,
+      PERMIT_WALLET.privateKey,
+      [expect.objectContaining({ to: payload.lifiPermit2.permit2Proxy })],
+      { needsGasless: true, gasToken: USDC_ETHEREUM },
+    );
+    expect(connectedSigner.sendTransaction).not.toHaveBeenCalled();
   });
 
   it('signs a payable LI.FI Stargate witness and reports the source hash', async () => {

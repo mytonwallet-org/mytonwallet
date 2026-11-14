@@ -16,6 +16,7 @@ import { selectCurrentAccountId, selectSwapTokens, selectSwapType } from '../../
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 import { vibrate } from '../../util/haptics';
 import { isSwapReverseProhibited } from '../../util/swap/isSwapReverseProhibited';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
@@ -92,6 +93,7 @@ function SwapInitial({
     currentCexPrivacyPolicyUrl,
     currentCexAmlKycPolicyUrl,
     swapHint,
+    swapQuoteHint,
     estimateDebugSummary,
   },
   tokens,
@@ -161,6 +163,8 @@ function SwapInitial({
   const debounceSetAmountOut = useDebouncedCallback(
     setSwapAmountOut, [setSwapAmountOut], SET_AMOUNT_DEBOUNCE_TIME, true,
   );
+  const quoteHint = !isEstimating ? swapQuoteHint : undefined;
+  const hint = swapHint ?? quoteHint;
 
   const [currentSubModal, openSettingsModal, openFeeModal, closeSubModal] = useSubModals(explainedFee);
 
@@ -351,6 +355,7 @@ function SwapInitial({
             {renderBalance()}
             <RichNumberInput
               id="swap-sell"
+              testId={isActive ? getTestId('swap_sell_amount') : undefined}
               labelText={lang('You Sell')}
               className={styles.amountInput}
               hasError={hasAmountInError}
@@ -362,7 +367,11 @@ function SwapInitial({
               labelClassName={styles.inputLabel}
               cornerClassName={styles.swapCornerTop}
             >
-              <SelectTokenButton token={tokenIn as ApiToken} onClick={handleSelectTokenInModalOpen} />
+              <SelectTokenButton
+                token={tokenIn as ApiToken}
+                testId={isActive ? getTestId('swap_sell_token') : undefined}
+                onClick={handleSelectTokenInModalOpen}
+              />
             </RichNumberInput>
           </div>
 
@@ -373,6 +382,7 @@ function SwapInitial({
           <div ref={inputOutRef} className={styles.inputContainer}>
             <RichNumberInput
               id="swap-buy"
+              testId={isActive ? getTestId('swap_buy_amount') : undefined}
               labelText={lang('You Buy')}
               className={styles.amountInputBuy}
               value={amountOutValue}
@@ -385,17 +395,22 @@ function SwapInitial({
               labelClassName={styles.inputLabel}
               cornerClassName={styles.swapCornerBottom}
             >
-              <SelectTokenButton token={tokenOut as ApiToken} onClick={handleSelectTokenOutModalOpen} />
+              <SelectTokenButton
+                token={tokenOut as ApiToken}
+                testId={isActive ? getTestId('swap_buy_token') : undefined}
+                onClick={handleSelectTokenOutModalOpen}
+              />
             </RichNumberInput>
           </div>
         </div>
         <div className={styles.footerBlock}>
           {renderFee()}
           {renderPriceImpactWarning()}
-          {errorType !== undefined && swapHint && (
+          {hint && (
             <SwapHint
-              hint={swapHint}
+              hint={hint}
               tokens={tokens}
+              tokenIn={tokenIn}
               tokenOut={tokenOut}
               onIntermediateClick={handleIntermediateHintClick}
             />

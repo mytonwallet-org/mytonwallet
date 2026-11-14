@@ -671,7 +671,7 @@ class InAppBrowserTopBarView(
                     LocaleController.getString("Reload")
                 ) {
                     viewController.webView.reload()
-                },
+                }.apply { testViewId = UIComponentsR.id.browser_menu_reload },
                 WMenuPopup.Item(
                     null,
                     LocaleController.getString("Open in Browser")
@@ -679,7 +679,7 @@ class InAppBrowserTopBarView(
                     viewController.window?.startActivityCatching(
                         Intent(Intent.ACTION_VIEW, activeUrl.toUri())
                     )
-                },
+                }.apply { testViewId = UIComponentsR.id.browser_menu_open_external },
                 WMenuPopup.Item(
                     null,
                     LocaleController.getString("CopyURL")
@@ -692,7 +692,7 @@ class InAppBrowserTopBarView(
                     ) {
                         Haptics.play(context, HapticType.LIGHT_TAP)
                     }
-                },
+                }.apply { testViewId = UIComponentsR.id.browser_menu_copy_url },
                 WMenuPopup.Item(
                     null,
                     LocaleController.getString("Share")
@@ -706,7 +706,7 @@ class InAppBrowserTopBarView(
                             LocaleController.getString("Share")
                         )
                     )
-                }
+                }.apply { testViewId = UIComponentsR.id.browser_menu_share }
             ),
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.ALIGNED,

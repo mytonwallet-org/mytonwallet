@@ -5,6 +5,7 @@ import type { ApiSite, ApiSiteCategory } from '../../api/types';
 
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 import { openUrl } from '../../util/openUrl';
 import { getHostnameFromUrl } from '../../util/url';
 
@@ -44,6 +45,7 @@ function Category({ category, sites }: OwnProps) {
         className={styles.header}
         role="button"
         tabIndex={0}
+        data-testid={getTestId('explore_category')}
         onClick={handleCategoryClick}
       >
         {lang(category.name)}

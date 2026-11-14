@@ -451,7 +451,7 @@ final class AgentDictationTouchView: UIView {
         addSubview(pauseHintView)
         addSubview(blobView)
         iconView.contentMode = .center
-        iconView.tintColor = .white
+        updateIconColor()
         iconView.image = Self.getIcon(for: .idle)
         blobView.addSubview(iconView)
         resumeButton.isHidden = true
@@ -475,6 +475,7 @@ final class AgentDictationTouchView: UIView {
     override func tintColorDidChange() {
         super.tintColorDidChange()
         blobView.color = tintColor
+        updateIconColor()
     }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
@@ -736,6 +737,7 @@ final class AgentDictationTouchView: UIView {
         currentScale = 1
         blobView.layer.removeAllAnimations()
         blobView.setFailed(false, animated: false)
+        updateIconColor()
         setIcon(Self.getIcon(for: phase), animated: false)
         blobView.color = tintColor
         clock.start()
@@ -948,6 +950,7 @@ final class AgentDictationTouchView: UIView {
             self.pauseHintView.alpha = 0
         }
         blobView.setFailed(true, animated: isPresentedBefore)
+        updateIconColor()
         setIcon(Self.failureIcon, animated: isPresentedBefore && !isMotionReduced)
         if isMotionReduced {
             blobView.transform = place
@@ -1029,11 +1032,16 @@ final class AgentDictationTouchView: UIView {
         // left at full strength would look like a recording over the trailing circle
         blobView.alpha = 0
         blobView.setFailed(false, animated: false)
+        updateIconColor()
         setIcon(Self.getIcon(for: phase), animated: false)
     }
 
     private func setIcon(_ image: UIImage?, animated: Bool) {
         swapRecordingGlyph(of: iconView, to: image, animated: animated)
+    }
+
+    private func updateIconColor() {
+        iconView.tintColor = isShowingFailure ? .white : tintColor.foregroundForTintedBackground
     }
 
     private static func getIcon(for phase: AgentDictationState.Phase) -> UIImage? {

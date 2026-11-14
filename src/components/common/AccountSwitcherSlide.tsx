@@ -10,6 +10,7 @@ import type {
 import type { Account, AccountSettings, GlobalState } from '../../global/types';
 
 import { selectCurrentAccountId, selectOrderedAccounts } from '../../global/selectors';
+import getTestId from '../../util/getTestId';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -131,6 +132,7 @@ function AccountSwitcherSlide({
                 isSelected={accountId === currentSelectedAccountId}
                 isDisabled={getIsAccountDisabled?.(account, accountId)}
                 className={styles.listItem}
+                testId={isActive ? getTestId('account_switcher_row') : undefined}
                 onClick={handleAccountClick}
               />
             );

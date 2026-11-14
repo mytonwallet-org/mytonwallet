@@ -27,6 +27,14 @@ export interface DropdownItem<T extends string = string> {
   withDelimiter?: boolean;
   withDelimiterAfter?: boolean;
   noTranslate?: boolean;
+  testId?: string;
+  /** A menu keeps open after this item, which shows another page of items, as a submenu does */
+  shouldKeepOpen?: boolean;
+  /**
+   * With a pointer, the item opens these items in a menu beside it, as a desktop submenu does, rather than being
+   * selected; on a touch screen it is selected as any other item
+   */
+  subItems?: DropdownItem<T>[];
 }
 
 interface OwnProps<T extends string> {
@@ -48,6 +56,7 @@ interface OwnProps<T extends string> {
   onChange?: (value: T) => void;
   isLoading?: boolean;
   buttonPrefix?: TeactNode;
+  testId?: string;
 }
 
 const ARROW_ICONS = {
@@ -78,6 +87,7 @@ function Dropdown<T extends string>({
   onChange,
   isLoading = false,
   buttonPrefix,
+  testId,
 }: OwnProps<T>): TeactJsx {
   const [isMenuOpen, openMenu, closeMenu] = useFlag();
   const withMenu = items.length > 1;
@@ -88,6 +98,8 @@ function Dropdown<T extends string>({
     item ||= { value: '' as T, name: '' };
     return {
       ...item,
+      // The button shows the selected item, and only the menu rows carry its test id
+      testId: undefined,
       isDisabled: !isFullyInteractive && disabled,
     };
   }, [items, selectedValue, isFullyInteractive, disabled]);
@@ -129,6 +141,7 @@ function Dropdown<T extends string>({
   return (
     <div
       className={fullClassName}
+      data-testid={testId}
       onClick={isFullyInteractive && !disabled && withMenu ? openMenu : undefined}
     >
       {label && <span className={buildClassName(styles.label, labelClassName)}>{label}</span>}

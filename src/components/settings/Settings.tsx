@@ -36,6 +36,7 @@ import { calculateFullBalance } from '../../util/calculateFullBalance';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
+import getTestId from '../../util/getTestId';
 import isViewAccount from '../../util/isViewAccount';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 import { openUrl } from '../../util/openUrl';
@@ -470,7 +471,11 @@ function Settings({
 
           {isPortfolioAvailable && (
             <div className={styles.block}>
-              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenPortfolio}>
+              <div
+                className={buildClassName(styles.item, styles.itemMenu)}
+                data-testid={getTestId('settings_item_portfolio')}
+                onClick={handleOpenPortfolio}
+              >
                 <img className={styles.menuIcon} src={portfolioImg} alt={lang('Portfolio')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Portfolio')}</span>
@@ -487,7 +492,11 @@ function Settings({
           </p>
 
           <div className={styles.block}>
-            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleAppearanceOpen}>
+            <div
+              className={buildClassName(styles.item, styles.itemMenu)}
+              data-testid={getTestId('settings_item_appearance')}
+              onClick={handleAppearanceOpen}
+            >
               <img className={styles.menuIcon} src={appearanceImg} alt={lang('Appearance')} />
               <div className={styles.itemContent}>
                 <span className={styles.itemTitle}>{lang('Appearance')}</span>
@@ -500,7 +509,11 @@ function Settings({
                 the wallet type instead of the signing gate: a wallet whose secret cannot be read must not lose
                 the only way to reach them when it is the only wallet in the profile. */}
             {hasPassword && !isViewAccount(accountType) && (
-              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleSecurityOpen}>
+              <div
+                className={buildClassName(styles.item, styles.itemMenu)}
+                data-testid={getTestId('settings_item_security')}
+                onClick={handleSecurityOpen}
+              >
                 <img className={styles.menuIcon} src={securityImg} alt={lang('Security')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Security')}</span>
@@ -512,7 +525,11 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleAssetsOpen}>
+            <div
+              className={buildClassName(styles.item, styles.itemMenu)}
+              data-testid={getTestId('settings_item_assets_and_activity')}
+              onClick={handleAssetsOpen}
+            >
               <img className={styles.menuIcon} src={assetsActivityImg} alt={lang('Assets & Activity')} />
               <div className={styles.itemContent}>
                 <span className={styles.itemTitle}>{lang('Assets & Activity')}</span>
@@ -522,7 +539,11 @@ function Settings({
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>
             {accountType === 'mnemonic' && isMultichain && (
-              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenWalletVersion}>
+              <div
+                className={buildClassName(styles.item, styles.itemMenu)}
+                data-testid={getTestId('settings_item_subwallets')}
+                onClick={handleOpenWalletVersion}
+              >
                 <img className={styles.menuIcon} src={walletVersionImg} alt={lang('Subwallets')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Subwallets')}</span>
@@ -554,7 +575,11 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handlePushNotificationsOpen}>
+            <div
+              className={buildClassName(styles.item, styles.itemMenu)}
+              data-testid={getTestId('settings_item_notification_settings')}
+              onClick={handlePushNotificationsOpen}
+            >
               <img
                 className={styles.menuIcon}
                 src={notifications}
@@ -568,7 +593,11 @@ function Settings({
               </div>
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>
-            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleLanguageOpen}>
+            <div
+              className={buildClassName(styles.item, styles.itemMenu)}
+              data-testid={getTestId('settings_item_language')}
+              onClick={handleLanguageOpen}
+            >
               <img className={styles.menuIcon} src={languageImg} alt={lang('Language')} />
               <div className={styles.itemContent}>
                 <span className={styles.itemTitle}>{lang('Language')}</span>
@@ -604,6 +633,7 @@ function Settings({
               target="_blank"
               rel="noopener noreferrer"
               className={buildClassName(styles.item, styles.itemMenu)}
+              data-testid={getTestId('settings_item_help_center')}
             >
               <img className={styles.menuIcon} src={helpcenterImg} alt={lang('Help Center')} />
               <span className={styles.itemTitle}>{lang('Help Center')}</span>
@@ -621,7 +651,11 @@ function Settings({
 
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </a>
-            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleDisclaimerOpen}>
+            <div
+              className={buildClassName(styles.item, styles.itemMenu)}
+              data-testid={getTestId('settings_item_use_responsibility')}
+              onClick={handleDisclaimerOpen}
+            >
               <img className={styles.menuIcon} src={disclaimerImg} alt={lang('Use Responsibly')} />
               <span className={styles.itemTitle}>{lang('Use Responsibly')}</span>
 
@@ -637,6 +671,7 @@ function Settings({
                 target="_blank"
                 rel="noopener noreferrer"
                 className={buildClassName(styles.item, styles.itemMenu)}
+                data-testid={getTestId('settings_item_mtw_cards_nft')}
               >
                 <img className={styles.menuIcon} src={mwCardsImg} alt={lang('My Wallet Cards NFT')} />
                 <span className={styles.itemTitle}>{lang('My Wallet Cards NFT')}</span>
@@ -660,7 +695,11 @@ function Settings({
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             )}
-            <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleAboutOpen}>
+            <div
+              className={buildClassName(styles.item, styles.itemMenu)}
+              data-testid={getTestId('settings_item_about_mtw')}
+              onClick={handleAboutOpen}
+            >
               <img className={styles.menuIcon} src={aboutImg} alt="" />
               <span className={styles.itemTitle}>{lang('About %app_name%', { app_name: APP_NAME })}</span>
 
@@ -684,7 +723,11 @@ function Settings({
             </div>
           )}
 
-          <div className={styles.version} onClick={IS_EXPLORER ? undefined : handleMultipleClick}>
+          <div
+            className={styles.version}
+            data-testid={getTestId('settings_version')}
+            onClick={IS_EXPLORER ? undefined : handleMultipleClick}
+          >
             {APP_NAME} {APP_VERSION} {APP_ENV_MARKER}
           </div>
         </div>

@@ -15,7 +15,7 @@ import type {
   ApiSwapAsset,
   ApiTokenWithPrice,
 } from '../../../../api/types';
-import type { Account, SavedAddress, Theme } from '../../../../global/types';
+import type { Account, LoadMoreDirection, SavedAddress, Theme } from '../../../../global/types';
 import { ContentTab } from '../../../../global/types';
 
 import {
@@ -289,16 +289,23 @@ function Activities({
   }, [isActive, isLandscape, resetScroll]);
 
   const handleScroll = useLastCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const scrollContainer = e.target as HTMLDivElement;
-    const list = containerRef.current!;
-    // The scroll container can hold content above the list (the token summary), so the scroll counts from the list top
-    const listScrollTop = scrollContainer === list
-      ? scrollContainer.scrollTop
-      : scrollContainer.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    const listScrollTop = getListScrollTop(e.target as HTMLDivElement, containerRef.current!);
 
     hasUserScrolledRef.current = listScrollTop >= SCROLL_THRESHOLD;
 
     onScroll?.(e);
+  });
+
+  // `getMore` anchors the next slice at the edge row of the rendered slice and keeps only `FURTHER_SLICE` rows
+  // on the screen side of it. By the time `InfiniteScroll` asks for more, a tall screen can already span more rows
+  // than that, and the rows at the far end of the screen stay blank. Anchoring the slice at the row in the middle
+  // of the screen keeps the whole screen inside the slice.
+  const handleLoadMore = useLastCallback(({ direction }: { direction: LoadMoreDirection }) => {
+    const list = containerRef.current!;
+    const scrollContainer = resolvedScrollSelector ? list.closest<HTMLElement>(resolvedScrollSelector)! : list;
+    const screenMiddle = (getListScrollTop(scrollContainer, list) + scrollContainer.clientHeight / 2) / REM;
+
+    getMore!({ direction, offsetId: findListItemIdAtOffset(listItemIds!, itemPositionById, screenMiddle) });
   });
 
   const handleActivityClick = useLastCallback((id: string) => {
@@ -458,7 +465,7 @@ function Activities({
       preloadBackwards={FURTHER_SLICE}
       withAbsolutePositioning
       maxHeight={`${currentContainerHeight}rem`}
-      onLoadMore={getMore}
+      onLoadMore={handleLoadMore}
       onScroll={handleScroll}
     >
       {renderHistory()}
@@ -583,6 +590,24 @@ function addDatesToActivityIds(activityIds: readonly string[], byId: Record<stri
   }
 
   return listItemIds;
+}
+
+// The scroll container can hold content above the list (the token summary), so the scroll counts from the list top
+function getListScrollTop(scrollContainer: HTMLElement, list: HTMLElement) {
+  return scrollContainer === list
+    ? scrollContainer.scrollTop
+    : scrollContainer.getBoundingClientRect().top - list.getBoundingClientRect().top;
+}
+
+/** Returns the id of the row that covers `offset` (in rem), clamped to the first and the last row */
+export function findListItemIdAtOffset(
+  listItemIds: readonly string[],
+  itemPositionById: Record<string, ItemPosition>,
+  offset: number,
+) {
+  const nextIndex = listItemIds.findIndex((itemId) => itemPositionById[itemId].top > offset);
+
+  return listItemIds[nextIndex === -1 ? listItemIds.length - 1 : Math.max(0, nextIndex - 1)];
 }
 
 /**

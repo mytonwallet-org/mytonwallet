@@ -31,4 +31,11 @@ struct SwapAccountSnapshot: Sendable {
     func supports(chain: ApiChain?) -> Bool {
         account.supports(chain: chain)
     }
+
+    func getNativeBalanceForEstimate(chain: ApiChain) -> String? {
+        guard supports(chain: chain) else { return nil }
+        let token = chain.nativeToken
+        guard let balance = balances[token.slug] else { return nil }
+        return balance == 0 || token.decimals == 0 ? balance.description : bigIntToDoubleString(balance, decimals: token.decimals)
+    }
 }

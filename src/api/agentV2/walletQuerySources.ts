@@ -11,7 +11,7 @@ import type {
 import type { AgentV2WalletSessionSnapshot } from './walletSession';
 
 import { raceWithAbortSignal, throwIfAborted } from '../../util/abortSignal';
-import { parseTxId } from '../../util/activities';
+import { getIsActivitySuitableForFetchingTimestamp, parseTxId } from '../../util/activities';
 import { toDecimal } from '../../util/decimals';
 import { matchesPortfolioAccountFilter } from './walletQueryAccountFilter';
 import { Decimal } from './walletQueryDecimal';
@@ -89,17 +89,21 @@ export async function refreshPositions(
 export async function scanTransactionAccount(
   dependencies: WalletQueryMaterializationDependencies,
   account: AgentV2HostAccount,
-  tokenSlug?: string,
-  targetHash?: string,
+  options: { tokenSlug?: string; targetHash?: string; periodStart?: number } = {},
 ): Promise<TransactionScanOutcome> {
+  const { tokenSlug, targetHash, periodStart } = options;
   const fetchPastActivities = dependencies.fetchPastActivities!;
   const activities: ApiActivity[] = [];
   const seen = new Set<string>();
   let hasMore = true;
+  let hasPassedPeriodStart = false;
   let failed = false;
   let attempts = 0;
   let requestLimit = MAX_ACTIVITY_BATCH;
-  while (hasMore && activities.length < MAX_ACTIVITY_SCAN_PER_ACCOUNT) {
+  let oldestTimestamp = Infinity;
+  // Each read starts from the newest row, so the scanned rows form one contiguous prefix of the history.
+  // Paging by `toTimestamp` would lose rows that share the timestamp of a page boundary.
+  while (true) {
     throwIfAborted(dependencies.signal);
     let slice: Awaited<ReturnType<FetchPastActivities>>;
     let requestAttempts = 0;
@@ -127,10 +131,15 @@ export async function scanTransactionAccount(
       failed = true;
       break;
     }
+    const previousCount = activities.length;
     for (const activity of slice.activities) {
       if (seen.has(activity.id)) continue;
       seen.add(activity.id);
       activities.push(activity);
+      // Backend swap summaries, local and pending rows can be older than the page they arrive with
+      if (getIsActivitySuitableForFetchingTimestamp(activity)) {
+        oldestTimestamp = Math.min(oldestTimestamp, activity.timestamp);
+      }
     }
     if (targetHash && activities.some((activity) => activityHasTransactionHash(activity, targetHash))) {
       hasMore = false;
@@ -138,10 +147,16 @@ export async function scanTransactionAccount(
     }
     hasMore = slice.hasMore;
     if (!hasMore) break;
-    if (slice.activities.length < requestLimit || requestLimit >= MAX_ACTIVITY_SCAN_PER_ACCOUNT) break;
+    // A row at exactly `periodStart` does not prove its equal-timestamp peers were read
+    if (periodStart !== undefined && oldestTimestamp < periodStart) {
+      hasPassedPeriodStart = true;
+      break;
+    }
+    if (requestLimit >= MAX_ACTIVITY_SCAN_PER_ACCOUNT) break;
+    if (requestLimit > MAX_ACTIVITY_BATCH && activities.length === previousCount) break;
     requestLimit = Math.min(MAX_ACTIVITY_SCAN_PER_ACCOUNT, requestLimit * 2);
   }
-  return { account, activities, attempts, failed, hasMore };
+  return { account, activities, attempts, failed, hasMore, hasPassedPeriodStart };
 }
 
 export async function loadTransactionDetail(

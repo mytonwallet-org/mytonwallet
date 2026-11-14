@@ -175,7 +175,8 @@ final class AgentComposerView: UIView {
     private let sendHighlightView = UIView()
     private let sendGlyphView = UIImageView(image: AgentComposerMetrics.sendArrowImage)
     private var isSendDisplayed = false
-    private let inputTopGuide = UILayoutGuide()
+    /// A line at the top of the field, for content that keeps clear of it
+    let inputTopGuide = UILayoutGuide()
     private let textView = AgentComposerTextView()
     private let placeholderLabel = UILabel()
     private let sendButton = UIButton(type: .system)
@@ -212,6 +213,8 @@ final class AgentComposerView: UIView {
     private var actionSeparation: CGFloat = 0
     private var displayedActionTint: UIColor?
     private var displayedActionGlyph: UIImage?
+    /// The trailing circle's glyph that shrinks away as another takes its place
+    private(set) var leavingActionGlyphView: UIImageView?
     private var glyphAnimators: [UIViewPropertyAnimator] = []
 
     var dictationController: AgentDictationController? {
@@ -396,14 +399,12 @@ final class AgentComposerView: UIView {
         externalGlassHost ?? glassContainerView?.contentView ?? self
     }
 
-    /// The trailing circle stands apart from an empty field as its microphone, and over a draft as Stop while an answer
-    /// can be stopped, as sending waits for the answer. Otherwise it stays merged into the field while the field has
-    /// text, with Send in its place through any dictation into the text, recording, recognizing or failing, so the text
-    /// never reflows; and while the field shows the recognition, or the floating microphone records as the one
-    /// microphone.
+    /// The trailing circle stands apart from an empty field as its microphone, or Stop while an answer can be stopped.
+    /// It stays merged into the field while the field has text, with Send in its place, as a question sent during an
+    /// answer waits for it, through any dictation into the text, recording, recognizing or failing, so the text never
+    /// reflows; and while the field shows the recognition, or the floating microphone records as the one microphone.
     private var shouldSeparateActionButton: Bool {
-        if hasText { return isStopAvailable }
-        return dictationState.phase != .recognizing && !dictationState.isRecordingFloating
+        !hasText && dictationState.phase != .recognizing && !dictationState.isRecordingFloating
     }
 
     /// A dictation into a field that already has text, as from the floating microphone, leaves the field as it is: its
@@ -565,7 +566,7 @@ final class AgentComposerView: UIView {
         updateActionButtons()
     }
 
-    /// Offers Stop in the microphone's place, a draft or not, for an answer being written that can be stopped
+    /// Offers Stop in the microphone's place while the field is empty, for an answer being written that can be stopped
     func setStopAvailable(_ isAvailable: Bool) {
         guard isAvailable != isStopAvailable else { return }
         isStopAvailable = isAvailable
@@ -1416,13 +1417,12 @@ final class AgentComposerView: UIView {
         // A recording on the floating microphone has its stop there, while the trailing circle is merged into the field
         let isHandsFree = phase == .handsFree && !dictationState.isFloating
         let isRecording = (phase == .holding || phase == .handsFree) && !dictationState.isFloating
-        // While an answer can be stopped, the circle holds Stop over a draft too, as sending waits for the answer, also
-        // while dictating into the draft on the floating microphone; otherwise Send with text, which keeps its place
-        // whatever a dictation into the text does
-        let mode: ActionMode = hasText && !isStopAvailable ? .send : .microphone
+        // Stop with an empty field while an answer can be stopped, Send with text, as Android has them: a question sent
+        // during the answer waits for it. Send keeps its place whatever a dictation into the text does.
+        let mode: ActionMode = hasText ? .send : .microphone
         let isSeparate = shouldSeparateActionButton
         let wasStopDisplayed = isStopDisplayed
-        isStopDisplayed = isStopAvailable && mode == .microphone && (phase == .idle || hasText)
+        isStopDisplayed = isStopAvailable && phase == .idle && mode == .microphone
         sendButton.isHidden = mode != .send
         sendButton.isEnabled = isSendEnabled
         // It sends nothing while a dictation into the text goes on, with no change to how it looks
@@ -1439,7 +1439,7 @@ final class AgentComposerView: UIView {
 
         // An answer that ends under a draft merges the circle into the field for Send with Stop's glyph, so the
         // microphone never shows in between; the circle comes back out of the field as the microphone
-        let isStopGlyph = (phase == .idle || hasText)
+        let isStopGlyph = phase == .idle
             && (isStopAvailable || mode == .send && displayedActionGlyph === Self.stopImage)
         let microphoneImage = isHandsFree ? Self.stopImage : isStopGlyph ? Self.stopImage : Self.microphoneImage
         if displayedActionGlyph !== microphoneImage {
@@ -1463,20 +1463,70 @@ final class AgentComposerView: UIView {
         updateActionSeparation(animated: true)
     }
 
-    /// The microphone and Stop turn into each other with the symbols' own replace transition, or a cross-fade before
-    /// iOS 17
+    /// The microphone and Stop turn into each other in the trailing circle as the symbols' replace transition shows
+    /// them: the leaving glyph shrinks away as the arriving one grows in, or the two cross-fade with Reduce Motion.
+    /// Both are the circle's own views, so the swap goes with the circle, also as the composer moves with the keyboard
+    /// that a sent question closes in the same pass. The symbols' own transition would keep the leaving glyph as far
+    /// from the circle as the composer moves in that pass.
     private func swapActionGlyph(to image: UIImage?) {
-        if #available(iOS 17.0, *), let image {
-            microphoneGlyphView.setSymbolImage(image, contentTransition: .replace)
-        } else {
-            UIView.transition(
-                with: microphoneGlyphView,
-                duration: Self.glyphFadeDuration,
-                options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction]
-            ) {
-                self.microphoneGlyphView.image = image
+        leavingActionGlyphView?.removeFromSuperview()
+        leavingActionGlyphView = nil
+        microphoneGlyphView.layer.removeAnimation(forKey: Self.glyphArrivalScaleKey)
+        guard let leavingImage = microphoneGlyphView.image, !actionContentView.bounds.isEmpty else {
+            microphoneGlyphView.image = image
+            return
+        }
+        let leavingView = UIImageView(image: leavingImage)
+        leavingView.contentMode = .center
+        leavingView.tintColor = microphoneGlyphView.tintColor
+        leavingView.isUserInteractionEnabled = false
+        // Centred in the circle as the circle's size changes, as the arriving glyph is
+        leavingView.autoresizingMask = [
+            .flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin,
+        ]
+        UIView.performWithoutAnimation {
+            leavingView.center = CGPoint(x: actionContentView.bounds.midX, y: actionContentView.bounds.midY)
+            leavingView.transform = microphoneGlyphView.transform
+            leavingView.alpha = microphoneGlyphView.alpha
+            actionContentView.insertSubview(leavingView, aboveSubview: microphoneGlyphView)
+        }
+        leavingActionGlyphView = leavingView
+        microphoneGlyphView.image = image
+
+        // The arriving glyph's animations add to its own transform and opacity, which a host's swap to the close cross
+        // sets
+        let isMotionReduced = UIAccessibility.isReduceMotionEnabled
+        let fadeIn = CABasicAnimation(keyPath: "opacity")
+        fadeIn.isAdditive = true
+        fadeIn.fromValue = -1
+        fadeIn.toValue = 0
+        fadeIn.duration = Self.glyphFadeDuration
+        fadeIn.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        microphoneGlyphView.layer.add(fadeIn, forKey: Self.glyphArrivalFadeKey)
+        if !isMotionReduced {
+            let grow = CASpringAnimation(keyPath: "transform.scale")
+            grow.isAdditive = true
+            grow.mass = 1
+            grow.stiffness = AgentComposerMetrics.telegramSpringStiffness
+            grow.damping = AgentComposerMetrics.telegramSpringDamping
+            grow.fromValue = GlassMotion.matchScale - 1
+            grow.toValue = 0
+            grow.duration = grow.settlingDuration
+            microphoneGlyphView.layer.add(grow, forKey: Self.glyphArrivalScaleKey)
+        }
+        let leave = UIViewPropertyAnimator(duration: Self.glyphFadeDuration, curve: .easeIn) {
+            leavingView.alpha = 0
+            if !isMotionReduced {
+                let scale = GlassMotion.matchScale
+                leavingView.transform = leavingView.transform.scaledBy(x: scale, y: scale)
             }
         }
+        leave.addCompletion { [weak self, weak leavingView] _ in
+            leavingView?.removeFromSuperview()
+            guard let self, leavingActionGlyphView === leavingView else { return }
+            leavingActionGlyphView = nil
+        }
+        leave.startAnimation()
     }
 
     private func applyActionTint(_ tint: UIColor?, animated: Bool) {
@@ -1536,6 +1586,8 @@ final class AgentComposerView: UIView {
 
     private static let actionTransitionDuration: TimeInterval = 0.4
     private static let glyphFadeDuration: TimeInterval = 0.2
+    private static let glyphArrivalFadeKey = "agentGlyphArrivalFade"
+    private static let glyphArrivalScaleKey = "agentGlyphArrivalScale"
     private static let hiddenGlyphScale: CGFloat = 0.01
     private static let highlightedSendAlpha: CGFloat = 0.4
 

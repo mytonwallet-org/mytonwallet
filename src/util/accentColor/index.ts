@@ -3,6 +3,7 @@ import { setExtraStyles, toggleExtraClass } from '../../lib/teact/teact-dom';
 
 import type { ApiNft } from '../../api/types';
 import type { AppTheme } from '../../global/types';
+import type { AccentCssVariable } from './constants';
 
 import { MAX_WORKERS, requestMediaWorker } from '../launchMediaWorkers';
 import { logDebugError } from '../logs';
@@ -31,7 +32,7 @@ export function useAccentColor(
     const element = elementRefOrBody === 'body' ? document.body : elementRefOrBody.current;
     if (!element) return;
 
-    setExtraStyles(element, {
+    const accentStyles: Record<AccentCssVariable, string> = {
       '--color-accent': accentColor || 'inherit',
       '--color-accent-10o': accentColor ? `${accentColor}${HEX_10_PERCENT}` : 'inherit',
       '--agent-link-decoration': accentColorIndex === ACCENT_BNW_INDEX ? 'underline' : 'none',
@@ -39,8 +40,9 @@ export function useAccentColor(
       '--color-accent-button-background-hover': accentColor ? `${accentColor}${HEX_80_PERCENT}` : 'inherit',
       '--color-accent-button-text': accentColor === '#FFFFFF' ? '#000000' : 'inherit',
       '--color-accent-button-text-hover': accentColor === '#FFFFFF' ? '#000000' : 'inherit',
-    });
+    };
 
+    setExtraStyles(element, accentStyles);
     toggleExtraClass(document.documentElement, 'is-white-accent', accentColor === '#FFFFFF');
   }, [elementRefOrBody, accentColor, accentColorIndex]);
 }

@@ -6,16 +6,21 @@ import type {
   AgentV2ClientUpdate,
   AgentV2HydratedMessage,
   AgentV2MutationResult,
+  AgentV2RunCommand,
   AgentV2RunResult,
   AgentV2ThreadHydration,
 } from '../../../api/agentV2/types';
+import type { LangFn } from '../../../hooks/useLang';
 import type {
   AgentV2MessagesState,
   AgentV2MessagesStateAction,
 } from './agentV2MessagesState';
 import type { TextRevealPresentations } from './textRevealPresentation';
 
+import { getIsAgentV2SupportEntryVisible } from '../../../global/agentV2/uiCapabilities';
 import { AgentClientTrace, type ClientTimingEvent } from '../../../api/agentV2/developmentTelemetry';
+import { decodeHttpError } from '../../../api/agentV2/identity';
+import { getAgentV2ErrorText } from '../../agentV2/agentV2Copy';
 import * as developmentTiming from './agentDevelopmentTiming';
 import {
   type AgentV2HydrationControllerDependencies,
@@ -25,6 +30,8 @@ import {
   INITIAL_AGENT_V2_MESSAGES_STATE,
   reduceAgentV2MessagesState,
   selectAgentV2Activity,
+  selectAgentV2HeldLimitRunId,
+  selectCanRequestAgentV2Support,
 } from './agentV2MessagesState';
 import { createAgentV2RunController } from './agentV2RunController';
 import { createAgentV2StreamController } from './agentV2StreamController';
@@ -36,6 +43,322 @@ const INPUT_MESSAGE_ID = '44444444-4444-4444-8444-444444444444';
 const ASSISTANT_MESSAGE_ID = '55555555-5555-4555-8555-555555555555';
 
 describe('Agent V2 controllers', () => {
+  it.each([false, true])('requests support with an optimistic message, including at the daily quota (%s)', async (
+    isQuotaExhausted,
+  ) => {
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread: threadSummary(1),
+      ...(isQuotaExhausted && {
+        userQuota: { limit: 20, used: 20, remaining: 0, resetAt: '2026-08-12T00:00:00.000Z' },
+      }),
+    });
+    const { controller, startRun } = createSupportRunHarness(state);
+
+    expect(controller.requestSupport('header')).toBe(true);
+    await flushPromises();
+
+    expect(startRun).toHaveBeenCalledTimes(1);
+    expect(startRun.mock.calls[0][0]).toEqual({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 1,
+      input: { kind: 'append', text: '$agent_support_request_message' },
+      entryPoint: { kind: 'supportRequest', source: 'header' },
+    });
+    expect(state.getState().messages).toEqual([
+      expect.objectContaining({ text: '$agent_support_request_message', isOutgoing: true }),
+    ]);
+    controller.dispose();
+  });
+
+  it.each(['answering', 'waiting', 'operator'] as const)('does not request support while %s', async (phase) => {
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread: { ...threadSummary(1), ...(phase !== 'answering' && { support: { state: phase } }) },
+      run: phase === 'answering' ? { phase: 'streaming', clientRunId: CLIENT_RUN_ID } : { phase: 'idle' },
+    });
+    const { controller, startRun } = createSupportRunHarness(state);
+
+    expect(controller.requestSupport('header')).toBe(false);
+    await flushPromises();
+
+    expect(startRun).not.toHaveBeenCalled();
+    expect(state.getState().messages).toEqual([]);
+    controller.dispose();
+  });
+
+  it('blocks another support request until the user rate limit resets', async () => {
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread: threadSummary(1),
+    });
+    const { controller, startRun, retryRun, now } = createSupportRunHarness(state);
+    jest.useFakeTimers();
+    try {
+      expect(controller.requestSupport('header')).toBe(true);
+      controller.handleUpdate({
+        kind: 'runFailed', clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID,
+        code: 'rate_limited', retryable: true, resetAt: 1000,
+      });
+      await flushPromises();
+
+      const canRequestSupport = selectCanRequestAgentV2Support(state.getState(), now());
+      const isRequested = controller.requestSupport('header');
+      await flushPromises();
+
+      expect(canRequestSupport).toBe(false);
+      expect(isRequested).toBe(false);
+      expect(state.getState().messages).toHaveLength(1);
+      expect(startRun).toHaveBeenCalledTimes(1);
+      expect(state.getState().userRateLimit).toEqual({ kind: 'rateLimit', resetAt: 1000 });
+      expect(controller.getHeldLimitRun()).toBeUndefined();
+
+      now.mockReturnValue(1000);
+      await jest.advanceTimersByTimeAsync(1000);
+      controller.retryAdmission();
+      await flushPromises();
+      expect(startRun).toHaveBeenCalledTimes(1);
+      expect(retryRun).not.toHaveBeenCalled();
+      expect(selectCanRequestAgentV2Support(state.getState(), now())).toBe(true);
+      expect(controller.requestSupport('header')).toBe(true);
+      await flushPromises();
+      expect(startRun).toHaveBeenCalledTimes(2);
+    } finally {
+      controller.dispose();
+      jest.useRealTimers();
+    }
+  });
+
+  it('requests support even when agent capacity is exhausted', async () => {
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread: threadSummary(1),
+      availability: { state: 'capacity_exhausted', resetAt: 1000 },
+    });
+    const { controller, startRun, now } = createSupportRunHarness(state);
+
+    expect(selectCanRequestAgentV2Support(state.getState(), now())).toBe(true);
+    expect(controller.requestSupport('header')).toBe(true);
+    await flushPromises();
+
+    expect(startRun).toHaveBeenCalledTimes(1);
+    expect(startRun.mock.calls[0][0]).toMatchObject({
+      entryPoint: { kind: 'supportRequest', source: 'header' },
+    });
+    controller.dispose();
+  });
+
+  it.each(['quotaRetry', 'userRateLimit'] as const)(
+    'removes the superseded %s question and failed support bubble when sending a new question', async (limitKind) => {
+      const question = { id: 7, text: 'Q', isOutgoing: true, timestamp: 1 };
+      const retry = { clientRunId: 'held', optimisticMessageId: question.id, resetAt: 1000 };
+      const state = createStateHarness({
+        ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+        thread: threadSummary(1), messages: [question],
+        ...(limitKind === 'quotaRetry' ? {
+          quotaRetry: retry,
+          userQuota: { limit: 20, used: 20, remaining: 0, resetAt: new Date(retry.resetAt).toISOString() },
+        } : { userRateLimit: { ...retry, kind: 'rateLimit' as const } }),
+      });
+      const { controller, startRun, now } = createSupportRunHarness(state);
+      now.mockReturnValue(retry.resetAt);
+      expect(controller.requestSupport('header')).toBe(true);
+      controller.handleUpdate({
+        kind: 'runFailed', clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, code: 'network_error', retryable: true,
+      });
+      await flushPromises();
+      expect(state.getState().messages).toContainEqual(question);
+      expect(state.getState().admissionFailure?.optimisticMessageId).toBeDefined();
+
+      expect(controller.sendMessage('New question')).toBe(true);
+      controller.handleUpdate({
+        kind: 'runStarted', clientRunId: CLIENT_RUN_ID, runId: RUN_ID,
+        threadId: THREAD_ID, threadRevision: 2, inputMessageId: INPUT_MESSAGE_ID,
+      });
+      await flushPromises();
+      expect(startRun).toHaveBeenCalledTimes(2);
+      expect(startRun.mock.calls[1][0].input).toEqual({ kind: 'append', text: 'New question' });
+      expect(state.getState().messages.map(({ text }) => text)).toEqual(['New question']);
+      expect(selectAgentV2HeldLimitRunId(state.getState())).toBeUndefined();
+      controller.dispose();
+    },
+  );
+
+  it.each([undefined, 'quotaRetry', 'userRateLimit'] as const)(
+    'removes only an unheld admission failure when requesting support: limit=%s', async (limitKind) => {
+      const question = { id: 7, text: 'Q', isOutgoing: true, timestamp: 1 };
+      const retry = { clientRunId: 'x', optimisticMessageId: question.id, resetAt: 100 };
+      const state = createStateHarness({
+        ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+        thread: threadSummary(1),
+        messages: [question],
+        admissionFailure: {
+          error: { code: 'network_error', retryable: true },
+          clientRunId: 'x', optimisticMessageId: question.id, timestamp: 1,
+        },
+        ...(limitKind === 'quotaRetry' && {
+          quotaRetry: retry,
+          userQuota: { limit: 20, used: 20, remaining: 0, resetAt: new Date(retry.resetAt).toISOString() },
+        }),
+        ...(limitKind === 'userRateLimit' && { userRateLimit: { ...retry, kind: 'rateLimit' as const } }),
+      });
+      const { controller } = createSupportRunHarness(state);
+
+      expect(controller.requestSupport('header')).toBe(true);
+      await flushPromises();
+
+      expect(state.getState().messages.filter(({ id }) => id === question.id)).toEqual(limitKind ? [question] : []);
+      expect(state.getState().admissionFailure).toBeUndefined();
+      if (limitKind) expect(state.getState()[limitKind]?.optimisticMessageId).toBe(question.id);
+      controller.dispose();
+    },
+  );
+
+  it.each(['none', 'runtime', 'transport', 'quotaRetry'] as const)(
+    'preserves a capacity-held question through a support request: failure=%s', async (failureKind) => {
+      const question = { id: 7, text: 'Q', isOutgoing: true, timestamp: 1 };
+      const failure = {
+        error: { code: 'agent_capacity_exhausted' as const, retryable: true },
+        clientRunId: 'x', optimisticMessageId: question.id, timestamp: 1,
+      };
+      const state = createStateHarness({
+        ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+        thread: threadSummary(1), messages: [question],
+        availability: { state: 'capacity_exhausted', resetAt: 1000 },
+        admissionFailure: failure,
+        ...(failureKind === 'quotaRetry' && { quotaRetry: { clientRunId: 'x', optimisticMessageId: question.id } }),
+      });
+      const { controller, startRun } = createSupportRunHarness(state);
+      if (failureKind === 'transport') startRun.mockRejectedValueOnce(new Error('Connection interrupted'));
+
+      expect(controller.requestSupport('header')).toBe(true);
+      if (failureKind === 'runtime') {
+        controller.handleUpdate({
+          kind: 'runFailed', clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, code: 'network_error', retryable: true,
+        });
+      }
+      await flushPromises();
+
+      expect(state.getState().messages).toContainEqual(question);
+      expect(state.getState().admissionFailure).toBe(failure);
+      expect(selectAgentV2HeldLimitRunId(state.getState())).toBe('x');
+      if (failureKind === 'runtime' || failureKind === 'transport') {
+        const failedSupportMessage = state.getState().messages.at(-1)!;
+        expect(state.getState().error).toMatchObject({ cause: { code: 'network_error', retryable: false } });
+        expect(controller.requestSupport('header')).toBe(true);
+        await flushPromises();
+        expect(state.getState().messages).not.toContainEqual(failedSupportMessage);
+        expect(state.getState().messages).toContainEqual(question);
+        expect(state.getState().admissionFailure).toBe(failure);
+      }
+      controller.dispose();
+    },
+  );
+
+  it.each([50, 1000])('preserves the rate-held question when support is rate limited until %s', async (resetAt) => {
+    const question = { id: 7, text: 'Q', isOutgoing: true, timestamp: 1 };
+    const limit = { kind: 'rateLimit' as const, clientRunId: 'x', optimisticMessageId: question.id, resetAt: 100 };
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread: threadSummary(1), messages: [question], userRateLimit: limit,
+    });
+    const { controller } = createSupportRunHarness(state);
+
+    expect(controller.requestSupport('header')).toBe(true);
+    controller.handleUpdate({
+      kind: 'runFailed', clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID,
+      code: 'rate_limited', retryable: true, resetAt,
+    });
+    await flushPromises();
+
+    expect(state.getState().messages).toContainEqual(question);
+    expect(state.getState().userRateLimit).toEqual({ ...limit, resetAt: Math.max(limit.resetAt, resetAt) });
+    expect(selectAgentV2HeldLimitRunId(state.getState())).toBe('x');
+    controller.dispose();
+  });
+
+  it.each(['news', 'digest'] as const)('offers and requests support in a %s chat', async (kind) => {
+    const thread = {
+      ...threadSummary(1),
+      ...(kind === 'news'
+        ? { news: { eventId: 1, headline: 'News', publishedAt: '2026-08-11T09:00:00.000Z' } }
+        : { digest: { id: 'digest', windowEnd: '2026-08-11T09:00:00.000Z', total: 1,
+          top: [{ eventId: 1, headline: 'News' }] } }),
+    };
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread, hasHydratedHistory: true,
+    });
+    const { controller, startRun } = createSupportRunHarness(state);
+
+    const isRequested = controller.requestSupport('header');
+    await flushPromises();
+    expect(getIsAgentV2SupportEntryVisible(thread)).toBe(true);
+    expect(isRequested).toBe(true);
+    expect(startRun).toHaveBeenCalledWith(expect.objectContaining({
+      input: { kind: 'append', text: '$agent_support_request_message' },
+      entryPoint: { kind: 'supportRequest', source: 'header' },
+    }), expect.any(Function));
+    controller.dispose();
+  });
+
+  it('settles the failed queue into messages when requesting support', async () => {
+    const question = { id: 7, text: 'Q', isOutgoing: true, timestamp: 1 };
+    const failure = {
+      id: 8, text: '', isOutgoing: false, timestamp: 1,
+      error: { code: 'internal_error' as const, retryable: true },
+    };
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread: threadSummary(1),
+      failedQueue: { messages: [question], failure },
+    });
+    const { controller } = createSupportRunHarness(state);
+
+    expect(controller.requestSupport('header')).toBe(true);
+    await flushPromises();
+
+    expect(state.getState().failedQueue).toBeUndefined();
+    expect(state.getState().messages).toEqual([
+      question, failure, expect.objectContaining({ text: '$agent_support_request_message', isOutgoing: true }),
+    ]);
+    controller.dispose();
+  });
+
+  it('shows a support escalation limit as an ordinary send failure without Retry', async () => {
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true,
+      thread: threadSummary(1),
+    });
+    const { controller, retryRun } = createSupportRunHarness(state);
+    const error = await decodeHttpError({
+      status: 429,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: () => Promise.resolve({
+        protocolVersion: 3, error: { code: 'support_escalation_rate_limited', retryable: false },
+      }),
+    } as Response);
+    expect(error.status).toBe(429);
+    controller.requestSupport('menu');
+    controller.handleUpdate({
+      kind: 'runFailed', clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID,
+      code: error.code, retryable: error.retryable,
+    });
+    await flushPromises();
+
+    expect(state.actions).toContainEqual(expect.objectContaining({
+      kind: 'runFailed', errorText: '$agent_support_rate_limited', retryable: false, optimisticMessageId: 1,
+    }));
+    expect(state.getState().admissionFailure).toMatchObject({
+      error: { code: 'support_escalation_rate_limited', retryable: false },
+    });
+    expect(state.getState().admissionFailure?.clientRunId).toBeUndefined();
+    controller.retryAdmission();
+    await flushPromises();
+    expect(retryRun).not.toHaveBeenCalled();
+    controller.dispose();
+  });
+
   it('records the first UI frame after committing streamed text without repeating it for every delta', () => {
     const timings: ClientTimingEvent[] = [];
     const trace = new AgentClientTrace('a'.repeat(32), (events) => timings.push(...events));
@@ -175,15 +498,14 @@ describe('Agent V2 controllers', () => {
       buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
       dispatch: state.dispatch,
       resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
-      getHints: () => Promise.resolve(undefined),
-      getLangCode: () => 'en',
+      getStarterHints: () => Promise.resolve(undefined),
+      getHintsShowingId: () => 1,
       getMessages,
       getState: state.getState,
       isConsentAccepted: () => true,
       isChatVisible: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
-      mapHints: () => [],
       now: () => 100,
       releaseStaleThreadClearOperation: jest.fn(),
       reportIncompatibleMessages,
@@ -310,15 +632,14 @@ describe('Agent V2 controllers', () => {
       buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
       dispatch: state.dispatch,
       resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
-      getHints: () => Promise.resolve(undefined),
-      getLangCode: () => 'en',
+      getStarterHints: () => Promise.resolve(undefined),
+      getHintsShowingId: () => 1,
       getMessages: () => Promise.resolve(hydration),
       getState: state.getState,
       isConsentAccepted: () => true,
       isChatVisible: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
-      mapHints: () => [],
       now: () => 100,
       releaseStaleThreadClearOperation: jest.fn(),
       reportIncompatibleMessages,
@@ -347,15 +668,14 @@ describe('Agent V2 controllers', () => {
       dispatch: state.dispatch,
       resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
       onThreadNotFound,
-      getHints: () => Promise.resolve(undefined),
-      getLangCode: () => 'en',
+      getStarterHints: () => Promise.resolve(undefined),
+      getHintsShowingId: () => 1,
       getMessages: () => Promise.resolve({ ok: false, error: { code: 'thread_not_found', retryable: false } }),
       getState: state.getState,
       isConsentAccepted: () => true,
       isChatVisible: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
-      mapHints: () => [],
       now: () => 100,
       releaseStaleThreadClearOperation: jest.fn(),
       stream: stream.controller,
@@ -381,7 +701,9 @@ describe('Agent V2 controllers', () => {
       clearThread: () => Promise.resolve(undefined),
       dispatch: state.dispatch,
       getErrorText: () => 'Run failed',
+      getSupportRequestText: () => '$agent_support_request_message',
       getState: state.getState,
+      getActiveAccountId: () => 'account',
       hydrate,
       now: () => 100,
       retryRun: () => Promise.resolve(undefined),
@@ -434,7 +756,9 @@ describe('Agent V2 controllers', () => {
       clearThread,
       dispatch: state.dispatch,
       getErrorText: () => 'Run failed',
+      getSupportRequestText: () => '$agent_support_request_message',
       getState: state.getState,
+      getActiveAccountId: () => 'account',
       hydrate,
       now: () => 100,
       retryRun: () => Promise.resolve(undefined),
@@ -516,7 +840,9 @@ describe('Agent V2 controllers', () => {
       clearThread: () => Promise.resolve(undefined),
       dispatch: state.dispatch,
       getErrorText: () => 'Run failed',
+      getSupportRequestText: () => '$agent_support_request_message',
       getState: state.getState,
+      getActiveAccountId: () => 'account',
       hydrate: () => Promise.resolve(true),
       now: () => 100,
       retryRun: () => Promise.resolve(undefined),
@@ -556,7 +882,9 @@ describe('Agent V2 controllers', () => {
       clearThread: () => Promise.resolve(undefined),
       dispatch: state.dispatch,
       getErrorText: () => 'Run failed',
+      getSupportRequestText: () => '$agent_support_request_message',
       getState: state.getState,
+      getActiveAccountId: () => 'account',
       hydrate: () => Promise.resolve(true),
       now: () => 100,
       retryRun: () => Promise.resolve(undefined),
@@ -628,15 +956,14 @@ function createHydrationHarness(
     buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
     dispatch: (action) => state.dispatch(action),
     resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
-    getHints: () => Promise.resolve(undefined),
-    getLangCode: () => 'en',
+    getStarterHints: () => Promise.resolve(undefined),
+    getHintsShowingId: () => 1,
     getMessages,
     getState: state.getState,
     isConsentAccepted: () => true,
     isChatVisible: () => true,
     loadAvailability: () => Promise.resolve(undefined),
     loadUserQuota: () => Promise.resolve(undefined),
-    mapHints: () => [],
     now: () => 100,
     releaseStaleThreadClearOperation: jest.fn(),
     stream: stream.controller,
@@ -657,6 +984,33 @@ function createStateHarness(initial: AgentV2MessagesState = INITIAL_AGENT_V2_MES
       return state;
     },
   };
+}
+
+function createSupportRunHarness(state: ReturnType<typeof createStateHarness>) {
+  const stream = createStreamHarness(state);
+  const now = jest.fn(() => 100);
+  const retryRun = jest.fn(() => Promise.resolve(undefined));
+  const startRun = jest.fn((_command: AgentV2RunCommand) => (
+    Promise.resolve({ clientRunId: CLIENT_RUN_ID, state: 'failed' as const })
+  ));
+  const controller = createAgentV2RunController({
+    buildConnectionError: () => 'Connection interrupted',
+    clearThread: () => Promise.resolve(undefined),
+    dispatch: state.dispatch,
+    getErrorText: (code) => getAgentV2ErrorText(code, ((key: string) => key) as LangFn),
+    getSupportRequestText: () => '$agent_support_request_message',
+    getState: state.getState,
+    getActiveAccountId: () => 'account',
+    hydrate: () => Promise.resolve(true),
+    now,
+    retryRun,
+    resetHistory: jest.fn(),
+    startRun,
+    stopRun: () => Promise.resolve(),
+    stream: stream.controller,
+    hideSecretPhrases: (text) => text,
+  });
+  return { controller, startRun, retryRun, now };
 }
 
 function createStreamHarness(state: ReturnType<typeof createStateHarness>) {

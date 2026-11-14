@@ -383,7 +383,14 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         // neither, so a recording locked by that hold keeps going once the finger lifts.
         microphoneButton.setOnClickListener {
             if (isStopShown) {
-                onStop?.invoke()
+                // While a draft merges the circle into the field, still showing Stop, the send
+                // button grows in where the circle goes: a tap there sends, as on iOS and the web,
+                // where Stop goes once the field has text
+                if (editText.text.isNullOrBlank()) {
+                    onStop?.invoke()
+                } else if (isSendEnabled) {
+                    trySend()
+                }
                 return@setOnClickListener
             }
             if (isGestureEndClick) return@setOnClickListener

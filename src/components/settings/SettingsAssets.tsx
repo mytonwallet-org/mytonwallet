@@ -18,6 +18,7 @@ import {
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle } from '../../util/chain';
+import getTestId from '../../util/getTestId';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
 
@@ -204,6 +205,7 @@ function SettingsAssets({
         <div className={styles.settingsBlock}>
           <Dropdown
             label={lang('Base Currency')}
+            testId={getTestId('assets_base_currency')}
             items={currencyItems}
             selectedValue={baseCurrency}
             theme="light"
@@ -228,7 +230,11 @@ function SettingsAssets({
               checked={isInvestorViewEnabled}
             />
           </div>
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleTinyTransfersHiddenToggle}>
+          <div
+            className={buildClassName(styles.item, styles.item_small)}
+            data-testid={getTestId('assets_hide_tiny_transfers')}
+            onClick={handleTinyTransfersHiddenToggle}
+          >
             <div>
               <span className={styles.itemTitle}>{lang('Hide Tiny Transfers and Spam')}</span>
               {' '}
@@ -250,7 +256,11 @@ function SettingsAssets({
               checked={areTinyTransfersHidden}
             />
           </div>
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleUnverifiedNftsHiddenToggle}>
+          <div
+            className={buildClassName(styles.item, styles.item_small)}
+            data-testid={getTestId('assets_hide_unverified_nfts')}
+            onClick={handleUnverifiedNftsHiddenToggle}
+          >
             <span className={styles.itemTitle}>{lang('Hide Unverified NFTs')}</span>
 
             <Switcher
@@ -277,7 +287,11 @@ function SettingsAssets({
           <>
             <p className={styles.blockTitle}>{lang('Blockchains')}</p>
             <div className={buildClassName(styles.settingsBlock, styles.settingsBlockWithDescription)}>
-              <div className={buildClassName(styles.item, styles.item_small)} onClick={handleOpenChains}>
+              <div
+                className={buildClassName(styles.item, styles.item_small)}
+                data-testid={getTestId('assets_blockchains')}
+                onClick={handleOpenChains}
+              >
                 <div className={styles.chainIconList}>
                   {stackedChains.map((chain) => (
                     <img

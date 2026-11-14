@@ -31,6 +31,8 @@ export type ApiPerpsLeverageEstimate = { leverage: number; liquidationPrice?: st
 /** A balance draft needs no wallet funds: its required amounts are `"0"` and no wallet balance is read. */
 export type ApiPerpsFundingRequirements = {
   requiredUsdc: string;
+  /** The CCTP bridge fee that `requiredUsdc` includes. `"0"` when nothing is bridged. */
+  requiredBridgeFeeUsdc: string;
   /** Paymaster cost in USDC when the deposit is gasless. `"0"` when the wallet pays gas in ETH. */
   requiredGasUsdc: string;
   /** Deposit gas in ETH when the wallet pays it. `"0"` when the deposit is gasless or deposits nothing. */
@@ -232,6 +234,8 @@ export type ApiPerpsOperation = {
   /** Explicit user acknowledgement releases the trading lock without resolving or replaying this operation. */
   acknowledgedAt?: number;
   orderId?: number;
+  /** Size of the order sent to Hyperliquid. A trade found by reconciliation is a partial fill when it is smaller. */
+  submittedOrderSize?: string;
   /** Venue response retained for rejection diagnostics and read-only reconciliation. */
   orderStatus?: string;
   filledSize?: string;

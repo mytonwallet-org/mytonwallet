@@ -6,12 +6,14 @@ import { getActions } from '../../global';
 import type { ApiBaseCurrency } from '../../api/types';
 import { SettingsState, type UserToken } from '../../global/types';
 
+import { getAssetAmountPrecision } from '../../util/assetPrecision';
 import { bigintMultiplyToNumber } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import getDeterministicRandom from '../../util/getDeterministicRandom';
+import getTestId from '../../util/getTestId';
 import { buildCollectionByKey } from '../../util/iteratees';
 import { getIsRwaStockToken, getTokenName } from '../../util/tokens';
 
@@ -146,6 +148,7 @@ function SettingsTokens({
         aria-pressed={!isDisabled}
         style={`top: ${topOffset}rem`}
         className={buildClassName(styles.item, styles.item_token, TOKEN_ITEM_CLASS)}
+        data-testid={getTestId(`assets_token_switch_${slug}`)}
         onKeyDown={(e) => handleTokenKeyDown(token, e)}
         onClick={(e) => handleTokenVisibility(token, e)}
       >
@@ -167,7 +170,13 @@ function SettingsTokens({
             >
               <AnimatedCounter text={formatCurrency(toDecimal(totalAmount, token.decimals, true), shortBaseSymbol)} />
               <i className={styles.dot} aria-hidden />
-              <AnimatedCounter text={formatCurrency(toDecimal(amount, token.decimals), symbol)} />
+              <AnimatedCounter
+                text={formatCurrency(
+                  toDecimal(amount, token.decimals),
+                  symbol,
+                  getAssetAmountPrecision(token),
+                )}
+              />
             </SensitiveData>
             {isDeleteButtonVisible && (
               <>
@@ -189,12 +198,13 @@ function SettingsTokens({
 
   return (
     <>
-      <p className={styles.blockTitle}>{lang('My Assets')}</p>
+      <p className={styles.blockTitle} data-testid={getTestId('assets_tokens_on_home_title')}>{lang('My Assets')}</p>
       <div className={styles.settingsBlock}>
         <div
           role="button"
           tabIndex={0}
           className={buildClassName(styles.item, styles.item_small)}
+          data-testid={getTestId('assets_add_token')}
           onClick={handleOpenAddTokenPage}
           onKeyDown={handleOpenAddTokenPageKeyDown}
         >

@@ -123,6 +123,45 @@ class AgentReactionTest {
     }
 
     @Test
+    fun firstReactionToastsKeepAgentAndSupportSeparateForEachReaction() {
+        for (isOperatorFirst in listOf(false, true)) {
+            val stored = mutableSetOf<AgentAnswerFeedback>()
+            val storedSupport = mutableSetOf<AgentAnswerFeedback>()
+            val shown = mutableListOf<String>()
+            for ((feedback, agentKey, supportKey) in listOf(
+                Triple(
+                    AgentAnswerFeedback.LIKE,
+                    "\$agent_feedback_liked_toast",
+                    "\$agent_feedback_support_liked_toast"
+                ),
+                Triple(
+                    AgentAnswerFeedback.DISLIKE,
+                    "\$agent_feedback_disliked_toast",
+                    "\$agent_feedback_support_disliked_toast"
+                )
+            )) {
+                for (isOperator in listOf(isOperatorFirst, !isOperatorFirst)) {
+                    // A later launch restores both kinds without suppressing the other author's first toast
+                    val toasts = toasts(stored, storedSupport)
+                    toasts.await("a", feedback, isOperator) { _, key -> shown += key }!!.apply {
+                        confirmSave()
+                        land()
+                    }
+                    assertEquals(if (isOperator) supportKey else agentKey, shown.last())
+                    assertNull(
+                        toasts.await("b", feedback, isOperator) { _, _ ->
+                            fail("Each author's reaction toast shows once")
+                        }
+                    )
+                }
+            }
+            assertEquals(4, shown.size)
+            assertEquals(setOf(AgentAnswerFeedback.LIKE, AgentAnswerFeedback.DISLIKE), stored)
+            assertEquals(stored, storedSupport)
+        }
+    }
+
+    @Test
     fun firstReactionToastWaitsForASaveThatFailsWithoutShowing() {
         val stored = mutableSetOf<AgentAnswerFeedback>()
         val toasts = toasts(stored)
@@ -200,9 +239,14 @@ class AgentReactionTest {
         assertEquals(128, emoji.alpha)
     }
 
-    private fun toasts(shown: MutableSet<AgentAnswerFeedback>) = AgentReactionToasts(
-        isShown = { it in shown },
-        markShown = { shown += it }
+    private fun toasts(
+        shown: MutableSet<AgentAnswerFeedback>,
+        shownSupport: MutableSet<AgentAnswerFeedback> = mutableSetOf()
+    ) = AgentReactionToasts(
+        isShown = { feedback, isOperator -> feedback in if (isOperator) shownSupport else shown },
+        markShown = { feedback, isOperator ->
+            (if (isOperator) shownSupport else shown) += feedback
+        }
     )
 
     private fun change(

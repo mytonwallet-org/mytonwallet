@@ -29,6 +29,9 @@ interface OwnProps extends AmountInputStateOutput {
   /** Expressed in `token` regardless of `isBaseCurrency` */
   ref?: RefObject<HTMLInputElement | undefined>;
   containerClassName?: string;
+  testId?: string;
+  tokenSelectorTestId?: string;
+  tokenRowTestId?: string;
   maxAmount?: bigint;
   token: AmountInputToken | undefined;
   allTokens?: AmountInputToken[];
@@ -47,6 +50,9 @@ interface OwnProps extends AmountInputStateOutput {
 function AmountInput({
   ref,
   containerClassName,
+  testId,
+  tokenSelectorTestId,
+  tokenRowTestId,
   isBaseCurrency,
   inputValue,
   alternativeValue,
@@ -117,6 +123,7 @@ function AmountInput({
       <RichNumberInput
         id={inputId}
         ref={ref}
+        testId={testId}
         hasError={hasError}
         value={inputValue}
         labelText={labelText ?? lang('Amount')}
@@ -143,6 +150,8 @@ function AmountInput({
         allTokens={availableTokens}
         isInMode={isBaseCurrency}
         withChainIcon={withChainIcon}
+        testId={tokenSelectorTestId}
+        itemTestId={tokenRowTestId}
         onChange={onTokenChange}
       />
     );

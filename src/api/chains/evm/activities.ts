@@ -10,12 +10,13 @@ import type { ZerionNftTransfer, ZerionTokenTransfer, ZerionTransaction, ZerionT
 import { ARBITRUM_USDC_MAINNET, IS_PERPS_ENABLED } from '../../../config';
 import { throwIfAborted } from '../../../util/abortSignal';
 import { parseAccountId } from '../../../util/account';
-import { getChainConfig, getIsSupportedChain } from '../../../util/chain';
+import { findChainConfig, getChainConfig, getIsSupportedChain } from '../../../util/chain';
 import { toDecimal } from '../../../util/decimals';
 import { fetchJson, isNegativeCacheableStatus } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { normalizeNftAddress } from '../../../util/nft';
+import { getChainBySlug } from '../../../util/tokens';
 import { fetchEvmWallet } from './util/account';
 import { isUnlimitedEvmAllowance } from './util/allowance';
 import { collectZerionApprovals } from './util/approvals';
@@ -34,6 +35,7 @@ import {
 import { getTokenBySlug } from '../../common/tokens';
 import { SEC } from '../../constants';
 import { ApiServerError } from '../../errors';
+import { PIMLICO_SINGLETON_PAYMASTER_ADDRESS } from './smartAccount/constants';
 import { normalizeAddress } from './address';
 import { getApiChainByZerionChain, getEvmApiUrl, getZerionChainByApiChain } from './constants';
 
@@ -351,9 +353,12 @@ function transformEvmSwap(
   const nativeToken = getChainConfig(chain).nativeToken;
   const zerionChain = getZerionChainByApiChain(chain);
 
+  const feeActId = findPimlicoFeeAct(tx)?.id;
+  const isFeeLeg = (actId?: string) => feeActId !== undefined && actId === feeActId;
   const inAsset = tx.attributes.transfers.find((e) =>
     e.direction === 'in'
     && 'fungible_info' in e
+    && !isFeeLeg(e.act_id)
     && normalizeAddress(e.recipient) === address,
   ) as ZerionTokenTransfer
   || undefined;
@@ -361,6 +366,7 @@ function transformEvmSwap(
   const outAsset = tx.attributes.transfers.find((e) =>
     e.direction === 'out'
     && 'fungible_info' in e
+    && !isFeeLeg(e.act_id)
     && normalizeAddress(e.sender) === address,
   ) as ZerionTokenTransfer
   || undefined;
@@ -569,6 +575,141 @@ function transformEvmPerpsDeposit(
   });
 }
 
+/** The paymaster's send act. Its transfer is the token fee of a gasless operation. */
+function findPimlicoFeeAct(tx: ZerionTransaction) {
+  const paymaster = tx.attributes.paymaster;
+
+  if (!paymaster || normalizeAddress(paymaster) !== normalizeAddress(PIMLICO_SINGLETON_PAYMASTER_ADDRESS)) {
+    return undefined;
+  }
+
+  const paymasterAddress = normalizeAddress(paymaster);
+
+  return (tx.attributes.acts ?? []).find((act) => (
+    act.type === 'send' && act.sent_from !== undefined && normalizeAddress(act.sent_from) === paymasterAddress
+  ));
+}
+
+/**
+ * A swap Zerion already parsed, with the paymaster send written as the token fee.
+ * The swap itself stays the trade. Only the fee changes.
+ */
+function transformEvmGaslessSwap(
+  chain: EVMChain,
+  tx: ZerionTransaction,
+  address: string,
+  activity: ApiActivity,
+): ApiActivity | undefined {
+  if (activity.kind !== 'swap') {
+    return undefined;
+  }
+
+  const feeAct = findPimlicoFeeAct(tx);
+  if (!feeAct) {
+    return undefined;
+  }
+
+  const feeTransfer = tx.attributes.transfers.find((transfer): transfer is ZerionTokenTransfer => (
+    'fungible_info' in transfer && transfer.act_id === feeAct.id
+  ));
+
+  if (!feeTransfer || normalizeAddress(feeTransfer.sender) !== address) {
+    return undefined;
+  }
+
+  const zerionChain = getZerionChainByApiChain(chain);
+  const feeSlug = getZerionFungibleTokenSlug(chain, zerionChain, feeTransfer.fungible_info);
+  const nativeToken = getChainConfig(chain).nativeToken;
+  const feeToken = feeSlug === nativeToken.slug ? nativeToken : feeSlug ? getTokenBySlug(feeSlug) : undefined;
+
+  if (!feeToken || feeToken.slug !== activity.from) {
+    return undefined;
+  }
+
+  return {
+    ...activity,
+    networkFee: toDecimal(BigInt(feeTransfer.quantity.int), feeToken.decimals),
+    extra: { ...activity.extra, isGasless: true },
+  };
+}
+
+/**
+ * A Pimlico gasless transfer. The wallet's send act is the transfer, and the paymaster's send act is the token fee.
+ */
+function transformEvmGaslessTransfer(
+  chain: EVMChain,
+  tx: ZerionTransaction,
+  address: string,
+): ApiActivity | undefined {
+  const paymaster = tx.attributes.paymaster;
+
+  if (!paymaster || normalizeAddress(paymaster) !== normalizeAddress(PIMLICO_SINGLETON_PAYMASTER_ADDRESS)) {
+    return undefined;
+  }
+
+  const paymasterAddress = normalizeAddress(paymaster);
+
+  const sendActs = (tx.attributes.acts ?? []).flatMap((act) => (
+    act.type === 'send' && act.sent_from ? [{ id: act.id, sentFrom: normalizeAddress(act.sent_from) }] : []
+  ));
+
+  const feeAct = sendActs.find((act) => act.sentFrom === paymasterAddress);
+  const valueActs = sendActs.filter((act) => act.sentFrom !== paymasterAddress);
+
+  if (!feeAct || valueActs.length !== 1) {
+    return undefined;
+  }
+
+  const [valueAct] = valueActs;
+
+  const fungibleTransfers = tx.attributes.transfers.filter((transfer): transfer is ZerionTokenTransfer => (
+    'fungible_info' in transfer
+  ));
+
+  const transfer = fungibleTransfers.find((item) => item.act_id === valueAct.id);
+  const feeTransfer = fungibleTransfers.find((item) => item.act_id === feeAct.id);
+
+  if (!transfer || !feeTransfer) {
+    return undefined;
+  }
+
+  const zerionChain = getZerionChainByApiChain(chain);
+  const slug = getZerionFungibleTokenSlug(chain, zerionChain, transfer.fungible_info);
+  const feeSlug = getZerionFungibleTokenSlug(chain, zerionChain, feeTransfer.fungible_info);
+
+  if (!slug || slug !== feeSlug) {
+    return undefined;
+  }
+
+  const isIncoming = transfer.direction === 'in';
+  const isWalletParty = isIncoming
+    ? normalizeAddress(transfer.recipient) === address
+    : normalizeAddress(transfer.sender) === address;
+
+  if (!isWalletParty) {
+    return undefined;
+  }
+
+  const hasPaidFee = normalizeAddress(feeTransfer.sender) === address;
+
+  return updateActivityMetadata({
+    id: tx.attributes.hash,
+    kind: 'transaction',
+    timestamp: new Date(tx.attributes.mined_at).getTime(),
+    comment: undefined,
+    fromAddress: normalizeAddress(transfer.sender),
+    toAddress: normalizeAddress(transfer.recipient),
+    amount: isIncoming ? BigInt(transfer.quantity.int) : -BigInt(transfer.quantity.int),
+    slug,
+    isIncoming,
+    normalizedAddress: normalizeAddress(address),
+    fee: hasPaidFee ? BigInt(feeTransfer.quantity.int) : 0n,
+    status: 'completed',
+    isScam: tx.attributes.flags.is_trash,
+    ...(hasPaidFee && { extra: { isGasless: true } }),
+  });
+}
+
 function transformEvmNftTransfer(
   chain: EVMChain,
   transfer: ZerionNftTransfer,
@@ -630,9 +771,16 @@ export function transformEvmTxToUnified(
     return perpsDeposit;
   }
 
+  const gaslessTransfer = transformEvmGaslessTransfer(chain, tx, address);
+  if (gaslessTransfer) {
+    return gaslessTransfer;
+  }
+
   if (tx.attributes.transfers.length > 1) {
     try {
-      return transformEvmSwap(chain, tx, address);
+      const swap = transformEvmSwap(chain, tx, address);
+
+      return transformEvmGaslessSwap(chain, tx, address, swap) ?? swap;
     } catch (error) {
       // Fallback
     }
@@ -657,6 +805,72 @@ export function transformEvmTxToUnified(
   return transformEvmTransfer(chain, tx, transfer, address);
 }
 
-export function fetchActivityDetails() {
-  return undefined;
+/**
+ * The backend swap row carries the native fee, which is zero when a paymaster paid it.
+ * The chain transaction has the token fee.
+ */
+export async function fetchActivityDetails(
+  accountId: string,
+  activity: ApiActivity,
+  signal?: AbortSignal,
+): Promise<ApiActivity | undefined> {
+  if (activity.kind !== 'swap' || !activity.shouldLoadDetails) {
+    return undefined;
+  }
+
+  const chain = getEvmSwapChain(activity);
+  const hash = getEvmSwapHash(activity);
+  if (!chain || !hash || !activity.fromAddress) {
+    return undefined;
+  }
+
+  const { network } = parseAccountId(accountId);
+  let txs: ZerionTransaction[];
+  try {
+    txs = await fetchEvmTxs({
+      chain,
+      network,
+      hash,
+      address: normalizeAddress(activity.fromAddress),
+      signal,
+    });
+  } catch (err) {
+    throwIfAborted(signal);
+    logDebugError('fetchActivityDetails', chain, err);
+    return undefined;
+  }
+
+  const parsed = txs[0] ? transformEvmTxToUnified(chain, txs[0], normalizeAddress(activity.fromAddress)) : undefined;
+  if (!parsed || parsed.kind !== 'swap' || !parsed.extra?.isGasless) {
+    return undefined;
+  }
+
+  return {
+    ...activity,
+    networkFee: parsed.networkFee,
+    extra: { ...activity.extra, isGasless: true },
+    shouldLoadDetails: undefined,
+  };
+}
+
+function getEvmSwapChain(activity: ApiActivity & { kind: 'swap' }): EVMChain | undefined {
+  const candidates = [
+    activity.transactionIds.outgoing?.chain,
+    activity.transactionIds.incoming?.chain,
+    getChainBySlug(activity.from),
+    getChainBySlug(activity.to),
+  ];
+
+  return candidates.find((chain): chain is EVMChain => findChainConfig(chain)?.chainStandard === 'ethereum');
+}
+
+function getEvmSwapHash(activity: ApiActivity & { kind: 'swap' }) {
+  const hashes = [
+    activity.externalMsgHashNorm,
+    activity.transactionIds.outgoing?.hash,
+    activity.transactionIds.incoming?.hash,
+    ...activity.hashes,
+  ];
+
+  return hashes.find((hash) => hash?.startsWith('0x'));
 }

@@ -1,6 +1,6 @@
 import type {
   ApiPerpsBuildBalanceWithdrawResult, ApiPerpsDraftRequest, ApiPerpsExchangeTypedData, ApiPerpsOperation,
-  ApiPerpsTradeIntent,
+  ApiPerpsTradeActivity, ApiPerpsTradeIntent,
 } from '../types';
 import { ApiCommonError, ApiTransactionError } from '../types';
 
@@ -152,6 +152,13 @@ function savedOperation(state: ApiPerpsOperation['state'], id = `saved-${++seria
   return { id, accountId: account, assetId: asset.id, kind: 'close', state, stage: 'withdrawal', createdAt: 1 };
 }
 
+function activities(...trades: Partial<ApiPerpsTradeActivity>[]) {
+  return { activitiesByChain: { hyperliquid: { address: WALLET, activities: trades.map((trade, index) => ({
+    id: `trade-${index}`, assetId: asset.id, dex: '', kind: 'open' as const, side: 'long' as const, timestamp: 1,
+    ...trade,
+  })) } } };
+}
+
 test.each(['running', 'partial', 'unknown'] as const)(
   'restoring historical receipts cannot unlock a %s operation', async (state) => {
     await perpsReconcileOperation(account, savedOperation(state));
@@ -164,13 +171,148 @@ test.each(['running', 'partial', 'unknown'] as const)(
   },
 );
 
-test('reconciliation keeps a known order unresolved without an upstream request or replay', async () => {
+test('reconciliation keeps a known order unresolved while its trade is missing, without a replay', async () => {
   const saved = { ...savedOperation('unknown'), kind: 'open' as const, orderId: 123 };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities({ orderId: 124, kind: 'open', timestamp: 2 }));
   expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
-  expect(fetchWithTimeout).not.toHaveBeenCalled();
+  expect(perpsGetActivities).toHaveBeenCalledWith({
+    addressByChain: { hyperliquid: WALLET }, startTime: 0, endTime: 1 + 7 * 60_000, limit: 100,
+  });
   const quote = await perpsPrepareOrder(account, draft);
   await expect(perpsExecuteReviewedOrder(account, 'token', quote.id, `blocked-${++serial}`))
     .rejects.toThrow('PerpsOperationPending');
+  expect(executePerpsOpenPosition).not.toHaveBeenCalled();
+});
+
+test('reconciliation completes an unknown increase from its own trade and unlocks trading', async () => {
+  const claimed = { ...savedOperation('completed'), kind: 'increase' as const, orderId: 40 };
+  await perpsReconcileOperation(account, claimed);
+  const saved = {
+    ...savedOperation('unknown'), kind: 'increase' as const, stage: 'trade' as const, createdAt: 1000,
+    depositTxHash: '0xdeposit', error: 'HTTP Error 504',
+  };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities(
+    { orderId: 39, kind: 'increase', timestamp: 999, size: '1' },
+    { orderId: 40, kind: 'increase', timestamp: 1001, size: '1' },
+    { orderId: 41, kind: 'increase', timestamp: 1002, size: '1', assetId: 'hyperliquid:hl:ETH' },
+    { orderId: 42, kind: 'reduce', timestamp: 1003, size: '1' },
+    { orderId: 44, kind: 'increase', timestamp: 1005, size: '0.004', positionSizeAfter: '0.014' },
+    { orderId: 43, kind: 'increase', timestamp: 1004, size: '0.005', positionSizeAfter: '0.015' },
+  ));
+  expect(await perpsReconcileOperation(account, saved)).toEqual({
+    ...saved, state: 'completed', stage: 'finished', error: undefined, orderId: 43, orderStatus: 'filled',
+    filledSize: '0.005', positionSize: '0.015',
+  });
+  expect(requestPerpsPositionsRefresh).toHaveBeenCalledWith(account);
+  const quote = await perpsPrepareOrder(account, draft);
+  jest.mocked(executePerpsOpenPosition).mockResolvedValueOnce({
+    address: WALLET, rawResponse: {}, status: 'filled', depositTxHash: '0xnext',
+  });
+  expect(await perpsExecuteReviewedOrder(account, 'token', quote.id, `next-${++serial}`))
+    .toMatchObject({ state: 'completed' });
+});
+
+test('an acknowledged operation never takes a trade made after the user unlocked trading', async () => {
+  const saved = { ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1000, acknowledgedAt: 2000 };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities({ orderId: 9201, timestamp: 2001, size: '1' }));
+  expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities(
+    { orderId: 9202, timestamp: 2000, size: '1' }, { orderId: 9203, timestamp: 2500, size: '1' },
+  ));
+  expect(await perpsReconcileOperation(account, saved)).toMatchObject({ state: 'completed', orderId: 9202 });
+});
+
+test('an acknowledgement made during the trade read keeps a later trade from completing the operation', async () => {
+  const saved = { ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1000 };
+  const read = new Deferred<ReturnType<typeof activities>>();
+  jest.mocked(perpsGetActivities).mockReturnValue(read.promise as any);
+  const reconciliation = perpsReconcileOperation(account, saved);
+  await Promise.resolve();
+  const acknowledged = await perpsAcknowledgeOperation(account, saved);
+  read.resolve(activities({ orderId: 9211, timestamp: acknowledged.acknowledgedAt! + 1, size: '1' }));
+  expect(await reconciliation).toMatchObject({ state: 'unknown', acknowledgedAt: acknowledged.acknowledgedAt });
+});
+
+test('two operations reconciled at once cannot both take the same trade', async () => {
+  const first = { ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1000 };
+  const second = { ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1500 };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities({ orderId: 9221, timestamp: 2000, size: '1' }));
+  const results = await Promise.all([
+    perpsReconcileOperation(account, first), perpsReconcileOperation(account, second),
+  ]);
+  expect(results.map(({ state }) => state).sort()).toEqual(['completed', 'unknown']);
+  expect(results.filter(({ orderId }) => orderId === 9221)).toHaveLength(1);
+});
+
+test('reconciliation reads the window around the order and takes no trade made after it', async () => {
+  const saved = { ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1_000_000 };
+  jest.mocked(perpsGetActivities)
+    .mockResolvedValue(activities({ orderId: 9231, timestamp: 1_000_000 + 5 * 60_000 + 1 }));
+  expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
+  expect(perpsGetActivities).toHaveBeenLastCalledWith({
+    addressByChain: { hyperliquid: WALLET }, startTime: 1_000_000 - 2 * 60_000,
+    endTime: 1_000_000 + 7 * 60_000, limit: 100,
+  });
+});
+
+test('an order whose window closed without any trade of its kind fails as not placed and unlocks trading', async () => {
+  const saved = {
+    ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1_000_000, depositTxHash: '0xdeposit',
+    acknowledgedAt: 1_060_000,
+  };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities(
+    { orderId: 9261, kind: 'increase', timestamp: 1_100_000 },
+    { orderId: 9262, assetId: 'hyperliquid:hl:ETH', timestamp: 1_100_000 },
+  ));
+  expect(await perpsReconcileOperation(account, saved)).toEqual({
+    ...saved, state: 'failed', stage: 'finished', error: 'PerpsOrderNotPlaced',
+  });
+  expect(requestPerpsPositionsRefresh).toHaveBeenCalledWith(account);
+  const quote = await perpsPrepareOrder(account, draft);
+  jest.mocked(executePerpsOpenPosition).mockResolvedValueOnce({
+    address: WALLET, rawResponse: {}, status: 'filled', depositTxHash: '0xnext',
+  });
+  expect(await perpsExecuteReviewedOrder(account, 'token', quote.id, `after-${++serial}`))
+    .toMatchObject({ state: 'completed' });
+});
+
+test.each([
+  ['its window is still open', { createdAt: Date.now() }, []],
+  ['it has an order ID', { orderId: 9271 }, []],
+  ['a trade of its kind falls within the clock margin', {}, [{ orderId: 9272, timestamp: 1_000_000 - 60_000 }]],
+  ['a trade of its kind follows an acknowledgement', { acknowledgedAt: 1_010_000 },
+    [{ orderId: 9273, timestamp: 1_020_000 }]],
+] as const)('an order stays unknown rather than not placed when %s', async (_, fields, trades) => {
+  const saved = { ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1_000_000, ...fields };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities(...trades));
+  expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
+});
+
+test('a window too busy for one page leaves an operation unknown', async () => {
+  const saved = { ...savedOperation('unknown'), kind: 'open' as const, createdAt: 1000 };
+  const busy = activities({ orderId: 9241, timestamp: 2000, size: '1' });
+  jest.mocked(perpsGetActivities).mockResolvedValue({ activitiesByChain: { hyperliquid: {
+    ...busy.activitiesByChain.hyperliquid, nextCursor: 'older',
+  } } });
+  expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
+});
+
+test('a trade smaller than the submitted order completes a restored operation as a partial fill', async () => {
+  const saved = {
+    ...savedOperation('unknown'), kind: 'increase' as const, createdAt: 1000, submittedOrderSize: '0.01',
+  };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities(
+    { orderId: 9251, kind: 'increase', timestamp: 2000, size: '0.004', positionSizeAfter: '0.014' },
+  ));
+  expect(await perpsReconcileOperation(account, saved)).toMatchObject({
+    state: 'completed', orderId: 9251, filledSize: '0.004', error: 'PerpsPartialFill',
+  });
+});
+
+test.each(['reduce', 'close'] as const)('reconciliation never reads trades for an unknown %s', async (kind) => {
+  const saved = { ...savedOperation('unknown'), kind };
+  expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
+  expect(perpsGetActivities).not.toHaveBeenCalled();
 });
 
 test('explicit acknowledgement preserves an unknown record and permits only a new reviewed order', async () => {
@@ -190,11 +332,17 @@ test('explicit acknowledgement preserves an unknown record and permits only a ne
   expect(executePerpsOpenPosition).toHaveBeenCalledTimes(1);
 });
 
-test('acknowledged records retain their unknown outcome without backend reconciliation', async () => {
-  const saved = { ...savedOperation('unknown'), kind: 'open' as const, orderId: 123, acknowledgedAt: 100 };
+test('acknowledged records retain their unknown outcome until their trade appears', async () => {
+  const saved = { ...savedOperation('unknown'), kind: 'open' as const, orderId: 9123, acknowledgedAt: 100 };
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities());
   expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
   expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
   expect(await perpsAcknowledgeOperation(account, saved)).toEqual(saved);
+  expect(requestPerpsPositionsRefresh).toHaveBeenCalledWith(account);
+  jest.mocked(perpsGetActivities).mockResolvedValue(activities({ orderId: 9123, timestamp: 5, size: '2' }));
+  expect(await perpsReconcileOperation(account, saved)).toMatchObject({
+    state: 'completed', acknowledgedAt: 100, orderId: 9123, filledSize: '2', positionSize: '2',
+  });
 });
 
 test('acknowledgement rejects another account and cannot bypass a pending withdrawal', async () => {
@@ -624,6 +772,73 @@ test.each([
   expect(quote.collateral).toBe('50');
 });
 
+describe('an order whose execute request a proxy ended', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: 1_000_000 });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  async function executeAfterGatewayTimeout(trade?: () => Partial<ApiPerpsTradeActivity>) {
+    const quote = await perpsPrepareOrder(account, draft);
+    jest.mocked(executePerpsOpenPosition).mockImplementationOnce((_a, _t, _r, hooks) => {
+      hooks?.onSubmitting?.();
+      hooks?.onDeposit?.('0xdeposit');
+      return Promise.reject(new ApiServerError('HTTP Error 504', 504));
+    });
+    let reads = 0;
+    jest.mocked(perpsGetActivities).mockImplementation(() => Promise.resolve(
+      ++reads < 3 || !trade ? activities() : activities({ kind: 'open', timestamp: Date.now(), ...trade() }),
+    ));
+    const result = perpsExecuteReviewedOrder(account, 'token', quote.id, `proxied-${++serial}`);
+    await jest.runAllTimersAsync();
+    return { result: await result, reads: () => reads };
+  }
+
+  test('stays running until its trade appears, then completes with it', async () => {
+    const { result } = await executeAfterGatewayTimeout(() => ({ orderId: 77, size: '0.00498' }));
+    expect(result).toMatchObject({
+      state: 'completed', stage: 'finished', orderId: 77, orderStatus: 'filled', filledSize: '0.00498',
+      positionSize: '0.00498', depositTxHash: '0xdeposit',
+    });
+    expect(result.error).toBeUndefined();
+    const published = onUpdate.mock.calls.map(([update]) => update.operation).filter(Boolean);
+    expect(published.slice(0, -1).every(({ state }) => state === 'running')).toBe(true);
+    expect(requestPerpsPositionsRefresh).toHaveBeenCalledWith(account);
+    expect(executePerpsOpenPosition).toHaveBeenCalledTimes(1);
+  });
+
+  test('fails as not placed when no trade appears by the end of its window', async () => {
+    const { result, reads } = await executeAfterGatewayTimeout();
+    expect(result).toMatchObject({
+      state: 'failed', stage: 'finished', error: 'PerpsOrderNotPlaced', depositTxHash: '0xdeposit',
+    });
+    expect(reads()).toBeGreaterThan(55);
+    expect(Date.now() - result.createdAt).toBeGreaterThan(5 * 60_000);
+    expect(Date.now() - result.createdAt).toBeLessThan(5 * 60_000 + 10_000);
+    expect(executePerpsOpenPosition).toHaveBeenCalledTimes(1);
+  });
+
+  test('stays unknown and locked when its window ends with an unclear read', async () => {
+    const quote = await perpsPrepareOrder(account, draft);
+    jest.mocked(executePerpsOpenPosition).mockImplementationOnce((_a, _t, _r, hooks) => {
+      hooks?.onSubmitting?.();
+      return Promise.reject(new ApiServerError('HTTP Error 504', 504));
+    });
+    jest.mocked(perpsGetActivities).mockRejectedValue(new ApiServerError('HTTP Error 502', 502));
+    const execution = perpsExecuteReviewedOrder(account, 'token', quote.id, `unclear-${++serial}`);
+    await jest.runAllTimersAsync();
+    expect(await execution).toMatchObject({ state: 'unknown', error: 'HTTP Error 504' });
+    jest.useRealTimers();
+    const next = await perpsPrepareOrder(account, draft);
+    await expect(perpsExecuteReviewedOrder(account, 'token', next.id, 'retry')).rejects.toThrow(
+      'PerpsOperationPending',
+    );
+  });
+});
+
 test('deposit followed by a timeout remains locked without replaying the transfer', async () => {
   const quote = await perpsPrepareOrder(account, draft);
   jest.mocked(executePerpsOpenPosition).mockImplementation((_a, _t, _r, hooks) => {
@@ -712,6 +927,7 @@ test.each(['open', 'leverage'] as const)(
 
 test.each(['reduce', 'close', 'open'] as const)('reconciliation leaves a %s outcome unknown', async (kind) => {
   const saved = { ...savedOperation('unknown'), kind, orderId: 587150124719, stage: 'trade' as const };
+  jest.mocked(perpsGetActivities).mockRejectedValue(new ApiServerError('HTTP Error 502', 502));
   expect(await perpsReconcileOperation(account, saved)).toEqual(saved);
   expect(executePerpsOpenPosition).not.toHaveBeenCalled();
   expect(executePerpsModifyPosition).not.toHaveBeenCalled();

@@ -222,6 +222,11 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     var reserveSpacerHeight: CGFloat = 0
     // A sent question owns the scroll position until it is replaced or removed, including after the reply finishes.
     var pinnedUserMessageID: AgentItemID?
+    /// Support had the chat at the last change the chat saw
+    var wasSupportActive = false
+    /// The last row as support took the chat over a pinned question. The question keeps its place until a row comes
+    /// after this one.
+    var supportFollowResumeItemID: AgentItemID?
     /// What the question being sent came from, for its bubble to grow out of
     var pendingSentSource: AgentSentMessageSource?
     /// The field's text of the question being sent, drawn from its layers, for its bubble to grow out of as the chat
@@ -253,6 +258,10 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     private var lastAccessibilityStatus: String?
     private var isThreadDeleted = false
     var newsPostArrival: AgentNewsPostArrival?
+    /// A digest headline's news item is loading to open over the chat
+    private var isOpeningDigestHeadline = false
+    /// The placeholder bubbles of a discussion whose post is loading
+    private var postSkeletonView: AgentMessagesSkeletonView?
     /// Rows leaving the chat dissolve in it, over the messages
     var messageDissolveView: AgentMessageDissolveView?
     var dissolvingItemIDs: Set<AgentItemID> = []
@@ -279,6 +288,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         let initialOpeningInputItemID = openingModel?.isOpening == true ? openingModel?.openingInputItemID : nil
         self.initialOpeningInputItemID = initialOpeningInputItemID
         pinnedUserMessageID = initialOpeningInputItemID
+        wasSupportActive = model.isSupportActive
         // A chat with an answer the list marks unread opens at the first message the user hasn't seen
         unreadSeenMessageCount = initialOpeningInputItemID == nil
             ? (model as? AgentV2Model)?.thread.flatMap { AgentThreadReadState.shared.getSeenMessageCount(ifUnread: $0) }
@@ -323,14 +333,15 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         updateHintsView(animated: false)
         applySnapshot(animated: false)
         updateSendButtonState()
+        updatePostSkeleton()
     }
 
     public override func didMove(toParent parent: UIViewController?) {
         super.didMove(toParent: parent)
         if parent == nil {
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.parent == nil else { return }
-                (self.model as? AgentV2Model)?.cancelOpeningIfNeeded()
+            DispatchQueue.main.async { [weak self, weak model] in
+                guard self?.parent == nil else { return }
+                (model as? AgentV2Model)?.cancelOpeningIfNeeded()
             }
         }
         if parent != nil, isThreadDeleted {
@@ -804,7 +815,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         view.bringSubviewToFront(hintsContainerView)
         view.bringSubviewToFront(composerView)
         view.bringSubviewToFront(scrollToBottomButton)
-        toastController.keepAbove(composerView.inputTopAnchor, spacing: AgentVCLayout.toastSpacingToComposer)
+        toastController.keepAbove(composerView.inputTopGuide, spacing: AgentVCLayout.toastSpacingToComposer)
         loadingOlderIndicator.install(in: view, column: contentLayoutGuide)
         loadErrorView.onRetry = { [weak self] in (self?.model as? AgentV2Model)?.retryLoad() }
         loadErrorView.install(in: view, column: contentLayoutGuide, centerY: collectionView.centerYAnchor)
@@ -828,12 +839,17 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
             icon: model.chatIcon,
             animated: animated && isNavigationTitleVisible && displayedTitleThreadID == threadID
         )
+        chatTitleView.setSubtitle(AgentSupportPresentation.getSubtitle(for: model.supportState))
         displayedTitleThreadID = threadID
     }
 
-    /// Every chat asks the same, a news discussion too, so the field doesn't change on the way from the list
+    /// Every chat asks the same, a news discussion too, so the field doesn't change on the way from the list. A chat
+    /// that support has writes to support.
     func updateComposerPlaceholder() {
-        composerView.placeholder = lang("Ask anything")
+        let placeholder = AgentSupportPresentation.getComposerPlaceholder(for: model.supportState)
+        if composerView.placeholder != placeholder {
+            composerView.placeholder = placeholder
+        }
     }
 
     /// A chat opened with a question asks for consent in the consent sheet, once the chat is on screen. Allow carries on
@@ -921,6 +937,36 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         loadErrorView.show((model as? AgentV2Model)?.initialLoadError)
     }
 
+    /// A discussion opened without the feed's copy of its post, as from a digest's headline, holds the post's place with
+    /// Telegram's placeholder bubbles until the post comes, as on Android and the web, and the post grows out of them
+    /// once it is in the list, which `isPostInList` tells
+    func updatePostSkeleton(isPostInList: Bool = false) {
+        guard isViewLoaded else { return }
+        let model = model as? AgentV2Model
+        let hasPost = model?.hasMessages == true
+        if model?.isAwaitingDiscussionPost == true {
+            guard postSkeletonView == nil else { return }
+            let skeleton = AgentMessagesSkeletonView()
+            skeleton.translatesAutoresizingMaskIntoConstraints = false
+            skeleton.isUserInteractionEnabled = false
+            insertUnderMessages(skeleton)
+            NSLayoutConstraint.activate([
+                skeleton.topAnchor.constraint(equalTo: view.topAnchor),
+                skeleton.leadingAnchor.constraint(equalTo: composerView.leadingAnchor),
+                skeleton.trailingAnchor.constraint(equalTo: composerView.trailingAnchor),
+                skeleton.bottomAnchor.constraint(equalTo: composerView.topAnchor, constant: -4),
+            ])
+            postSkeletonView = skeleton
+            return
+        }
+        guard let skeleton = postSkeletonView, !hasPost || isPostInList else { return }
+        postSkeletonView = nil
+        let placeholders = skeleton.placeholdersInWindow()
+        skeleton.removeFromSuperview()
+        guard hasPost, view.window != nil, !UIAccessibility.isReduceMotionEnabled else { return }
+        revealMessagesFromSkeleton(placeholders: placeholders)
+    }
+
     func refreshNavigationItemMenu() {
         AgentChatNavigation.findButton(in: navigationItem.rightBarButtonItem)?.menu = chatActions.makeNavigationOverflowMenu()
         updateNavigationMenuAvailability()
@@ -928,21 +974,42 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     /// The "…" button shows once the chat has something in it, or is about to: a question being answered shows it from
     /// the start. A news discussion the user hasn't written in shows it only while its menu has an item, such as Report
-    /// a Problem once the user has allowed the Agent. It stays in place while deletion closes the chat.
+    /// a Problem once the user has allowed the Agent. It stays in place while deletion closes the chat. The headset
+    /// before it shows while the chat offers Contact Support.
     func updateNavigationMenuAvailability() {
         guard !isThreadDeleted else { return }
+        let isSupportVisible = model.isSupportRequestVisible
         let canUseMenu = chatActions.canDeleteChat || model.canReportProblem
         let hasMenu = canUseMenu || chatActions.willHaveMenu
-        var menuButton = AgentChatNavigation.findButton(in: navigationItem.rightBarButtonItem)
-        if hasMenu != (menuButton?.accessibilityIdentifier == AgentChatNavigation.menuButtonIdentifier) {
-            let animated = viewIfLoaded?.window != nil && navigationController?.transitionCoordinator == nil
-            let item = hasMenu ? AgentChatNavigation.makeMenuItem(menu: chatActions.makeNavigationOverflowMenu()) : nil
-            navigationItem.setRightBarButton(item, animated: animated)
-            menuButton = AgentChatNavigation.findButton(in: item)
+        let items = navigationItem.rightBarButtonItems ?? []
+        var menuItem = items.first { AgentChatNavigation.findButton(in: $0)?.accessibilityIdentifier == AgentChatNavigation.menuButtonIdentifier }
+        var supportItem = items.first {
+            AgentChatNavigation.findButton(in: $0)?.accessibilityIdentifier == AgentChatNavigation.supportButtonIdentifier
         }
-        if let menuButton, menuButton.isEnabled != canUseMenu {
+        if hasMenu != (menuItem != nil) || isSupportVisible != (supportItem != nil) {
+            let animated = viewIfLoaded?.window != nil && navigationController?.transitionCoordinator == nil
+            if !hasMenu {
+                menuItem = nil
+            } else if menuItem == nil {
+                menuItem = AgentChatNavigation.makeMenuItem(menu: chatActions.makeNavigationOverflowMenu())
+            }
+            if !isSupportVisible {
+                supportItem = nil
+            } else if supportItem == nil {
+                supportItem = AgentChatNavigation.makeSupportItem(primaryAction: UIAction { [weak self] _ in
+                    self?.chatActions.confirmHeaderSupportRequest()
+                })
+            }
+            // The first item stands at the trailing edge, where the root's header morphs into the "…" button
+            navigationItem.setRightBarButtonItems([menuItem, supportItem].compactMap { $0 }, animated: animated)
+        }
+        if let menuButton = AgentChatNavigation.findButton(in: menuItem), menuButton.isEnabled != canUseMenu {
             menuButton.isEnabled = canUseMenu
         }
+        if let supportButton = AgentChatNavigation.findButton(in: supportItem) {
+            AgentChatNavigation.setGlyphButtonEnabled(supportButton, isEnabled: model.canRequestSupport)
+        }
+        chatActions.updateSupportConfirmation()
     }
 
     private func setupObservers() {
@@ -1046,10 +1113,13 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
             cell.onFollowupTap = self.makeControlTapHandler(for: message) { [weak cell] in
                 cell?.getFollowupButton(controlID: $0)
             }
-            cell.openSourceAction = { AgentTextLinks.openNewsSource($0) }
+            cell.openSourceAction = {
+                AgentTextLinks.openNewsSource(post.sourceURL)
+            }
             cell.onPictureTap = { [weak self] imageView in
                 self?.openNewsPicture(post, date: message.timestamp, image: imageView.image)
             }
+            cell.onDigestHeadlineTap = { [weak self] eventId in self?.openDigestHeadline(eventId: eventId) }
             cell.contextMenuConfigurationProvider = { [weak self] in
                 self?.makeContextMenuConfiguration(for: itemID)
             }
@@ -1104,12 +1174,42 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         }
     }
 
+    /// Opens a digest headline's news item over the chat, as the digest's card opens it over the feed. The chat slides
+    /// in with its post once the post comes, which a news item opened before has in a moment; one that takes longer
+    /// slides in holding the post's place with placeholder bubbles.
+    private func openDigestHeadline(eventId: Int) {
+        guard !isOpeningDigestHeadline, navigationController != nil else { return }
+        isOpeningDigestHeadline = true
+        Task { [weak self] in
+            defer { self?.isOpeningDigestHeadline = false }
+            do {
+                let controller = try await AgentEntryPoint.makeNewsChatViewController(eventId: eventId)
+                if let model = (controller as? AgentVC)?.model as? AgentV2Model {
+                    let deadline = ContinuousClock.now + Self.headlinePostWait
+                    while model.isAwaitingDiscussionPost, ContinuousClock.now < deadline {
+                        try await Task.sleep(for: Self.headlinePostCheckInterval)
+                    }
+                }
+                guard let self, self.view.window != nil else { return }
+                self.navigationController?.pushViewController(controller, animated: true)
+            } catch {
+                if !(error is CancellationError) { AppActions.showError(error: error) }
+            }
+        }
+    }
+
+    /// How long a headline's chat may wait for its post before it slides in with placeholders, and how often it looks
+    private static let headlinePostWait: Duration = .seconds(1)
+    private static let headlinePostCheckInterval: Duration = .milliseconds(30)
+
     /// Opens the post's picture in the media viewer, as the feed opens its pictures
     private func openNewsPicture(_ content: AgentNewsPostView.Content, date: Date, image: UIImage?) {
         guard let window = view.window else { return }
-        let post = AgentNewsPictureViewer.Post(content: content, date: date, image: image)
-        AgentNewsPictureViewer.present(posts: [post], index: 0, in: window, openSource: { _ in
-            AgentTextLinks.openNewsSource(content.sourceURL)
+        let post = AgentNewsPictureViewer.Post(
+            content: content, date: date, image: image, locale: (model as? AgentV2Model)?.newsLocale
+        )
+        AgentNewsPictureViewer.present(posts: [post], index: 0, in: window, openSource: { url in
+            AgentTextLinks.openNewsSource(url)
         }) { [weak self] _ in
             guard let self, let itemID = (self.model as? AgentV2Model)?.newsPostItemID,
                   let indexPath = self.messageIndexPath(for: itemID),
@@ -1137,6 +1237,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     private static let replyCrossfadeDuration: TimeInterval = 0.2
     static let dissolvedGapAnimationKey = "agentDissolvedGap"
+    static let rowMoveAnimationKey = "agentRowMove"
 
     var currentNewsPostItemIDs: Set<AgentItemID> {
         guard let id = (model as? AgentV2Model)?.newsPostItemID else { return [] }
@@ -1241,6 +1342,16 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     private func sendHint(_ hint: AgentHint) {
+        if hint.isSupportRequest {
+            // The request waits for the server's chats, and a chat the user has left by then drops it
+            let disappearanceCount = disappearanceCount
+            chatActions.confirmStarterHintSupportRequest(
+                hasStayedOnScreen: { [weak self] in self?.disappearanceCount == disappearanceCount }
+            ) { [weak self] thread in
+                self?.openSupportThread(thread)
+            }
+            return
+        }
         guard (model as? AgentV2Model)?.needsConsentToSend != true else {
             performAfterConsent { [weak self] in self?.sendHint(hint) }
             return
@@ -1274,7 +1385,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     func updateSendButtonState() {
-        composerView.setSendEnabled(model.canSendMessage(draftText: composerView.draftText))
+        composerView.setSendEnabled(model.canSendMessage(draftText: composerView.draftText, isEditing: editingMessageID != nil))
         composerView.setStopAvailable(model.canStopAnswer)
         // As the design's "Limit Reached" frame shows it, the composer is at half its opacity while a limit blocks sending
         let contentAlpha: CGFloat = (model as? AgentV2Model)?.isInputBlockedByLimit == true ? 0.5 : 1
@@ -1289,6 +1400,27 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         }
     }
 
+    /// Support takes no edits, so the question being edited stays in the composer to go as a new message
+    func leaveEditingOnceSupportHasChat() {
+        if model.isSupportActive {
+            editingMessageID = nil
+        }
+    }
+
+    /// Contact Support among the starter hints can be tapped while the chat can ask and the server's chats have loaded
+    func updateSupportHint() {
+        hintsSectionView.isSupportRequestEnabled = (model as? AgentV2Model)?.canRequestSupportFromHint == true
+    }
+
+    /// The chat support has takes the starter hint's request in this empty chat's place
+    private func openSupportThread(_ thread: ApiAgentV2ThreadSummary) {
+        guard let navigationController,
+              let index = navigationController.viewControllers.firstIndex(of: self) else { return }
+        var viewControllers = navigationController.viewControllers
+        viewControllers[index] = AgentEntryPoint.makeRootViewController(thread: thread)
+        navigationController.setViewControllers(viewControllers, animated: true)
+    }
+
     func updateHintsView(animated: Bool) {
         let visibleHints = model.visibleHints
         let shouldShow = !visibleHints.isEmpty
@@ -1298,6 +1430,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
             hintsSectionView.configure(with: visibleHints) { [weak self] hint in
                 self?.sendHint(hint)
             }
+            updateSupportHint()
             updateHintsHeightConstraints(hintCount: visibleHints.count)
         } else {
             updateHintsHeightConstraints(hintCount: 0)
@@ -1324,14 +1457,26 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         editingMessageID: AgentItemID?,
         source: AgentBackendSendSource = .composer
     ) {
-        guard model.canSendMessage(draftText: text) else { return }
+        guard model.canSendMessage(draftText: text, isEditing: editingMessageID != nil) else { return }
 
         self.editingMessageID = nil
-        model.send(text: text, editingMessageID: editingMessageID, source: source)
-        if clearsComposerDraft {
-            composerView.clearDraft()
-            updateSendButtonState()
+        closeKeyboardIfQuestionSent {
+            model.send(text: text, editingMessageID: editingMessageID, source: source)
+            if clearsComposerDraft {
+                composerView.clearDraft()
+                updateSendButtonState()
+            }
         }
+    }
+
+    /// Runs `send`, then closes the keyboard if the chat took a question from it, as Android does; a question turned
+    /// down keeps the keyboard. It closes only after the question's bubble has set out, whose flight takes the field's
+    /// text where it shows above the keyboard.
+    private func closeKeyboardIfQuestionSent(by send: () -> Void) {
+        let sentQuestionCount = model.sentQuestionCount
+        send()
+        guard model.sentQuestionCount != sentQuestionCount else { return }
+        view.endEditing(true)
     }
 
     /// What a tap on a control of `message` does, wherever its cell was configured: in a news discussion opened before
@@ -1361,7 +1506,9 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
                         in: self.view
                     )
                 }
-                self.model.performControl(messageID: message.id, controlID: controlID)
+                self.closeKeyboardIfQuestionSent {
+                    self.model.performControl(messageID: message.id, controlID: controlID)
+                }
             }
         }
     }
@@ -1432,7 +1579,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     private func editMessage(_ message: AgentMessage) {
-        guard message.role == .user,
+        guard message.role == .user, !message.isEditingDisabled,
               (model as? AgentV2Model)?.newsPostContent(for: message) == nil else { return }
         dictationController.cancel()
         editingMessageID = message.id
@@ -1556,12 +1703,12 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     private func makeContextMenuConfiguration(for itemID: AgentItemID) -> ContextMenuConfiguration? {
         guard case .message(let message)? = model.item(for: itemID),
               !(message.role == .assistant && message.isStreaming) else { return nil }
-        if let post = (model as? AgentV2Model)?.newsPostContent(for: message) {
-            let items = AgentMessageMenuItems.makeItems(for: post, openSource: {
-                AgentTextLinks.openNewsSource(post.sourceURL)
-            }, share: { [weak self] text in
+        if let v2Model = model as? AgentV2Model, let post = v2Model.newsPostContent(for: message) {
+            let items = AgentMessageMenuItems.makeItems(for: post, locale: v2Model.newsLocale, openSource: { url in
+                AgentTextLinks.openNewsSource(url)
+            }, share: { [weak self] activityItems in
                 guard let self else { return }
-                let controller = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
                 let sourceView = self.messageIndexPath(for: itemID).flatMap { self.collectionView.cellForItem(at: $0) }
                 self.presentActivityViewController(controller, sourceView: sourceView)
             })
@@ -1576,8 +1723,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         let items = AgentMessageMenuItems.makeItems(
             for: message,
             copyText: copyText(for: itemID),
-            // A question of the SDK's copy of the history is not edited before the history loads
-            canEdit: (model as? AgentV2Model)?.isShowingCachedMessages != true,
+            canEdit: model.canEditMessage(itemID),
             canRegenerate: model.canRegenerateMessage(itemID),
             canReportProblem: model.canReportProblem,
             edit: { [weak self] in self?.editMessage(message) },
@@ -1612,8 +1758,9 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     /// Rates the answer with the cloud's choice, as Telegram's message takes a reaction: the chosen icon flies from the
     /// cloud to the bubble's corner, and a withdrawn reaction's emoji scales down and fades out, while the cloud closes
-    /// into its tail. Nothing in the chat moves. The first like and the first dislike explain themselves in a toast
-    /// once they have landed and their rating is saved, unless the answer has another reaction by then.
+    /// into its tail. Nothing in the chat moves. The first like and the first dislike, of answers and of operator replies
+    /// apart, explain themselves in a toast once they have landed and their rating is saved, unless the answer has
+    /// another reaction by then.
     private func selectReaction(_ selection: AgentFeedbackPillView.Selection, for itemID: AgentItemID) {
         let reactionID = UUID()
         savingReactionIDs[itemID] = reactionID
@@ -1621,8 +1768,9 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         var hasLanded = false
         let explain = { [weak self] in
             guard isSaved, hasLanded, let self, let feedback = selection.feedback,
-                  self.model.message(for: itemID)?.feedback == feedback else { return }
-            self.reactionToasts.explain(feedback)
+                  let message = self.model.message(for: itemID), message.feedback == feedback else { return }
+            let isOperatorReply = if case .operator = message.author { true } else { false }
+            self.reactionToasts.explain(feedback, isOperatorReply: isOperatorReply)
         }
         chatActions.rateMessage(itemID, feedback: selection.feedback) { [weak self] didSave in
             guard let self, self.savingReactionIDs[itemID] == reactionID else { return }
@@ -1818,9 +1966,11 @@ extension AgentVC: UICollectionViewDelegate, UIGestureRecognizerDelegate {
 
     public func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         guard collectionView === self.collectionView else { return }
-        // A cell that dissolved with its row, once taken for another, shows that one, where the layout puts it
+        // A cell that dissolved with its row, or moved with it, once taken for another, shows that one, where the layout
+        // puts it
         cell.contentView.isHidden = false
-        for key in cell.layer.animationKeys() ?? [] where key.hasPrefix(Self.dissolvedGapAnimationKey) {
+        for key in cell.layer.animationKeys() ?? []
+        where key.hasPrefix(Self.dissolvedGapAnimationKey) || key.hasPrefix(Self.rowMoveAnimationKey) {
             cell.layer.removeAnimation(forKey: key)
         }
     }

@@ -24,13 +24,17 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
         get { newsView.onPreferredHeightChanged }
         set { newsView.onPreferredHeightChanged = newValue }
     }
-    var openSourceAction: ((String) -> Void)? {
+    var openSourceAction: (() -> Void)? {
         get { newsView.openSourceAction }
         set { newsView.openSourceAction = newValue }
     }
     var onPictureTap: ((UIImageView) -> Void)? {
         get { newsView.onPictureTap }
         set { newsView.onPictureTap = newValue }
+    }
+    var onDigestHeadlineTap: ((Int) -> Void)? {
+        get { newsView.onDigestHeadlineTap }
+        set { newsView.onDigestHeadlineTap = newValue }
     }
     var onFollowupTap: ((String) -> Void)?
 
@@ -241,6 +245,9 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
             below: newsView,
             contentLayoutGuide: contentLayoutGuide
         )
+        // Suggestions that come for a post on screen hang below the row until the chat measures it again, rather than
+        // squeezing the post into the row's old height for a frame
+        followupConstraints.first { $0.firstAttribute == .bottom }?.priority = UILayoutPriority(999)
         isAccessibilityElement = false
         accessibilityElements = [newsView.accessibilityContentElement, followupView]
     }

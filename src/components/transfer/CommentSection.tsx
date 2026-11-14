@@ -28,6 +28,7 @@ interface OwnProps {
   isReadonly?: boolean;
   isCommentRequired?: boolean;
   isEncryptedCommentSupported: boolean;
+  testId?: string;
   onCommentChange: (value: string) => void;
 }
 
@@ -40,6 +41,7 @@ function CommentSection({
   isReadonly,
   isCommentRequired,
   isEncryptedCommentSupported,
+  testId,
   onCommentChange,
 }: OwnProps) {
   const { setTransferShouldEncrypt } = getActions();
@@ -115,6 +117,7 @@ function CommentSection({
       isDisabled={isReadonly}
       onInput={onCommentChange}
       isRequired={isCommentRequired}
+      testId={testId}
     />
   );
 }

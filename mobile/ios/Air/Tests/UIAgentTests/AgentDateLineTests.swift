@@ -62,7 +62,10 @@ final class AgentDateLineTests: XCTestCase {
         let view = try XCTUnwrap(feed.controller.view)
         XCTAssertEqual(capsule.convert(capsule.bounds, to: view).midX, view.bounds.midX, accuracy: 0.5)
         // The row shows the capsule alone
-        XCTAssertTrue(findDescendants(of: dateLines[0]).compactMap { $0 as? UILabel }.filter { !$0.isHidden }.allSatisfy {
+        func isShown(_ view: UIView) -> Bool {
+            sequence(first: view, next: \.superview).prefix { $0 !== dateLines[0] }.allSatisfy { !$0.isHidden }
+        }
+        XCTAssertTrue(findDescendants(of: dateLines[0]).compactMap { $0 as? UILabel }.filter(isShown).allSatisfy {
             $0 === capsule.label
         })
 
@@ -128,19 +131,25 @@ final class AgentDateLineTests: XCTestCase {
         try await scroll(toContentY: 0)
         XCTAssertEqual(capsule.alpha, 0)
 
-        // With the first day's news under the header, its capsule stands 6 pt under the header's edge in place of its
-        // row's, and hides while nothing scrolls
+        // With the first day's news under the header, its capsule stands under the header's switch in place of its
+        // row's, as far under it as under the pinned digests' bar, and hides while nothing scrolls
+        let restingSpacing = AgentNewsPinnedDigestBar.bottomSpacing + AgentDateCapsuleView.verticalSpacing
+        let viewSwitch = try XCTUnwrap(controller.navigationHandoffTitlePill)
+        let restingY = viewSwitch.convert(viewSwitch.bounds, to: view).maxY + restingSpacing
         try await scroll(toContentY: try XCTUnwrap(list.layoutAttributesForItem(at: IndexPath(item: 3, section: 0))).frame.minY)
         XCTAssertEqual(capsule.text, formatDay(of: firstDay[0]))
         XCTAssertEqual(capsule.alpha, 0)
-        XCTAssertEqual(
-            capsule.convert(capsule.bounds, to: view).minY,
-            view.safeAreaInsets.top + AgentDateCapsuleView.verticalSpacing,
-            accuracy: 0.5
-        )
+        XCTAssertEqual(capsule.convert(capsule.bounds, to: view).minY, restingY, accuracy: 0.5)
         if let row = list.cellForItem(at: IndexPath(item: 0, section: 0)) {
             XCTAssertTrue(findDescendants(of: row).compactMap { $0 as? AgentDateCapsuleView }.allSatisfy { $0.alpha == 0 })
         }
+        // Pushed up, it fades as it goes under the header, rather than being cut at the header's edge: whole where it
+        // stands, gone where the switch ends
+        let area = try XCTUnwrap(capsule.superview)
+        let mask = try XCTUnwrap(area.layer.mask as? CAGradientLayer)
+        XCTAssertEqual(area.convert(area.bounds, to: view).minY, restingY - restingSpacing, accuracy: 0.5)
+        XCTAssertEqual(mask.startPoint.y, 0)
+        XCTAssertEqual(mask.endPoint.y * area.bounds.height, capsule.frame.minY, accuracy: 0.5)
 
         // It shows while the user scrolls, and a moment after, then fades away
         controller.scrollViewWillBeginDragging(list)
@@ -162,11 +171,7 @@ final class AgentDateLineTests: XCTestCase {
         // Past the header's edge the next day's capsule sticks in its turn, and its row's own gives way to it
         _ = try await scrollNextDay(toDistance: -10)
         XCTAssertEqual(capsule.text, formatDay(of: nextDay[0]))
-        XCTAssertEqual(
-            capsule.convert(capsule.bounds, to: view).minY,
-            view.safeAreaInsets.top + AgentDateCapsuleView.verticalSpacing,
-            accuracy: 0.5
-        )
+        XCTAssertEqual(capsule.convert(capsule.bounds, to: view).minY, restingY, accuracy: 0.5)
         if let row = list.cellForItem(at: nextDayPath) {
             XCTAssertTrue(findDescendants(of: row).compactMap { $0 as? AgentDateCapsuleView }.allSatisfy { $0.alpha == 0 })
         }

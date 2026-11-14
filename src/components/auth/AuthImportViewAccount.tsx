@@ -9,6 +9,7 @@ import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig, getSupportedChains } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 import isEmptyObject from '../../util/isEmptyObject';
 import { isTonsiteAddress, isValidAddressOrDomain } from '../../util/isValidAddress';
 import { getHostnameFromUrl } from '../../util/url';
@@ -104,6 +105,7 @@ function AuthImportViewAccount({
 
         <AddressInput
           ref={inputRef}
+          testId={getTestId('view_address_input')}
           value={value}
           address=""
           addressName=""
@@ -124,6 +126,7 @@ function AuthImportViewAccount({
           <Button
             isPrimary
             isSubmit
+            testId={getTestId('view_continue')}
             className={modalStyles.buttonFullWidth}
             isLoading={isLoading}
             isDisabled={isInvalidAddress}

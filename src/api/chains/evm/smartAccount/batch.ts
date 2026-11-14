@@ -21,7 +21,7 @@ import {
   ALCHEMY_7702_REQUESTED_DELEGATE_ADDRESS,
   getAlchemyWalletApiUrl,
   getEvmChainId,
-  getPimlicoGasTokenAddress,
+  isPimlicoGasToken,
 } from './constants';
 import {
   resolveBatchDelegation,
@@ -37,6 +37,10 @@ import { isPimlicoUserOperationBound, signPimlicoUserOperation } from './pimlico
 
 export type EvmBatchUserOpOptions = {
   needsGasless: boolean;
+  /** ERC-20 that pays the Pimlico paymaster; required when `needsGasless` is true */
+  gasToken?: string;
+  /** The highest maximum cost, in the currency that pays the fee, of an operation that may be signed */
+  maxCostLimit?: bigint;
 };
 
 type AlchemyBatchPreconditions = {
@@ -80,10 +84,9 @@ async function resolvePimlicoBatchPreconditions(
   chain: EVMChain,
   network: ApiNetwork,
   address: string,
+  gasToken: string,
 ): Promise<PimlicoBatchPreconditions | { error: ApiAnyDisplayError }> {
-  const gasTokenAddress = getPimlicoGasTokenAddress(network, chain);
-
-  if (!gasTokenAddress) {
+  if (!isPimlicoGasToken(network, chain, gasToken)) {
     return { error: EvmSmartAccountError.BundlerNotConfigured };
   }
 
@@ -91,7 +94,7 @@ async function resolvePimlicoBatchPreconditions(
     await getEvmDelegationAddress(chain, network, address),
   );
 
-  return { gasTokenAddress, foreignDelegation, shouldDelegate };
+  return { gasTokenAddress: gasToken, foreignDelegation, shouldDelegate };
 }
 
 async function ensureGasTokenBalance(
@@ -200,6 +203,7 @@ async function submitAlchemyBatchUserOp(
   address: string,
   privateKey: string,
   transactions: EvmMetaTransaction[],
+  maxCostLimit?: bigint,
 ): Promise<EvmBatchSubmitResult | { error: ApiAnyDisplayError }> {
   const preconditions = await resolveAlchemyBatchPreconditions(chain, network, address);
 
@@ -213,6 +217,10 @@ async function submitAlchemyBatchUserOp(
     const calls = withForeignDelegationResetCall(address, transactions, foreignDelegation);
     const prepareResult = await prepareAlchemyCalls(apiUrl, address, chainId, calls, shouldDelegate);
     const maxCost = estimateMaxCostFromPrepareResult(prepareResult);
+
+    if (maxCostLimit !== undefined && maxCost > maxCostLimit) {
+      return { error: EvmSmartAccountError.UserOperationMismatch };
+    }
 
     if (!await canPayEvmTransactions(chain, network, address, calls, maxCost)) {
       return { error: ApiTransactionError.InsufficientBalance };
@@ -248,8 +256,9 @@ async function estimatePimlicoBatchUserOpFee(
   network: ApiNetwork,
   address: string,
   transactions: EvmMetaTransaction[],
+  gasToken: string,
 ): Promise<{ maxCost: bigint } | { error: ApiAnyDisplayError }> {
-  const preconditions = await resolvePimlicoBatchPreconditions(chain, network, address);
+  const preconditions = await resolvePimlicoBatchPreconditions(chain, network, address, gasToken);
 
   if ('error' in preconditions) {
     return preconditions;
@@ -268,7 +277,9 @@ async function estimatePimlicoBatchUserOpFee(
       network, chain, address, chainId, shouldDelegate,
     );
 
-    const estimate = await estimateEvmGaslessBatch(chain, network, address, calls, eip7702Auth);
+    const estimate = await estimateEvmGaslessBatch(
+      chain, network, address, calls, gasTokenAddress, eip7702Auth,
+    );
     const maxCost = BigInt(estimate.maxCost);
 
     const balanceError = await ensureGasTokenBalance(
@@ -297,8 +308,10 @@ async function submitPimlicoBatchUserOp(
   address: string,
   privateKey: string,
   transactions: EvmMetaTransaction[],
+  gasToken: string,
+  maxCostLimit?: bigint,
 ): Promise<EvmBatchSubmitResult | { error: ApiAnyDisplayError }> {
-  const preconditions = await resolvePimlicoBatchPreconditions(chain, network, address);
+  const preconditions = await resolvePimlicoBatchPreconditions(chain, network, address, gasToken);
 
   if ('error' in preconditions) {
     return preconditions;
@@ -313,15 +326,20 @@ async function submitPimlicoBatchUserOp(
 
   try {
     const calls = withForeignDelegationResetCall(address, transactions, foreignDelegation);
+
     const estimateEip7702Auth = await resolveEip7702AuthStubForEstimate(
       network, chain, address, chainId, shouldDelegate,
     );
 
     const estimate = await estimateEvmGaslessBatch(
-      chain, network, address, calls, estimateEip7702Auth,
+      chain, network, address, calls, gasTokenAddress, estimateEip7702Auth,
     );
 
     const maxCost = BigInt(estimate.maxCost);
+
+    if (maxCostLimit !== undefined && maxCost > maxCostLimit) {
+      return { error: EvmSmartAccountError.UserOperationMismatch };
+    }
 
     const balanceError = await ensureGasTokenBalance(
       chain,
@@ -386,7 +404,11 @@ export async function estimateBatchUserOpFee(
   options?: EvmBatchUserOpOptions,
 ): Promise<{ maxCost: bigint } | { error: ApiAnyDisplayError }> {
   if (options?.needsGasless) {
-    return estimatePimlicoBatchUserOpFee(chain, network, address, transactions);
+    if (!options.gasToken) {
+      return { error: EvmSmartAccountError.BundlerNotConfigured };
+    }
+
+    return estimatePimlicoBatchUserOpFee(chain, network, address, transactions, options.gasToken);
   }
 
   return estimateAlchemyBatchUserOpFee(chain, network, address, transactions);
@@ -401,10 +423,16 @@ export async function submitBatchUserOp(
   options?: EvmBatchUserOpOptions,
 ): Promise<EvmBatchSubmitResult | { error: ApiAnyDisplayError }> {
   if (options?.needsGasless) {
-    return submitPimlicoBatchUserOp(chain, network, address, privateKey, transactions);
+    if (!options.gasToken) {
+      return { error: EvmSmartAccountError.BundlerNotConfigured };
+    }
+
+    return submitPimlicoBatchUserOp(
+      chain, network, address, privateKey, transactions, options.gasToken, options.maxCostLimit,
+    );
   }
 
-  return submitAlchemyBatchUserOp(chain, network, address, privateKey, transactions);
+  return submitAlchemyBatchUserOp(chain, network, address, privateKey, transactions, options?.maxCostLimit);
 }
 
 export function validateEvmSwapCalls(

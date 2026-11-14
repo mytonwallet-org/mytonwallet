@@ -211,6 +211,8 @@
     <item name="agent_menu_button" type="id" />
     <item name="agent_menu_retry" type="id" />
     <item name="agent_menu_report" type="id" />
+    <item name="agent_support_button" type="id" />
+    <item name="agent_support_hint" type="id" />
     <item name="agent_menu_clear_chat" type="id" />
     <item name="agent_menu_delete_chat" type="id" />
     <item name="agent_threads_button" type="id" />
@@ -351,4 +353,14 @@
     <item name="explore_site_icon_3" type="id" />
     <item name="explore_other_sites" type="id" />
     <item name="search_item_row" type="id" />
+    <item name="token_picker_search" type="id" />
+    <item name="invoice_amount_input" type="id" />
+    <item name="invoice_token_selector" type="id" />
+    <item name="invoice_comment_input" type="id" />
+    <item name="invoice_link" type="id" />
+    <item name="earn_how_it_works" type="id" />
+    <item name="browser_menu_reload" type="id" />
+    <item name="browser_menu_open_external" type="id" />
+    <item name="browser_menu_copy_url" type="id" />
+    <item name="browser_menu_share" type="id" />
 </resources>

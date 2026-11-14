@@ -1,10 +1,11 @@
-import React, { memo, useEffect, useRef, useState } from '../../lib/teact/teact';
+import React, { memo, useEffect, useLayoutEffect, useRef, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiStakingState } from '../../api/types';
 import type { Theme } from '../../global/types';
 
 import { IS_EXPLORER } from '../../config';
+import { requestForcedReflow } from '../../lib/fasterdom/fasterdom';
 import {
   selectAccountStakingState,
   selectCurrentAccountId,
@@ -12,20 +13,23 @@ import {
   selectCurrentAccountState,
   selectDefaultOffRampChain,
   selectDefaultOnRampChain,
+  selectIsCardAccountPending,
   selectIsCurrentAccountViewMode,
   selectIsOffRampAllowed,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
 } from '../../global/selectors';
 import { useAccentColor } from '../../util/accentColor';
+import { getIsAccountContentTransitionActive } from '../../util/accountContentTransition';
 import buildClassName from '../../util/buildClassName';
 import { animateContentShift } from '../../util/layoutChangeAnimation';
 import { getStakingStateStatus } from '../../util/staking';
 import { REM } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from './helpers/calcSafeAreaTop';
 import { getIsMainActive } from './helpers/getIsMainActive';
-import { getScrollContainerClosestSelector } from './helpers/scrollableContainer';
+import { getScrollableContainer, getScrollContainerClosestSelector } from './helpers/scrollableContainer';
 
+import useAccountContentFade from '../../hooks/useAccountContentFade';
 import useAppTheme from '../../hooks/useAppTheme';
 import useBackgroundMode, { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -64,6 +68,7 @@ import Header, { HEADER_HEIGHT_REM } from './sections/Header/Header';
 import HomeBanners from './sections/HomeBanners';
 import LandscapeLayout from './sections/LandscapeLayout';
 import Warnings from './sections/Warnings';
+import TestnetWarning from './sections/Warnings/TestnetWarning';
 
 import styles from './Main.module.scss';
 
@@ -76,6 +81,7 @@ type StateProps = {
   stakingState?: ApiStakingState;
   isTestnet?: boolean;
   isViewMode: boolean;
+  isAccountPending: boolean;
   isStakingInfoModalOpen?: boolean;
   isSwapDisabled?: boolean;
   isStakingDisabled?: boolean;
@@ -100,6 +106,7 @@ function Main({
   stakingState,
   isTestnet,
   isViewMode,
+  isAccountPending,
   isStakingInfoModalOpen,
   isSwapDisabled,
   isStakingDisabled,
@@ -124,9 +131,9 @@ function Main({
   const lang = useLang();
   const cardRef = useRef<HTMLDivElement>();
   const portraitContainerRef = useRef<HTMLDivElement>();
-  const portraitContentRef = useRef<HTMLDivElement>();
   const landscapeContainerRef = useRef<HTMLDivElement>();
   const navBarAndWalletListRef = useRef<HTMLDivElement>();
+  const sidebarRef = useRef<HTMLDivElement>();
 
   const safeAreaTop = calcSafeAreaTop();
   const [isFocused, markIsFocused, unmarkIsFocused] = useFlag(!isBackgroundModeActive());
@@ -136,6 +143,26 @@ function Main({
   const stakingStatus = stakingState ? getStakingStateStatus(stakingState) : 'inactive';
 
   useBackgroundMode(unmarkIsFocused, markIsFocused);
+
+  // This component stays mounted across accounts, and every account opens from the top.
+  // The reset happens in the frame that paints the new account, before the account regions measure it.
+  useLayoutEffect(() => {
+    requestForcedReflow(() => {
+      const scrollContainer = getScrollableContainer(portraitContainerRef.current, true) ?? sidebarRef.current;
+
+      if (scrollContainer?.scrollTop) scrollContainer.scrollTo({ top: 0, behavior: 'instant' });
+    });
+  }, [accountId]);
+
+  // After the scroll reset above, so that each region measures where it ends up for the new account
+  const accountContentRef = useAccountContentFade(accountId);
+  const accountHeaderRef = useAccountContentFade(accountId);
+  const accountListRef = useAccountContentFade(accountId);
+  const accountNavRef = useAccountContentFade(accountId);
+  const accountActionsRef = useAccountContentFade(accountId);
+  const accountNoticesRef = useAccountContentFade(accountId);
+  const portraitContentRef = useAccountContentFade(accountId);
+  const homeBannersRef = useAccountContentFade(accountId);
 
   usePreventPinchZoomGesture(isMediaViewerOpen);
 
@@ -179,6 +206,9 @@ function Main({
   });
 
   const handleBannersHeightChange = useLastCallback((prevHeight: number, nextHeight: number) => {
+    // An account switch replaces the content under a crossfade, so there is nothing to shift
+    if (getIsAccountContentTransitionActive()) return;
+
     animateContentShift(
       isPortrait ? portraitContentRef.current! : navBarAndWalletListRef.current!,
       getScrollContainerClosestSelector(true, isPortrait)!,
@@ -186,65 +216,117 @@ function Main({
     );
   });
 
+  const handleNoticesHeightChange = useLastCallback((prevHeight: number, nextHeight: number) => {
+    if (getIsAccountContentTransitionActive()) return;
+
+    animateContentShift(
+      homeBannersRef.current!,
+      getScrollContainerClosestSelector(true, isPortrait)!,
+      prevHeight - nextHeight,
+    );
+    handleBannersHeightChange(prevHeight, nextHeight);
+  });
+
+  function renderNoticesAndBanners() {
+    return (
+      <>
+        <div ref={accountNoticesRef} className={styles.accountRegion} inert={isAccountPending}>
+          <Warnings
+            key={accountId}
+            onOpenBackupWallet={openBackupWalletModal}
+            onHeightChange={handleNoticesHeightChange}
+          />
+        </div>
+
+        <div ref={homeBannersRef} className={styles.accountRegion} inert={isAccountPending}>
+          <HomeBanners onHeightChange={handleBannersHeightChange} />
+        </div>
+      </>
+    );
+  }
+
   function renderPortraitLayout() {
     return (
-      <div ref={portraitContainerRef} className={styles.portraitContainer}>
+      <div
+        ref={portraitContainerRef}
+        className={buildClassName(styles.portraitContainer, isAccountPending && styles.isAccountPending)}
+        data-portrait-wallet
+      >
         <div className={styles.head}>
-          <Warnings onOpenBackupWallet={openBackupWalletModal} />
+          <TestnetWarning />
 
-          <Header
-            withBalance={!shouldHideBalanceInHeader}
-            areTabsStuck={areTabsStuck}
-            isScrolled={!isPageAtTop}
-          />
+          <div ref={accountHeaderRef} className={styles.accountRegion} inert={isAccountPending}>
+            <Header
+              key={accountId}
+              withBalance={!shouldHideBalanceInHeader}
+              areTabsStuck={areTabsStuck}
+              isScrolled={!isPageAtTop}
+            />
+          </div>
 
           <Card ref={cardRef} onYieldClick={handleEarnClick} />
 
-          {!isViewMode && (
-            <PortraitActions
-              containerRef={portraitContainerRef}
-              isTestnet={isTestnet}
-              stakingStatus={stakingStatus}
-              isStakingDisabled={isStakingDisabled}
-              isSwapDisabled={isSwapDisabled}
-              isOnRampDisabled={isOnRampDisabled}
-              isOffRampDisabled={!isOffRampAllowed}
-              onEarnClick={handleEarnClick}
-            />
-          )}
+          {/* Mounted for view wallets too, or its outgoing view would vanish with the actions */}
+          <div ref={accountActionsRef} className={styles.accountRegion} inert={isAccountPending}>
+            {!isViewMode && (
+              <PortraitActions
+                key={accountId}
+                containerRef={portraitContainerRef}
+                isTestnet={isTestnet}
+                stakingStatus={stakingStatus}
+                isStakingDisabled={isStakingDisabled}
+                isSwapDisabled={isSwapDisabled}
+                isOnRampDisabled={isOnRampDisabled}
+                isOffRampDisabled={!isOffRampAllowed}
+                onEarnClick={handleEarnClick}
+              />
+            )}
+          </div>
 
-          <HomeBanners onHeightChange={handleBannersHeightChange} />
+          {renderNoticesAndBanners()}
         </div>
 
-        <PortraitContent
-          ref={portraitContentRef}
-          isActive={isActive}
-          onStakedTokenClick={handleEarnClick}
-          onTabsStuck={setAreTabsStuck}
-        />
+        <div ref={portraitContentRef} className={styles.portraitContentRegion} inert={isAccountPending}>
+          <PortraitContent
+            key={accountId}
+            isActive={isActive}
+            onStakedTokenClick={handleEarnClick}
+            onTabsStuck={setAreTabsStuck}
+          />
+        </div>
       </div>
     );
   }
 
   function renderLandscapeLayout() {
     return (
-      <div ref={landscapeContainerRef} className={styles.landscapeContainer} dir={lang.isRtl ? 'rtl' : 'ltr'}>
-        <div key={accountId} className={buildClassName(styles.sidebar, 'custom-scroll')}>
-          <Warnings onOpenBackupWallet={openBackupWalletModal} />
+      <div
+        ref={landscapeContainerRef}
+        className={buildClassName(styles.landscapeContainer, isAccountPending && styles.isAccountPending)}
+        dir={lang.isRtl ? 'rtl' : 'ltr'}
+      >
+        <div ref={sidebarRef} className={buildClassName(styles.sidebar, 'custom-scroll')}>
+          <TestnetWarning />
 
-          <Header />
+          <div ref={accountHeaderRef} className={styles.accountRegion} inert={isAccountPending}>
+            <Header key={accountId} />
+          </div>
 
           <Card onYieldClick={handleEarnClick} />
 
-          <HomeBanners onHeightChange={handleBannersHeightChange} />
+          {renderNoticesAndBanners()}
 
-          <div ref={navBarAndWalletListRef}>
-            <LandscapeNavBar />
-            <LandscapeWalletList />
+          <div ref={navBarAndWalletListRef} inert={isAccountPending}>
+            <div ref={accountNavRef} className={styles.accountRegion}>
+              <LandscapeNavBar />
+            </div>
+            <div ref={accountListRef} className={styles.accountRegion}>
+              <LandscapeWalletList />
+            </div>
           </div>
           {IS_EXPLORER && <PromoteWallet />}
         </div>
-        <div className={styles.main}>
+        <div ref={accountContentRef} className={styles.main} inert={isAccountPending}>
           <LandscapeLayout onStakedTokenClick={handleEarnClick} />
         </div>
       </div>
@@ -300,6 +382,7 @@ export default memo(
         stakingState,
         isTestnet: global.settings.isTestnet,
         isViewMode: selectIsCurrentAccountViewMode(global),
+        isAccountPending: selectIsCardAccountPending(global),
         isStakingInfoModalOpen: global.isStakingInfoModalOpen,
         isMediaViewerOpen: Boolean(global.mediaViewer?.mediaId),
         isSwapDisabled: selectIsSwapDisabled(global),

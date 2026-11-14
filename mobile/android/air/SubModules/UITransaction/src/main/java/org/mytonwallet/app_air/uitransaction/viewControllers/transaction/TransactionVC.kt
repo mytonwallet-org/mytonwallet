@@ -102,6 +102,7 @@ import org.mytonwallet.app_air.walletcore.isUtxoChain
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -1469,8 +1470,7 @@ class TransactionVC(
         val isLoading =
             transaction.shouldLoadDetails == true && loadingDetailsActivityId == transaction.id
         val fee = calcFee(transaction)
-        val price = TokenStore.getToken(transaction.getTxSlug(), searchMinterAddress = true)
-            ?.nativeToken?.price
+        val price = getFeeToken(transaction)?.price
         val canToggle = fee != null && price != null && price.isFinite() && price > 0
         val displayedFee = if (shouldShowFeeInBaseCurrency && !isLoading && canToggle) {
             calcFeeEquivalent(transaction) ?: fee
@@ -1536,18 +1536,23 @@ class TransactionVC(
         }
     }
 
+    /** The token of the fee: the activity's own token when gasless, the chain's native token otherwise */
+    private fun getFeeToken(transaction: MApiTransaction): MToken? {
+        val token = TokenStore.getToken(transaction.getTxSlug(), searchMinterAddress = true)
+        return if (transaction.extra?.isGasless == true) token else token?.nativeToken
+    }
+
     private fun calcFeeEquivalent(transaction: MApiTransaction): String? {
-        val nativeToken = TokenStore.getToken(transaction.getTxSlug(), searchMinterAddress = true)
-            ?.nativeToken ?: return null
-        val price = nativeToken.price?.takeIf { it.isFinite() && it > 0 } ?: return null
+        val feeToken = getFeeToken(transaction) ?: return null
+        val price = feeToken.price?.takeIf { it.isFinite() && it > 0 } ?: return null
         val amount = when (transaction) {
             is MApiTransaction.Transaction -> transaction.fee
-            is MApiTransaction.Swap -> transaction.networkFee?.toBigInteger(nativeToken.decimals)
+            is MApiTransaction.Swap -> transaction.networkFee?.toBigInteger(feeToken.decimals)
         }?.takeIf { it > BigInteger.ZERO } ?: return null
-        val equivalent = (amount.doubleAbsRepresentation(nativeToken.decimals) * price).toString(
-            decimals = nativeToken.decimals,
+        val equivalent = (amount.doubleAbsRepresentation(feeToken.decimals) * price).toString(
+            decimals = feeToken.decimals,
             currency = WalletCore.baseCurrency.sign,
-            currencyDecimals = nativeToken.decimals,
+            currencyDecimals = feeToken.decimals,
             smartDecimals = true,
             showPositiveSign = false
         ) ?: return null
@@ -1565,31 +1570,34 @@ class TransactionVC(
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 if (transaction.fee <= BigInteger.ZERO) return null
-                val token = TokenStore.getToken(transaction.slug)
-                val nativeToken = token?.nativeToken
-                return if (nativeToken == null) {
-                    null
-                } else {
-                    transaction.fee.toString(
-                        nativeToken.decimals,
-                        nativeToken.symbol,
-                        transaction.fee.smartDecimalsCount(nativeToken.decimals),
-                        false
-                    )
-                }
+                val feeToken = getFeeToken(transaction) ?: return null
+                return transaction.fee.toString(
+                    feeToken.decimals,
+                    feeToken.symbol,
+                    transaction.fee.smartDecimalsCount(feeToken.decimals),
+                    false
+                )
             }
 
             is MApiTransaction.Swap -> {
                 if ((transaction.networkFee ?: 0.0) <= 0.0) return null
                 val fromToken = transaction.fromToken ?: return null
-                val nativeDecimals = fromToken.nativeToken?.decimals ?: fromToken.decimals
-                val feeTerms = MFeeTerms(
-                    token = BigInteger.ZERO,
-                    native = (transaction.networkFee?.absoluteValue ?: 0.0).toBigInteger(
-                        nativeDecimals
-                    ),
-                    stars = null
-                )
+                val networkFee = transaction.networkFee?.absoluteValue ?: 0.0
+                val feeTerms = if (transaction.extra?.isGasless == true) {
+                    MFeeTerms(
+                        token = networkFee.toBigInteger(fromToken.decimals),
+                        native = BigInteger.ZERO,
+                        stars = null
+                    )
+                } else {
+                    MFeeTerms(
+                        token = BigInteger.ZERO,
+                        native = networkFee.toBigInteger(
+                            fromToken.nativeToken?.decimals ?: fromToken.decimals
+                        ),
+                        stars = null
+                    )
+                }
                 return MFee(
                     if (transaction.status.uiStatus ==
                         MApiTransaction.UIStatus.PENDING

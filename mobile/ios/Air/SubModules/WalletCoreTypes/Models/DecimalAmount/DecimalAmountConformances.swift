@@ -7,6 +7,9 @@ import WalletContext
 extension ApiToken: DecimalBackingType {
     public var displaySymbol: String? { symbol }
     public var forceCurrencyToRight: Bool { true }
+    public var preferredDecimals: Int? {
+        AssetPrecision.amountPrecision(precision: precision, priceUsd: priceUsd)
+    }
 }
 
 extension DecimalAmount where Backing == ApiToken {

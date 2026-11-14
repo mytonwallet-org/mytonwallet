@@ -8,6 +8,7 @@ import { Big } from '../../lib/big.js';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, formatNumber, getShortCurrencySymbol } from '../../util/formatNumber';
+import getTestId from '../../util/getTestId';
 import { toNativeDigits } from '../../util/nativeDigits';
 
 import useLang from '../../hooks/useLang';
@@ -94,6 +95,7 @@ function StakingDetails({
         <button
           type="button"
           className={buildClassName(styles.detailsRow, styles.detailsRow_button)}
+          data-testid={getTestId('stake_why_safe')}
           onClick={onSafeInfoClick}
         >
           <span className={styles.detailsLabel}>{lang('Why this is safe')}</span>

@@ -6,6 +6,7 @@ import android.text.InputType
 import android.text.TextUtils
 import android.text.method.DigitsKeyListener
 import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import androidx.core.widget.doOnTextChanged
 import kotlin.math.roundToInt
@@ -38,7 +39,9 @@ class StakeInputView(
         LayoutParams.WRAP_CONTENT
     ),
     onClickEquivalentLabel: (() -> Unit)? = null,
-    onClickMaxBalanceButton: (() -> Unit)? = null
+    onClickMaxBalanceButton: (() -> Unit)? = null,
+    amountEditTextId: Int = View.generateViewId(),
+    maxBalanceButtonId: Int = View.generateViewId()
 ) : WView(context),
     WThemedView {
 
@@ -54,7 +57,7 @@ class StakeInputView(
     }
 
     val maxBalanceButton = WTokenMaxButton(context).apply {
-        this.id = generateViewId()
+        this.id = maxBalanceButtonId
         setPaddingDp(6, 0, 6, 0)
 
         setOnClickListener { onClickMaxBalanceButton?.invoke() }
@@ -65,7 +68,7 @@ class StakeInputView(
     }
 
     val amountEditText = WAmountEditText(context).apply {
-        id = generateViewId()
+        id = amountEditTextId
         hint = "0"
         isSingleLine = true
         gravity = Gravity.CENTER_VERTICAL or

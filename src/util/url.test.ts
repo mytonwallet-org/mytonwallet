@@ -1,5 +1,6 @@
 import {
   convertExplorerUrl,
+  getAgentNewsShareUrl,
   getExplorerAddressUrl,
   getExplorerTransactionUrl,
   getViewAccountUrl,
@@ -133,6 +134,15 @@ describe('getViewTokenUrl', () => {
 
   it('should add the testnet parameter', () => {
     expect(getViewTokenUrl({ chain: 'ton', slug: 'toncoin' }, true)).toBe('https://my.tt/token/toncoin?testnet=true');
+  });
+});
+
+describe('getAgentNewsShareUrl', () => {
+  it.each([
+    [7, 'en', 'https://my.tt/agent?news=7&lang=en&utm_source=pulse_share'],
+    [2147483647, 'ru', 'https://my.tt/agent?news=2147483647&lang=ru&utm_source=pulse_share'],
+  ] as const)('should link news %d shown in %s', (eventId, locale, url) => {
+    expect(getAgentNewsShareUrl(eventId, locale)).toBe(url);
   });
 });
 

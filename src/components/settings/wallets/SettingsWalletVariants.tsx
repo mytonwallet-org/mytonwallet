@@ -21,6 +21,7 @@ import { getOrderedAccountChains } from '../../../util/chain';
 import { toBig, toDecimal } from '../../../util/decimals';
 import { formatAccountAddresses } from '../../../util/formatAccountAddress';
 import { formatCurrency, getShortCurrencySymbol } from '../../../util/formatNumber';
+import getTestId from '../../../util/getTestId';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
 import { pause } from '../../../util/schedulers';
 import { callApi } from '../../../api';
@@ -515,6 +516,7 @@ function SettingsWalletVariants({
       <div className={styles.slide}>
         <SettingsHeader
           title={lang('Subwallets')}
+          titleTestId={getTestId('subwallets_title')}
           isScrolled={isScrolled}
           onBackClick={handleBackToSettingsClick}
         />

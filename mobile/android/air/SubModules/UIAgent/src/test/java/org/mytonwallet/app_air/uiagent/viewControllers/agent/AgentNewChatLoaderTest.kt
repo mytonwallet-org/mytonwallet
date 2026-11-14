@@ -9,7 +9,9 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -24,18 +26,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.BeforeClass
 import org.junit.Test
+import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationController
+import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationRecorder
 import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextSnapshot
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2HostContextProvider
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsDigestSchedule
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsFeedClient
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Availability
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2CachedMessages
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
@@ -49,6 +57,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedPage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2StarterHint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
@@ -58,8 +67,14 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSupport
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsFeedView
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class AgentNewChatLoaderTest {
     @Test
@@ -105,6 +120,704 @@ class AgentNewChatLoaderTest {
     }
 
     @Test
+    fun deferredPreviewNeverCreatesAThreadOnOpeningConsentOrExit() =
+        testDeferredDiscussions { isDigest ->
+            for (hasConsent in listOf(false, true)) {
+                val client = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+                    this.hasConsent =
+                        hasConsent
+                }
+                val opening = createDeferredDiscussionOpening(
+                    isDigest = isDigest,
+                    client = client
+                )
+
+                assertNull(opening.create())
+                assertNull(opening.create(shouldAcceptConsent = true))
+                opening.readConsent()
+                assertEquals(hasConsent, opening.hasConsent)
+                assertTrue(opening.canSubmitDiscussionMessage)
+                assertFalse(opening.isConsentRequired)
+                assertFalse(opening.canReportProblem)
+                assertEquals(0, client.acceptedConsentCount)
+                assertTrue(opening.messages.isEmpty())
+
+                var allowConsent: (() -> Unit)? = null
+                var actionCount = 0
+                val consentGate = createDiscussionConsentGate(
+                    model = { null },
+                    opening = { opening },
+                    askForConsent = { onAllowed, _ -> allowConsent = onAllowed }
+                )
+                consentGate.request { actionCount++ }
+                if (!hasConsent) {
+                    assertEquals(0, actionCount)
+                    consentGate.request { fail("An action waits for the open consent sheet") }
+                    client.hasConsent = true
+                    checkNotNull(allowConsent).invoke()
+                }
+                assertEquals(1, actionCount)
+                assertEquals(true, opening.hasConsent)
+                assertNull(opening.create())
+                assertTrue(opening.messages.isEmpty())
+
+                val reports = mutableListOf<Boolean>()
+                opening.reportProblem("Wrong summary") { reports += it }
+                opening.deleteChat { fail("A preview has no thread to delete") }
+                yield()
+                assertEquals(listOf(false), reports)
+                assertTrue(client.newsRequests.isEmpty())
+                assertEquals(0, client.messageRequests)
+                assertTrue(client.deletedThreads.isEmpty())
+                assertTrue(client.reports.isEmpty())
+            }
+        }
+
+    @Test
+    fun deferredNewsDiscussionCanRequestHeaderSupport() = verifyDeferredHeaderSupport(false)
+
+    @Test
+    fun deferredDigestDiscussionCanRequestHeaderSupport() = verifyDeferredHeaderSupport(true)
+
+    @Test
+    fun deferredHeaderSupportDropsAfterWalletChangesDuringCreation() =
+        verifyDeferredHeaderSupportWalletChanges(shouldSwitchDuringHydration = false)
+
+    @Test
+    fun deferredHeaderSupportDropsAfterWalletChangesDuringHydration() =
+        verifyDeferredHeaderSupportWalletChanges(shouldSwitchDuringHydration = true)
+
+    @Test
+    fun deferredDictationProducesADraftWithoutCreatingAThread() =
+        testDeferredDiscussions { isDigest ->
+            for (hasConsent in listOf(false, true)) {
+                val client = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+                    this.hasConsent =
+                        hasConsent
+                }
+                val requests = mutableListOf<AgentV2TranscriptionRequest>()
+                val opening = createDeferredDiscussionOpening(
+                    isDigest = isDigest,
+                    client = object : AgentV2Client by client {
+                        override suspend fun transcribe(
+                            request: AgentV2TranscriptionRequest
+                        ): AgentV2TranscriptionResponse {
+                            requests += request
+                            return AgentV2TranscriptionResponse("transcribed", "Draft question")
+                        }
+                    }
+                )
+                opening.readConsent()
+                val recordingStarted = CompletableDeferred<Unit>()
+                val transcriptReady = CompletableDeferred<String>()
+                var now = 0L
+                val controller = AgentDictationController(
+                    scope = this,
+                    recorderFactory = {
+                        object : AgentDictationRecorder {
+                            override fun start() {
+                                recordingStarted.complete(Unit)
+                            }
+                            override fun amplitude() = 2000
+                            override fun pause() = Unit
+                            override fun resume() = Unit
+                            override suspend fun finish() = "audio"
+                            override fun cancel() = Unit
+                        }
+                    },
+                    requestPermission = { true },
+                    transcribe = opening::transcribeAudio,
+                    nowMs = { now },
+                    onStateChanged = {},
+                    onTranscript = { transcriptReady.complete(it) },
+                    onFailure = { fail("Dictation failed: $it") }
+                )
+                val consentAsked = CompletableDeferred<() -> Unit>()
+                val consentGate = createDiscussionConsentGate(
+                    model = { null },
+                    opening = { opening },
+                    askForConsent = { onAllowed, _ -> consentAsked.complete(onAllowed) }
+                )
+                try {
+                    consentGate.requestDiscussionConsent(this, opening = { opening }) {
+                        controller.startHandsFree()
+                    }
+                    if (!hasConsent) {
+                        val allowConsent = withTimeout(1_000) { consentAsked.await() }
+                        assertFalse(recordingStarted.isCompleted)
+                        assertTrue(requests.isEmpty())
+                        client.hasConsent = true
+                        allowConsent()
+                    }
+                    withTimeout(1_000) { recordingStarted.await() }
+                    now = 1000
+                    controller.finish()
+                    assertEquals("Draft question", withTimeout(1_000) { transcriptReady.await() })
+                    assertEquals(
+                        listOf(
+                            AgentV2TranscriptionRequest(
+                                "audio",
+                                lang = LocaleController.activeLanguage.langCode
+                            )
+                        ),
+                        requests
+                    )
+                    assertTrue(opening.messages.isEmpty())
+                    assertTrue(client.newsRequests.isEmpty())
+                    assertEquals(0, client.messageRequests)
+                    assertTrue(client.sent.isEmpty())
+                } finally {
+                    controller.cancel()
+                }
+            }
+        }
+
+    @Test
+    fun deferredDiscussionReadsLimitsAtOpeningAndBlocksMessagesAndSuggestionsWithoutAThread() =
+        testDeferredDiscussions { isDigest ->
+            for (isQuotaExhausted in listOf(true, false)) {
+                val client = FakeNewsClient(createDiscussionThread(isDigest))
+                val opening = createDeferredDiscussionOpening(
+                    isDigest = isDigest,
+                    client = client
+                )
+                client.onLoadAvailability = {
+                    opening.onBridgeUpdate(
+                        ApiUpdate.ApiUpdateAgentV2(
+                            AgentV2Update.AvailabilityChanged(
+                                AgentV2Availability(
+                                    if (isQuotaExhausted) "available" else "capacity_exhausted",
+                                    if (isQuotaExhausted) {
+                                        null
+                                    } else {
+                                        System.currentTimeMillis() +
+                                            60_000
+                                    }
+                                )
+                            )
+                        )
+                    )
+                }
+                client.onLoadUserQuota = {
+                    opening.onBridgeUpdate(
+                        ApiUpdate.ApiUpdateAgentV2(
+                            AgentV2Update.UserQuotaChanged(
+                                AgentV2UserQuota(10, 10, 0, "2099-01-01T00:00:00Z")
+                                    .takeIf { isQuotaExhausted }
+                            )
+                        )
+                    )
+                }
+
+                opening.readConsent()
+                assertEquals(1, client.availabilityRequests)
+                assertEquals(1, client.quotaRequests)
+                assertTrue(opening.isInputBlockedByLimit)
+                assertFalse(opening.canSubmitDiscussionMessage)
+                assertFalse(opening.stageDiscussionMessage("Question"))
+                assertFalse(opening.stageDiscussionMessage("Suggestion", isFollowup = true))
+                assertFalse(opening.prepareDiscussionSubmission())
+                assertNull(opening.create())
+                assertTrue(opening.messages.isEmpty())
+                assertTrue(client.newsRequests.isEmpty())
+                assertEquals(0, client.messageRequests)
+                if (!isQuotaExhausted) {
+                    opening.onBridgeUpdate(
+                        ApiUpdate.ApiUpdateAgentV2(
+                            AgentV2Update.AvailabilityChanged(
+                                AgentV2Availability("capacity_exhausted")
+                            )
+                        )
+                    )
+                    assertFalse(opening.isInputBlockedByLimit)
+                    assertTrue(opening.canSubmitDiscussionMessage)
+                    assertTrue(opening.prepareDiscussionSubmission())
+                }
+            }
+        }
+
+    @Test
+    fun deferredSubmissionWaitsForConsentAndLimitsAndKeepsBlockedDraft() =
+        testDeferredDiscussions { isDigest ->
+            for (isQuotaExhausted in listOf(true, false)) {
+                val quotaRequested = CompletableDeferred<Unit>()
+                val quotaLoaded = CompletableDeferred<Unit>()
+                val runStarted = CompletableDeferred<Unit>()
+                val client = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+                    hasConsent = false
+                    onStartRun = { runStarted.complete(Unit) }
+                }
+                val opening = createDeferredDiscussionOpening(
+                    isDigest = isDigest,
+                    client = client
+                )
+                client.onLoadUserQuota = {
+                    quotaRequested.complete(Unit)
+                    quotaLoaded.await()
+                    opening.onBridgeUpdate(
+                        ApiUpdate.ApiUpdateAgentV2(
+                            AgentV2Update.UserQuotaChanged(
+                                AgentV2UserQuota(
+                                    10,
+                                    if (isQuotaExhausted) 10 else 0,
+                                    if (isQuotaExhausted) 0 else 10,
+                                    "2099-01-01T00:00:00Z"
+                                )
+                            )
+                        )
+                    )
+                }
+                opening.readConsent()
+                assertEquals(0, client.availabilityRequests)
+                assertEquals(0, client.quotaRequests)
+                var allowConsent: (() -> Unit)? = null
+                var draft = "First question"
+                var thread: AgentV2ThreadSummary? = null
+                val gate = createDiscussionConsentGate(
+                    model = { null },
+                    opening = { opening },
+                    askForConsent = { onAllowed, _ -> allowConsent = onAllowed }
+                )
+                coroutineScope {
+                    gate.requestDiscussionConsent(this, opening = { opening }) {
+                        launch {
+                            if (opening.stageDiscussionMessage(draft)) {
+                                draft = ""
+                                thread = opening.create()
+                            }
+                        }
+                    }
+                    withTimeout(1_000) {
+                        while (allowConsent == null) yield()
+                    }
+                    client.acceptConsent()
+                    checkNotNull(allowConsent).invoke()
+                    withTimeout(1_000) { quotaRequested.await() }
+                    assertEquals("First question", draft)
+                    assertFalse(opening.canSubmitDiscussionMessage)
+                    assertTrue(opening.messages.isEmpty())
+                    assertTrue(client.newsRequests.isEmpty())
+                    quotaLoaded.complete(Unit)
+                }
+                assertEquals(1, client.availabilityRequests)
+                assertEquals(1, client.quotaRequests)
+                if (isQuotaExhausted) {
+                    assertNull(thread)
+                    assertTrue(opening.isInputBlockedByLimit)
+                    assertEquals("First question", draft)
+                    assertTrue(opening.messages.isEmpty())
+                    assertTrue(client.newsRequests.isEmpty())
+                    assertEquals(0, client.messageRequests)
+                } else {
+                    assertEquals("", draft)
+                    val model = newModel(client, checkNotNull(thread), opening)
+                    try {
+                        withTimeout(1_000) { runStarted.await() }
+                        awaitReady(model)
+                        assertEquals(listOf("First question" to null), client.sent)
+                        assertEquals(1, client.newsRequests.size)
+                    } finally {
+                        model.onDestroy()
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun deferredDiscussionLimitAfterStagingKeepsTheMessageWithAnErrorUntilCreationIsRetried() =
+        testDeferredDiscussions { isDigest ->
+            val client = FakeNewsClient(createDiscussionThread(isDigest))
+            val opening = createDeferredDiscussionOpening(
+                isDigest = isDigest,
+                client = client
+            )
+            opening.readConsent()
+            assertTrue(opening.stageDiscussionMessage("First question"))
+            val optimisticMessage = opening.messages.single()
+            opening.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.UserQuotaChanged(
+                        AgentV2UserQuota(10, 10, 0, "2099-01-01T00:00:00Z")
+                    )
+                )
+            )
+
+            assertNull(opening.create())
+            assertEquals(
+                "user_quota_exhausted",
+                (opening.error as? AgentV2OperationException)?.error?.code
+            )
+            assertEquals(listOf(optimisticMessage), opening.messages)
+            assertTrue(client.newsRequests.isEmpty())
+
+            opening.onBridgeUpdate(ApiUpdate.ApiUpdateAgentV2(AgentV2Update.UserQuotaChanged()))
+            assertEquals("news-thread", opening.create()?.id)
+            assertNull(opening.error)
+            assertEquals(listOf(optimisticMessage), opening.messages)
+            assertEquals(1, client.newsRequests.size)
+        }
+
+    @Test
+    fun deferredDiscussionFirstMessageCreatesOnceWaitsForHistoryAndResolvesOnlyExactSuggestions() =
+        testDeferredDiscussions { isDigest ->
+            val followup =
+                AgentV2FollowUp("news-followup", "suggested_prompt", "Why does this matter?")
+            for (followupText in listOf(
+                null,
+                followup.text,
+                "A different question",
+                "why does this matter?",
+                " Why does this matter? "
+            )) {
+                val created = CompletableDeferred<Unit>()
+                val historyRequested = CompletableDeferred<Unit>()
+                val historyLoaded = CompletableDeferred<Unit>()
+                val modelQuotaRequested = CompletableDeferred<Unit>()
+                val modelQuotaLoaded = CompletableDeferred<Unit>()
+                val runStarted = CompletableDeferred<Unit>()
+                val thread = createDiscussionThread(isDigest).copy(messageCount = 1)
+                val savedPost = AgentV2PersistedMessage(
+                    "post",
+                    thread.id,
+                    "assistant",
+                    "complete",
+                    content = AgentV2MessageContent.Markdown("News body"),
+                    createdAt = "2026-10-20T00:00:00Z",
+                    followups = listOf(followup),
+                    newsPost = true
+                )
+                val client = FakeNewsClient(thread, listOf(savedPost)).apply {
+                    onCreate = { created.await() }
+                    onMessages = {
+                        historyRequested.complete(Unit)
+                        historyLoaded.await()
+                    }
+                    onLoadUserQuota = {
+                        if (quotaRequests == 2) {
+                            modelQuotaRequested.complete(Unit)
+                            modelQuotaLoaded.await()
+                        }
+                    }
+                    onStartRun = { runStarted.complete(Unit) }
+                }
+                val opening = createDeferredDiscussionOpening(
+                    isDigest = isDigest,
+                    client = client
+                )
+                val text = followupText ?: followup.text
+                assertTrue(opening.stageDiscussionMessage(text, isFollowup = followupText != null))
+                val optimisticMessage = opening.messages.single()
+                assertEquals(text, optimisticMessage.text)
+                assertEquals(AgentMessageRole.USER, optimisticMessage.role)
+                assertFalse(opening.stageDiscussionMessage(text, isFollowup = true))
+
+                val creation = async(start = CoroutineStart.UNDISPATCHED) { opening.create() }
+                assertFalse(creation.isCompleted)
+                assertNull(opening.create())
+                assertEquals(
+                    listOf(AgentV2ThreadNewsRequest(42, "en").takeUnless { isDigest }),
+                    client.newsRequests
+                )
+                assertEquals(
+                    listOf(AgentV2ThreadDigestRequest(DIGEST_ID).takeIf { isDigest }),
+                    client.digestRequests
+                )
+                assertEquals(listOf(optimisticMessage), opening.messages)
+                created.complete(Unit)
+                val createdThread = checkNotNull(creation.await())
+                assertEquals(createdThread, opening.create())
+                val sessions = modelSessions()
+                val model = sessions.acquire(createdThread.id) {
+                    newModel(client, createdThread, opening)
+                }
+                try {
+                    withTimeout(1_000) { historyRequested.await() }
+                    sessions.release(createdThread.id, model)
+                    assertSame(
+                        model,
+                        sessions.acquire(createdThread.id) {
+                            error("The pending first message retains its session")
+                        }
+                    )
+                    assertEquals(listOf(optimisticMessage), model.messages)
+                    assertTrue(model.hasUnsentOpening)
+                    assertFalse(model.sendMessage(text))
+                    assertTrue(client.sent.isEmpty())
+                    historyLoaded.complete(Unit)
+                    withTimeout(1_000) { modelQuotaRequested.await() }
+                    yield()
+                    assertTrue(client.sent.isEmpty())
+                    modelQuotaLoaded.complete(Unit)
+                    withTimeout(1_000) { runStarted.await() }
+                    awaitReady(model)
+                    model.retry()
+                    yield()
+                    assertEquals(1, client.newsRequests.size)
+                    assertEquals(1, client.messageRequests)
+                    assertEquals(listOf(text to null), client.sent)
+                    assertEquals(
+                        listOf(
+                            AgentV2FollowUpReference(savedPost.id, followup.id)
+                                .takeIf { followupText == followup.text }
+                        ),
+                        client.sentFollowups
+                    )
+                    assertEquals(
+                        listOf(optimisticMessage.id),
+                        model.messages.filter { it.role == AgentMessageRole.USER }.map { it.id }
+                    )
+                } finally {
+                    historyLoaded.complete(Unit)
+                    modelQuotaLoaded.complete(Unit)
+                    sessions.release(createdThread.id, model)
+                }
+            }
+        }
+
+    @Test
+    fun deferredFirstMessageKeepsTheWalletChosenWhenSending() =
+        testDeferredDiscussions { isDigest ->
+            val originalAccountId = AccountStore.activeAccountId
+            try {
+                for (shouldReturnToWallet in listOf(false, true)) {
+                    AccountStore.updateActiveAccount("preview-wallet")
+                    val created = CompletableDeferred<Unit>()
+                    val runStarted = CompletableDeferred<Unit>()
+                    val client = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+                        onCreate = { created.await() }
+                        onStartRun = { runStarted.complete(Unit) }
+                    }
+                    val opening = createDeferredDiscussionOpening(
+                        isDigest = isDigest,
+                        client = client
+                    )
+                    opening.readConsent()
+                    AccountStore.updateActiveAccount("wallet-a")
+                    assertTrue(opening.stageDiscussionMessage("First question"))
+                    val optimisticMessage = opening.messages.single()
+                    val creation = async(start = CoroutineStart.UNDISPATCHED) { opening.create() }
+                    assertEquals(1, client.newsRequests.size)
+                    assertFalse(creation.isCompleted)
+
+                    AccountStore.updateActiveAccount("wallet-b")
+                    if (shouldReturnToWallet) AccountStore.updateActiveAccount("wallet-a")
+                    created.complete(Unit)
+                    val model = newModel(client, checkNotNull(creation.await()), opening)
+                    try {
+                        awaitReady(model)
+                        if (shouldReturnToWallet) {
+                            withTimeout(1_000) { runStarted.await() }
+                            awaitReady(model)
+                            assertEquals(listOf("First question" to null), client.sent)
+                            assertTrue(model.messages.none { it.isFailure })
+                        } else {
+                            yield()
+                            assertTrue(client.sent.isEmpty())
+                            val failure = model.messages.single { it.isFailure }
+                            assertEquals(agentV2ErrorText(null), failure.text)
+                            assertTrue(model.failureRetry != null)
+                            assertFalse(model.hasUnsentOpening)
+                        }
+                        assertEquals(
+                            listOf(optimisticMessage.id),
+                            model.messages.filter { it.role == AgentMessageRole.USER }.map { it.id }
+                        )
+                        assertEquals(1, client.newsRequests.size)
+                    } finally {
+                        model.onDestroy()
+                    }
+                }
+            } finally {
+                AccountStore.updateActiveAccount(originalAccountId)
+            }
+        }
+
+    @Test
+    fun deferredCreationRetryKeepsTheFirstMessageAndSendsOnce() =
+        testDeferredDiscussions { isDigest ->
+            val failures = listOf(
+                IllegalStateException("No response"),
+                AgentV2OperationException(AgentV2MutationError("rate_limited", retryable = true)),
+                AgentV2OperationException(
+                    AgentV2MutationError("news_unavailable", retryable = false)
+                )
+            )
+            for (failure in failures) {
+                val runStarted = CompletableDeferred<Unit>()
+                val client = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+                    onCreate = { throw failure }
+                    onStartRun = { runStarted.complete(Unit) }
+                }
+                val opening = createDeferredDiscussionOpening(
+                    isDigest = isDigest,
+                    client = client
+                )
+                assertTrue(opening.stageDiscussionMessage("First question"))
+                val optimisticMessage = opening.messages.single()
+                assertNull(opening.create())
+                assertSame(failure, opening.error)
+                assertEquals(listOf(optimisticMessage), opening.messages)
+                assertTrue(client.sent.isEmpty())
+                client.onCreate = {}
+
+                val thread = checkNotNull(opening.create())
+                assertNull(opening.error)
+                val model = newModel(client, thread, opening)
+                try {
+                    withTimeout(1_000) { runStarted.await() }
+                    awaitReady(model)
+                    model.retry()
+                    yield()
+                    assertEquals(2, client.newsRequests.size)
+                    assertEquals(1, client.messageRequests)
+                    assertEquals(listOf("First question" to null), client.sent)
+                    assertEquals(
+                        listOf(optimisticMessage.id),
+                        model.messages.filter { it.role == AgentMessageRole.USER }.map { it.id }
+                    )
+                } finally {
+                    model.onDestroy()
+                }
+            }
+        }
+
+    @Test
+    fun deferredFirstMessageLeftBeforeItsThreadIsSentOnceToTheCreatedThread() =
+        testDeferredDiscussions { isDigest ->
+            val discussion = LeftDiscussion(this, isDigest)
+            try {
+                discussion.leave()
+                discussion.complete()
+                val model = discussion.awaitSent()
+                assertEquals(listOf(model.currentThread.id), discussion.learnedThreadIds)
+                assertEquals(listOf(discussion.staged.id), model.userMessageIds)
+            } finally {
+                discussion.close()
+            }
+        }
+
+    @Test
+    fun deferredDiscussionReopenedWhileItsThreadIsCreatedJoinsThePendingOpening() =
+        testDeferredDiscussions { isDigest ->
+            val discussion = LeftDiscussion(this, isDigest)
+            try {
+                discussion.leave()
+                val originalAccountId = AccountStore.activeAccountId
+                try {
+                    AccountStore.updateActiveAccount("another-wallet")
+                    assertNull(discussion.discussions.find(discussion.key))
+                } finally {
+                    AccountStore.updateActiveAccount(originalAccountId)
+                }
+                val reopened = checkNotNull(discussion.discussions.find(discussion.key))
+                assertSame(discussion.opening, reopened)
+                assertEquals(listOf(discussion.staged), reopened.messages)
+                val reopenedModels = mutableListOf<AgentVM>()
+                discussion.discussions.create(discussion.key, reopened, reopenedModels::add, null)
+                discussion.complete()
+                val model = discussion.awaitSent()
+                assertEquals(listOf(model), reopenedModels)
+                assertTrue(discussion.learnedThreadIds.isEmpty())
+                assertEquals(listOf(discussion.staged.id), model.userMessageIds)
+            } finally {
+                discussion.close()
+            }
+        }
+
+    @Test
+    fun deferredDiscussionReopenedAfterItsThreadIsCreatedShowsTheThreadsChat() =
+        testDeferredDiscussions { isDigest ->
+            val discussion = LeftDiscussion(this, isDigest)
+            try {
+                discussion.leave()
+                discussion.complete()
+                val model = discussion.awaitSent()
+                assertNull(discussion.discussions.find(discussion.key))
+                val reopened = discussion.sessions.acquire(model.currentThread.id) {
+                    error("The created thread's chat stays loaded")
+                }
+                discussion.sessions.release(model.currentThread.id, reopened)
+                assertSame(model, reopened)
+                assertTrue(reopened.isThreadStarted)
+                assertEquals(listOf(discussion.staged.id), reopened.userMessageIds)
+            } finally {
+                discussion.close()
+            }
+        }
+
+    /** A deferred discussion whose first message is staged, left while `createThread` waits for [complete] */
+    private inner class LeftDiscussion(scope: CoroutineScope, isDigest: Boolean) {
+        private val created = CompletableDeferred<Unit>()
+        private val runStarted = CompletableDeferred<Unit>()
+        private val client = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+            onCreate = { created.await() }
+            onStartRun = { runStarted.complete(Unit) }
+        }
+        private val models = mutableListOf<AgentVM>()
+
+        // The feed keeps the chat of a discussion it learns
+        private val retained = mutableListOf<AgentVM>()
+        val sessions = modelSessions()
+        val discussions = AgentPendingDiscussions(
+            scope,
+            acquireOpening = { thread, opening ->
+                sessions.acquire(thread.id) {
+                    scope.newModel(client, thread, opening).also(models::add)
+                }
+            },
+            release = { sessions.release(it.currentThread.id, it) }
+        )
+        val key = checkNotNull(
+            getAgentDeferredDiscussionKey(
+                AgentNewsChatRequest(42, "en", shouldDeferCreation = true).takeUnless { isDigest },
+                DIGEST_ID.takeIf { isDigest },
+                shouldDeferCreation = isDigest
+            )
+        )
+        val opening = createDeferredDiscussionOpening(client, isDigest)
+        val learnedThreadIds = mutableListOf<String>()
+        val staged: AgentMessage
+
+        init {
+            assertTrue(opening.stageDiscussionMessage("First question"))
+            staged = opening.messages.single()
+        }
+
+        suspend fun leave() {
+            val chat: (AgentVM) -> Unit = { fail("A left chat takes no model") }
+            discussions.create(key, opening, chat, { thread ->
+                learnedThreadIds += thread.id
+                retained +=
+                    sessions.acquire(thread.id) { error("The created thread's chat is loaded") }
+            })
+            withTimeout(1_000) {
+                while (client.newsRequests.isEmpty()) yield()
+            }
+            discussions.leave(key, chat)
+        }
+
+        fun complete() = created.complete(Unit)
+
+        suspend fun awaitSent(): AgentVM {
+            withTimeout(1_000) { runStarted.await() }
+            val model = models.single()
+            awaitReady(model)
+            assertEquals(listOf("First question" to null), client.sent)
+            assertEquals(1, client.newsRequests.size)
+            return model
+        }
+
+        fun close() {
+            created.complete(Unit)
+            retained.forEach { sessions.release(it.currentThread.id, it) }
+            models.forEach(AgentVM::onDestroy)
+        }
+    }
+
+    private val AgentVM.userMessageIds
+        get() = messages.filter { it.role == AgentMessageRole.USER }.map { it.id }
+
+    @Test
     fun digestOpeningCreatesAndLoadsItsPostBeforeConsentAndStaysUnstarted() = runBlocking {
         val digestId = "ru:2026-11-08T18:00:00.000Z"
         val thread = AgentV2ThreadSummary(
@@ -148,7 +861,8 @@ class AgentNewChatLoaderTest {
                 override suspend fun getNewsFeed(
                     lang: String,
                     cursor: String?,
-                    schedule: AgentNewsDigestSchedule
+                    schedule: AgentNewsDigestSchedule,
+                    view: AgentNewsFeedView
                 ): AgentV2NewsFeedPage {
                     languages += lang
                     assertNull(cursor)
@@ -652,7 +1366,7 @@ class AgentNewChatLoaderTest {
     }
 
     @Test
-    fun deletingPreparedOpeningBlocksLateStartupAndSurvivesSessionDestruction() = runBlocking {
+    fun deletingPreparedOpeningHoldsItsQuestionUntilTheServerRefusesDeletion() = runBlocking {
         val contextStarted = CompletableDeferred<Job>()
         val contextReleased = CompletableDeferred<Unit>()
         val deletionStarted = CompletableDeferred<Unit>()
@@ -677,11 +1391,11 @@ class AgentNewChatLoaderTest {
         val model = sessions.acquire(thread.id) { newModel(client, thread, opening) }
         try {
             val startup = withTimeout(1_000) { contextStarted.await() }
-            model.deleteChat { deletionFailure.complete(it) }
-            model.deleteChat { fail("Deletion must be idempotent") }
-            assertFalse(model.shouldRetainSession)
+            model.deleteChat({ deletionFailure.complete(it) }, onSuccess = {})
+            model.deleteChat({ fail("Deletion must be idempotent") }, onSuccess = {})
+            assertTrue(model.shouldRetainSession)
             sessions.release(thread.id, model)
-            assertTrue(sessions.getModels().isEmpty())
+            assertEquals(listOf(model), sessions.getModels())
             assertFalse(model.sendMessage("Too late"))
             model.acceptOpening(opening.messages, opening.entryPoint)
             model.retry()
@@ -694,6 +1408,8 @@ class AgentNewChatLoaderTest {
             assertTrue(client.sent.isEmpty())
             deletionFinished.complete(Unit)
             assertSame(serverError, withTimeout(1_000) { deletionFailure.await() })
+            withTimeout(1_000) { while (sessions.getModels().isNotEmpty()) yield() }
+            assertEquals(listOf("Question"), client.sent.map { it.first })
         } finally {
             contextReleased.complete(Unit)
             deletionFinished.complete(Unit)
@@ -702,49 +1418,78 @@ class AgentNewChatLoaderTest {
     }
 
     @Test
-    fun deletingChatCancelsUnsentRunBeforeAndAfterHostContextWait() = runBlocking {
-        for (waitForHostContext in listOf(false, true)) {
-            val thread = AgentV2ThreadSummary("empty-thread", 1)
-            val deleted = CompletableDeferred<Unit>()
-            val contextStarted = CompletableDeferred<Job>()
-            val contextReleased = CompletableDeferred<Unit>()
-            val client = FakeNewsClient(thread).apply { onDelete = { deleted.complete(Unit) } }
-            val modelScope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext[Job]))
-            val provider = AgentV2HostContextProvider(client, modelScope) {
-                AgentHostContextSnapshot(null, JSONObject())
-            }
-            val model = AgentVM(
-                client = client,
-                initialThread = thread,
-                scope = modelScope,
-                contextProvider = provider
-            )
-            try {
-                awaitReady(model)
-                if (waitForHostContext) {
-                    client.onUpdateHostContext = {
-                        contextStarted.complete(checkNotNull(currentCoroutineContext()[Job]))
-                        withContext(NonCancellable) { contextReleased.await() }
+    fun deletingChatHoldsAnUnsentRunUntilDeletionSucceedsOrFails() = runBlocking {
+        for (shouldWaitForHostContext in listOf(false, true)) {
+            for (shouldDelete in listOf(false, true)) {
+                val thread = AgentV2ThreadSummary("empty-thread", 1)
+                val deletionStarted = CompletableDeferred<Unit>()
+                val deletionMayEnd = CompletableDeferred<Unit>()
+                val deletionFailed = CompletableDeferred<Throwable>()
+                val contextStarted = CompletableDeferred<Job>()
+                val contextReleased = CompletableDeferred<Unit>()
+                val client = FakeNewsClient(thread).apply {
+                    onDelete = {
+                        deletionStarted.complete(Unit)
+                        deletionMayEnd.await()
+                        if (!shouldDelete) error("Deletion refused")
                     }
-                    provider.onWalletEvent(WalletEvent.BalanceChanged)
                 }
-                assertTrue(model.sendMessage("Question"))
-                val pendingRun = if (waitForHostContext) {
-                    withTimeout(1_000) { contextStarted.await() }
-                } else {
-                    null
+                val modelScope =
+                    CoroutineScope(coroutineContext + SupervisorJob(coroutineContext[Job]))
+                val provider = AgentV2HostContextProvider(client, modelScope) {
+                    AgentHostContextSnapshot(null, JSONObject())
                 }
-                assertTrue(client.sent.isEmpty())
-                model.deleteChat { fail("Deletion should succeed") }
-                model.onDestroy()
-                withTimeout(1_000) { deleted.await() }
-                contextReleased.complete(Unit)
-                withTimeout(1_000) { pendingRun?.join() }
-                assertTrue(client.sent.isEmpty())
-                assertEquals(listOf(thread.id), client.deletedThreads)
-            } finally {
-                contextReleased.complete(Unit)
-                model.onDestroy()
+                val model = AgentSession.acquire(thread) {
+                    AgentVM(
+                        client = client,
+                        initialThread = thread,
+                        scope = modelScope,
+                        contextProvider = provider
+                    )
+                }
+                try {
+                    awaitReady(model)
+                    if (shouldWaitForHostContext) {
+                        client.onUpdateHostContext = {
+                            contextStarted.complete(checkNotNull(currentCoroutineContext()[Job]))
+                            contextReleased.await()
+                        }
+                        provider.onWalletEvent(WalletEvent.BalanceChanged)
+                    }
+                    assertTrue(model.sendMessage("Question"))
+                    val pendingRun = if (shouldWaitForHostContext) {
+                        withTimeout(1_000) { contextStarted.await() }
+                    } else {
+                        null
+                    }
+                    assertTrue(model.sendMessage("Queued"))
+                    assertTrue(client.sent.isEmpty())
+                    AgentSession.deleteChat(model) { deletionFailed.complete(it) }
+                    AgentSession.release(model)
+                    withTimeout(1_000) { deletionStarted.await() }
+                    contextReleased.complete(Unit)
+                    withTimeout(1_000) { pendingRun?.join() }
+                    assertTrue(
+                        "Question sent during deletion (shouldWaitForHostContext=$shouldWaitForHostContext)",
+                        client.sent.isEmpty()
+                    )
+
+                    deletionMayEnd.complete(Unit)
+                    if (!shouldDelete) withTimeout(1_000) { deletionFailed.await() }
+                    withTimeout(1_000) {
+                        while (AgentSession.findLoadedModel(thread.id) != null) yield()
+                    }
+                    assertEquals(
+                        if (shouldDelete) emptyList() else listOf("Question", "Queued"),
+                        client.sent.map { it.first }
+                    )
+                    assertEquals(listOf(thread.id), client.deletedThreads)
+                } finally {
+                    contextReleased.complete(Unit)
+                    deletionMayEnd.complete(Unit)
+                    AgentSession.dropDeletedChat(thread.id)
+                    model.onDestroy()
+                }
             }
         }
     }
@@ -1011,7 +1756,11 @@ class AgentNewChatLoaderTest {
                 while (model.visibleHints.isEmpty()) yield()
             }
             assertEquals(listOf("en"), client.hintRequests)
-            assertEquals(listOf("learn.staking"), model.visibleHints.map { it.id })
+            // Contact Support follows the server's hints
+            assertEquals(
+                listOf("learn.staking", AGENT_SUPPORT_HINT_ID),
+                model.visibleHints.map { it.id }
+            )
         } finally {
             model.onDestroy()
         }
@@ -1290,6 +2039,55 @@ class AgentNewChatLoaderTest {
         } finally {
             model.onDestroy()
         }
+
+        for (isDigest in listOf(false, true)) {
+            val supportClient = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+                onMessages = {
+                    if (isDigest) {
+                        throw AgentV2OperationException(
+                            AgentV2MutationError("thread_not_found", retryable = false)
+                        )
+                    }
+                    error("offline")
+                }
+            }
+            val supportOpening = createDeferredDiscussionOpening(supportClient, isDigest)
+            supportOpening.readConsent()
+            assertTrue(supportOpening.stageSupportRequest())
+            val supportMessageId = supportOpening.messages.single().id
+            val supportThread = checkNotNull(supportOpening.create())
+            val supportModel = newModel(supportClient, supportThread, supportOpening)
+            val question = AgentMessage(role = AgentMessageRole.USER, text = "Ordinary question")
+            supportModel.acceptOpening(listOf(question), AgentV2EntryPoint())
+            try {
+                withTimeout(1_000) {
+                    while (supportModel.state != AgentVM.State.ERROR) yield()
+                }
+                val hasFailedSupportMessage = supportModel.messages.any {
+                    it.id == supportMessageId
+                }
+                if (isDigest) {
+                    assertTrue(
+                        supportOpening.recreateMissingDiscussion(supportModel.startupErrorCode)
+                    )
+                    assertNull(supportOpening.create())
+                    assertTrue(supportOpening.messages.isEmpty())
+                }
+                supportClient.onMessages = {}
+                supportModel.retry()
+                awaitReady(supportModel)
+                yield()
+                assertEquals(listOf(question.text to null), supportClient.sent)
+                assertFalse(hasFailedSupportMessage)
+                assertEquals(
+                    listOf(question.id),
+                    supportModel.messages.filter { it.role == AgentMessageRole.USER }.map { it.id }
+                )
+                assertFalse(supportModel.hasUnsentOpening)
+            } finally {
+                supportModel.onDestroy()
+            }
+        }
     }
 
     @Test
@@ -1450,6 +2248,199 @@ class AgentNewChatLoaderTest {
         assertFalse(opening.canReportProblem)
     }
 
+    private fun verifyDeferredHeaderSupport(isDigest: Boolean) = runBlocking {
+        val created = CompletableDeferred<Unit>()
+        val historyRequested = CompletableDeferred<Unit>()
+        val historyLoaded = CompletableDeferred<Unit>()
+        val runStarted = CompletableDeferred<Unit>()
+        val thread = createDiscussionThread(isDigest).copy(messageCount = 1)
+        val post = AgentV2PersistedMessage(
+            "post",
+            thread.id,
+            "assistant",
+            "complete",
+            content = AgentV2MessageContent.Markdown("Post context"),
+            createdAt = "2026-10-20T00:00:00Z",
+            newsPost = true
+        )
+        val client = FakeNewsClient(thread, listOf(post)).apply {
+            hasConsent = false
+            onCreate = { created.await() }
+            onMessages = {
+                historyRequested.complete(Unit)
+                historyLoaded.await()
+            }
+            onStartRun = { runStarted.complete(Unit) }
+        }
+        val opening = createDeferredDiscussionOpening(client, isDigest)
+        opening.readConsent()
+        assertFalse(opening.canRequestSupport)
+        client.hasConsent = true
+        opening.readConsent()
+        assertNull(opening.create())
+        assertTrue(opening.canRequestSupport)
+        opening.onBridgeUpdate(
+            ApiUpdate.ApiUpdateAgentV2(
+                AgentV2Update.UserQuotaChanged(
+                    AgentV2UserQuota(10, 10, 0, "2099-01-01T00:00:00Z")
+                )
+            )
+        )
+        assertFalse(opening.canSubmitDiscussionMessage)
+        assertTrue(opening.stageSupportRequest())
+        assertFalse(opening.canRequestSupport)
+        assertFalse(opening.stageSupportRequest())
+        val creation = async(start = CoroutineStart.UNDISPATCHED) { opening.create() }
+        assertNull(opening.create())
+        assertEquals(
+            listOf(AgentV2ThreadNewsRequest(42, "en").takeUnless { isDigest }),
+            client.newsRequests
+        )
+        assertEquals(
+            listOf(AgentV2ThreadDigestRequest(DIGEST_ID).takeIf { isDigest }),
+            client.digestRequests
+        )
+        created.complete(Unit)
+        val createdThread = checkNotNull(creation.await())
+        assertEquals(createdThread, opening.create())
+        val model = newModel(client, createdThread, opening)
+        try {
+            withTimeout(1_000) { historyRequested.await() }
+            assertFalse(model.canRequestSupport)
+            assertTrue(client.sent.isEmpty())
+            historyLoaded.complete(Unit)
+            withTimeout(1_000) { runStarted.await() }
+            awaitReady(model)
+            model.retry()
+            yield()
+            assertEquals(
+                listOf(
+                    getAgentSupportRequestText() to
+                        AgentV2EntryPoint.supportRequest(AgentV2SupportRequestSource.HEADER)
+                ),
+                client.sent
+            )
+            assertEquals(listOf<AgentV2FollowUpReference?>(null), client.sentFollowups)
+            assertEquals("Post context", model.messages.single { it.newsPost }.text)
+            assertEquals(1, model.messages.count { it.role == AgentMessageRole.USER })
+            assertEquals(1, client.newsRequests.size)
+        } finally {
+            historyLoaded.complete(Unit)
+            model.onDestroy()
+        }
+
+        val supportThread = createdThread.copy(support = AgentV2ThreadSupport("waiting"))
+        val supportClient = FakeNewsClient(supportThread, listOf(post))
+        val supportModel = newModel(supportClient, supportThread, opening)
+        try {
+            awaitReady(supportModel)
+            yield()
+            assertTrue(supportClient.sent.isEmpty())
+            assertTrue(supportModel.messages.none { it.role == AgentMessageRole.USER })
+            assertFalse(supportModel.hasUnsentOpening)
+        } finally {
+            supportModel.onDestroy()
+        }
+
+        val failedClient = FakeNewsClient(thread).apply {
+            onCreate = { error("Creation failed") }
+        }
+        val failedOpening = createDeferredDiscussionOpening(failedClient, isDigest)
+        failedOpening.readConsent()
+        assertTrue(failedOpening.stageSupportRequest())
+        assertNull(failedOpening.create())
+        assertTrue(failedOpening.messages.isEmpty())
+        assertFalse(failedOpening.hasStagedMessage)
+        assertTrue(failedClient.sent.isEmpty())
+        assertNull(failedOpening.create())
+        assertEquals(1, failedClient.newsRequests.size)
+    }
+
+    private fun verifyDeferredHeaderSupportWalletChanges(shouldSwitchDuringHydration: Boolean) =
+        testDeferredDiscussions { isDigest ->
+            val originalAccountId = AccountStore.activeAccountId
+            try {
+                for (shouldReturnToWallet in listOf(false, true)) {
+                    AccountStore.updateActiveAccount("wallet-a")
+                    val created = CompletableDeferred<Unit>()
+                    val historyRequested = CompletableDeferred<Unit>()
+                    val historyLoaded = CompletableDeferred<Unit>()
+                    val client = FakeNewsClient(createDiscussionThread(isDigest)).apply {
+                        onCreate = { created.await() }
+                        onMessages = {
+                            historyRequested.complete(Unit)
+                            historyLoaded.await()
+                        }
+                    }
+                    val opening = createDeferredDiscussionOpening(client, isDigest)
+                    opening.readConsent()
+                    assertTrue(opening.stageSupportRequest())
+                    val creation = async(start = CoroutineStart.UNDISPATCHED) { opening.create() }
+                    var model: AgentVM? = null
+                    try {
+                        if (shouldSwitchDuringHydration) {
+                            created.complete(Unit)
+                            model = newModel(client, checkNotNull(creation.await()), opening)
+                            withTimeout(1_000) { historyRequested.await() }
+                        }
+                        WalletCore.notifyEvent(WalletEvent.AccountWillChange(fromHome = false))
+                        AccountStore.updateActiveAccount("wallet-b")
+                        WalletCore.notifyEvent(WalletEvent.AccountChanged())
+                        if (shouldReturnToWallet) {
+                            WalletCore.notifyEvent(WalletEvent.AccountWillChange(fromHome = false))
+                            AccountStore.updateActiveAccount("wallet-a")
+                            WalletCore.notifyEvent(WalletEvent.AccountChanged())
+                        }
+                        if (!shouldSwitchDuringHydration) {
+                            created.complete(Unit)
+                            model = newModel(client, checkNotNull(creation.await()), opening)
+                        }
+                        withTimeout(1_000) { historyRequested.await() }
+                        historyLoaded.complete(Unit)
+                        awaitReady(checkNotNull(model))
+                        yield()
+                        assertTrue(client.sent.isEmpty())
+                        assertTrue(model.messages.none { it.role == AgentMessageRole.USER })
+                        assertFalse(model.hasUnsentOpening)
+                    } finally {
+                        created.complete(Unit)
+                        historyLoaded.complete(Unit)
+                        model?.onDestroy()
+                    }
+                }
+            } finally {
+                AccountStore.updateActiveAccount(originalAccountId)
+            }
+        }
+
+    private fun testDeferredDiscussions(test: suspend CoroutineScope.(Boolean) -> Unit) =
+        runBlocking {
+            for (isDigest in listOf(false, true)) test(isDigest)
+        }
+
+    private fun createDeferredDiscussionOpening(client: AgentV2Client, isDigest: Boolean) =
+        AgentChatOpening(
+            news = AgentNewsChatRequest(42, "en", "Feed headline", shouldDeferCreation = true)
+                .takeUnless { isDigest },
+            client = client,
+            digestId = DIGEST_ID.takeIf { isDigest },
+            shouldDeferCreation = isDigest
+        )
+
+    private fun createDiscussionThread(isDigest: Boolean) = if (isDigest) {
+        newsThread().copy(
+            news = null,
+            digest = AgentV2ThreadDigestCard(
+                DIGEST_ID,
+                "2026-11-08T18:00:00.000Z",
+                1,
+                listOf(AgentV2NewsDigestHeadline(42, "Headline"))
+            )
+        )
+    } else {
+        newsThread()
+    }
+
     private fun CoroutineScope.newModel(
         client: AgentV2Client,
         thread: AgentV2ThreadSummary,
@@ -1463,10 +2454,12 @@ class AgentNewChatLoaderTest {
             initialOpeningEntryPoint = opening?.entryPoint?.takeIf {
                 opening.messages.isNotEmpty()
             },
+            initialOpeningFollowupText = opening?.followupText,
+            initialOpeningAuthority = opening?.messageAuthority,
             cachedHistories = AgentCachedHistories(this) { null },
             scope = modelScope,
             contextProvider = AgentV2HostContextProvider(client, modelScope) {
-                AgentHostContextSnapshot(null, JSONObject())
+                AgentHostContextSnapshot(AccountStore.activeAccountId, JSONObject())
             }
         )
     }
@@ -1512,6 +2505,12 @@ class AgentNewChatLoaderTest {
         var onUpdateHostContext: suspend () -> Unit = {}
         var onClear: suspend () -> Unit = {}
         var onStartRun: suspend () -> Unit = {}
+        var onLoadAvailability: suspend () -> Unit = {}
+        var onLoadUserQuota: suspend () -> Unit = {}
+        var availabilityRequests = 0
+            private set
+        var quotaRequests = 0
+            private set
         val startedRunIds = mutableListOf<String>()
         var hasConsent = true
         var acceptedConsentCount = 0
@@ -1531,6 +2530,14 @@ class AgentNewChatLoaderTest {
             hasConsent = true
         }
         override suspend fun updateHostContext(context: JSONObject?) = onUpdateHostContext()
+        override suspend fun loadAvailability() {
+            availabilityRequests++
+            onLoadAvailability()
+        }
+        override suspend fun loadUserQuota() {
+            quotaRequests++
+            onLoadUserQuota()
+        }
         override suspend fun problemReportAvailability() = isProblemReportAvailable
         override suspend fun reportProblem(threadId: String, messageId: String?, comment: String?) {
             reports += threadId to comment
@@ -1590,6 +2597,10 @@ class AgentNewChatLoaderTest {
             targetAssistantMessageId: String?
         ): AgentV2RunResult {
             assertEquals(thread.id, threadId)
+            if (AgentV2EntryPoint.isSupportRequest(entryPoint)) {
+                assertNull(targetUserMessageId)
+                assertNull(targetAssistantMessageId)
+            }
             sent += text to entryPoint
             sentFollowups += followupOf
             sentRevisions += revision
@@ -1600,6 +2611,7 @@ class AgentNewChatLoaderTest {
     }
 
     companion object {
+        private const val DIGEST_ID = "en:2026-11-08T18:00:00.000Z"
         private var previousLanguage: WLanguage? = null
 
         @JvmStatic

@@ -233,7 +233,7 @@ class TokenSelectorVC(
     }
     private var searchGlass: WGlassView? = null
 
-    private val searchEditText = WSearchEditText(context)
+    private val searchEditText = WSearchEditText(context).apply { id = R.id.token_picker_search }
 
     private var query: String? = null
 

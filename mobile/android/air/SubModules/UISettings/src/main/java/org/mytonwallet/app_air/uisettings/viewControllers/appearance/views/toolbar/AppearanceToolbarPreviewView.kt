@@ -123,7 +123,7 @@ class AppearanceToolbarPreviewView(context: Context) :
     private val actionCircles = MToolbarItem.ACTION_ITEMS.filter { it != MToolbarItem.SCAN }
         .associateWith { item ->
             val icon = AppCompatImageView(context).apply {
-                setImageResource(HomeToolbarActions.getIconRes(item))
+                setImageResource(HomeToolbarActions.getToolbarIconRes(item))
             }
             actionIcons += icon
             WFrameLayout(context).apply {

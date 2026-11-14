@@ -105,11 +105,10 @@ class StakingVC(
             onClickEquivalentLabel = {
                 stakingViewModel.onEquivalentClicked()
             },
-            onClickMaxBalanceButton = { onMaxBalanceButtonClicked() }
-        ).apply {
-            amountEditText.id = UIComponentsR.id.stake_amount_input
-            maxBalanceButton.id = UIComponentsR.id.stake_max_button
-        }
+            onClickMaxBalanceButton = { onMaxBalanceButtonClicked() },
+            amountEditTextId = UIComponentsR.id.stake_amount_input,
+            maxBalanceButtonId = UIComponentsR.id.stake_max_button
+        )
     }
     private val spacerView = WView(context)
     private val detailHeader = WLabel(context).apply {

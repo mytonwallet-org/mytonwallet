@@ -103,6 +103,7 @@ describe('measureSentQuestionFlight', () => {
   let bubble: HTMLDivElement;
   let text: HTMLSpanElement;
   let bubbleRect: MotionRect;
+  let fieldRow: HTMLDivElement;
   let now: number;
 
   beforeEach(() => {
@@ -145,6 +146,11 @@ describe('measureSentQuestionFlight', () => {
     mockRect(text, {
       left: 232, top: 408, width: 136, height: 20,
     });
+    // The field's row, whose top the flight passes under
+    fieldRow = document.createElement('div');
+    mockRect(fieldRow, {
+      left: 0, top: 740, width: 400, height: 60,
+    });
     document.body.append(layer, input, bubble);
   });
 
@@ -178,7 +184,7 @@ describe('measureSentQuestionFlight', () => {
 
   it('flies the field\'s text into the bubble wherever the list takes it, and hands over to the bubble', () => {
     const picture = createSentTextPicture(input, layer)!;
-    const finish = measureSentQuestionFlight(picture, bubble, text, () => bubble, layer, () => 740)!();
+    const finish = measureSentQuestionFlight(picture, bubble, text, () => bubble, layer, () => fieldRow)!();
 
     const flight = layer.querySelector<HTMLElement>('.flight')!;
     const background = flight.querySelector<HTMLElement>('.flightBubble')!;
@@ -256,7 +262,7 @@ describe('measureSentQuestionFlight', () => {
   it('keeps the text in the field while the list brings the bubble up from under it, then flies it up', () => {
     bubbleRect = { ...bubbleRect, top: 1000 };
     const picture = createSentTextPicture(input, layer)!;
-    measureSentQuestionFlight(picture, bubble, text, () => bubble, layer, () => 740)!();
+    measureSentQuestionFlight(picture, bubble, text, () => bubble, layer, () => fieldRow)!();
     const background = layer.querySelector<HTMLElement>('.flightBubble')!;
 
     // The list brings the question up from under the field, 20 px a frame
@@ -283,7 +289,7 @@ describe('measureSentQuestionFlight', () => {
   it('flies along the field\'s line toward a bubble that the list leaves under the field', () => {
     bubbleRect = { ...bubbleRect, top: 1000 };
     const picture = createSentTextPicture(input, layer)!;
-    measureSentQuestionFlight(picture, bubble, text, () => bubble, layer, () => 740)!();
+    measureSentQuestionFlight(picture, bubble, text, () => bubble, layer, () => fieldRow)!();
     const background = layer.querySelector<HTMLElement>('.flightBubble')!;
 
     runFrame(0);

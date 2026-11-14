@@ -24,6 +24,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
@@ -59,6 +60,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.mytonwallet.app_air.uiagent.R
 import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationController
 import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationPhase
 import org.mytonwallet.app_air.uiagent.agentV2.AgentTextLinks
@@ -102,7 +104,9 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSkeleton
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSuggestionMorph
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSuggestionRipple
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.attachAgentEdgeGlow
+import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsDigestPictures
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsSourceLinks
+import org.mytonwallet.app_air.uiagent.viewControllers.news.agentNewsDigestMediaViewerItem
 import org.mytonwallet.app_air.uiagent.viewControllers.news.agentNewsErrorText
 import org.mytonwallet.app_air.uiagent.viewControllers.news.agentNewsMediaViewerItem
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadReadState
@@ -149,7 +153,11 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
 class AgentVC(
     context: Context,
@@ -158,13 +166,18 @@ class AgentVC(
     private val news: AgentNewsChatRequest? = null,
     // The thread's summary comes from the cached list, which may predate an answer
     isSummaryCached: Boolean = false,
-    private val onNewsThreadCreated: ((AgentV2ThreadSummary) -> Unit)? = null,
-    private val onNewsThreadMissing: ((String) -> Unit)? = null,
-    private val digestId: String? = null
+    private val onThreadCreated: ((AgentV2ThreadSummary) -> Unit)? = null,
+    private val onThreadMissing: ((String) -> Unit)? = null,
+    private val digestId: String? = null,
+    /** The feed's copy of the digest, whose post the discussion shows until its thread comes */
+    private val digestPreview: AgentV2ThreadDigestCard? = null,
+    discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
+    shouldDeferCreation: Boolean = false
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     AgentVM.Delegate,
     WalletCore.EventObserver,
+    WalletCore.UpdatesObserver,
     AgentHeaderHandoffScreen {
 
     @Suppress("PropertyName")
@@ -219,11 +232,22 @@ class AgentVC(
             val padding = composerView.paddingBottom / context.resources.displayMetrics.density
             return FIELD_LINE_LIFT + extra - padding.roundToInt()
         }
+    private val discussionNaming = news?.discussionNaming
+        ?: discussionNaming?.takeIf { shouldDeferCreation }
+    private val discussionKey = getAgentDeferredDiscussionKey(news, digestId, shouldDeferCreation)
+
+    // A discussion whose first message still waits for its thread opens as it was left
     private val chatOpening = if (prompt != null || news != null || digestId != null) {
-        AgentChatOpening(prompt = prompt, news = news, digestId = digestId)
+        discussionKey?.let(AgentSession.pendingDiscussions::find) ?: AgentChatOpening(
+            prompt = prompt,
+            news = news,
+            digestId = digestId,
+            shouldDeferCreation = shouldDeferCreation
+        )
     } else {
         null
     }
+    private val discussionChat: (AgentVM) -> Unit = ::attachCreatedModel
     private val unreadOpening = AgentUnreadOpening(
         thread,
         hasOpening = chatOpening != null,
@@ -315,6 +339,12 @@ class AgentVC(
     private var timelineItems = listOf<AgentTimelineItem>()
 
     private var animateFromIndex = -1
+
+    // Debug builds add rows at once while system animations are off, to keep E2E runs fast
+    private val canAnimateRows: Boolean
+        get() = !DEBUG_MODE || Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            ValueAnimator.areAnimatorsEnabled()
+
     private var gradientHeightAnimator: ValueAnimator? = null
     private val chatTitleView by lazy { AgentChatTitleView(context) }
     private var pendingTitleLayout: OneShotPreDrawListener? = null
@@ -525,10 +555,26 @@ class AgentVC(
         })
     }
 
+    private val rowGlide by lazy {
+        AgentRowGlide(
+            chatRecyclerView,
+            findRowKey = { position ->
+                val items = timelineItems
+                if (position in items.indices) timelineRowKey(items, position) else null
+            },
+            findRow = { key ->
+                val items = timelineItems
+                items.indices.firstOrNull { timelineRowKey(items, it) == key } ?: -1
+            },
+            restoreRowsAbove = viewport::restoreRowsAboveChange
+        )
+    }
+
     private val bottomGradientView = AgentBottomFadeView(context)
     private val scrollButton = AgentScrollToBottomButton(context).apply {
         setOnClickListener {
             cancelDictation()
+            rowGlide.finish()
             viewport.scrollToLatest()
         }
     }
@@ -609,6 +655,11 @@ class AgentVC(
     private val bulletin = AgentBulletin()
     private val messageTextCache = AgentMessageTextCache()
     private var isDissolving = false
+
+    // The dust is on its way over the answer being regenerated, and the chat asks for the new
+    // answer once it shows: until then a question would go ahead of the regeneration and take its
+    // place, rather than queue behind it
+    private var isRegenerationStarting = false
     private var editingMessageId: String? = null
 
     private val composerView by lazy { AgentComposerView(context, chatRecyclerView) }
@@ -620,7 +671,10 @@ class AgentVC(
                 AndroidAgentDictationRecorder(context) { cancelDictation() }
             },
             requestPermission = { requestMicrophonePermission() },
-            transcribe = { audio -> vm.transcribeAudio(audio) },
+            transcribe = { audio ->
+                preparedVM?.transcribeAudio(audio)
+                    ?: checkNotNull(chatOpening).transcribeAudio(audio)
+            },
             nowMs = SystemClock::elapsedRealtime,
             onStateChanged = composerView::renderDictation,
             onTranscript = composerView::setDictationText,
@@ -652,6 +706,10 @@ class AgentVC(
                 if (continuation.isActive) continuation.resume(granted)
             }
         }
+    }
+
+    override fun onBridgeUpdate(update: ApiUpdate) {
+        if (preparedVM == null) chatOpening?.onBridgeUpdate(update)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -752,20 +810,23 @@ class AgentVC(
     private var hasDeclinedConsent = false
 
     /**
-     * A news discussion opened before the user allowed the Agent shows its post, its suggestions and the composer, and
+     * A discussion opened before the user allowed the Agent shows its post, its suggestions and the composer, and
      * asks for consent once the user sends, picks a suggestion or dictates there
      */
     private val isAwaitingConsent: Boolean
         get() {
-            val model = preparedVM ?: return false
+            val model = preparedVM ?: return chatOpening?.let {
+                it.isDeferredDiscussion && it.hasConsent != true
+            } == true
             return model.currentThread.hasPost &&
                 model.hasConsent != true &&
                 model.state != AgentVM.State.CONSENT_REQUIRED
         }
 
     private val discussionConsentGate = createDiscussionConsentGate(
-        model = { vm },
-        askForConsent = ::askForConsent
+        model = { preparedVM },
+        askForConsent = ::askForConsent,
+        opening = { chatOpening }
     )
 
     // Carries out [action], which sends to the Agent, at once, or once the user allows the Agent in the sheet
@@ -774,11 +835,16 @@ class AgentVC(
     }
 
     private fun requestDiscussionConsent(onDeclined: () -> Unit = {}, action: () -> Unit) {
-        creationScope.launch { discussionConsentGate.request(onDeclined, action) }
+        discussionConsentGate.requestDiscussionConsent(
+            creationScope,
+            opening = { chatOpening?.takeIf { preparedVM == null } },
+            onDeclined,
+            action
+        )
     }
 
     /**
-     * A chat opened before the user allowed the Agent asks for consent in a sheet; without it, the chat closes. A news
+     * A chat opened before the user allowed the Agent asks for consent in a sheet; without it, the chat closes. A
      * discussion asks as the user sends, picks a suggestion or dictates, carries that out with [onAllowed], and stays
      * open without consent, after [onDeclined].
      */
@@ -790,7 +856,11 @@ class AgentVC(
             onAllowed = {
                 isConsentSheetShown = false
                 if (preparedVM == null) {
-                    createChatThread(shouldAcceptConsent = true)
+                    if (chatOpening?.isDeferredDiscussion == true) {
+                        chatOpening.markConsentAccepted()
+                    } else {
+                        createChatThread(shouldAcceptConsent = true)
+                    }
                 } else {
                     vm.acceptConsent()
                 }
@@ -823,11 +893,33 @@ class AgentVC(
             context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_more)
         )
         btn.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
-        // The bar keeps trailing views 8 dp in; the design's dots box ends 12 dp from the edge
-        btn.translationX = MORE_BUTTON_SHIFT.dp * LocaleController.rtlMultiplier
         btn.contentDescription = LocaleController.getString("More")
         btn.setOnMenuClickListener { presentMoreMenu() }
         btn
+    }
+
+    // The headset before the "…" button calls a support operator
+    private val supportButton: WImageButton by lazy {
+        WImageButton(context).apply {
+            id = UIComponentsR.id.agent_support_button
+            setPaddingDp(8)
+            setImageDrawable(context.getDrawableCompat(R.drawable.ic_agent_support_24))
+            updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
+            contentDescription = LocaleController.getString("\$agent_support_contact")
+            isGone = true
+            setOnClickListener { presentSupportRequest(it.id) }
+        }
+    }
+
+    private val headerButtons: LinearLayout by lazy {
+        LinearLayout(context).apply {
+            id = View.generateViewId()
+            gravity = Gravity.CENTER_VERTICAL
+            // The bar keeps trailing views 8 dp in; the design's dots box ends 12 dp from the edge
+            translationX = MORE_BUTTON_SHIFT.dp * LocaleController.rtlMultiplier
+            addView(supportButton, LinearLayout.LayoutParams(40.dp, 40.dp))
+            addView(moreButton, LinearLayout.LayoutParams(40.dp, 40.dp))
+        }
     }
 
     override fun setupViews() {
@@ -835,7 +927,10 @@ class AgentVC(
 
         updateChatTitle()
         setupNavBar(true)
-        navigationBar?.addTrailingView(moreButton, ConstraintLayout.LayoutParams(40.dp, 40.dp))
+        navigationBar?.addTrailingView(
+            headerButtons,
+            ConstraintLayout.LayoutParams(WRAP_CONTENT, 40.dp)
+        )
         navigationBar?.setCenteredTitleView(chatTitleView, animated = false)
 
         composerView.onSend = { text ->
@@ -887,6 +982,9 @@ class AgentVC(
             updateScrollButton(isAnimated = true)
         }
         WalletCore.registerObserver(this)
+        if (chatOpening?.isDeferredDiscussion == true) {
+            WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateAgentV2::class.java, this)
+        }
         composerView.onHeightChanged = {
             updateLayout()
         }
@@ -949,12 +1047,12 @@ class AgentVC(
         val opening = checkNotNull(chatOpening)
         opening.onChange = ::renderChatOpening
         renderChatOpening()
-        // With the user's consent, the menu offers Report a Problem while the thread is being created
         creationScope.launch {
             opening.readConsent()
-            updateMoreButton()
+            updateHeaderButtons()
         }
-        createChatThread()
+        // A creation that failed after the chat was left waits for Retry
+        if (opening.error == null) createChatThread()
     }
 
     private fun attachToSession() {
@@ -964,7 +1062,7 @@ class AgentVC(
         isAttachedToSession = true
         if (isViewActive) vm.setActive(this, true)
         updateReadStateVisibility()
-        onNewsThreadCreated?.invoke(vm.currentThread)
+        onThreadCreated?.invoke(vm.currentThread)
     }
 
     private fun updateReadStateVisibility() {
@@ -1001,21 +1099,34 @@ class AgentVC(
     private fun createChatThread(shouldAcceptConsent: Boolean = false) {
         val opening = chatOpening ?: return
         if (isDeletingChat || preparedVM != null || creationJob != null) return
+        if (discussionKey != null && opening.hasStagedMessage) {
+            AgentSession.pendingDiscussions.create(
+                discussionKey,
+                opening,
+                discussionChat,
+                onThreadCreated,
+                shouldAcceptConsent
+            )
+            return
+        }
         creationJob = creationScope.launch {
             try {
                 val thread = opening.create(shouldAcceptConsent) ?: return@launch
                 currentCoroutineContext().ensureActive()
                 if (isDeletingChat) return@launch
-                val model = if (opening.messages.isNotEmpty()) {
-                    AgentSession.acquireOpening(thread, opening.messages, opening.entryPoint)
-                } else {
-                    AgentSession.acquire(thread)
-                }
-                preparedVM = model
-                attachToSession()
-                opening.releaseHeldReports { comment, onResult ->
-                    model.reportProblem(null, comment, onResult)
-                }
+                attachCreatedModel(
+                    if (opening.messages.isNotEmpty()) {
+                        AgentSession.acquireOpening(
+                            thread,
+                            opening.messages,
+                            opening.entryPoint,
+                            opening.followupText,
+                            opening.messageAuthority
+                        )
+                    } else {
+                        AgentSession.acquire(thread)
+                    }
+                )
             } finally {
                 creationJob = null
                 renderChatOpening()
@@ -1023,18 +1134,53 @@ class AgentVC(
         }
     }
 
+    private fun attachCreatedModel(model: AgentVM) {
+        preparedVM = model
+        attachToSession()
+        chatOpening?.releaseHeldReports { comment, onResult ->
+            model.reportProblem(null, comment, onResult)
+        }
+    }
+
     private fun openingErrorText(error: Throwable): String =
-        if (news != null) agentNewsErrorText(error) else agentUnavailableText()
+        if (news != null || chatOpening?.isDeferredDiscussion == true) {
+            agentNewsErrorText(error)
+        } else {
+            agentUnavailableText()
+        }
 
     private fun renderChatOpening() {
         val opening = chatOpening ?: return
         if (isDeletingChat || preparedVM != null || isSessionReleased) return
         if (opening.isConsentRequired && !opening.isCreating) askForConsent()
-        composerView.setSubmissionEnabled(false)
+        updateComposerSubmission()
         onMessagesLoaded(displayMessages)
+        updateVisibleHintsAvailability()
+        updateHeaderButtons()
+        updateOpeningSkeleton(opening)
     }
 
-    override val headerHandoffContent: List<View> get() = listOf(chatTitleView, moreButton)
+    /**
+     * A discussion opened without the feed's copy of its post, as from a digest's headline, holds the post's place with
+     * placeholder bubbles until the post comes; a failed opening shows its failure instead
+     */
+    private fun updateOpeningSkeleton(opening: AgentChatOpening) {
+        val isDiscussion = news != null || digestId != null
+        val hasPost = buildTimelineItems(displayMessages).isNotEmpty()
+        when {
+            !isDiscussion || hasPost || opening.error != null || opening.isConsentRequired -> {
+                if (skeletonReveal.isShown) hideSkeleton()
+            }
+
+            !skeletonReveal.isShown -> {
+                skeletonReveal.show()
+                updateBlurViews(chatRecyclerView)
+            }
+        }
+    }
+
+    override val headerHandoffContent: List<View>
+        get() = listOf(chatTitleView, supportButton, moreButton)
 
     override fun viewWillAppear() {
         super.viewWillAppear()
@@ -1254,9 +1400,12 @@ class AgentVC(
         streamRenderer.clear()
         cancelDictation()
         dictationScope.cancel()
-        chatOpening?.onChange = null
+        // A discussion reopened before this chat went renders its opening
+        if (chatOpening?.onChange == ::renderChatOpening) chatOpening.onChange = null
+        discussionKey?.let { AgentSession.pendingDiscussions.leave(it, discussionChat) }
         creationScope.cancel()
         WalletCore.unregisterObserver(this)
+        WalletCore.unsubscribeFromApiUpdates(ApiUpdate.ApiUpdateAgentV2::class.java, this)
         scrollButtonBinding?.release()
         scrollButtonBinding = null
         viewport.shareScrollPosition()
@@ -1273,6 +1422,7 @@ class AgentVC(
         }
         isSessionReleased = true
         updateReadStateVisibility()
+        rowGlide.finish()
         viewport.dispose()
         gradientHeightAnimator?.cancel()
         cancelPendingChatTitleUpdate()
@@ -1317,9 +1467,12 @@ class AgentVC(
 
     private fun updateScrollButton(isAnimated: Boolean) {
         val shouldShow = !contentContainer.isGone && !isPopupVisible && !isRecordingCircleShown &&
-            viewport.measureLatestRowOverhang() > SCROLL_BUTTON_THRESHOLD.dp
+            isLatestRowOutOfSight()
         scrollButton.setShown(shouldShow, isAnimated && hasAppeared)
     }
+
+    private fun isLatestRowOutOfSight(): Boolean =
+        isAgentLatestRowOutOfSight(viewport.measureLatestRowOverhang(), SCROLL_BUTTON_THRESHOLD.dp)
 
     override fun insetsUpdated() {
         super.insetsUpdated()
@@ -1441,11 +1594,19 @@ class AgentVC(
         text: String,
         entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()
     ): Boolean {
-        val model = preparedVM ?: return false
-        if (!agentNewsAllowsSubmission(news, model.state)) return false
+        val model = preparedVM ?: return sendFirstDiscussionMessage(text)
+        if (!agentNewsAllowsSubmission(news, model.state) || isReplacementStarting) return false
         val accepted = model.sendMessage(text, entryPoint)
         if (accepted) view.hideKeyboard()
         return accepted
+    }
+
+    private fun sendFirstDiscussionMessage(text: String, isFollowup: Boolean = false): Boolean {
+        val opening = chatOpening ?: return false
+        if (!opening.stageDiscussionMessage(text, isFollowup)) return false
+        view.hideKeyboard()
+        createChatThread()
+        return true
     }
 
     /**
@@ -1505,6 +1666,12 @@ class AgentVC(
         return AgentSuggestionRipple.start(hints.contentViews, composerView, view)
     }
 
+    // Nothing goes before the chat asks for an edit's or a regeneration's answer, which waits for
+    // the rows it replaces to fade or turn to dust; the keyboard's send key skips the dimmed
+    // composer
+    private val isReplacementStarting: Boolean
+        get() = isRegenerationStarting || editFadeAnimator != null
+
     private fun presentMoreMenu() {
         val model = preparedVM
         cancelDictation()
@@ -1555,7 +1722,7 @@ class AgentVC(
         )
     }
 
-    // A news discussion the user hasn't written in, before consent or after it, is left out of the chat list and has
+    // A discussion the user hasn't written in, before consent or after it, is left out of the chat list and has
     // nothing to delete
     private val canDeleteChat: Boolean
         get() {
@@ -1568,11 +1735,66 @@ class AgentVC(
     private val canReportProblem: Boolean
         get() = preparedVM?.canReportProblem ?: (chatOpening?.canReportProblem == true)
 
+    private val isSupportRequestVisible: Boolean
+        get() = !isDeletingChat &&
+            (preparedVM?.isSupportRequestVisible ?: (chatOpening?.isSupportRequestVisible == true))
+
+    private val canRequestSupport: Boolean
+        get() = !isDeletingChat &&
+            (preparedVM?.canRequestSupport ?: (chatOpening?.canRequestSupport == true))
+
     // A menu without items shows no button
-    private fun updateMoreButton() {
+    private fun updateHeaderButtons() {
         val model = preparedVM
         val hasItems = agentState == AgentVM.State.ERROR || canReportProblem || canDeleteChat
         moreButton.isGone = (model == null && chatOpening == null) || !hasItems
+        supportButton.isGone = !isSupportRequestVisible
+        val isSupportEnabled = canRequestSupport
+        supportButton.isEnabled = isSupportEnabled
+        supportButton.imageAlpha =
+            if (isSupportEnabled) 255 else (DISABLED_BUTTON_ALPHA * 255).roundToInt()
+    }
+
+    /**
+     * Asks before the chat goes to a support operator from the entry point [entryPointId]; Call sends nothing once
+     * support can no longer be called
+     */
+    private fun presentSupportRequest(entryPointId: Int) {
+        val source = getAgentSupportRequestSource(entryPointId)
+        val model = preparedVM
+        if (model == null) {
+            val opening = chatOpening ?: return
+            if (source != AgentV2SupportRequestSource.HEADER || !canRequestSupport) return
+            cancelDictation()
+            AgentSupportRequestConfirmation(hasConsent = opening.hasConsent == true) {
+                if (isDeletingChat || preparedVM != null || chatOpening !== opening) {
+                    return@AgentSupportRequestConfirmation
+                }
+                if (opening.stageSupportRequest()) createChatThread()
+            }.present(this)
+            return
+        }
+        val canRequest = if (source == AgentV2SupportRequestSource.STARTER_HINT) {
+            model.canRequestSupportFromStarterHint
+        } else {
+            canRequestSupport
+        }
+        if (!canRequest || isDeletingChat) return
+        cancelDictation()
+        AgentSupportRequestConfirmation(hasConsent = model.hasConsent == true) {
+            if (preparedVM !== model || isDeletingChat) return@AgentSupportRequestConfirmation
+            if (source == AgentV2SupportRequestSource.STARTER_HINT) {
+                model.requestSupportFromStarterHint(::openSupportChat)
+            } else {
+                model.requestSupport(source)
+            }
+        }.present(this)
+    }
+
+    // Contact Support in an empty chat opens the chat support already has
+    private fun openSupportChat(thread: AgentV2ThreadSummary) {
+        if (isDestroyed || isDeletingChat) return
+        navigationController?.push(AgentVC(context, thread))
     }
 
     private fun showDeleteConfirmation() {
@@ -1596,8 +1818,10 @@ class AgentVC(
             val code = (error as? AgentV2OperationException)?.error?.code ?: error.message
             Toast.makeText(applicationContext, agentV2ErrorText(code), Toast.LENGTH_SHORT).show()
         }
-        preparedVM?.let { AgentSession.deleteChat(it, onFailure) }
-            ?: chatOpening?.deleteChat(onFailure)
+        preparedVM?.let { AgentSession.deleteChat(it, onFailure) } ?: chatOpening?.let { opening ->
+            discussionKey?.let { AgentSession.pendingDiscussions.drop(it, opening) }
+            opening.deleteChat(onFailure)
+        }
         creationScope.cancel()
         closeDeletedChat()
     }
@@ -1705,6 +1929,7 @@ class AgentVC(
     override fun onThreadChanged(thread: AgentV2ThreadSummary) {
         reloadLastFailureRowIfRetryChanged()
         updateSupportPresentation()
+        updateHeaderButtons()
         scheduleChatTitleUpdate()
         updateOpeningTimelineInPlace(buildTimelineItems(displayMessages))
     }
@@ -1732,14 +1957,21 @@ class AgentVC(
     private fun updateChatTitle() {
         val firstMessage = displayMessages.firstOrNull { it.role == AgentMessageRole.USER }?.text
         val thread = preparedVM?.currentThread
-        val title = if (news != null && news.headline.isNotBlank() &&
+        val headline = news?.headline
+            ?: digestPreview?.takeIf { chatOpening?.isDeferredDiscussion == true }
+                ?.let { LocaleController.getString("\$agent_digest_title") }
+        val title = if (thread == null && chatOpening?.isDeferredDiscussion == true &&
+            discussionNaming != null
+        ) {
+            discussionNaming.title
+        } else if (!headline.isNullOrBlank() &&
             thread?.title.isNullOrBlank()
         ) {
-            news.headline
+            headline
         } else {
             thread?.let { resolveAgentThreadTitle(it, firstMessage) } ?: firstMessage.orEmpty()
         }
-        val icon = (if (thread != null) thread.icon else news?.icon)
+        val icon = (if (thread != null) thread.icon else discussionNaming?.icon ?: news?.icon)
             ?.trim()?.takeIf { it.isNotEmpty() }
         setNavTitle(if (icon != null) "$icon $title" else title, animated = false)
         chatTitleView.setTitle(title, icon)
@@ -1757,7 +1989,7 @@ class AgentVC(
                 isAttachedToSession = false
                 preparedVM = null
                 AgentSession.release(model)
-                onNewsThreadMissing?.invoke(model.currentThread.id)
+                onThreadMissing?.invoke(model.currentThread.id)
                 showChatOpening()
             }
             return
@@ -1785,10 +2017,10 @@ class AgentVC(
             runIdleMarker.isGone = state != AgentVM.State.READY && state != AgentVM.State.ERROR
         }
         updateComposerSubmission()
-        updateMoreButton()
+        updateHeaderButtons()
     }
 
-    override fun onProblemReportAvailabilityChanged() = updateMoreButton()
+    override fun onProblemReportAvailabilityChanged() = updateHeaderButtons()
 
     override fun onMessagesRefreshed(messages: List<AgentMessage>) {
         updateSupportPresentation()
@@ -1812,7 +2044,7 @@ class AgentVC(
         updateLoadError()
         updateThinkingGlow()
         scheduleChatTitleUpdate()
-        updateMoreButton()
+        updateHeaderButtons()
         val opensAtUnreadDivider = resolveUnreadDivider()
         updateReadStateVisibility()
         val items = buildTimelineItems(messages)
@@ -1833,6 +2065,7 @@ class AgentVC(
         regeneratingMessageId = null
         editPresentation = null
         animateFromIndex = -1
+        rowGlide.finish()
         viewport.resetPlacement()
         cancelPendingIncomingReveals()
         dismissingHints = null
@@ -1908,6 +2141,7 @@ class AgentVC(
         refreshedMessageId: String? = null
     ): Boolean {
         val previous = timelineItems
+        if (update != TimelineUpdate.RELOAD) glideWaitingRows(items)
         timelineItems = items
         if (update == TimelineUpdate.RELOAD ||
             (update == TimelineUpdate.IN_PLACE && !hasSameTimelineRows(items, previous))
@@ -1946,6 +2180,22 @@ class AgentVC(
         return update == TimelineUpdate.IN_PLACE && isRefreshedOnCell
     }
 
+    /**
+     * The questions that wait glide to their places as rows above them come, go or change on the
+     * way to [items], as a stopped or finished answer's, or the next answer's typing row; the rows
+     * above stay. Called before the timeline takes [items].
+     */
+    private fun glideWaitingRows(items: List<AgentTimelineItem>) {
+        val model = preparedVM ?: return
+        if (!streamRenderer.isActive || chatRecyclerView.isLayoutSuppressed ||
+            viewport.isScrollingToLatest
+        ) {
+            return
+        }
+        val glideStart = agentWaitingRowsGlideStart(timelineItems, items, model::isMessageQueued)
+        if (glideStart >= 0) rowGlide.start(glideStart)
+    }
+
     // A row stays the same row across updates by its message, a date header by the message under it
     private fun timelineRowKey(items: List<AgentTimelineItem>, index: Int): Pair<Any, String?> =
         when (val item = items[index]) {
@@ -1962,6 +2212,26 @@ class AgentVC(
 
     private fun hasSameTimelineRows(a: List<AgentTimelineItem>, b: List<AgentTimelineItem>) =
         a.size == b.size && a.indices.all { timelineRowKey(a, it) == timelineRowKey(b, it) }
+
+    /** The row of [messageId] in [items], when it is the one row [previous] lacks, or -1 */
+    private fun findTimelineInsertion(
+        previous: List<AgentTimelineItem>,
+        items: List<AgentTimelineItem>,
+        messageId: String
+    ): Int {
+        if (items.size != previous.size + 1) return -1
+        val index = items.indexOfFirst {
+            it is AgentTimelineItem.Message && it.message.id == messageId
+        }
+        if (index < 0 || items.subList(0, index) != previous.subList(0, index)) return -1
+        return index.takeIf { items.subList(index + 1, items.size) == previous.drop(index) } ?: -1
+    }
+
+    // A question queued behind a regeneration stays in sight below the answer the dust hides
+    private fun isQueuedTimelineRow(index: Int): Boolean {
+        val messageId = timelineRowKey(timelineItems, index).second ?: return false
+        return preparedVM?.isMessageQueued(messageId) == true
+    }
 
     // The message that suggestions come under or leave loses or regains its tail
     private fun updateFollowupTails(
@@ -2074,6 +2344,7 @@ class AgentVC(
         val rows = (0 until chatRecyclerView.childCount).map { chatRecyclerView.getChildAt(it) }
             .filter { chatRecyclerView.getChildAdapterPosition(it) >= index }
         isDissolving = true
+        isRegenerationStarting = true
         updateComposerSubmission()
         val effect = dustEffect?.takeIf { it.isActive } ?: AgentDustEffect(context) { finished ->
             (finished.parent as? ViewGroup)?.removeView(finished)
@@ -2091,6 +2362,7 @@ class AgentVC(
             chatRecyclerView,
             rows,
             onStarted = {
+                isRegenerationStarting = false
                 if (isViewConfigured && !isDestroyed) {
                     regeneratingMessageId = messageId
                     rows.forEach { it.visibility = View.INVISIBLE }
@@ -2099,10 +2371,13 @@ class AgentVC(
                         regeneratingMessageId = null
                         rows.forEach { it.visibility = View.VISIBLE }
                     }
+                    // From now on a question queues behind the new answer, or goes without one
+                    updateComposerSubmission()
                 }
             },
             onDone = {
                 isDissolving = false
+                isRegenerationStarting = false
                 if (isViewConfigured && !isDestroyed) updateComposerSubmission()
             }
         )
@@ -2193,17 +2468,14 @@ class AgentVC(
         pendingSentSource = null
         updateSupportPresentation()
         updateLoadError()
-        updateMoreButton()
+        updateHeaderButtons()
         updateThinkingGlow()
         if (message.role == AgentMessageRole.USER &&
             displayMessages.firstOrNull { it.role == AgentMessageRole.USER }?.id == message.id
         ) {
             scheduleChatTitleUpdate()
         }
-        if (message.role == AgentMessageRole.ASSISTANT && regeneratingMessageId != null) {
-            regeneratingMessageId = null
-            updateComposerSubmission()
-        }
+        if (message.role == AgentMessageRole.ASSISTANT) regeneratingMessageId = null
         if (!animated) {
             animateFromIndex = -1
             pendingHintsReveal = false
@@ -2247,7 +2519,11 @@ class AgentVC(
                 )
             }
         } else if (message.role == AgentMessageRole.ASSISTANT) {
-            val outgoingMessageId = outgoingMessageIdsAwaitingIncoming.removeFirstOrNull()
+            // An answer comes for a question that has gone, never for one still queued, as one
+            // queued behind a regeneration whose answer this is
+            val outgoingMessageId = outgoingMessageIdsAwaitingIncoming
+                .firstOrNull { preparedVM?.isMessageQueued(it) != true }
+                ?.also { outgoingMessageIdsAwaitingIncoming.remove(it) }
             val pendingReveal = outgoingMessageId?.let { pendingIncomingReveals[it] }
             if (outgoingMessageId != null && pendingReveal != null) {
                 pendingReveal.incomingMessageId = message.id
@@ -2279,10 +2555,17 @@ class AgentVC(
         val newItems = buildTimelineItems(displayMessages)
         val isAppended =
             newItems.size > oldItems.size && newItems.subList(0, oldItems.size) == oldItems
-        applyTimeline(
-            newItems,
-            if (isAppended || isFirstQuestion) TimelineUpdate.DIFF else TimelineUpdate.RELOAD
-        )
+        // A message that comes above others, as an answer above the questions queued after it,
+        // comes in at its place, and the rows below it move down without coming in again
+        val insertedAt = if (isAppended || trailingHints != null) {
+            -1
+        } else {
+            findTimelineInsertion(oldItems, newItems, message.id)
+        }
+        if (insertedAt >= 0 && animateFromIndex == oldItems.size) animateFromIndex = insertedAt
+        val isDiff = isAppended || isFirstQuestion || insertedAt >= 0
+        if (!isDiff) glideWaitingRows(newItems)
+        applyTimeline(newItems, if (isDiff) TimelineUpdate.DIFF else TimelineUpdate.RELOAD)
         if (trailingHints != null && dismissingHints === trailingHints) {
             if (dismissalCell != null) {
                 dismissalCell.collapse { finishHintsDismissal() }
@@ -2350,7 +2633,7 @@ class AgentVC(
 
     override fun onMessageRemoved(messageId: String) {
         updateLoadError()
-        updateMoreButton()
+        updateHeaderButtons()
         updateThinkingGlow()
         val oldItems = timelineItems
         val removedIndex = oldItems.indexOfFirst { item ->
@@ -2368,7 +2651,10 @@ class AgentVC(
             removedIndex >= 0 && oldItems.size == newItems.size + 1 ->
                 applyTimeline(newItems, TimelineUpdate.DIFF)
 
-            oldItems != newItems -> applyTimeline(newItems, TimelineUpdate.RELOAD)
+            oldItems != newItems -> {
+                glideWaitingRows(newItems)
+                applyTimeline(newItems, TimelineUpdate.RELOAD)
+            }
         }
     }
 
@@ -2437,11 +2723,15 @@ class AgentVC(
     }
 
     private fun updateHintsAvailability(cell: AgentHintsCell) {
-        val model = preparedVM ?: return
         val item = timelineItems.getOrNull(chatRecyclerView.getChildAdapterPosition(cell))
             as? AgentTimelineItem.Hints ?: return
-        cell.setCardsEnabled(item.followupMessageId == null || model.canSendFollowup)
+        cell.setCardsEnabled(canSendHints(item))
+        cell.isSupportHintEnabled = preparedVM?.canRequestSupportFromStarterHint == true
     }
+
+    private fun canSendHints(item: AgentTimelineItem.Hints): Boolean =
+        item.followupMessageId == null || preparedVM?.canSendFollowup == true ||
+            chatOpening?.canSubmitDiscussionMessage == true
 
     override fun onOutgoingMessageFailed(messageId: String) {
         updateThinkingGlow()
@@ -2463,20 +2753,27 @@ class AgentVC(
 
     override fun onPendingMessageActivated(messageId: String) {
         if (messageId == chatOpening?.messages?.firstOrNull()?.id) return
-        if (pendingIncomingReveals.containsKey(messageId) ||
-            viewport.timelineIndexOf(messageId) < 0
-        ) {
-            return
+        val index = viewport.timelineIndexOf(messageId)
+        if (index < 0) return
+        if (!pendingIncomingReveals.containsKey(messageId)) trackAnswerReveal(messageId)
+        if (index == viewport.pinnedMessageId?.let(viewport::timelineIndexOf)) return
+        // Decided as the question goes: while the scroll-to-bottom button shows, the list stays
+        viewport.placeGoingQuestion(messageId, shouldPin = !isLatestRowOutOfSight())
+    }
+
+    // A question queued before the chat opened, or again by Retry, waits for its answer's row as
+    // one queued here does, ahead of the questions queued here that still wait
+    private fun trackAnswerReveal(questionId: String) {
+        val waitingReveals = pendingIncomingReveals.filterKeys {
+            preparedVM?.isMessageQueued(it) == true
         }
-        pendingIncomingReveals[messageId] = PendingIncomingReveal(
-            outgoingMessageId = messageId,
+        pendingIncomingReveals.keys.removeAll(waitingReveals.keys)
+        pendingIncomingReveals[questionId] = PendingIncomingReveal(
+            outgoingMessageId = questionId,
             isOutgoingAnimationFinished = true
         )
-        outgoingMessageIdsAwaitingIncoming.add(messageId)
-        viewport.activatePendingMessage(messageId)
-        chatRecyclerView.post {
-            if (viewport.pendingPinMessageId == messageId) viewport.evaluatePinning(messageId)
-        }
+        pendingIncomingReveals.putAll(waitingReveals)
+        outgoingMessageIdsAwaitingIncoming.add(questionId)
     }
 
     private fun onStreamEvent(messageId: String) {
@@ -2600,6 +2897,7 @@ class AgentVC(
         }
         if (insertedAt < 0 || newItems.size - oldItemCount != 1) {
             animateFromIndex = -1
+            glideWaitingRows(newItems)
             applyTimeline(newItems, TimelineUpdate.RELOAD)
         } else {
             animateFromIndex = insertedAt
@@ -2838,6 +3136,24 @@ class AgentVC(
         }
     }
 
+    private fun openDigestPictures(
+        messageId: String,
+        post: AgentNewsPostContent,
+        pictures: AgentNewsDigestPictures
+    ) {
+        val window = window ?: return
+        cancelDictation()
+        view.hideKeyboard()
+        val date = parseAgentV2Timestamp(post.publishedAt)
+        val items = pictures.headlines.map { agentNewsDigestMediaViewerItem(window, it, date) }
+        MediaViewerVC.present(window, items, pictures.index) { index ->
+            chatRecyclerView.children
+                .filterIsInstance<AgentNewsPostCell>()
+                .firstOrNull { it.shownPostId == messageId }
+                ?.makeDigestPictureSource(pictures.headlines[index])
+        }
+    }
+
     private fun showCopyBulletin() {
         val text = LocaleController.getString("\$agent_message_copied")
         bulletin.showCopied(view, chatRecyclerView, text, ::bulletinBottomOffset)
@@ -2869,6 +3185,7 @@ class AgentVC(
         if (visible) {
             cancelDictation()
             viewport.finishLatestScroll()
+            rowGlide.finish()
             // As in Telegram, the menu takes the keyboard's place
             view.hideKeyboard()
         }
@@ -2944,7 +3261,7 @@ class AgentVC(
                 model.historyCursor,
                 model.currentThread.news,
                 news,
-                model.currentThread.digest
+                model.currentThread.digest ?: digestPreview
             )
                 .takeIf { messages ->
                     messages.isNotEmpty() && messages.all { it.message.isFailure }
@@ -2958,34 +3275,52 @@ class AgentVC(
 
     override fun onOlderMessagesLoadingChanged() {
         historySpinner.setLoading(preparedVM?.isLoadingOlderMessages == true)
+        updateHeaderButtons()
+    }
+
+    override fun onSupportRequestAvailabilityChanged() {
+        updateHeaderButtons()
+        updateVisibleHintsAvailability()
     }
 
     override fun onInputLimitChanged() {
         updateComposerSubmission()
+        updateHeaderButtons()
         updateVisibleHintsAvailability()
         reloadLastFailureRowIfRetryChanged()
     }
 
-    /** New questions wait while a limit blocks them; the composer then stays dimmed */
+    /**
+     * New questions wait while a limit blocks them; the composer then stays dimmed. Behind a
+     * regeneration they queue as behind any answer, once the chat has asked for it.
+     */
     private fun updateComposerSubmission() {
         val model = preparedVM
+        val isInputBlockedByLimit = model?.isInputBlockedByLimit
+            ?: (chatOpening?.isInputBlockedByLimit == true)
         composerView.setSubmissionEnabled(
-            model != null && !model.hasUnsentOpening &&
-                agentNewsAllowsSubmission(news, agentState) &&
-                agentState != AgentVM.State.CLEARING && editFadeAnimator == null &&
-                !isDissolving && regeneratingMessageId == null && !model.isInputBlockedByLimit
+            chatOpening?.canSubmitDiscussionMessage == true ||
+                (
+                    model != null && !model.hasUnsentOpening &&
+                        agentNewsAllowsSubmission(news, agentState) &&
+                        agentState != AgentVM.State.CLEARING && !isReplacementStarting &&
+                        !isInputBlockedByLimit
+                    )
         )
         composerView.isAnswering = model != null && agentState == AgentVM.State.RUNNING
         // As the design's "Limit Reached" frame shows it, the composer's contents are at half their opacity while a
         // limit blocks sending
         composerView.contentAlpha =
-            if (model?.isInputBlockedByLimit == true) DISABLED_BUTTON_ALPHA else 1f
+            if (isInputBlockedByLimit) DISABLED_BUTTON_ALPHA else 1f
     }
 
-    /** The failure that ends the timeline offers Retry while the chat can use it; earlier ones don't */
+    /**
+     * The failure that ends the timeline offers Retry while the chat can use it, above any failed support requests
+     * after it; earlier ones don't
+     */
     private fun buildFailureRetry(message: AgentMessage): (() -> Unit)? {
         if (!message.isFailure ||
-            findLastTimelineMessageIndex()?.let { timelineMessageAt(it) }?.id != message.id
+            findFailureRetryRowIndex()?.let { timelineMessageAt(it) }?.id != message.id
         ) {
             return null
         }
@@ -3004,12 +3339,15 @@ class AgentVC(
     }
 
     private fun reloadLastFailureRow() {
-        val index = findLastTimelineMessageIndex() ?: return
+        val index = findFailureRetryRowIndex() ?: return
         if (timelineMessageAt(index)?.isFailure == true) rvAdapter.notifyItemChanged(index)
     }
 
-    private fun findLastTimelineMessageIndex(): Int? =
-        timelineItems.indexOfLast { it is AgentTimelineItem.Message }.takeIf { it >= 0 }
+    private fun findFailureRetryRowIndex(): Int? {
+        val messageIds = timelineItems.map { (it as? AgentTimelineItem.Message)?.message?.id }
+        val model = preparedVM ?: return messageIds.indexOfLast { it != null }.takeIf { it >= 0 }
+        return model.findFailureRetryRowIndex(messageIds)
+    }
 
     private fun timelineMessageAt(index: Int): AgentMessage? =
         (timelineItems.getOrNull(index) as? AgentTimelineItem.Message)?.message
@@ -3132,7 +3470,8 @@ class AgentVC(
             preparedVM?.historyCursor,
             preparedVM?.currentThread?.news,
             news,
-            preparedVM?.currentThread?.digest
+            preparedVM?.currentThread?.digest ?: digestPreview,
+            discussionNaming = if (preparedVM == null) discussionNaming else news?.discussionNaming
         )
         val shownItems = messageItems.filterNot { hiddenIncomingMessageIds.contains(it.message.id) }
         val hasAuthors = presentationMessages.hasSupportOperatorJoined()
@@ -3168,13 +3507,18 @@ class AgentVC(
             items.add(anchorIdx + 1, dismissing)
             return items
         }
-        val followupOwner = messages.findFollowupOwner()
+        val followupOwner = if (preparedVM == null) {
+            messageItems.map { it.message }.findFollowupOwner()
+        } else {
+            messages.findFollowupOwner()
+        }
         val followups = followupOwner?.let {
             preparedVM?.visibleFollowups(it.id) ?: it.followups
         }.orEmpty()
         val pendingNews = shownItems.lastOrNull()?.takeIf { it.newsPost != null }
         if ((followups.isEmpty() || agentState == AgentVM.State.LOADING) &&
             pendingNews != null && !newsFollowupWait.isExpired &&
+            (preparedVM != null || chatOpening?.isDeferredDiscussion != true) &&
             displayMessages.none { it.role == AgentMessageRole.USER } &&
             preparedVM?.state != AgentVM.State.ERROR
         ) {
@@ -3186,7 +3530,10 @@ class AgentVC(
             return items
         }
         if (followups.isNotEmpty() && followupOwner?.isStreaming == false &&
-            (!followupOwner.newsPost || preparedVM?.state == AgentVM.State.READY) &&
+            (
+                !followupOwner.newsPost || preparedVM?.state == AgentVM.State.READY ||
+                    (preparedVM == null && chatOpening?.isDeferredDiscussion == true)
+                ) &&
             !hiddenIncomingMessageIds.contains(followupOwner.id)
         ) {
             items.add(
@@ -3258,13 +3605,16 @@ class AgentVC(
                 presentation?.hidesRemovedMessages == true &&
                     indexPath.row in removedStart until outgoingIndex && removedStart >= 0
                 ) ||
-            (regenerationStart >= 0 && indexPath.row >= regenerationStart)
+            (
+                regenerationStart >= 0 && indexPath.row >= regenerationStart &&
+                    !isQueuedTimelineRow(indexPath.row)
+                )
         ) {
             View.INVISIBLE
         } else {
             View.VISIBLE
         }
-        val animate = animateFromIndex in 0..indexPath.row
+        val animate = animateFromIndex in 0..indexPath.row && canAnimateRows
         when (val item = timelineItems[indexPath.row]) {
             is AgentTimelineItem.DateHeader -> {
                 (cellHolder.cell as AgentDateHeaderCell).apply {
@@ -3279,12 +3629,23 @@ class AgentVC(
 
             is AgentTimelineItem.Hints -> {
                 (cellHolder.cell as AgentHintsCell).apply {
-                    onHintTap = { hint, card ->
+                    onHintTap = onHintTap@{ hint, card ->
+                        if (hint.id == AGENT_SUPPORT_HINT_ID) {
+                            presentSupportRequest(card.id)
+                            return@onHintTap
+                        }
                         val messageId = item.followupMessageId
                         withConsent {
                             sendSuggestion(card, this) {
                                 if (messageId != null) {
-                                    preparedVM?.sendFollowup(messageId, hint.id) == true
+                                    !isReplacementStarting &&
+                                        (
+                                            preparedVM?.sendFollowup(messageId, hint.id)
+                                                ?: sendFirstDiscussionMessage(
+                                                    hint.prompt,
+                                                    isFollowup = true
+                                                )
+                                            )
                                 } else {
                                     sendMessage(hint.prompt, vm.hintEntryPoint(hint))
                                 }
@@ -3299,9 +3660,8 @@ class AgentVC(
                         areFollowups = item.followupMessageId != null,
                         isLoading = item.isLoading
                     )
-                    setCardsEnabled(
-                        item.followupMessageId == null || preparedVM?.canSendFollowup == true
-                    )
+                    setCardsEnabled(canSendHints(item))
+                    isSupportHintEnabled = preparedVM?.canRequestSupportFromStarterHint == true
                 }
             }
 
@@ -3320,6 +3680,14 @@ class AgentVC(
                         cell.onPopupVisibilityChanged = ::onCopyPopupVisibilityChanged
                         cell.onCopied = ::showCopyBulletin
                         cell.onPictureTap = { openNewsPhoto(messageId, post) }
+                        cell.onDigestPictureClick = { openDigestPictures(messageId, post, it) }
+                        // A digest's headline opens its news item over the chat, as the digest's card does over the feed
+                        cell.onDigestHeadlineClick = { headline ->
+                            cancelDictation()
+                            navigationController?.let {
+                                AgentNavigation.openNewsChat(context, it, headline.eventId)
+                            }
+                        }
                         cell.canOpenMenuOnTap = ::canOpenMenuOnTap
                         cell.menuPresenter = ::presentMenuAfterKeyboard
                         cell.menuRows = ::getMenuRows

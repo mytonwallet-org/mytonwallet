@@ -303,7 +303,12 @@ final class AgentNewsFeedParityTests: XCTestCase {
     /// it is in the very update that brings them, before the list draws them
     func testOlderNewsAppearAboveWithoutASpinnerAndTheCardOnScreenStays() async throws {
         let feed = TestFeed(page: .init(locale: "en", items: (3...12).map { makeNewsItem($0, isLong: true) }.reversed(), nextCursor: "older"))
-        defer { feed.close() }
+        var releaseOlderPage: CheckedContinuation<Void, Never>?
+        feed.client.beforeOlderPage = { await withCheckedContinuation { releaseOlderPage = $0 } }
+        defer {
+            releaseOlderPage?.resume()
+            feed.close()
+        }
         feed.client.older = .init(locale: "en", items: [makeNewsItem(1, isLong: true), makeNewsItem(2, isLong: true)])
         feed.client.olderDelay = .milliseconds(300)
         try await feed.waitUntil { !feed.model.isLoading && !feed.controller.isScrollToBottomButtonHeld }
@@ -333,6 +338,9 @@ final class AgentNewsFeedParityTests: XCTestCase {
         try await feed.waitUntil { feed.model.isLoadingMore }
         XCTAssertFalse(findDescendants(of: view).contains { ($0 as? UIActivityIndicatorView)?.isAnimating == true })
         XCTAssertFalse(findDescendants(of: view).contains { ($0 as? AgentMessagesSkeletonView)?.isShowing == true })
+        try await feed.waitUntil { releaseOlderPage != nil }
+        releaseOlderPage?.resume()
+        releaseOlderPage = nil
         await loading.value
         XCTAssertEqual(feed.model.items.map(\.eventId), Array(1...12))
         XCTAssertFalse(cardYsAfterUpdates.isEmpty)
@@ -630,6 +638,7 @@ final class TestFeed {
         var firstPageError: Error?
         /// How long an older page takes to come
         var olderDelay: Duration?
+        var beforeOlderPage: (() async -> Void)?
         /// How many times the feed asked for an older page
         var olderRequestCount = 0
 
@@ -637,7 +646,7 @@ final class TestFeed {
             self.page = page
         }
 
-        func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
+        func getNewsFeed(lang: String, cursor: String?, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView = .all) async throws -> ApiAgentV2NewsFeedPage {
             guard cursor != nil else {
                 if let firstPageError {
                     self.firstPageError = nil
@@ -646,6 +655,7 @@ final class TestFeed {
                 return page
             }
             olderRequestCount += 1
+            await beforeOlderPage?()
             if let olderDelay {
                 try await Task.sleep(for: olderDelay)
             }

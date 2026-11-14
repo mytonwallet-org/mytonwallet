@@ -17,6 +17,7 @@ import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { formatDateRange } from '../../util/dateFormat';
 import { toBig } from '../../util/decimals';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
+import getTestId from '../../util/getTestId';
 import { DEFAULT_PORTFOLIO_TIME_RANGE, getTimeRangeStartTs } from '../../util/portfolio/timeRange';
 import { getFullStakingBalance } from '../../util/staking';
 import { captureControlledSwipe, SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
@@ -179,7 +180,7 @@ function Portfolio({
   );
 
   return (
-    <div ref={rootRef} className={styles.root}>
+    <div ref={rootRef} className={styles.root} data-testid={isActive ? getTestId('portfolio_screen') : undefined}>
       <BackHeader title={lang('Portfolio')} withNotchOnScroll isScrolled={isScrolled} onBackClick={closePortfolio} />
 
       <div className={buildClassName(styles.body, 'custom-scroll')} onScroll={handleScroll}>

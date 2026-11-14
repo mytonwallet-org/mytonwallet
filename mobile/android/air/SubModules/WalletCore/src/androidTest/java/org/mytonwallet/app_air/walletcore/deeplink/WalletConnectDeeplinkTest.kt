@@ -9,6 +9,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 
 @RunWith(AndroidJUnit4::class)
 class WalletConnectDeeplinkTest {
@@ -18,6 +19,22 @@ class WalletConnectDeeplinkTest {
     @Before
     fun setup() {
         ApplicationContextHolder.update(InstrumentationRegistry.getInstrumentation().targetContext)
+    }
+
+    @Test
+    fun parsesNewsShareLinksIntoTheSameNewsDiscussion() {
+        for (locale in listOf("ru", "en")) {
+            val url = ExplorerHelpers.buildAgentNewsShareUrl(42, locale)
+
+            assertEquals(
+                Deeplink.Agent(accountAddress = null, newsEventId = 42),
+                DeeplinkParser.parse(Uri.parse(url))
+            )
+        }
+        assertEquals(
+            Deeplink.Agent(accountAddress = null, newsEventId = 307),
+            DeeplinkParser.parse(Uri.parse(ExplorerHelpers.buildAgentNewsShareUrl(307, "en")))
+        )
     }
 
     @Test

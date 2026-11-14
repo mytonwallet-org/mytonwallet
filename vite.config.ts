@@ -206,6 +206,7 @@ const ENV_DEFAULTS = {
   IS_TELEGRAM_APP: 'false',
   IS_EXPLORER: 'false',
   IS_HEADLESS: '', // Empty string for the same reason as IS_EXTENSION above
+  WITH_TEST_IDS: '0',
   SWAP_FEE_ADDRESS: '',
   DIESEL_ADDRESS: '',
   GIVEAWAY_CHECKIN_URL: '',
@@ -214,6 +215,7 @@ const ENV_DEFAULTS = {
   WALLET_CONNECT_PAY_APP_ID: '',
   MULTISEND_DAPP_URL: '',
   PORTFOLIO_DAPP_URL: '',
+  PORTFOLIO_API_URL: '',
   AGENT_API_URL: '',
   SDK_BUILD_STAMP: resolveBuildStamp(),
   AGENT_OVERRIDE: 'no_override',

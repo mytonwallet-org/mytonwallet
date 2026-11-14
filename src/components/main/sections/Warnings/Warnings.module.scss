@@ -1,17 +1,17 @@
 @use "../../../../styles/mixins";
 
-.portraitContainer, .container {
+.testnetPortraitContainer, .testnetContainer {
   margin-bottom: 0.75rem;
 }
 
-.portraitContainer {
+.testnetPortraitContainer {
   position: relative;
   left: 50%;
   transform: translateX(-50%);
   width: 100vw;
 }
 
-.container {
+.testnetContainer {
   overflow: hidden;
   flex-shrink: 0;
   border-radius: var(--border-radius-default);
@@ -50,7 +50,6 @@
 
   position: relative;
 
-  margin: 0.5rem 0 0.75rem;
   padding: 0.75rem;
   border-radius: var(--border-radius-default);
 
@@ -64,7 +63,6 @@
   transition: 150ms color, 150ms opacity !important;
 
   &_landscape {
-    margin-top: 0;
     font-size: 0.9375rem;
   }
 
@@ -271,4 +269,13 @@
   &:hover {
     color: var(--color-white);
   }
+}
+
+// The offset is padding, so the observed height of the block includes it
+.warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  &:not(:empty) { padding-top: 1rem; }
 }

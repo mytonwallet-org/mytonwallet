@@ -14,6 +14,7 @@ import { isNetWorthChartAvailable } from '../../../util/assets/netWorth';
 import buildClassName from '../../../util/buildClassName';
 import { formatChartDate, formatShortDay, formatShortMonth, formatTime, SECOND } from '../../../util/dateFormat';
 import { formatCurrency, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
+import getTestId from '../../../util/getTestId';
 import { vibrate } from '../../../util/haptics';
 import { TIME_RANGES } from '../../../util/portfolio/timeRange';
 import { DEFAULT_PRICE_HISTORY_PERIOD } from '../../../util/priceHistory';
@@ -203,7 +204,7 @@ function Chart({
     : TIME_RANGES.indexOf(period) * 2 + (isNetWorthMode ? 1 : 0) + 1;
 
   return (
-    <section className={fullClassName}>
+    <section className={fullClassName} data-testid={isActive ? getTestId('token_price_card') : undefined}>
       {canSwitchMode && (
         <TabList
           tabs={modeTabs}

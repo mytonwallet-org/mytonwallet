@@ -5,7 +5,8 @@ import WalletCore
 ///
 /// An answer that completes while its chat is off screen marks the chat, and so does a chat whose message count grows
 /// past the completed-message count the chat showed when the user left it. Showing the chat clears both.
-/// A chat the device has never shown counts as read, so chats from other devices start without a dot.
+/// Operator replies stay unread until their history is shown. Message counts alone leave chats this device has never
+/// shown read.
 @MainActor
 final class AgentThreadReadState {
     static let shared = AgentThreadReadState(userDefaults: .standard)
@@ -14,12 +15,13 @@ final class AgentThreadReadState {
     private struct Record: Codable, Equatable {
         /// The chat's message count excluding an answer that is still streaming
         var seenMessageCount: Int?
+        var seenOperatorMessageAt: String?
         /// The next settled list count establishes the read baseline
         var isBaselineNeeded = false
         var isMarkedUnread = false
 
         private enum CodingKeys: String, CodingKey {
-            case seenMessageCount, isBaselineNeeded = "needsBaseline", isMarkedUnread
+            case seenMessageCount, seenOperatorMessageAt, isBaselineNeeded = "needsBaseline", isMarkedUnread
         }
     }
 
@@ -42,6 +44,11 @@ final class AgentThreadReadState {
     }
 
     func isUnread(_ thread: ApiAgentV2ThreadSummary) -> Bool {
+        let seenOperatorMessageAt = (records[thread.id]?.seenOperatorMessageAt).map(AgentV2DateParser.date) ?? .distantPast
+        if let operatorMessageAt = thread.support?.lastOperatorMessageAt,
+           AgentV2DateParser.date(operatorMessageAt) > seenOperatorMessageAt {
+            return true
+        }
         guard visibleCounts[thread.id] == nil, let record = records[thread.id] else { return false }
         if record.isMarkedUnread { return true }
         guard !record.isBaselineNeeded, let seen = record.seenMessageCount else { return false }
@@ -55,7 +62,7 @@ final class AgentThreadReadState {
         return seen
     }
 
-    /// Call as a chat comes on screen and as it leaves; while on screen it stays read
+    /// Call as a chat comes on screen; operator replies are acknowledged from loaded history separately
     func chatDidAppear(threadId: String) {
         visibleCounts[threadId, default: 0] += 1
         markSeen(threadId: threadId)
@@ -72,6 +79,12 @@ final class AgentThreadReadState {
     func answerDidComplete(threadId: String) {
         guard visibleCounts[threadId] == nil, records[threadId]?.isMarkedUnread != true else { return }
         update(threadId) { $0.isMarkedUnread = true }
+    }
+
+    func markOperatorMessagesSeen(threadId: String, loadedOperatorMessageAt: String) {
+        let seenOperatorMessageAt = (records[threadId]?.seenOperatorMessageAt).map(AgentV2DateParser.date) ?? .distantPast
+        guard AgentV2DateParser.date(loadedOperatorMessageAt) > seenOperatorMessageAt else { return }
+        update(threadId) { $0.seenOperatorMessageAt = loadedOperatorMessageAt }
     }
 
     /// Establishes pending read baselines once a chat is off screen and no longer answering
@@ -96,7 +109,12 @@ final class AgentThreadReadState {
 
     private func markSeen(threadId: String, seenMessageCount: Int? = nil) {
         let seen = seenMessageCount ?? records[threadId]?.seenMessageCount
-        let record = Record(seenMessageCount: seen, isBaselineNeeded: seenMessageCount == nil, isMarkedUnread: false)
+        let record = Record(
+            seenMessageCount: seen,
+            seenOperatorMessageAt: records[threadId]?.seenOperatorMessageAt,
+            isBaselineNeeded: seenMessageCount == nil,
+            isMarkedUnread: false
+        )
         store(record, for: threadId)
         save(shouldNotify: true)
     }

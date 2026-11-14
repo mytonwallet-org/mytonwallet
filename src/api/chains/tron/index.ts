@@ -1,5 +1,6 @@
 import type { ChainSdk } from '../../types/chains';
 
+import { DIESEL_NOT_AVAILABLE } from '../../common/other';
 import { fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
 import {
@@ -44,6 +45,7 @@ const tronSdk: ChainSdk<'tron'> = {
   buildOnchainSwapTransfer: notSupported,
   submitOnchainSwapTransfer: notSupported,
   resolveSwapNeedsBatch: () => false,
+  estimateSwapDiesel: () => DIESEL_NOT_AVAILABLE,
   getAddressInfo,
   getWalletBalance,
   getWalletAssets,

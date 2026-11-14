@@ -1,5 +1,6 @@
 @preconcurrency import Combine
 import Foundation
+import SwiftNavigation
 import UIAgent
 import UIInAppBrowser
 import UniversalSearchCore
@@ -61,6 +62,7 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
 
     private let contextProvider: ContextProvider
     private let timing: RefreshTiming
+    private let perpsStore: PerpsStore
     private var observers: [WeakObserver] = []
     private var hydrationTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
@@ -73,17 +75,23 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
     private var isWalletReady = false
     private var browserHistoryLoadedCancellable: AnyCancellable?
     private var agentConversationChangedCancellable: AnyCancellable?
+    private var futuresCatalogueObservation: ObserveToken?
+    private var futuresPositionsObservation: ObserveToken?
+    private var observedFuturesEntries: [WalletCoreFuturesSearchEntry]?
+    private var observedFuturesPositions: FuturesPositions?
 
     init(
         coordinator: UniversalSearchCoordinator,
         contextProvider: @escaping ContextProvider = {
             WalletCoreUniversalSearchFactory.currentContext()
         },
-        timing: RefreshTiming = RefreshTiming()
+        timing: RefreshTiming = RefreshTiming(),
+        perpsStore: PerpsStore = .shared
     ) {
         self.coordinator = coordinator
         self.contextProvider = contextProvider
         self.timing = timing
+        self.perpsStore = perpsStore
     }
 
     deinit {
@@ -102,6 +110,7 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
             [weak self] in
             self?.scheduleRefresh(sourceIDs: [UniversalSearchAgentConversationSource.id])
         }
+        observeFutures()
     }
 
     public func setWalletReady(_ isReady: Bool) {
@@ -138,6 +147,10 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
         browserHistoryLoadedCancellable = nil
         agentConversationChangedCancellable?.cancel()
         agentConversationChangedCancellable = nil
+        futuresCatalogueObservation = nil
+        futuresPositionsObservation = nil
+        observedFuturesEntries = nil
+        observedFuturesPositions = nil
         pendingRefreshSourceIDs.removeAll()
         pendingFullRefresh = false
         pendingRefreshSince = nil
@@ -242,6 +255,30 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
 
         default:
             break
+        }
+    }
+
+    /// The catalogue is pushed every minute and positions every few seconds, nearly always with only prices and
+    /// values changed. Futures sources refresh only when what they index changes, so those pushes cost no indexing.
+    private func observeFutures() {
+        futuresCatalogueObservation = observe { [weak self] in
+            guard let self else { return }
+            let entries = WalletCoreFuturesSearchSource.entries(market: perpsStore.market)
+            guard entries != observedFuturesEntries else { return }
+            observedFuturesEntries = entries
+            scheduleRefresh(sourceIDs: [WalletCoreFuturesSearchSource.id])
+        }
+        futuresPositionsObservation = observe { [weak self] in
+            guard let self else { return }
+            let scopeID = contextProvider().scopeID
+            let snapshot = scopeID.flatMap { self.perpsStore.snapshots[$0] }
+            let positions = FuturesPositions(
+                scopeID: scopeID,
+                assetIDs: WalletCoreFuturesPositionSearchSource.heldAssetIDs(snapshot)
+            )
+            guard positions != observedFuturesPositions else { return }
+            observedFuturesPositions = positions
+            scheduleRefresh(sourceIDs: [WalletCoreFuturesPositionSearchSource.id])
         }
     }
 
@@ -389,6 +426,11 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
     private var hasPendingRefresh: Bool {
         pendingFullRefresh || !pendingRefreshSourceIDs.isEmpty
     }
+}
+
+private struct FuturesPositions: Equatable {
+    let scopeID: String?
+    let assetIDs: Set<String>
 }
 
 private final class WeakObserver {

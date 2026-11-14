@@ -1,4 +1,5 @@
 import Foundation
+import WalletContext
 import WalletCore
 
 @MainActor
@@ -41,6 +42,8 @@ class BaseAgentModel {
     private var orderedItemIDs: [AgentItemID] = []
     private var itemsByID: [AgentItemID: AgentTimelineItem] = [:]
     private(set) var userMessageRevision = 0
+    /// How many questions the chat has taken, edits included, for its screen to tell whether an action sent one
+    private(set) var sentQuestionCount = 0
     private var availableHints: [AgentHint] = []
     private var deferredTypingIndicator: AgentTimelineItem?
     /// The typing row a Stop while the Agent thought keeps on screen for a moment, for its top's knock
@@ -50,6 +53,10 @@ class BaseAgentModel {
     private var isHeldTypingIndicatorRemovalAnimated = false
     private var typingIndicatorHold: Task<Void, Never>?
     private(set) var pendingRevealUserMessageID: AgentItemID?
+    /// The question that waited at the chat's end and goes now, while the chat brings it up
+    private(set) var revealingWaitingMessageID: AgentItemID?
+    /// The question being added that waits for the answer being written
+    private var appendingWaitingMessageID: AgentItemID?
     private var isAwaitingTypingIndicatorReveal = false
     private let backend: AgentBackend
     private lazy var backendContext = AgentBackendContext(
@@ -86,6 +93,18 @@ class BaseAgentModel {
         },
         sendMessageHandler: { [weak self] text, source in
             self?.send(text: text, source: source)
+        },
+        revealSentMessageHandler: { [weak self] id, send in
+            guard let self else { return send() }
+            revealingWaitingMessageID = id
+            beginTypingIndicatorReveal(for: id)
+            send()
+            // With no typing row to wait for, the chat brings the question up at once
+            if isAwaitingTypingIndicatorReveal {
+                cancelPendingTypingIndicatorReveal()
+                delegate?.agentModelWillRevealSentUserMessage(id) {}
+            }
+            revealingWaitingMessageID = nil
         }
     )
 
@@ -124,6 +143,31 @@ class BaseAgentModel {
         backend.accessibilityStatus
     }
 
+    var supportState: AgentSupportState {
+        backend.supportState
+    }
+
+    /// Support has the chat: it waits for an operator or an operator is in it
+    var isSupportActive: Bool {
+        supportState.isActive
+    }
+
+    var isSupportRequestVisible: Bool {
+        backend.isSupportRequestVisible
+    }
+
+    var canRequestSupport: Bool {
+        backend.canRequestSupport
+    }
+
+    /// Sends the request for a support operator as the user's message, when the chat can; returns whether it went
+    @discardableResult
+    func requestSupport(source: ApiAgentV2EntryPoint.SupportRequestSource) -> Bool {
+        guard backend.canRequestSupport else { return false }
+        send(text: lang("$agent_support_request_message"), source: .supportRequest(source))
+        return true
+    }
+
     var areHintsVisible: Bool {
         !visibleHints.isEmpty
     }
@@ -143,13 +187,26 @@ class BaseAgentModel {
     private var followupMessageID: AgentItemID? {
         for id in orderedItemIDs.reversed() {
             guard case .message(let message) = itemsByID[id], message.role != .system else { continue }
-            return message.role == .assistant ? id : nil
+            return message.role == .assistant && message.author == .agent ? id : nil
         }
         return nil
     }
 
-    func canSendMessage(draftText: String?) -> Bool {
-        backend.canSendMessages && Self.normalizedText(from: draftText) != nil
+    /// A question can be sent with `draftText`, now or to wait for the answer being written; an edit can't wait
+    func canSendMessage(draftText: String?, isEditing: Bool = false) -> Bool {
+        (isEditing ? backend.canSendMessages : backend.canAcceptMessages) && Self.normalizedText(from: draftText) != nil
+    }
+
+    /// The rows that stay at the chat's end, after the answer being written: the questions that wait for it, and those
+    /// a wallet switch failed there with their failure
+    var trailingItemIDs: [AgentItemID] {
+        backend.trailingItemIDs + (appendingWaitingMessageID.map { [$0] } ?? [])
+    }
+
+    func canEditMessage(_ messageID: AgentItemID) -> Bool {
+        guard case .message(let message)? = itemsByID[messageID],
+              message.role == .user, !message.isEditingDisabled else { return false }
+        return backend.canEditMessage(messageID: messageID)
     }
 
     var canStopAnswer: Bool {
@@ -218,10 +275,15 @@ class BaseAgentModel {
         source: AgentBackendSendSource = .composer
     ) {
         guard let text = Self.normalizedText(from: rawText) else { return }
+        if let editingMessageID,
+           case .message(let message)? = itemsByID[editingMessageID], message.isEditingDisabled { return }
         releaseTypingIndicator()
 
         if let editingMessageID,
            let editContext = makeEditContext(for: editingMessageID) {
+            // An edit replaces what follows the message, so it can't wait for the answer being written
+            guard backend.canSendMessages else { return }
+            sentQuestionCount += 1
             backend.prepareForEditing(editContext)
             applyEditedMessage(text, id: editingMessageID)
             beginTypingIndicatorReveal(for: editingMessageID)
@@ -240,8 +302,14 @@ class BaseAgentModel {
             text: text,
             isStreaming: false
         )
+        sentQuestionCount += 1
+        // A question sent while an answer is written, or before its discussion's thread exists, waits at the chat's end
+        if !source.isSupportRequest, backend.queuesNextQuestion {
+            appendingWaitingMessageID = message.id
+        }
         beginTypingIndicatorReveal(for: message.id)
         appendMessage(message, animated: true)
+        appendingWaitingMessageID = nil
         backend.didSendUserMessage(
             text,
             userMessageID: message.id,
@@ -380,10 +448,22 @@ class BaseAgentModel {
     }
 
     private func appendDirectly(_ item: AgentTimelineItem, animated: Bool) {
+        // The typing row of an answer goes before the rows that stay at the chat's end, as the questions waiting for it
+        if case .typingIndicator = item, insertBeforeTrailingItems(item, animated: animated) { return }
         orderedItemIDs.append(item.id)
         itemsByID[item.id] = item
         userMessageRevision += 1
         delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
+    }
+
+    /// Puts `item` before the rows that stay at the chat's end, and returns whether there are any
+    private func insertBeforeTrailingItems(_ item: AgentTimelineItem, animated: Bool) -> Bool {
+        let trailingIDs = Set(backend.trailingItemIDs)
+        var baseItems = baseTimelineItems
+        guard let index = baseItems.firstIndex(where: { trailingIDs.contains($0.id) }) else { return false }
+        baseItems.insert(item, at: index)
+        setTimeline(baseItems, animated: animated)
+        return true
     }
 
     private func replaceItem(id: AgentItemID, with item: AgentTimelineItem, animated: Bool) {
@@ -428,8 +508,10 @@ class BaseAgentModel {
     }
 
     private func setHints(_ hints: [AgentHint], animated: Bool) {
+        // Contact Support asks nothing of the Agent, so it has no prompt
         let filteredHints = hints.filter { hint in
-            !hint.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            hint.isSupportRequest
+                || !hint.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !hint.subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !hint.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }

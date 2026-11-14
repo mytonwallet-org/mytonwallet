@@ -44,12 +44,22 @@ final class AgentThreadListModel {
     /// The rows are the SDK's copy of the first page, shown until the first page loads
     private(set) var isShowingCachedThreads = false
     private(set) var newsItems: [ApiAgentV2NewsFeedItem] = []
+    /// The digests on the latest first page of the feed's view
+    private(set) var newsDigests: [ApiAgentV2NewsFeedDigest] = []
     private var newsPage: AgentNewsCachedPage?
+    private var newsDigestsPage: AgentNewsCachedPage?
 
+    /// The feed's view, which the News row shows the latest of
+    var newsView: ApiAgentV2NewsFeedView { getNewsView() }
     var latestNews: ApiAgentV2NewsFeedItem? {
         newsItems.max { AgentV2DateParser.date($0.deliveredAt) < AgentV2DateParser.date($1.deliveredAt) }
     }
-    var newsUnreadCount: Int { readState.unreadCount(items: newsItems) }
+    var latestDigest: ApiAgentV2NewsFeedDigest? {
+        newsDigests.max { AgentV2DateParser.date($0.deliveredAt) < AgentV2DateParser.date($1.deliveredAt) }
+    }
+    var newsUnreadCount: Int {
+        newsView == .digests ? readState.unreadDigestCount(newsDigests) : readState.unreadCount(items: newsItems)
+    }
 
     var onChange: (() -> Void)?
     var onError: ((DisplayError) -> Void)?
@@ -60,6 +70,7 @@ final class AgentThreadListModel {
     let readState: AgentNewsReadState
     let threadReadState: AgentThreadReadState
     private let language: () -> String
+    private let getNewsView: @MainActor () -> ApiAgentV2NewsFeedView
     private let preloader: AgentPreloader
     private let now: () -> Date
     private var requestGeneration = 0
@@ -78,6 +89,8 @@ final class AgentThreadListModel {
     private var cacheableLoadCount: Int?
     /// A first page has loaded since the list started, after which the SDK's copy of it is older than what was shown
     private var hasLoadedFirstPage = false
+    /// The latest load of the first page failed
+    private var hasFirstPageLoadFailed = false
     private static let activityHoldLimit: Duration = .seconds(5)
     /// How long a reported thread missing from the first page stays in the list, as the server may not have stored a
     /// chat just created yet
@@ -95,6 +108,9 @@ final class AgentThreadListModel {
         readState: AgentNewsReadState? = nil,
         threadReadState: AgentThreadReadState? = nil,
         language: @escaping () -> String = { LocalizationSupport.shared.langCode },
+        newsView: @escaping @MainActor () -> ApiAgentV2NewsFeedView = {
+            AgentNewsNotificationSettings.shared.newsFeedView
+        },
         preloader: AgentPreloader = .shared,
         now: @escaping () -> Date = { .now }
     ) {
@@ -103,8 +119,27 @@ final class AgentThreadListModel {
         self.readState = readState ?? AgentNewsReadState(userDefaults: .standard)
         self.threadReadState = threadReadState ?? .shared
         self.language = language
+        getNewsView = newsView
         self.preloader = preloader
         self.now = now
+    }
+
+    /// The server's chats as a choice made from them stands: loaded, still on their way, or failed to load. The SDK's
+    /// copy of the list stands in for neither.
+    enum ServerListState {
+        case loading
+        case loaded
+        case failed
+    }
+
+    var serverListState: ServerListState {
+        if hasLoadedFirstPage, !isShowingCachedThreads { return .loaded }
+        return hasFirstPageLoadFailed && !isLoading ? .failed : .loading
+    }
+
+    /// The chat support has that was active last, of those the server's list has
+    var supportThread: ApiAgentV2ThreadSummary? {
+        AgentSupportRequest.findSupportThread(in: items.map(\.thread))
     }
 
     func refresh() async {
@@ -118,30 +153,39 @@ final class AgentThreadListModel {
         await load(cursor: nextCursor, generation: requestGeneration)
     }
 
+    /// Loads the first page of the feed's view, whose latest news, or digest in the Digests view, the News row shows
     func refreshNews() async {
         do {
             let requestLanguage = language()
-            let schedule = AgentNewsDigestSchedule(
-                hour: AgentNewsNotificationSettings.shared.digestHour, timeZone: TimeZone.current.identifier
-            )
+            let schedule = AgentNewsDigestSchedule.current
+            let view = newsView
             let page = try await newsClient.getNewsFeed(
-                lang: requestLanguage, cursor: nil, digestHour: schedule.hour, timeZone: schedule.timeZone
+                lang: requestLanguage, cursor: nil, schedule: schedule, view: view
             )
             guard !Task.isCancelled else { return }
-            newsPage = AgentNewsCachedPage(page: page, language: requestLanguage, schedule: schedule)
-            newsItems = page.items
-            readState.initializeIfNeeded(items: newsItems)
+            let cachedPage = AgentNewsCachedPage(page: page, language: requestLanguage, schedule: schedule)
+            switch view {
+            case .all:
+                newsPage = cachedPage
+                newsItems = page.items
+                readState.initializeIfNeeded(items: newsItems)
+            case .digests:
+                newsDigestsPage = cachedPage
+            }
+            newsDigests = page.digests ?? []
+            readState.initializeDigestsIfNeeded(newsDigests)
             onChange?()
         } catch {
             // The permanent row keeps its last successful preview when refreshing fails.
         }
     }
 
-    /// The feed opens with the page behind the News row while it loads the latest
+    /// The feed opens with the pages behind the News row while it loads the latest: in either view its cards are laid
+    /// out before it slides in
     func makeNewsFeedModel(requestedDigestId: String? = nil) -> AgentNewsFeedModel {
         AgentNewsFeedModel(client: newsClient, readState: readState, language: language, findThread: { [weak self] threadId in
             self?.items.first { $0.thread.id == threadId }?.thread
-        }, cachedPage: newsPage, requestedDigestId: requestedDigestId)
+        }, cachedPage: newsPage, cachedDigestsPage: newsDigestsPage, requestedDigestId: requestedDigestId)
     }
 
     // MARK: - Answering status
@@ -162,7 +206,8 @@ final class AgentThreadListModel {
             break
         }
         notifyActivityChange(activityTracker.handle(update, now: now()))
-        if case .messageCompleted(let bound, _, _) = update {
+        if case .messageCompleted(let bound, _, let finishReason) = update,
+           finishReason != "delivered_to_support" {
             threadReadState.answerDidComplete(threadId: bound.threadId)
         }
     }
@@ -282,12 +327,16 @@ final class AgentThreadListModel {
     func delete(_ thread: ApiAgentV2ThreadSummary) async {
         guard mutatingThreadIds.insert(thread.id).inserted else { return }
         defer { mutatingThreadIds.remove(thread.id) }
+        let model = preloader.getLoadedModels().first { $0.threadId == thread.id }
+        model?.holdQueuedQuestions()
         do {
             let response = try await client.deleteThread(id: thread.id)
+            model?.dropQueuedQuestions()
             preloader.deleteThread(id: response.threadId)
             removeThread(id: response.threadId)
             AgentSearchProvider.shared.notifyConversationChanged()
         } catch {
+            model?.releaseQueuedQuestions()
             if let error = AgentV2Copy.displayError(error) {
                 onError?(error)
             }
@@ -387,8 +436,11 @@ final class AgentThreadListModel {
         isLoading = true
         if cursor != nil {
             hasPageLoadFailed = false
-        } else if items.isEmpty, !hasLoadedFirstPage {
-            showCachedThreads(generation: generation, loadCount: loadCount)
+        } else {
+            hasFirstPageLoadFailed = false
+            if items.isEmpty, !hasLoadedFirstPage {
+                showCachedThreads(generation: generation, loadCount: loadCount)
+            }
         }
         onChange?()
         do {
@@ -444,6 +496,11 @@ final class AgentThreadListModel {
             hasLoadFailed = false
             hasPageLoadFailed = false
             threadReadState.observe(items.map(\.thread), answeringThreadIds: Set(activityTracker.entries.keys))
+            for item in items {
+                guard let model = preloader.model(threadId: item.thread.id),
+                      item.thread.support != model.thread?.support else { continue }
+                model.refreshThreadIfNeeded(item.thread)
+            }
             // The rows now have the previews of the answers that completed before this load started, and of those
             // the load has past their run's revision. Their statuses end in the change that brings the previews,
             // which also moves the rows.
@@ -464,6 +521,7 @@ final class AgentThreadListModel {
             if cursor == nil {
                 cacheableLoadCount = nil
                 hasLoadFailed = items.isEmpty
+                hasFirstPageLoadFailed = true
             } else {
                 hasPageLoadFailed = true
             }
@@ -718,6 +776,19 @@ enum AgentThreadDateFormatting {
         }
     }
 
+    /// The day and month of `date`, with the year when it isn't this year's, as "November 10", without "Today"
+    static func formatDayText(
+        for date: Date,
+        relativeTo now: Date = .now,
+        calendar: Calendar = LocalizationSupport.shared.calendar,
+        locale: Locale = LocalizationSupport.shared.locale
+    ) -> String {
+        let isSameYear = calendar.isDate(date, equalTo: now, toGranularity: .year)
+        let formatter = makeFormatter(template: isSameYear ? "MMMMd" : "yMMMMd", calendar: calendar, locale: locale)
+        removeYearWord(from: formatter)
+        return capitalizeFirstLetter(formatter.string(from: date), locale: locale)
+    }
+
     /// The day a chat's date line and a News day capsule name, the same on every platform: "Today", "Yesterday", then the
     /// day and the month, with the year for another year. No weekdays.
     static func formatDay(
@@ -732,10 +803,7 @@ enum AgentThreadDateFormatting {
         case .yesterday:
             return lang("Yesterday")
         case .weekday, .date:
-            let isSameYear = calendar.isDate(date, equalTo: now, toGranularity: .year)
-            let formatter = makeFormatter(template: isSameYear ? "MMMMd" : "yMMMMd", calendar: calendar, locale: locale)
-            removeYearWord(from: formatter)
-            return capitalizeFirstLetter(formatter.string(from: date), locale: locale)
+            return formatDayText(for: date, relativeTo: now, calendar: calendar, locale: locale)
         }
     }
 

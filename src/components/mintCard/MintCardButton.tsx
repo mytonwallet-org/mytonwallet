@@ -2,7 +2,7 @@ import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import { ANIMATION_LEVEL_MIN } from '../../config';
-import { selectCurrentAccountState, selectMycoin } from '../../global/selectors';
+import { selectAccountState, selectMycoin } from '../../global/selectors';
 
 import useLang from '../../hooks/useLang';
 import useShowTransition from '../../hooks/useShowTransition';
@@ -10,6 +10,11 @@ import useShowTransition from '../../hooks/useShowTransition';
 import ClockIcon from '../ui/ClockIcon';
 
 import styles from './MintCardButton.module.scss';
+
+interface OwnProps {
+  accountId: string;
+  isActive: boolean;
+}
 
 interface StateProps {
   isCardMinting?: boolean;
@@ -19,11 +24,12 @@ interface StateProps {
 }
 
 function MintCardButton({
+  isActive,
   isCardMinting,
   hasCardsInfo,
   isMycoinLoaded,
   noAnimation,
-}: StateProps) {
+}: OwnProps & StateProps) {
   const { loadMycoin, openMintCardModal } = getActions();
 
   const lang = useLang();
@@ -36,11 +42,12 @@ function MintCardButton({
     withShouldRender: true,
   });
 
+  // Several cards are mounted at once, and only one of them requests the token
   useEffect(() => {
-    if (isMycoinLoaded || !canRender) return;
+    if (isMycoinLoaded || !canRender || !isActive) return;
 
     loadMycoin();
-  }, [canRender, isMycoinLoaded]);
+  }, [canRender, isActive, isMycoinLoaded]);
 
   if (!shouldRenderMintCardsButton) return undefined;
 
@@ -59,9 +66,9 @@ function MintCardButton({
   );
 }
 
-export default memo(withGlobal((global): StateProps => {
-  const accountState = selectCurrentAccountState(global);
-  const { config } = selectCurrentAccountState(global) || {};
+export default memo(withGlobal<OwnProps>((global, { accountId }): StateProps => {
+  const accountState = selectAccountState(global, accountId);
+  const { config } = accountState || {};
   const animationLevel = global.settings.animationLevel;
   const mycoin = selectMycoin(global);
 

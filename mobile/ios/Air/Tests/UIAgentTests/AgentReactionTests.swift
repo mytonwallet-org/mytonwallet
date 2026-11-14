@@ -893,10 +893,23 @@ final class AgentReactionTests: XCTestCase {
         reactionToasts.explain(.dislike)
         XCTAssertEqual(toasts, [liked, disliked], "The second dislike shows nothing")
 
+        let supportLiked = lang("$agent_feedback_support_liked_toast")
+        let supportDisliked = lang("$agent_feedback_support_disliked_toast")
+        XCTAssertFalse(supportLiked.hasPrefix("$"))
+        XCTAssertFalse(supportDisliked.hasPrefix("$"))
+        XCTAssertNotEqual(supportLiked, supportDisliked)
+        reactionToasts.explain(.like, isOperatorReply: true)
+        reactionToasts.explain(.like, isOperatorReply: true)
+        reactionToasts.explain(.dislike, isOperatorReply: true)
+        reactionToasts.explain(.dislike, isOperatorReply: true)
+        XCTAssertEqual(toasts, [liked, disliked, supportLiked, supportDisliked], "An operator's reply has its own, once each")
+
         let restarted = AgentReactionToasts(userDefaults: defaults) { toasts.append($0.message) }
         restarted.explain(.like)
         restarted.explain(.dislike)
-        XCTAssertEqual(toasts, [liked, disliked], "The install remembers both")
+        restarted.explain(.like, isOperatorReply: true)
+        restarted.explain(.dislike, isOperatorReply: true)
+        XCTAssertEqual(toasts, [liked, disliked, supportLiked, supportDisliked], "The install remembers all four")
     }
 
     /// The user's first like and first dislike explain themselves in a toast as their emoji lands on the corner, a
@@ -946,6 +959,39 @@ final class AgentReactionTests: XCTestCase {
         XCTAssertEqual(cell.reactionBadgeView.feedback, .dislike)
         XCTAssertEqual(toasts, [disliked, liked], "The second dislike")
         XCTAssertEqual(chat.backend.ratings, [.dislike, .like, nil, .like, .dislike])
+    }
+
+    /// A support operator's reply explains its first like and first dislike with the support team's toasts, apart from
+    /// the toasts of the agent's answers
+    func testOperatorRepliesReactionsExplainThemselvesWithTheSupportTeamsToasts() async throws {
+        AgentReactionMotion.isReducedOverride = false
+        defer { AgentReactionMotion.isReducedOverride = nil }
+        let suiteName = "AgentReactionTests.operatorToasts"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let liked = lang("$agent_feedback_support_liked_toast")
+        let disliked = lang("$agent_feedback_support_disliked_toast")
+        var toasts: [String] = []
+        var reply = makeAnswer(feedback: nil)
+        reply.author = .operator(ApiAgentV2OperatorAuthor(operatorId: "alex", name: "Alex"))
+        let chat = RatingChat(
+            messages: [AgentMessage(role: .user, text: "Rate this", isStreaming: false), reply],
+            reactionToasts: AgentReactionToasts(userDefaults: defaults) { toasts.append($0.message) }
+        )
+        defer { chat.close() }
+        try await chat.waitForStableLayout()
+        let cell = try findAnswerCell(in: chat.collectionView)
+
+        try await chooseReaction(.like, on: cell, in: chat) {}
+        try await waitUntil { !toasts.isEmpty }
+        XCTAssertEqual(toasts, [liked])
+        try await chooseReaction(.dislike, on: cell, in: chat) {}
+        try await waitUntil { toasts.count == 2 }
+        XCTAssertEqual(toasts, [liked, disliked])
+        XCTAssertFalse(defaults.bool(forKey: "agent-feedback-liked-toast-shown"))
+        XCTAssertFalse(defaults.bool(forKey: "agent-feedback-disliked-toast-shown"))
+        XCTAssertEqual(chat.backend.ratings, [.like, .dislike])
     }
 
     /// A first reaction explains itself only once its rating is saved and it is still the answer's, and a failed or

@@ -84,6 +84,8 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
     static func showUnlinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
     static func showPerps(accountId: String, positionId: String?, showsAllPositions: Bool)
+    /// Pushes the market, or the account's position in it, onto the current navigation stack
+    static func showPerpsMarket(accountId: String, assetId: String)
     static func showMarket()
     static func showMintCard(accountContext: AccountContext)
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool)
@@ -254,6 +256,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
     static func showUnlinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
     static func showPerps(accountId: String, positionId: String?, showsAllPositions: Bool) { }
+    static func showPerpsMarket(accountId: String, assetId: String) { }
     static func showMarket() { }
     static func showMintCard(accountContext: AccountContext) { }
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) { }

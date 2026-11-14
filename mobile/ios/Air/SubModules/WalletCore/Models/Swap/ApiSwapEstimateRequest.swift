@@ -17,10 +17,11 @@ public struct ApiSwapEstimateRequest: Codable, Sendable {
     public let shouldTryDiesel: Bool?
     public let swapVersion: Int?
     public let toncoinBalance: MDouble?
+    public let nativeBalance: String?
     public let walletVersion: String?
     public let isFromAmountMax: Bool?
     
-    public init(from: String, to: String, slippage: Double?, fromAmount: MDouble?, toAmount: MDouble?, fromAddress: String?, toAddress: String? = nil, cexLabel: ApiSwapCexLabel? = nil, shouldTryDiesel: Bool?, swapVersion: Int?, toncoinBalance: MDouble?, walletVersion: String?, isFromAmountMax: Bool?) {
+    public init(from: String, to: String, slippage: Double?, fromAmount: MDouble?, toAmount: MDouble?, fromAddress: String?, toAddress: String? = nil, cexLabel: ApiSwapCexLabel? = nil, shouldTryDiesel: Bool?, swapVersion: Int?, toncoinBalance: MDouble?, walletVersion: String?, isFromAmountMax: Bool?, nativeBalance: String? = nil) {
         self.from = from
         self.to = to
         self.slippage = slippage
@@ -32,6 +33,7 @@ public struct ApiSwapEstimateRequest: Codable, Sendable {
         self.shouldTryDiesel = shouldTryDiesel
         self.swapVersion = swapVersion
         self.toncoinBalance = toncoinBalance
+        self.nativeBalance = nativeBalance
         self.walletVersion = walletVersion
         self.isFromAmountMax = isFromAmountMax
     }

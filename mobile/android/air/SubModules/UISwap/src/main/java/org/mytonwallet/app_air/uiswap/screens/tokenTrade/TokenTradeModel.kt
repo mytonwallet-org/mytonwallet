@@ -67,10 +67,14 @@ class TokenTradeModel internal constructor(
     private var estimate: SwapEstimateResponse? = null
     private var status: SwapViewModel.UiStatus? = null
     private var swapHint: SwapHint? = null
+    private var swapHintMessage: String? = null
 
     /** The swap's funding or routing hint; a card payment needs none. */
     val hint: SwapHint?
         get() = if (cardCurrency == null) swapHint else null
+
+    val hintMessage: String?
+        get() = if (cardCurrency == null) swapHintMessage else null
 
     val isBuying: Boolean
         get() = direction == TokenTradeDirection.BUY
@@ -400,7 +404,8 @@ class TokenTradeModel internal constructor(
         state: SwapUiInputState? = swapState,
         estimate: SwapEstimateResponse? = this.estimate,
         status: SwapViewModel.UiStatus? = this.status,
-        hint: SwapHint? = swapHint
+        hint: SwapHint? = swapHint,
+        hintMessage: String? = swapHintMessage
     ) {
         val hadState = swapState != null
         val accountChanged = state != null && state.wallet.accountId != swapState?.wallet?.accountId
@@ -408,6 +413,7 @@ class TokenTradeModel internal constructor(
         this.estimate = estimate
         this.status = status
         swapHint = hint
+        swapHintMessage = hintMessage
         if (accountChanged) state.let(::selectDefaultCardIfEmpty)
         if (!hadState && state != null && hasAmount) updateSwapAmount()
     }

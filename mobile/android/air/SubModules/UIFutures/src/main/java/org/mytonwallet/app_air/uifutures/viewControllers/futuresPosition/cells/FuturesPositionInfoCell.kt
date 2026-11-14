@@ -50,7 +50,7 @@ class FuturesPositionInfoCell(
 ) : WCell(context, RecyclerView.LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
 
-    private var isExpanded = false
+    private var isExpanded = WGlobalStorage.getIsTokenInfoExpanded(default = false)
     private var hasDescription = false
     private var isConfigured = false
     private var description: String? = null
@@ -165,7 +165,7 @@ class FuturesPositionInfoCell(
             isExpanded = true
             showsFullDescription = WGlobalStorage.getIsTokenInfoExpanded()
         } else if (modeChanged) {
-            isExpanded = false
+            isExpanded = WGlobalStorage.getIsTokenInfoExpanded(default = false)
         }
         hasDescription = text != null
         collapsedDescriptionLabel.text = text
@@ -355,6 +355,7 @@ class FuturesPositionInfoCell(
     private fun toggle() {
         if (!hasDescription) return
         isExpanded = !isExpanded
+        WGlobalStorage.setIsTokenInfoExpanded(isExpanded)
         animateToTarget()
     }
 

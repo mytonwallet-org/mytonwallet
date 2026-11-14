@@ -15,6 +15,7 @@ import styles from './Input.module.scss';
 type OwnProps = {
   ref?: ElementRef<HTMLInputElement | HTMLTextAreaElement>;
   id?: string;
+  testId?: string;
   type?: 'text' | 'password';
   label?: TeactNode;
   placeholder?: string;
@@ -49,6 +50,7 @@ type OwnProps = {
 function Input({
   ref,
   id,
+  testId,
   label,
   placeholder,
   valueOverlay,
@@ -147,6 +149,7 @@ function Input({
           <textarea
             ref={inputRef as RefObject<HTMLTextAreaElement>}
             id={id}
+            data-testid={testId}
             className={inputFullClass}
             value={value}
             disabled={isDisabled}
@@ -166,6 +169,7 @@ function Input({
           <input
             ref={inputRef as RefObject<HTMLInputElement>}
             id={id}
+            data-testid={testId}
             className={inputFullClass}
             type={finalType}
             value={value}

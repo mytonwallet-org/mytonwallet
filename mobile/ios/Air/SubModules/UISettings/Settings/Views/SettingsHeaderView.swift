@@ -13,6 +13,8 @@ import WalletCore
 class SettingsHeaderView: WTouchPassView {
     private let accountContext = AccountContext(source: .current)
 
+    var shouldPreserveTitleWidth = false
+
     var onLargeAvatarLongPress: (() -> Void)? {
         didSet {
             updateHeaderInteractions()
@@ -382,6 +384,8 @@ class SettingsHeaderView: WTouchPassView {
     }
 
     private func updateTitleMaximumContentWidth(collapseProgress: CGFloat) {
+        // The navigation title and screen move independently during transitions
+        guard !shouldPreserveTitleWidth else { return }
         let titleBounds = titleStack.bounds
         guard titleBounds.width > 0 else { return }
 

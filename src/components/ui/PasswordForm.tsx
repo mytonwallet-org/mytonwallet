@@ -21,6 +21,7 @@ import { getDoesUsePinPad, getIsFaceIdAvailable, getIsTouchIdAvailable } from '.
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 import { getTranslation } from '../../util/langProvider';
 import { pause, withTimeout } from '../../util/schedulers';
 import { createSignal } from '../../util/signals';
@@ -488,6 +489,9 @@ function PasswordForm({
 
   useFocusAfterAnimation(inputRef, !isActive || isBiometricAuthEnabled);
 
+  // The lock screen covers open modals, so only the unlock form should expose ids then
+  const shouldRenderTestIds = isActive && (!isAppLocked || operationType === 'unlock');
+
   useToggleClass({ className: 'is-password-form-visible', isActive });
 
   const handleClearError = useLastCallback(() => {
@@ -586,6 +590,7 @@ function PasswordForm({
         {hasSubmitButton && (
           <Button
             isPrimary
+            testId={shouldRenderTestIds ? getTestId('password_submit') : undefined}
             isLoading={isLoading}
             isDisabled={isSubmitDisabled}
             className={(shouldRenderFullWidthButton || isFullWidthButton)
@@ -698,6 +703,7 @@ function PasswordForm({
           type="password"
           isRequired
           id="first-password"
+          testId={shouldRenderTestIds ? getTestId('password_input') : undefined}
           wrapperClassName={inputWrapperClassName}
           errorClassName={errorClassName}
           inputMode={isPasswordNumeric ? 'numeric' : undefined}

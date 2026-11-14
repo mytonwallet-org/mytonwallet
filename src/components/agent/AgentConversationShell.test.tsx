@@ -12,6 +12,7 @@ import type {
   AgentConversationComposerProps,
   AgentConversationSession,
   AgentConversationSessionStore,
+  AgentConversationSlots,
 } from './AgentConversationShell';
 
 import { ANIMATION_LEVEL_MAX } from '../../config';
@@ -30,6 +31,7 @@ import useAgentV2Dictation from './hooks/useAgentV2Dictation';
 import AgentV2Composer from '../agentV2/AgentV2Composer';
 import { AgentV2AssistantText } from '../agentV2/AgentV2Conversation';
 import AgentConversationShell from './AgentConversationShell';
+import { MESSAGE_LIST_ITEM_SELECTOR } from './MessageBubble';
 
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
@@ -70,6 +72,9 @@ jest.mock('../../global', () => {
   return { ...actual, getActions: () => ({ ...actual.getActions(), showToast: mockShowToast }) };
 });
 
+// The class of a message's row, by which the list keeps its scroll position
+const MESSAGE_ROW_CLASS_NAME = MESSAGE_LIST_ITEM_SELECTOR.slice(1);
+
 const MESSAGE: AgentMessage = {
   id: 1,
   text: 'Hello',
@@ -84,12 +89,13 @@ const SECOND_MESSAGE: AgentMessage = {
   timestamp: MESSAGE.timestamp + 1,
 };
 
+// A starter hint of the pool, which has a title alone and is sent as it
 const HINT: AgentHint = {
-  id: 'hint-1',
+  id: 'market.today',
   langCode: 'en',
   title: 'Hint title',
-  subtitle: 'Hint subtitle',
-  prompt: 'Hint prompt',
+  subtitle: '',
+  prompt: 'Hint title',
 };
 const messageRenderSpy = jest.fn();
 
@@ -117,7 +123,12 @@ interface RenderShellOptions {
   isInitialLoadComplete?: boolean;
   hasOpeningQuestion?: boolean;
   isInputDisabled?: boolean;
+  isQueueing?: boolean;
+  canStop?: boolean;
+  onStop?: NoneToVoidFunction;
+  sentQueuedMessage?: { id: number };
   isRunActive?: boolean;
+  queuedMessageCount?: number;
   textRevealPresentations?: AgentConversation['textRevealPresentations'];
   unreadMessageId?: number;
   hasDailyDateLines?: boolean;
@@ -130,7 +141,9 @@ interface RenderShellOptions {
   noLoadingIndicator?: boolean;
   historyMode?: 'continuous' | 'windowed';
   conversationSlot?: TeactNode;
+  headerAccessory?: AgentConversationSlots['headerAccessory'];
   messageListFooter?: TeactNode;
+  runActivity?: TeactNode;
   beforeComposerSlot?: TeactNode;
   bottomStickDependency?: unknown;
   loadOlderMessages?: () => void | Promise<void>;
@@ -139,6 +152,7 @@ interface RenderShellOptions {
   onSendHint?: AgentConversationComposer['onSendHint'];
   hasMenu?: boolean;
   onDelete?: NoneToVoidFunction;
+  onRequestSupport?: AgentConversationActions['onRequestSupport'];
   onReportProblem?: AgentConversationActions['onReportProblem'];
   onComposerHeightChange?: (height: number, context: AgentConversationComposerHeightContext) => void;
   onScroll?: (event: React.UIEvent<HTMLDivElement>) => void;
@@ -441,6 +455,18 @@ describe('AgentConversationShell', () => {
     expect(findHintButton()).toBeUndefined();
   });
 
+  it('shows no hints in an empty chat whose hints did not load, and keeps its Contact Support', async () => {
+    const onRequestSupport = jest.fn();
+    renderShell({ hasMenu: true, onRequestSupport });
+    await flushUi();
+
+    expect(root.querySelector('[data-agent-hints]')).toBeNull();
+    const supportButton = root.querySelector<HTMLButtonElement>('button[aria-label="$agent_support_contact"]');
+    expect(supportButton?.disabled).toBe(false);
+    supportButton!.click();
+    expect(onRequestSupport).toHaveBeenCalledWith('header');
+  });
+
   for (const isHintTapped of [false, true]) {
     const name = isHintTapped
       ? 'lets an empty chat\'s hints leave where they stand as a tapped hint becomes its first question'
@@ -534,6 +560,51 @@ describe('AgentConversationShell', () => {
     expect(root.querySelector('[data-composer-value]')?.textContent).toBe('Draft');
   });
 
+  it('keeps an edit begun before an answer, with its send dimmed, and sends it once the answer has ended', async () => {
+    const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+    const onSendMessage = jest.fn();
+    let messageContext: Parameters<AgentConversation['renderMessage']>[1] | undefined;
+    const renderEditingShell = (isQueueing: boolean) => renderShell({
+      messages: [question, SECOND_MESSAGE],
+      isQueueing,
+      onSendMessage,
+      renderMessage: (message, context) => {
+        messageContext = context;
+        return <div key={message.id}>{message.text}</div>;
+      },
+      renderComposer: (props) => (
+        <div>
+          <span data-composer-value>{props.inputValue}</span>
+          <button type="button" data-send data-is-disabled={String(props.isDisabled)} onClick={props.onSend}>
+            Send
+          </button>
+        </div>
+      ),
+    });
+    renderEditingShell(false);
+    await flushUi();
+    messageContext!.onEditMessage(question.id, 'Edited question');
+    await flushUi();
+
+    // An answer starts, as from a suggestion, while the edit is open, and the edit waits for it with its send dimmed,
+    // as on iOS
+    renderEditingShell(true);
+    await flushUi();
+    const findSend = () => root.querySelector<HTMLButtonElement>('[data-send]')!;
+    expect(findSend().dataset.isDisabled).toBe('true');
+    findSend().click();
+    await flushUi();
+    expect(onSendMessage).not.toHaveBeenCalled();
+    expect(root.querySelector('[data-composer-value]')?.textContent).toBe('Edited question');
+
+    renderEditingShell(false);
+    await flushUi();
+    expect(findSend().dataset.isDisabled).toBe('false');
+    findSend().click();
+    await flushUi();
+    expect(onSendMessage).toHaveBeenCalledWith('Edited question', question.id);
+  });
+
   it('sends on Return and starts a new line on Return with Option, Command or Ctrl', async () => {
     const onSendMessage = jest.fn();
     renderShell({ messages: [MESSAGE], onSendMessage });
@@ -620,15 +691,17 @@ describe('AgentConversationShell', () => {
     render([MESSAGE, question], true);
     await flushUi();
 
-    const liveTail = root.querySelector('[data-message-id="3"]')!.parentElement!;
-    Object.defineProperties(liveTail, {
-      offsetHeight: { configurable: true, value: 600 },
-      getBoundingClientRect: { configurable: true, value: () => ({ top: 0 }) },
+    // The reserve starts 400 px down the list's content and ends the list 600 px further down, unless it is trimmed
+    const reserve = root.querySelector<HTMLElement>('[data-agent-live-tail-reserve]')!;
+    const getReserveHeight = () => Number.parseFloat(reserve.style.height) || 600;
+    Object.defineProperties(reserve, {
+      offsetHeight: { configurable: true, get: getReserveHeight },
+      getBoundingClientRect: {
+        configurable: true,
+        value: () => ({ bottom: 400 + getReserveHeight() - geometry.scrollTop }),
+      },
     });
-    Object.defineProperty(liveTail.lastElementChild!, 'getBoundingClientRect', {
-      configurable: true,
-      value: () => ({ bottom: 150 }),
-    });
+    mockRect(messagesElement, { top: 0, bottom: 400 });
 
     const scrollTo = (top: number) => {
       geometry.scrollTop = top;
@@ -637,17 +710,18 @@ describe('AgentConversationShell', () => {
 
     scrollTo(300);
     await flushUi();
-    expect(liveTail.style.minHeight).toBe('');
+    expect(reserve.style.height).toBe('');
 
     render([MESSAGE, question], false);
     await flushUi();
     scrollTo(300);
     await flushUi();
-    expect(liveTail.style.minHeight).toBe('300px');
+    expect(reserve.style.height).toBe('300px');
 
+    // Wholly below the screen, the reserve goes
     scrollTo(0);
     await flushUi();
-    expect(liveTail.style.minHeight).toBe('150px');
+    expect(reserve.style.height).toBe('0px');
   });
 
   it('keeps Delete Chat available while an answer is running', async () => {
@@ -959,6 +1033,24 @@ describe('AgentConversationShell', () => {
     expect(messageRenderSpy.mock.calls).toEqual([[SECOND_MESSAGE.id]]);
   });
 
+  it('attaches the accessory under the header at its height, also over a list with nothing to show', async () => {
+    const headerAccessory = { content: <div data-accessory>Switch</div>, height: 2.875 };
+    renderShell({ messages: [MESSAGE], headerAccessory });
+    await flushUi();
+
+    const conversation = root.querySelector<HTMLElement>('[data-agent-conversation]')!;
+    expect(conversation.style.getPropertyValue('--agent-header-accessory-height')).toBe('2.875rem');
+    expect(root.querySelector('[data-accessory]')?.textContent).toBe('Switch');
+
+    renderShell({ messages: [], emptyText: 'Nothing yet', headerAccessory: { ...headerAccessory, height: 6 } });
+    await flushUi();
+
+    expect(root.textContent).toContain('Nothing yet');
+    expect(root.querySelector('[data-accessory]')?.textContent).toBe('Switch');
+    expect((root.firstElementChild as HTMLElement).style.getPropertyValue('--agent-header-accessory-height'))
+      .toBe('6rem');
+  });
+
   it('heads a replacement body with the plain header', async () => {
     renderShell({ conversationSlot: <div data-consent-slot>Consent</div>, hasMenu: true });
     await flushUi();
@@ -1087,6 +1179,55 @@ describe('AgentConversationShell', () => {
       await flushUi();
 
       expect(geometry.scrollTop).toBe(1000);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('pins at once a question sent while the ended answer\'s run settles, as it goes next', async () => {
+    const question: AgentMessage = {
+      id: 3, text: 'Question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
+    };
+    const onSendMessage = jest.fn();
+    // The answer has ended and can no longer be stopped, while its run settles
+    const renderSettlingShell = (messages: AgentMessage[]) => renderShell({
+      animationLevel: ANIMATION_LEVEL_MAX,
+      messages,
+      isQueueing: true,
+      canStop: false,
+      onSendMessage,
+      renderMessage: (message) => <div key={message.id} data-message-id={message.id}>{message.text}</div>,
+      renderComposer: (props) => (
+        <div>
+          <button type="button" data-fill onClick={() => props.onInput('Question')}>Fill</button>
+          <button type="button" data-send onClick={props.onSend}>Send</button>
+        </div>
+      ),
+    });
+
+    // Animations are disabled for hidden documents, and jsdom reports the document as hidden
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      renderSettlingShell([MESSAGE, SECOND_MESSAGE]);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 500, clientHeight: 500 });
+      await flushUi();
+
+      (root.querySelector('[data-fill]') as HTMLButtonElement).click();
+      await flushUi();
+      (root.querySelector('[data-send]') as HTMLButtonElement).click();
+      await flushUi();
+      expect(onSendMessage).toHaveBeenCalledWith('Question', undefined);
+      // The queued question shows at once, and the list carries it to the top as it does a fresh send
+      geometry.scrollHeight = 1100;
+      renderSettlingShell([MESSAGE, SECOND_MESSAGE, question]);
+      await flushUi();
+      await flushUi();
+
+      expect(geometry.scrollTop).toBe(600);
+      expect(geometry.positions.some((top) => top > 0 && top < 600)).toBe(true);
     } finally {
       restoreProperty(document, 'hidden', originalHidden);
     }
@@ -1390,6 +1531,113 @@ describe('AgentConversationShell', () => {
     });
   }
 
+  it('flies a question queued behind the answer from the field into its bubble at the end of the list', async () => {
+    const question: AgentMessage = { ...MESSAGE, text: 'Asked question', isOutgoing: true };
+    const answer: AgentMessage = { ...SECOND_MESSAGE, text: 'Answer being written', isStreaming: true };
+    const queued: AgentMessage = {
+      id: 3, text: 'Question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
+    };
+    const onSendMessage = jest.fn();
+    const justAddedById: Record<number, boolean> = {};
+    const session = { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() };
+    const renderQueueShell = (messages: AgentMessage[], queuedMessageCount: number) => renderShell({
+      animationLevel: ANIMATION_LEVEL_MAX,
+      messages,
+      queuedMessageCount,
+      isRunActive: true,
+      isQueueing: true,
+      canStop: true,
+      onSendMessage,
+      renderMessage: (message, context) => {
+        justAddedById[message.id] ??= context.isJustAdded;
+        return (
+          <div key={message.id} data-agent-v2-message-id={message.id}>
+            {message.isOutgoing ? (
+              <div data-question-bubble>
+                <span data-agent-question-text>{message.text}</span>
+              </div>
+            ) : message.text}
+          </div>
+        );
+      },
+      renderComposer: (props) => (
+        <div>
+          <textarea ref={props.inputRef} value={props.inputValue} />
+          <button type="button" data-fill onClick={() => props.onInput('Question')}>Fill</button>
+          <button type="button" data-send onClick={props.onSend}>Send</button>
+        </div>
+      ),
+      session,
+    });
+    // The queued question shows under the answer, above the field, and the field's text stands at the bottom
+    jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: Element) {
+      const element = this as HTMLElement;
+      let rect = {
+        left: 0, top: 0, width: 400, height: 800,
+      };
+      if (element.matches('textarea')) {
+        rect = {
+          left: 20, top: 740, width: 300, height: 42,
+        };
+      } else if (element.matches('[data-agent-question-text]')) {
+        rect = {
+          left: 232, top: 608, width: 120, height: 20,
+        };
+      } else if (element.matches('[data-question-bubble]')) {
+        rect = {
+          left: 220, top: 600, width: 160, height: 40,
+        };
+      } else if (element.matches('span') && element.textContent === 'Question') {
+        rect = {
+          left: 20, top: 750, width: 60, height: 22,
+        };
+      }
+      const {
+        left, top, width, height,
+      } = rect;
+      return {
+        left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => undefined,
+      };
+    });
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      renderQueueShell([question, answer], 0);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 1100, clientHeight: 500 });
+      await flushUi();
+      const input = root.querySelector('textarea')!;
+      Object.defineProperties(input, {
+        clientWidth: { configurable: true, value: 300 },
+        clientHeight: { configurable: true, value: 42 },
+      });
+      const pinnedScrollTop = geometry.scrollTop;
+
+      (root.querySelector('[data-fill]') as HTMLButtonElement).click();
+      await flushUi();
+      (root.querySelector('[data-send]') as HTMLButtonElement).click();
+      await flushUi(1);
+      expect(onSendMessage).toHaveBeenCalledWith('Question', undefined);
+      renderQueueShell([question, answer, queued], 1);
+      await flushUi(4);
+
+      // The field's text flies into the bubble, which stays out of sight meanwhile, its own appearance not playing
+      const bubble = root.querySelector<HTMLElement>('[data-agent-v2-message-id="3"] [data-question-bubble]')!;
+      expect(justAddedById[queued.id]).toBe(false);
+      expect(bubble.style.opacity).toBe('0');
+      expect(findFieldTextPicture()?.style.transform).toMatch(/^translate\(/);
+
+      await flushUi();
+      expect(bubble.style.opacity).toBe('');
+      expect(findFieldTextPicture()).toBeUndefined();
+      // The list stays at the question being answered, which the queued one waits under
+      expect(geometry.scrollTop).toBe(pinnedScrollTop);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
   it('pins the last question again in the next mount of a chat that had it pinned', async () => {
     const question: AgentMessage = {
       id: 3, text: 'Question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
@@ -1412,14 +1660,14 @@ describe('AgentConversationShell', () => {
 
     renderPinnedShell([MESSAGE, SECOND_MESSAGE, question, answer]);
     const liveTail = root.querySelector('[data-message-id="3"]')!.parentElement!;
-    // The question's turn ends with the reserve under its answer, 500 px below the turn's top
-    Object.defineProperties(liveTail, {
-      offsetHeight: { configurable: true, value: 500 },
-      getBoundingClientRect: { configurable: true, value: () => ({ top: 700, bottom: 1200 }) },
-    });
-    Object.defineProperty(liveTail.lastElementChild!, 'getBoundingClientRect', {
+    // The question's turn ends with its answer, and its reserve 500 px below the turn's top
+    Object.defineProperty(liveTail, 'getBoundingClientRect', {
       configurable: true,
-      value: () => ({ bottom: 900 }),
+      value: () => ({ top: 700, bottom: 900 }),
+    });
+    Object.defineProperty(liveTail.querySelector('[data-agent-live-tail-reserve]')!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ top: 716, bottom: 1200 }),
     });
     await flushUi();
 
@@ -1590,12 +1838,11 @@ describe('AgentConversationShell', () => {
 
       expect(geometry.scrollTop).toBe(1000);
 
-      // Scrolling trims the reserve to a height of its own
-      const liveTail = root.querySelector('[data-message-id="3"]')!.parentElement!;
-      liveTail.style.minHeight = '400px';
+      // The reserve goes with the question pinned before
+      expect(root.querySelector('[data-agent-live-tail-reserve]')).not.toBeNull();
       await send();
 
-      expect(liveTail.style.minHeight).toBe('');
+      expect(root.querySelector('[data-agent-live-tail-reserve]')).toBeNull();
 
       geometry.scrollHeight = 1100;
       renderTransitionShell([MESSAGE, SECOND_MESSAGE, question, answer, reply, nextQuestion], true);
@@ -1873,6 +2120,671 @@ describe('AgentConversationShell', () => {
     expect(layer.childElementCount).toBe(0);
   });
 
+  it('shows the activity of the answer being produced under its question, above the questions that wait', async () => {
+    const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+    const waiting: AgentMessage = { ...SECOND_MESSAGE, text: 'Waiting question', isOutgoing: true };
+    const activity = <div key="activity" data-agent-run-activity>Analyzing</div>;
+    const renderMessage: AgentConversation['renderMessage'] = (message) => (
+      <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>
+    );
+    renderShell({
+      messages: [question, waiting], queuedMessageCount: 1, isRunActive: true, runActivity: activity, renderMessage,
+    });
+    await flushUi();
+
+    const activityRow = root.querySelector<HTMLElement>('[data-agent-run-activity]')!;
+    const questionRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="1"]')!;
+    const waitingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="2"]')!;
+    expect(activityRow.parentElement).toBe(questionRow.parentElement);
+    expect(activityRow.previousElementSibling).toBe(questionRow);
+    expect(waitingRow.parentElement).not.toBe(questionRow.parentElement);
+
+    // Once the waiting question goes, the activity follows it
+    renderShell({
+      messages: [question, waiting], isRunActive: true, runActivity: activity, renderMessage,
+    });
+    await flushUi();
+    expect(root.querySelector<HTMLElement>('[data-agent-run-activity]')!.previousElementSibling).toBe(waitingRow);
+  });
+
+  it('pins a queued question as it goes, while another still waits after it', async () => {
+    const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+    const going: AgentMessage = {
+      ...SECOND_MESSAGE, text: 'Going question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
+    };
+    const waiting: AgentMessage = {
+      ...SECOND_MESSAGE, id: 3, text: 'Waiting question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 2,
+    };
+    // The question being answered is pinned, as after its send
+    const session = { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() };
+    const renderQueueShell = (queuedMessageCount: number, sentQueuedMessage?: { id: number }) => renderShell({
+      animationLevel: ANIMATION_LEVEL_MAX,
+      messages: [question, going, waiting],
+      queuedMessageCount,
+      sentQueuedMessage,
+      isRunActive: true,
+      isQueueing: true,
+      canStop: true,
+      session,
+    });
+    // Animations are disabled for hidden documents, and jsdom reports the document as hidden
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      renderQueueShell(2);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 500, clientHeight: 500 });
+      await flushUi();
+
+      // The question that goes is carried to the top as a fresh send, whatever waits after it
+      geometry.scrollHeight = 1100;
+      renderQueueShell(1, { id: going.id });
+      await flushUi();
+      await flushUi();
+
+      expect(geometry.scrollTop).toBe(600);
+      expect(geometry.positions.some((top) => top > 0 && top < 600)).toBe(true);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('pins a queued question as it goes from the end of the list', async () => {
+    // Animations are disabled for hidden documents, and jsdom reports the document as hidden
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      // The list is held at its end, with no question pinned and no scroll button
+      const render = renderGoingQueue();
+      render(2);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 500, clientHeight: 500 });
+      await flushUi();
+      expect(findScrollToBottomButton()).toBeNull();
+
+      // The question that goes is pinned as a fresh send, with its reserve under it
+      const sentQueuedMessage = { id: 2 };
+      geometry.scrollHeight = 1100;
+      render(1, sentQueuedMessage);
+      await flushUi();
+      await flushUi();
+
+      expect(geometry.scrollTop).toBe(600);
+      expect(root.querySelector('[data-agent-live-tail-reserve]')!.parentElement)
+        .toBe(root.querySelector('[data-agent-v2-message-id="2"]')!.parentElement);
+
+      // Its answer grows into the reserve without the list following it
+      geometry.scrollHeight = 1400;
+      render(1, sentQueuedMessage, true);
+      await flushUi();
+
+      expect(geometry.scrollTop).toBe(600);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('pins a queued question as it goes after a small scroll up that leaves the last row in sight', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      // The question being answered is pinned at the list's end, with the reserve under the questions that wait
+      const render = renderGoingQueue({ initial: { draft: '', isQuestionPinned: true }, save: jest.fn() });
+      render(2);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 1100, clientHeight: 500 });
+      await flushUi();
+      expect(geometry.scrollTop).toBe(600);
+
+      // The user scrolls up 100 px, farther than the button's distance from the list's end, while the question that
+      // waits last stays in sight, so no scroll button shows
+      mockRect(messagesElement, { top: 0, bottom: 500 });
+      mockRect(root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!, { top: 300, bottom: 340 });
+      messagesElement.dispatchEvent(new WheelEvent('wheel'));
+      messagesElement.scrollTop = 500;
+      messagesElement.dispatchEvent(new Event('scroll'));
+      await flushUi();
+      expect(findScrollToBottomButton()).toBeNull();
+
+      // The question that goes is pinned as a fresh send, with the top space and the reserve
+      geometry.scrollHeight = 1200;
+      render(1, { id: 2 });
+      await flushUi();
+      await flushUi();
+
+      const goingTurn = root.querySelector('[data-agent-v2-message-id="2"]')!.parentElement;
+      expect(geometry.scrollTop).toBe(700);
+      expect(root.querySelector('[data-agent-live-tail-reserve]')!.parentElement).toBe(goingTurn);
+      expect(findLiveTailSpaceTurn()).toBe(goingTurn);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('leaves a list scrolled up where it is as a queued question goes, its scroll button taking it down', async () => {
+    // Animations are disabled for hidden documents, and jsdom reports the document as hidden
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      // The question being answered is pinned, as after its send
+      const render = renderGoingQueue({ initial: { draft: '', isQuestionPinned: true }, save: jest.fn() });
+      render(2);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 1100, clientHeight: 500 });
+      await flushUi();
+
+      // The user scrolls up to read the pinned question's turn, which takes the question that waits last out of sight,
+      // and the scroll button shows
+      const pinnedTurn = root.querySelector<HTMLElement>('[data-agent-v2-message-id="1"]')!.parentElement!;
+      const goingTurn = root.querySelector<HTMLElement>('[data-agent-v2-message-id="2"]')!.parentElement!;
+      mockRect(messagesElement, { top: 0, bottom: 500 });
+      mockRect(pinnedTurn, { top: 100, bottom: 250 });
+      mockRect(goingTurn, { top: 300, bottom: 400 });
+      mockRect(root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!, { top: 560, bottom: 600 });
+      messagesElement.dispatchEvent(new WheelEvent('wheel'));
+      messagesElement.scrollTop = 200;
+      messagesElement.dispatchEvent(new Event('scroll'));
+      await flushUi();
+      expect(findScrollToBottomButton()).not.toBeNull();
+      expect(findLiveTailSpaceTurn()).toBe(pinnedTurn);
+
+      // The question goes with its reserve, and its answer comes under it, while the list stays where the user took it
+      // and the pinned question's turn keeps its top space
+      const writeCount = geometry.positions.length;
+      const sentQueuedMessage = { id: 2 };
+      geometry.scrollHeight = 1200;
+      render(1, sentQueuedMessage);
+      expect(findLiveTailSpaceTurn()).toBe(pinnedTurn);
+      await flushUi();
+      geometry.scrollHeight = 1500;
+      render(1, sentQueuedMessage, true);
+      await flushUi();
+
+      expect(geometry.positions.slice(writeCount).every((top) => top === 200)).toBe(true);
+      expect(geometry.scrollTop).toBe(200);
+      expect(root.querySelector('[data-agent-live-tail-reserve]')!.parentElement).toBe(goingTurn);
+      expect(findLiveTailSpaceTurn()).toBe(pinnedTurn);
+      expect(findScrollToBottomButton()).not.toBeNull();
+
+      // The space goes to the question that went once the user has scrolled the rows it moves out of sight
+      mockRect(goingTurn, { top: -10, bottom: 90 });
+      messagesElement.scrollTop = 410;
+      messagesElement.dispatchEvent(new Event('scroll'));
+      await flushUi();
+
+      expect(findLiveTailSpaceTurn()).toBe(goingTurn);
+      expect(geometry.scrollTop).toBe(410);
+
+      // The scroll button takes the user down to the end, where the reserve holds the question that went
+      findScrollToBottomButton()!.click();
+      await flushUi(60);
+
+      expect(geometry.scrollTop).toBe(1000);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('leaves the user reading a pinned question whose answer runs past the screen as the next one goes', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      const render = renderGoingQueue({ initial: { draft: '', isQuestionPinned: true }, save: jest.fn() });
+      render(2);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 1100, clientHeight: 500 });
+      // The pinned question starts 200 px into the list's content, and its answer runs past the screen with the
+      // question that waits under it
+      const liveTail = root.querySelector('[data-agent-v2-message-id="1"]')!.parentElement!;
+      Object.defineProperty(liveTail, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ top: -400, bottom: 100 }),
+      });
+      mockRect(messagesElement, { top: 0, bottom: 500 });
+      mockRect(root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!, { top: 700, bottom: 740 });
+      await flushUi();
+
+      expect(geometry.scrollTop).toBe(200);
+      expect(findScrollToBottomButton()).not.toBeNull();
+
+      // The question goes, and its answer comes under it, while the user keeps reading where they were
+      const writeCount = geometry.positions.length;
+      const sentQueuedMessage = { id: 2 };
+      geometry.scrollHeight = 1200;
+      render(1, sentQueuedMessage);
+      await flushUi();
+      geometry.scrollHeight = 1500;
+      render(1, sentQueuedMessage, true);
+      await flushUi();
+
+      expect(geometry.positions.slice(writeCount).every((top) => top === 200)).toBe(true);
+      expect(geometry.scrollTop).toBe(200);
+      expect(findScrollToBottomButton()).not.toBeNull();
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('gives the top space to a queued question pinned as it goes in the same frame', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      // The question being answered is pinned, with no scroll button
+      const render = renderGoingQueue({ initial: { draft: '', isQuestionPinned: true }, save: jest.fn() });
+      render(2);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 500, clientHeight: 500 });
+      await flushUi();
+      const goingTurn = root.querySelector('[data-agent-v2-message-id="2"]')!.parentElement;
+      expect(findLiveTailSpaceTurn()).toBe(root.querySelector('[data-agent-v2-message-id="1"]')!.parentElement);
+
+      geometry.scrollHeight = 1100;
+      render(1, { id: 2 });
+      expect(findLiveTailSpaceTurn()).toBe(goingTurn);
+      await flushUi();
+      await flushUi();
+
+      expect(geometry.scrollTop).toBe(600);
+      expect(findLiveTailSpaceTurn()).toBe(goingTurn);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it.each(['the first question of a chat', 'a question pinned before the chat mounted again'] as const)(
+    'shows the scroll button as the answer to %s runs past the screen, keeping the reader as a queued one goes',
+    async (pinnedQuestion) => {
+      const isFirstQuestion = pinnedQuestion === 'the first question of a chat';
+      const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+      const answer: AgentMessage = { ...SECOND_MESSAGE, text: 'Answer' };
+      const longAnswer: AgentMessage = { ...answer, text: 'Long answer' };
+      const queued: AgentMessage = {
+        ...SECOND_MESSAGE, id: 3, text: 'Queued question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
+      };
+      const session = isFirstQuestion ? undefined : { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() };
+      let reportRevealProgress: NoneToVoidFunction | undefined;
+      const render = (messages: AgentMessage[], queuedMessageCount = 0, sentQueuedMessage?: { id: number }) => {
+        const isRunning = messages.length > 0;
+        renderShell({
+          animationLevel: ANIMATION_LEVEL_MAX,
+          messages,
+          queuedMessageCount,
+          sentQueuedMessage,
+          isRunActive: isRunning,
+          isQueueing: isRunning,
+          canStop: isRunning,
+          renderMessage: (message, context) => {
+            reportRevealProgress = context.onTextRevealProgress;
+            return <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>;
+          },
+          renderComposer: (props) => (
+            <div>
+              <button type="button" data-fill onClick={() => props.onInput('Question')}>Fill</button>
+              <button type="button" data-send onClick={props.onSend}>Send</button>
+            </div>
+          ),
+          session,
+        });
+      };
+      const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+      try {
+        render(isFirstQuestion ? [] : [question, answer]);
+        const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+        const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 500, clientHeight: 500 });
+        await flushUi();
+
+        if (isFirstQuestion) {
+          // The question is pinned at the top, where the list already stands at its end
+          (root.querySelector('[data-fill]') as HTMLButtonElement).click();
+          await flushUi();
+          (root.querySelector('[data-send]') as HTMLButtonElement).click();
+          await flushUi();
+          render([question]);
+          await flushUi();
+          render([question, answer]);
+          await flushUi();
+          reportRevealProgress!();
+          await flushUi();
+        }
+        expect(geometry.scrollTop).toBe(0);
+        expect(findScrollToBottomButton()).toBeNull();
+
+        // The answer runs 400 px past the screen, and the scroll button shows
+        geometry.scrollHeight = 900;
+        render([question, longAnswer]);
+        mockRect(messagesElement, { top: 0, bottom: 500 });
+        const answerRow = root.querySelector<HTMLElement>(`[data-agent-v2-message-id="${answer.id}"]`)!;
+        mockRect(answerRow, { top: 100, bottom: 900 });
+        await flushUi();
+        reportRevealProgress!();
+        await flushUi();
+        expect(findScrollToBottomButton()).not.toBeNull();
+
+        // A question queued meanwhile goes, and the list stays where the user reads
+        render([question, longAnswer, queued], 1);
+        await flushUi();
+        const writeCount = geometry.positions.length;
+        geometry.scrollHeight = 1000;
+        render([question, longAnswer, queued], 0, { id: queued.id });
+        await flushUi();
+        await flushUi();
+
+        expect(geometry.positions.slice(writeCount).every((top) => top === 0)).toBe(true);
+        expect(geometry.scrollTop).toBe(0);
+        expect(findScrollToBottomButton()).not.toBeNull();
+      } finally {
+        restoreProperty(document, 'hidden', originalHidden);
+      }
+    },
+  );
+
+  it('glides the questions that wait up into the place of a stopped activity, and down from the next', async () => {
+    // Motion runs only while the page is visible, and jsdom reports the document as hidden
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      const tops = mockListRects({
+        1: 50, activity: 100, 3: 150, 4: 200, end: 240,
+      });
+      const { render, onStop } = await stopOverQueuedQuestions(ANIMATION_LEVEL_MAX, 2);
+      expect(onStop).toHaveBeenCalledTimes(1);
+      const questionRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="1"]')!;
+      const goingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="3"]')!;
+      const waitingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!;
+
+      // The stopped activity goes, and the questions that wait start from where they stood, 50 px lower
+      render({ queuedMessageCount: 2 });
+      Object.assign(tops, { 3: 100, 4: 150, end: 190 });
+      await flushFrame();
+      expect(getTranslateY(goingRow)).toBe(50);
+      expect(getTranslateY(waitingRow)).toBe(50);
+      expect(getTranslateY(questionRow)).toBe(0);
+
+      // They ease into their places together on Telegram's list curve, as on iOS
+      const offsets: number[] = [];
+      for (let frame = 0; frame < 10; frame++) {
+        await flushFrame();
+        offsets.push(getTranslateY(goingRow));
+        expect(getTranslateY(waitingRow)).toBe(offsets[frame]);
+      }
+      offsets.forEach((offset, index) => {
+        expect(offset).toBeGreaterThan(0);
+        expect(offset).toBeLessThan(index ? offsets[index - 1] : 50);
+      });
+      await flushUi(40);
+      expect(getTranslateY(goingRow)).toBe(0);
+      expect(goingRow.style.translate || '').toBe('');
+
+      // The next question goes, and the activity that comes in under it moves the question still waiting down
+      Object.assign(tops, { activity: 150, 4: 200, end: 240 });
+      render({ queuedMessageCount: 1, sentQueuedMessage: { id: 3 }, hasActivity: true });
+      await flushFrame();
+      const activityRow = root.querySelector<HTMLElement>('[data-agent-run-activity]')!;
+      expect(activityRow.previousElementSibling).toBe(goingRow);
+      expect(getTranslateY(waitingRow)).toBe(-50);
+      expect(getTranslateY(activityRow)).toBe(0);
+      expect(getTranslateY(goingRow)).toBe(0);
+      expect(getTranslateY(questionRow)).toBe(0);
+
+      await flushUi(45);
+      expect(getTranslateY(waitingRow)).toBe(0);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('glides the questions that wait from where a list held at its end showed them', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      const tops = mockListRects({
+        1: 50, activity: 100, 3: 150, 4: 200, end: 280,
+      });
+      const { render } = await stopOverQueuedQuestions(ANIMATION_LEVEL_MAX, 2, true);
+      const waitingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!;
+
+      // The content under the questions gets 40 px shorter as the list renders, and the list, held at its end, shows
+      // them 40 px lower, so they start 40 px above their places
+      tops.end = 240;
+      render({ queuedMessageCount: 2, hasActivity: true });
+      await flushFrame();
+      expect(getTranslateY(waitingRow)).toBe(-40);
+
+      await flushUi(45);
+      expect(getTranslateY(waitingRow)).toBe(0);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('lets a growing answer push the questions that wait, and glides them as the next activity comes', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+      const answer: AgentMessage = {
+        ...MESSAGE, id: 2, text: 'Answer', isStreaming: true, timestamp: MESSAGE.timestamp + 1,
+      };
+      const going: AgentMessage = {
+        ...MESSAGE, id: 3, text: 'Going question', isOutgoing: true, timestamp: MESSAGE.timestamp + 2,
+      };
+      const waiting: AgentMessage = {
+        ...MESSAGE, id: 4, text: 'Waiting question', isOutgoing: true, timestamp: MESSAGE.timestamp + 3,
+      };
+      const tops = mockListRects({
+        1: 50, 2: 100, 3: 150, 4: 200, end: 240,
+      });
+      const session = { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() };
+      let reportRevealProgress: NoneToVoidFunction | undefined;
+      const renderChat = (
+        shownAnswer: AgentMessage, queuedMessageCount: number, sentQueuedMessage?: { id: number },
+      ) => (
+        renderShell({
+          animationLevel: ANIMATION_LEVEL_MAX,
+          messages: [question, shownAnswer, going, waiting],
+          queuedMessageCount,
+          sentQueuedMessage,
+          isRunActive: true,
+          isQueueing: true,
+          canStop: true,
+          runActivity: sentQueuedMessage ? <div key="activity" data-agent-run-activity>Analyzing</div> : undefined,
+          renderMessage: (message, context) => {
+            reportRevealProgress = context.onTextRevealProgress;
+            return <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>;
+          },
+          session,
+        })
+      );
+      renderChat(answer, 2);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      mockScrollGeometry(messagesElement, { scrollHeight: 600, clientHeight: 600 });
+      await flushUi();
+      const goingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="3"]')!;
+      const waitingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!;
+
+      // The answer's text pushes them down as it comes, as it does any message
+      Object.assign(tops, { 3: 180, 4: 230, end: 270 });
+      reportRevealProgress!();
+      await flushFrame();
+      expect(getTranslateY(goingRow)).toBe(0);
+      expect(getTranslateY(waitingRow)).toBe(0);
+
+      // The answer ends and the next question goes, and the activity that comes in under it moves the question still
+      // waiting down
+      Object.assign(tops, { activity: 220, 4: 270, end: 310 });
+      renderChat({ ...answer, isStreaming: undefined }, 1, { id: going.id });
+      await flushFrame();
+      expect(getTranslateY(waitingRow)).toBe(-40);
+      expect(getTranslateY(goingRow)).toBe(0);
+
+      await flushUi(45);
+      expect(getTranslateY(waitingRow)).toBe(0);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('lets the questions that wait ride with the list when the whole list moves', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+      const going: AgentMessage = {
+        ...MESSAGE, id: 3, text: 'Going question', isOutgoing: true, timestamp: MESSAGE.timestamp + 2,
+      };
+      const waiting: AgentMessage = {
+        ...MESSAGE, id: 4, text: 'Waiting question', isOutgoing: true, timestamp: MESSAGE.timestamp + 3,
+      };
+      const tops = mockListRects({
+        1: 50, activity: 100, 3: 150, 4: 200, end: 240,
+      });
+      const session = { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() };
+      const render = () => renderShell({
+        animationLevel: ANIMATION_LEVEL_MAX,
+        messages: [question, going, waiting],
+        queuedMessageCount: 2,
+        isRunActive: true,
+        isQueueing: true,
+        canStop: true,
+        runActivity: <div key="activity" data-agent-run-activity>Analyzing</div>,
+        renderMessage: (message) => <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>,
+        session,
+      });
+      render();
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      mockScrollGeometry(messagesElement, { scrollHeight: 600, clientHeight: 600 });
+      await flushUi();
+      const goingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="3"]')!;
+      const waitingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!;
+
+      // Everything in the list moves 120 px down as it renders, as when the space above the first message grows, and
+      // the rows under the answer go along with the rows above them
+      tops.shift = 120;
+      render();
+      await flushFrame();
+      await flushFrame();
+      expect(getTranslateY(goingRow)).toBe(0);
+      expect(getTranslateY(waitingRow)).toBe(0);
+
+      // A row above them that changes still moves them from where they stood
+      Object.assign(tops, { 3: 190, 4: 240, end: 280 });
+      render();
+      await flushFrame();
+      expect(getTranslateY(goingRow)).toBe(-40);
+      expect(getTranslateY(waitingRow)).toBe(-40);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('rests while the questions that wait stand still, and forgets their places while the list is hidden', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+      const going: AgentMessage = {
+        ...MESSAGE, id: 3, text: 'Going question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
+      };
+      const waiting: AgentMessage = {
+        ...MESSAGE, id: 4, text: 'Waiting question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 2,
+      };
+      const tops = mockListRects({
+        1: 50, activity: 100, 3: 150, 4: 200, end: 240,
+      });
+      const session = { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() };
+      const render = (isActive: boolean) => renderShell({
+        isActive,
+        animationLevel: ANIMATION_LEVEL_MAX,
+        messages: [question, going, waiting],
+        queuedMessageCount: 2,
+        isRunActive: true,
+        isQueueing: true,
+        canStop: true,
+        runActivity: <div key="activity" data-agent-run-activity>Analyzing</div>,
+        renderMessage: (message) => <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>,
+        session,
+      });
+      render(true);
+      const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+      mockScrollGeometry(messagesElement, { scrollHeight: 600, clientHeight: 600 });
+      await flushUi();
+      const goingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="3"]')!;
+      const waitingRow = root.querySelector<HTMLElement>('[data-agent-v2-message-id="4"]')!;
+
+      // While nothing moves, the list measures nothing
+      const { calls: rectReads } = jest.mocked(Element.prototype.getBoundingClientRect).mock;
+      const settledReadCount = rectReads.length;
+      await flushUi();
+      expect(rectReads.length).toBe(settledReadCount);
+
+      // Another screen of the app takes the Agent's place and keeps the list without a box
+      tops.hidden = 1;
+      Object.defineProperty(messagesElement, 'clientHeight', { configurable: true, value: 0 });
+      render(false);
+      await flushUi();
+
+      // The Agent shows again, and the questions that wait stand where they are
+      delete tops.hidden;
+      Object.defineProperty(messagesElement, 'clientHeight', { configurable: true, value: 600 });
+      render(true);
+      await flushFrame();
+      expect(getTranslateY(goingRow)).toBe(0);
+      expect(getTranslateY(waitingRow)).toBe(0);
+
+      // A row above them that changes moves them from there again
+      Object.assign(tops, { activity: 140, 3: 190, 4: 240, end: 280 });
+      render(true);
+      await flushFrame();
+      expect(getTranslateY(goingRow)).toBe(-40);
+      expect(getTranslateY(waitingRow)).toBe(-40);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
+  it('moves the questions that wait at once where motion is reduced or none waits', async () => {
+    const originalHidden = Object.getOwnPropertyDescriptor(document, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    try {
+      const tops = mockListRects({
+        1: 50, activity: 100, 3: 150, 4: 200, end: 240,
+      });
+      const reduced = await stopOverQueuedQuestions(0, 2);
+      reduced.render({ queuedMessageCount: 2 });
+      Object.assign(tops, { 3: 100, 4: 150, end: 190 });
+      await flushUi(3);
+      expect(reduced.onStop).toHaveBeenCalledTimes(1);
+      expect(getTranslateY(root.querySelector<HTMLElement>('[data-agent-v2-message-id="3"]')!)).toBe(0);
+
+      TeactDOM.render(undefined, root);
+      await flushUi();
+
+      Object.assign(tops, { 3: 150, 4: 200, end: 240 });
+      const unqueued = await stopOverQueuedQuestions(ANIMATION_LEVEL_MAX, 0);
+      unqueued.render({ queuedMessageCount: 0 });
+      Object.assign(tops, { 3: 100, 4: 150, end: 190 });
+      await flushUi(3);
+      expect(unqueued.onStop).toHaveBeenCalledTimes(1);
+      expect(getTranslateY(root.querySelector<HTMLElement>('[data-agent-v2-message-id="3"]')!)).toBe(0);
+    } finally {
+      restoreProperty(document, 'hidden', originalHidden);
+    }
+  });
+
   it('closes the gap in the new last turn when a question comes in as the dust settles', async () => {
     const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
     const answer: AgentMessage = { ...SECOND_MESSAGE, text: 'Answer to regenerate' };
@@ -2044,6 +2956,76 @@ describe('AgentConversationShell', () => {
       mockViewport = undefined;
     }
   });
+
+  it.each(['pinned', 'read above'] as const)(
+    'keeps the rows in sight in place as an answer comes above the questions that wait in a long chat (%s)',
+    async (place) => {
+      // The chat has more messages than the list renders at once, so the answer takes older ones into the list too
+      const history = buildMessages(32);
+      const timestamp = MESSAGE.timestamp + history.length;
+      const question: AgentMessage = { ...MESSAGE, id: 33, text: 'Question', isOutgoing: true, timestamp };
+      const answer: AgentMessage = { ...MESSAGE, id: 36, text: 'Answer', timestamp: timestamp + 1 };
+      const going: AgentMessage = {
+        ...MESSAGE, id: 34, text: 'Going question', isOutgoing: true, timestamp: timestamp + 2,
+      };
+      const waiting: AgentMessage = {
+        ...MESSAGE, id: 35, text: 'Waiting question', isOutgoing: true, timestamp: timestamp + 3,
+      };
+      const renderChat = (messages: AgentMessage[]) => renderShell({
+        messages,
+        queuedMessageCount: 2,
+        isRunActive: true,
+        isQueueing: true,
+        canStop: true,
+        hasOlderMessages: true,
+        historyMode: 'continuous',
+        renderMessage: (message) => (
+          <div key={message.id} className={MESSAGE_ROW_CLASS_NAME} data-agent-v2-message-id={message.id}>
+            {message.text}
+          </div>
+        ),
+        session: place === 'pinned' ? { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() } : undefined,
+      });
+      // As in a browser, a laid-out row has an `offsetParent`, so the list keeps its scroll anchor on the row it last
+      // scrolled to
+      const originalOffsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
+      Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+        configurable: true,
+        get(this: HTMLElement) {
+          return this.parentElement;
+        },
+      });
+
+      try {
+        renderChat([...history, question, going, waiting]);
+        const messagesElement = root.querySelector<HTMLDivElement>('.custom-scroll')!;
+        const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 3100, clientHeight: 500 });
+        mockRenderedRowRects(geometry);
+        await flushUi();
+
+        // The list scrolls down to its end, as it does to pin a question, and a reader then scrolls back up
+        for (const top of place === 'pinned' ? [2500, 2600] : [2500, 2600, 2000]) {
+          messagesElement.scrollTop = top;
+          messagesElement.dispatchEvent(new Event('scroll'));
+          await flushUi();
+        }
+        const shownRow = root.querySelector<HTMLElement>(
+          `[data-agent-v2-message-id="${place === 'pinned' ? question.id : 26}"]`,
+        )!;
+        const shownTop = shownRow.getBoundingClientRect().top;
+        expect(root.querySelector('[data-agent-v2-message-id="1"]')).toBeNull();
+
+        geometry.scrollHeight = 3800;
+        renderChat([...history, question, answer, going, waiting]);
+        await flushUi();
+
+        expect(root.querySelector('[data-agent-v2-message-id="1"]')).not.toBeNull();
+        expect(shownRow.getBoundingClientRect().top).toBe(shownTop);
+      } finally {
+        restoreProperty(HTMLElement.prototype, 'offsetParent', originalOffsetParent);
+      }
+    },
+  );
 
   it('shows a failed load centered with Retry while nothing shows, and as the last line otherwise', async () => {
     const onRetry = jest.fn();
@@ -2302,6 +3284,46 @@ describe('AgentConversationShell', () => {
     }
   });
 
+  it('keeps its place as it is about to give way to another list', async () => {
+    const messages = buildMessages(30);
+    let savedSession: AgentConversationSession | undefined;
+    let leave: NoneToVoidFunction | undefined;
+    renderShell({
+      messages,
+      withoutComposer: true,
+      renderMessage: (message) => (
+        <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>
+      ),
+      session: {
+        save: (session) => {
+          savedSession = session;
+        },
+        shouldKeepPlaceOffScreen: true,
+        subscribeToLeave: (onLeave) => {
+          leave = onLeave;
+          return () => {
+            leave = undefined;
+          };
+        },
+      },
+    });
+    const messagesElement = root.querySelector<HTMLDivElement>('.custom-scroll')!;
+    const geometry = mockScrollGeometry(messagesElement, { scrollHeight: 4000, clientHeight: 500 });
+    mockMessageRects(geometry, messages);
+    await flushUi();
+    messagesElement.scrollTop = 1250;
+    messagesElement.dispatchEvent(new Event('scroll'));
+    await flushUi();
+
+    leave!();
+    expect(savedSession).toEqual(expect.objectContaining({
+      isPlaced: true, scrollAnchor: { messageId: 12, indexFromEnd: 18, offset: -50 },
+    }));
+    TeactDOM.render(undefined, root);
+    await flushUi();
+    expect(leave).toBeUndefined();
+  });
+
   it.each(['unchanged', 'appended', 'reposted', 'removed'])('restores its place on remount (%s)', async (change) => {
     let messages = buildMessages(30);
     let savedSession: AgentConversationSession | undefined;
@@ -2409,6 +3431,78 @@ describe('AgentConversationShell', () => {
     expect(geometry.scrollTop).toBe(525);
   });
 
+  // Returns the render of a question whose answer is being produced, with two questions waiting after it, of which
+  // the first goes with `sentQueuedMessage` and gets its answer with `hasGoingAnswer`
+  function renderGoingQueue(session?: AgentConversationSessionStore) {
+    const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+    const going: AgentMessage = {
+      ...SECOND_MESSAGE, text: 'Going question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
+    };
+    const goingAnswer: AgentMessage = {
+      ...SECOND_MESSAGE, id: 3, text: 'Answer', timestamp: SECOND_MESSAGE.timestamp + 1,
+    };
+    const waiting: AgentMessage = {
+      ...SECOND_MESSAGE, id: 4, text: 'Waiting question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 2,
+    };
+
+    return (queuedMessageCount: number, sentQueuedMessage?: { id: number }, hasGoingAnswer = false) => renderShell({
+      animationLevel: ANIMATION_LEVEL_MAX,
+      messages: hasGoingAnswer ? [question, going, goingAnswer, waiting] : [question, going, waiting],
+      queuedMessageCount,
+      sentQueuedMessage,
+      isRunActive: true,
+      isQueueing: true,
+      canStop: true,
+      renderMessage: (message) => <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>,
+      session,
+    });
+  }
+
+  // Renders a question whose answer is being produced, with its activity under it and two questions waiting after
+  // them, and presses Stop once the rows have their places. The question is pinned unless the list is held at its end.
+  // `render` draws the chat as the stop changes it.
+  async function stopOverQueuedQuestions(
+    animationLevel: AnimationLevel, queuedMessageCount: number, isHeldAtEnd = false,
+  ) {
+    const question: AgentMessage = { ...MESSAGE, text: 'Question', isOutgoing: true };
+    const going: AgentMessage = {
+      ...MESSAGE, id: 3, text: 'Going question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 1,
+    };
+    const waiting: AgentMessage = {
+      ...MESSAGE, id: 4, text: 'Waiting question', isOutgoing: true, timestamp: SECOND_MESSAGE.timestamp + 2,
+    };
+    const onStop = jest.fn();
+    const session = isHeldAtEnd ? undefined : { initial: { draft: '', isQuestionPinned: true }, save: jest.fn() };
+    const render = ({ queuedMessageCount: count, sentQueuedMessage, hasActivity = false }: {
+      queuedMessageCount: number;
+      sentQueuedMessage?: { id: number };
+      hasActivity?: boolean;
+    }) => renderShell({
+      animationLevel,
+      messages: [question, going, waiting],
+      queuedMessageCount: count,
+      isRunActive: true,
+      isQueueing: true,
+      canStop: true,
+      sentQueuedMessage,
+      onStop,
+      runActivity: hasActivity ? <div key="activity" data-agent-run-activity>Analyzing</div> : undefined,
+      renderMessage: (message) => <div key={message.id} data-agent-v2-message-id={message.id}>{message.text}</div>,
+      renderComposer: (props) => <button type="button" data-stop onClick={props.onStop}>Stop</button>,
+      session,
+    });
+    render({ queuedMessageCount, hasActivity: true });
+    const messagesElement = root.querySelector('.custom-scroll') as HTMLDivElement;
+    mockScrollGeometry(messagesElement, { scrollHeight: 600, clientHeight: 600 });
+    await flushUi();
+
+    root.querySelector<HTMLButtonElement>('[data-stop]')!.click();
+    // The rows are measured where they stand before the stop changes them
+    await flushFrame();
+
+    return { render, onStop };
+  }
+
   // The answer turns to dust, and the gap holds its place until the dust settles
   async function dissolveAnswer(question: AgentMessage, answer: AgentMessage) {
     const renderMessage = renderDissolvingMessage;
@@ -2450,7 +3544,12 @@ describe('AgentConversationShell', () => {
     isInitialLoadComplete = true,
     hasOpeningQuestion,
     isInputDisabled = false,
+    isQueueing,
+    canStop,
+    onStop,
+    sentQueuedMessage,
     isRunActive = false,
+    queuedMessageCount,
     textRevealPresentations = {},
     unreadMessageId,
     hasDailyDateLines,
@@ -2463,7 +3562,9 @@ describe('AgentConversationShell', () => {
     noLoadingIndicator,
     historyMode = 'windowed',
     conversationSlot,
+    headerAccessory,
     messageListFooter,
+    runActivity,
     beforeComposerSlot,
     bottomStickDependency,
     loadOlderMessages = jest.fn(),
@@ -2472,6 +3573,7 @@ describe('AgentConversationShell', () => {
     onSendHint = jest.fn(),
     hasMenu = false,
     onDelete,
+    onRequestSupport,
     onReportProblem,
     onComposerHeightChange,
     onScroll,
@@ -2500,6 +3602,7 @@ describe('AgentConversationShell', () => {
             isInitialLoadComplete,
             hasOpeningQuestion,
             isRunActive,
+            queuedMessageCount,
             textRevealPresentations,
             unreadMessageId,
             hasDailyDateLines,
@@ -2512,6 +3615,10 @@ describe('AgentConversationShell', () => {
           }}
           composer={withoutComposer ? undefined : {
             isDisabled: isInputDisabled,
+            isQueueing,
+            canStop,
+            onStop,
+            sentQueuedMessage,
             shouldHide: noComposer,
             onSendMessage,
             onSendHint,
@@ -2528,13 +3635,15 @@ describe('AgentConversationShell', () => {
           } : undefined}
           slots={{
             body: conversationSlot,
+            headerAccessory,
             messageListFooter,
+            runActivity,
             beforeComposer: beforeComposerSlot,
             bottomStickDependency,
           }}
-          header={hasMenu ? { hasMenu } : undefined}
+          header={hasMenu ? { hasMenu, canRequestSupport: Boolean(onRequestSupport) } : undefined}
           actions={{
-            onBack, onDelete, onReportProblem, onScroll, onMessageVisible,
+            onBack, onDelete, onRequestSupport, onReportProblem, onScroll, onMessageVisible,
           }}
           session={session}
           noLiveTail={noLiveTail}
@@ -2568,6 +3677,30 @@ function mockMessageRects(geometry: { scrollTop: number }, messages?: AgentMessa
   });
 }
 
+/**
+ * Places each rendered message 100 px below the one rendered before it, as the list lays out the messages it renders.
+ * The list's own box starts at 0.
+ */
+function mockRenderedRowRects(geometry: { scrollTop: number }) {
+  jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: Element) {
+    const element = this as HTMLElement;
+    if (element.classList.contains('custom-scroll')) {
+      return {
+        top: 0, bottom: element.clientHeight, left: 0, right: 300, x: 0, y: 0, width: 300, height: element.clientHeight,
+        toJSON: () => undefined,
+      };
+    }
+
+    const rows = Array.from(document.querySelectorAll('[data-agent-v2-message-id]'));
+    const index = rows.indexOf(element);
+    const top = index < 0 ? 0 : index * 100 - geometry.scrollTop;
+    const height = index < 0 ? 0 : 100;
+    return {
+      top, bottom: top + height, left: 0, right: 300, x: 0, y: top, width: 300, height, toJSON: () => undefined,
+    };
+  });
+}
+
 // Calls the listeners of the layouts' media query, as the app switches between them
 function switchLayout() {
   jest.mocked(window.matchMedia).mock.results.forEach(({ type: resultType, value }) => {
@@ -2582,6 +3715,15 @@ function switchLayout() {
 
 function findMenuItem(text: string) {
   return Array.from(document.body.querySelectorAll('button')).find((button) => button.textContent?.includes(text));
+}
+
+function findScrollToBottomButton() {
+  return document.querySelector<HTMLButtonElement>('button[aria-label="Scroll To Bottom"]');
+}
+
+// The turn with the live tail's top space
+function findLiveTailSpaceTurn() {
+  return document.querySelector('[data-agent-live-tail-space]');
 }
 
 // The picture of the field's text, which flies over the list into the question's bubble
@@ -2604,6 +3746,51 @@ async function flushUi(frameCount = 20) {
     callbacks.forEach((callback) => callback(i * 16));
     await Promise.resolve();
   }
+}
+
+// Runs one frame and the work it leaves for later in that frame
+async function flushFrame() {
+  await flushUi(1);
+  await jest.advanceTimersByTimeAsync(0);
+}
+
+/**
+ * Places the rows of the list at the tops `tops` gives, by message id and `activity`, each 40 px tall and moved by the
+ * offset it is drawn at. The turn of the last message ends at `end`, the other turns start at 0, and everything in the
+ * list is `shift` lower. The list's own box starts at 0 and is as tall as the list. With `hidden`, nothing has a box.
+ */
+function mockListRects(tops: Record<string, number>) {
+  jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: Element) {
+    const element = this as HTMLElement;
+    if (tops.hidden) {
+      return {
+        top: 0, bottom: 0, left: 0, right: 0, x: 0, y: 0, width: 0, height: 0, toJSON: () => undefined,
+      };
+    }
+
+    if (element.classList.contains('custom-scroll')) {
+      return {
+        top: 0, bottom: element.clientHeight, left: 0, right: 300, x: 0, y: 0, width: 300, height: element.clientHeight,
+        toJSON: () => undefined,
+      };
+    }
+
+    const key = element.dataset?.agentV2MessageId
+      ?? (element.hasAttribute('data-agent-run-activity') ? 'activity' : undefined);
+    const isLastTurn = !key && Boolean(element.querySelector(':scope > [data-agent-v2-message-id="4"]'));
+    const shift = tops.shift ?? 0;
+    const top = shift + (key !== undefined ? tops[key] + getTranslateY(element) : isLastTurn ? tops.end - 40 : 0);
+    return {
+      top, bottom: top + 40, left: 0, right: 300, x: 0, y: top, width: 300, height: 40, toJSON: () => undefined,
+    };
+  });
+
+  return tops;
+}
+
+// The list draws a row moved by `0 ${offset}px`, which jsdom keeps as it is set
+function getTranslateY(element: HTMLElement) {
+  return Number.parseFloat((element.style.translate || '').split(' ')[1]) || 0;
 }
 
 function renderDissolvingMessage(message: AgentMessage) {

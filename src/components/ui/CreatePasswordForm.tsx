@@ -5,6 +5,7 @@ import React, {
 import { PIN_LENGTH } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 import { toNativeDigits } from '../../util/nativeDigits';
 import { IS_ANDROID, IS_IOS } from '../../util/windowEnvironment';
 
@@ -200,6 +201,7 @@ function CreatePasswordForm({
             type="password"
             isRequired
             id="first-password"
+            testId={isActive ? getTestId('password_input') : undefined}
             inputMode={isMobile ? 'numeric' : undefined}
             hasError={shouldRenderError}
             placeholder={lang('Enter your password...')}
@@ -215,6 +217,7 @@ function CreatePasswordForm({
             type="password"
             isRequired
             id="second-password"
+            testId={isActive ? getTestId('password_repeat_input') : undefined}
             inputMode={isMobile ? 'numeric' : undefined}
             placeholder={lang('...and repeat it')}
             hasError={isPasswordsNotEqual}
@@ -234,6 +237,7 @@ function CreatePasswordForm({
           <Button
             isSubmit
             isPrimary
+            testId={isActive ? getTestId('password_submit') : undefined}
             isDisabled={!canSubmit}
             isLoading={isLoading}
             className={styles.btn}

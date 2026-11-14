@@ -8,6 +8,7 @@ import type { DropdownItem } from '../ui/Dropdown';
 import { selectTokenDetails } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
+import getTestId from '../../util/getTestId';
 import { compact } from '../../util/iteratees';
 import { openUrl } from '../../util/openUrl';
 import { shareUrl } from '../../util/share';
@@ -108,6 +109,7 @@ function Header({
         isSimple
         isText
         ariaLabel={lang('Actions')}
+        testId={getTestId('token_more_button')}
         onClick={openMenu}
       >
         <i className="icon-menu-dots" aria-hidden />

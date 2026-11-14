@@ -1,7 +1,7 @@
 import { IS_AIR_APP } from '../../config';
 import { addLog } from '../../util/logs';
 
-type Stage = 'account' | 'config' | 'http' | 'body' | 'batch';
+type Stage = 'account' | 'config' | 'http' | 'body' | 'chain';
 
 let lastCallId = 0;
 

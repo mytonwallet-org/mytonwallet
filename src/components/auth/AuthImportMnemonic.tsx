@@ -11,6 +11,7 @@ import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { getIsClipboardReadDenied, readClipboardContent } from '../../util/clipboard';
+import getTestId from '../../util/getTestId';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { compact } from '../../util/iteratees';
 import { formatEnumeration } from '../../util/langProvider';
@@ -251,6 +252,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
     id: index,
     title: toNativeDigits(count === 12 ? lang('12 Words') : lang('24 Words')),
     className: styles.modeTab,
+    testId: getTestId(`import_mode_${count}`),
   })), [lang]);
   const activeModeIndex = MNEMONIC_COUNTS.indexOf(selectedMnemonicCount);
 
@@ -297,7 +299,12 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
         <div ref={pasteBlockRef} className={styles.pasteBlock}>
           {shouldRenderPaste && (
             <div ref={pasteRef}>
-              <Button isPrimary className={styles.pasteButton} onClick={handlePasteMnemonicClick}>
+              <Button
+                isPrimary
+                testId={getTestId('import_paste')}
+                className={styles.pasteButton}
+                onClick={handlePasteMnemonicClick}
+              >
                 <i className={buildClassName(styles.pasteButtonIcon, 'icon-paste')} aria-hidden />
                 <span className={styles.pasteButtonText}>{lang('Paste from Clipboard')}</span>
               </Button>
@@ -330,6 +337,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
               <InputMnemonic
                 key={id}
                 id={`import-mnemonic-${id}`}
+                testId={getTestId(`import_word_${id + 1}`)}
                 nextId={id + 1 < selectedMnemonicCount ? `import-mnemonic-${id + 1}` : undefined}
                 labelText={label}
                 value={mnemonic[id]}
@@ -346,6 +354,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
           <div className={styles.importFooterButton}>
             <Button
               isPrimary
+              testId={getTestId('import_continue')}
               isDisabled={isSubmitDisabled}
               isLoading={isLoading}
               className={styles.btn}

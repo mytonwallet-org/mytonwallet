@@ -7,6 +7,7 @@ import { SwapErrorType, SwapType } from '../../../global/types';
 import { ANIMATION_END_DELAY } from '../../../config';
 import buildClassName from '../../../util/buildClassName';
 import { formatCurrencySimple } from '../../../util/formatNumber';
+import getTestId from '../../../util/getTestId';
 import { resolveSwapError } from '../helpers/resolveSwapError';
 
 import { useThrottledSignal } from '../../../hooks/useAsyncResolvers';
@@ -145,18 +146,21 @@ function SwapSubmitButton({
         className={styles.footerButtonWrapper}
         activeKey={transitionKeyRef.current++}
       >
-        <Button
-          isPrimary
-          isSubmit
-          kind={buttonKind}
-          className={styles.footerButton}
-          isDisabled={isDisabled}
-          isLoading={isLoading}
-          isDestructive={isDestructive}
-        >
-          {/* The <span> is to have inline content positioning to align the icon properly */}
-          <span className={styles.footerButtonInner}>{renderedText}</span>
-        </Button>
+        {(isActive: boolean) => (
+          <Button
+            isPrimary
+            isSubmit
+            kind={buttonKind}
+            className={styles.footerButton}
+            testId={isActive ? getTestId('swap_continue') : undefined}
+            isDisabled={isDisabled}
+            isLoading={isLoading}
+            isDestructive={isDestructive}
+          >
+            {/* The <span> is to have inline content positioning to align the icon properly */}
+            <span className={styles.footerButtonInner}>{renderedText}</span>
+          </Button>
+        )}
       </Transition>
     );
   }, [buttonKind, isDestructive, isDisabled, isLoading, lang, textStr, tokenIn?.symbol, tokenOut?.symbol]);

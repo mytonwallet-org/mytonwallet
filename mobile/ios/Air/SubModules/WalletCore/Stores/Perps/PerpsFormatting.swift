@@ -162,7 +162,7 @@ public enum PerpsFormatting {
     public static func errorMessage(_ code: String?) -> String {
         let description = code ?? ""
         let keys = ["PerpsReviewChanged", "PerpsWithdrawalPending", "PerpsQuoteExpired", "PerpsInsufficientUsdc", "PerpsInsufficientBalance", "PerpsMarketNeedsUnifiedAccount", "PerpsInsufficientGas", "PerpsAmountTooSmall", "PerpsUnchanged",
-                    "PerpsOrderTooSmall", "PerpsOrderNotFilled", "PerpsInsufficientMargin", "PerpsOrderRejected",
+                    "PerpsOrderTooSmall", "PerpsOrderNotFilled", "PerpsOrderNotPlaced", "PerpsInsufficientMargin", "PerpsOrderRejected",
                     "PerpsPositionChanged", "PerpsPositionExists", "PerpsOperationPending", "PerpsUnsupportedAccount",
                     "PerpsInvalidLeverage", "PerpsInvalidAmount", "PerpsChangeLeverageSeparately", "PerpsTradingUnavailable",
                     "PerpsNothingToWithdraw", "PerpsWithdrawalRejected"]

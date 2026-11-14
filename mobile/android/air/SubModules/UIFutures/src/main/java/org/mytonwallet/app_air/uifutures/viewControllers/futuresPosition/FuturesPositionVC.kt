@@ -575,7 +575,8 @@ class FuturesPositionVC(context: Context, private val coin: String) :
                 onSelectedPeriodChanged = { positionVM.selectedPeriod = it },
                 onAnalyze = null,
                 onHeightChange = null,
-                title = chartTitle
+                title = chartTitle,
+                isExpandedByDefault = true
             ).also {
                 it.iconProgress = if (isMarketMode) 1f else 0f
                 chartCell = it

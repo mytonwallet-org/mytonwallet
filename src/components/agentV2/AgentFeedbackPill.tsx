@@ -36,6 +36,7 @@ interface OwnProps {
   isOpen: boolean;
   messageId: number;
   feedback?: AgentAnswerFeedbackV2;
+  isOperator?: boolean;
   /** The answer's bubble, whose top trailing corner the cloud points at, and to whose bottom one a reaction flies */
   getAnchorElement: () => HTMLElement | undefined;
   /** The bottom of the answer with what hangs from its bubble, which the cloud hangs under without room above */
@@ -79,7 +80,7 @@ const APPEAR_DELAY_STYLES: Record<AgentAnswerFeedbackV2, string> = {
  * flies from the cloud to the corner as the cloud closes into its tail.
  */
 function AgentFeedbackPill({
-  isOpen, messageId, feedback, getAnchorElement, getMessageBottom, onChange, onClose,
+  isOpen, messageId, feedback, isOperator = false, getAnchorElement, getMessageBottom, onChange, onClose,
 }: OwnProps) {
   const lang = useLang();
   const { ref, shouldRender } = useShowTransition<HTMLDivElement>({
@@ -137,7 +138,9 @@ function AgentFeedbackPill({
 
     const reaction = choice.value;
     const { center, rest, centerSize } = AGENT_FEEDBACK_ANIMATIONS[reaction];
-    const toast = { feedback: reaction, animatedIcon: { tgsUrl: center, previewUrl: rest, size: centerSize } };
+    const toast = {
+      feedback: reaction, isOperator, animatedIcon: { tgsUrl: center, previewUrl: rest, size: centerSize },
+    };
 
     function showToast() {
       void choice!.confirmation.then((getIsCurrentFeedback) => {

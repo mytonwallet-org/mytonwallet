@@ -12,6 +12,7 @@ import { openUrl } from '../../util/openUrl';
 import { pause } from '../../util/schedulers';
 import { shareUrl } from '../../util/share';
 import { copyAgentText } from '../agent/helpers/copyAgentText';
+import { buildAgentNewsPictures, getAgentDigestPictureSurface } from '../agentV2/agentNewsPictures';
 
 import useControlsSignal from './hooks/useControlsSignal';
 
@@ -37,8 +38,11 @@ jest.mock('../agent/helpers/copyAgentText', () => ({ copyAgentText: jest.fn() })
 // The caption measures itself in a frame, which runs on its timeout fallback here
 const FRAME_FALLBACK_DELAY = 50;
 const WAIT_ATTEMPTS = 40;
+const NEWS_LINK = 'https://my.tt/agent?news=7&lang=ru&utm_source=pulse_share';
 
 const NEWS: MediaViewerPictureNews = {
+  eventId: 7,
+  locale: 'ru',
   headline: 'News headline',
   body: 'The **news** body',
   sources: [{ name: 'Source', url: 'https://example.com/news' }],
@@ -169,24 +173,46 @@ describe('the News picture viewer', () => {
     TeactDOM.render(<PictureActions news={NEWS} isMobile={false} onClose={onClose} />, root);
     await pause(20);
 
-    const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'));
+    // The buttons, without the closed sources menu's own
+    const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button[aria-label]'));
     expect(buttons.map((button) => button.getAttribute('aria-label')))
-      .toEqual(['$agent_news_open_source', 'Copy', 'Share', 'Close']);
+      .toEqual(['$agent_news_sources', 'Copy', 'Share', 'Close']);
 
+    // Sources lists the post's sources in a menu under it, each opening its link
+    expect(buttons[0].getAttribute('aria-expanded')).toBe('false');
     buttons[0].click();
+    await pause(50);
+    expect(buttons[0].getAttribute('aria-expanded')).toBe('true');
+    const source = Array.from(root.querySelectorAll<HTMLElement>('[role="menuitem"], button'))
+      .find(({ textContent }) => textContent === 'Source')!;
+    source.click();
     expect(openUrl).toHaveBeenCalledWith('https://example.com/news');
     buttons[1].click();
-    expect(copyAgentText).toHaveBeenCalledWith('News headline\n\nThe news body\n\nhttps://example.com/news');
+    expect(copyAgentText).toHaveBeenCalledWith('News headline\n\nThe news body');
+    expect(shareUrl).not.toHaveBeenCalled();
     buttons[2].click();
-    expect(shareUrl).toHaveBeenCalledWith('https://example.com/news', 'News headline', undefined);
+    expect(shareUrl).toHaveBeenCalledWith(NEWS_LINK, 'News headline', 'News headline');
     buttons[3].click();
     expect(onClose).toHaveBeenCalledTimes(1);
 
-    // Without a source to open, the post's menu has no such item, and neither do the buttons
+    // Without a source to open, the buttons have no Sources
     TeactDOM.render(<PictureActions news={{ ...NEWS, sources: [] }} isMobile={false} onClose={onClose} />, root);
     await pause(20);
     expect(Array.from(root.querySelectorAll('button')).map((button) => button.getAttribute('aria-label')))
       .toEqual(['Copy', 'Share', 'Close']);
+  });
+
+  it('offers no Share on the picture of a digest\'s headline, as on its digest', async () => {
+    const pictures = buildAgentNewsPictures([{
+      eventId: 7, headline: NEWS.headline, time: '2026-10-21T09:00:00.000Z', imageUrl: 'https://example.com/7.jpg',
+    }], getAgentDigestPictureSurface('digest-1', false), 'ru');
+    TeactDOM.render(
+      <PictureActions news={pictures.byId[pictures.ids[0]].news} isMobile={false} onClose={jest.fn()} />, root,
+    );
+    await pause(20);
+
+    expect(Array.from(root.querySelectorAll('button')).map((button) => button.getAttribute('aria-label')))
+      .toEqual(['Copy', 'Close']);
   });
 
   it('gathers the actions into a menu on a phone', async () => {
@@ -200,9 +226,18 @@ describe('the News picture viewer', () => {
 
     expect(menuButton.getAttribute('aria-expanded')).toBe('true');
     const items = Array.from(root.querySelectorAll<HTMLElement>('[role="menuitem"], button'))
-      .filter(({ textContent }) => textContent === 'Copy' || textContent === 'Share'
-        || textContent === '$agent_news_open_source');
-    expect(items.map(({ textContent }) => textContent)).toEqual(['$agent_news_open_source', 'Copy', 'Share']);
+      .filter(({ textContent }) => ['$agent_news_sources', 'Copy', 'Share'].includes(textContent!));
+    expect(items.map(({ textContent }) => textContent)).toEqual(['$agent_news_sources', 'Copy', 'Share']);
+    // Share is in the Tab order as Copy is, and a native button, which Enter and Space press
+    const [, copyItem, shareItem] = items as HTMLButtonElement[];
+    expect(shareItem).toBeInstanceOf(HTMLButtonElement);
+    expect(shareItem.disabled).toBe(false);
+    expect(shareItem.tabIndex).toBeGreaterThanOrEqual(0);
+    expect(shareItem.tabIndex).toBe(copyItem.tabIndex);
+    shareItem.focus();
+    expect(document.activeElement).toBe(shareItem);
+    shareItem.click();
+    expect(shareUrl).toHaveBeenCalledWith(NEWS_LINK, 'News headline', 'News headline');
     items[1].click();
     expect(copyAgentText).toHaveBeenCalledTimes(1);
   });

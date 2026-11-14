@@ -6,6 +6,7 @@ import { AccountSelectorState } from '../../../../global/types';
 
 import { SENSITIVE_DATA_MASK } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
+import getTestId from '../../../../util/getTestId';
 import { vibrate } from '../../../../util/haptics';
 import { toNativeDigits } from '../../../../util/nativeDigits';
 
@@ -29,6 +30,7 @@ interface OwnProps {
   totalBalance?: string;
   renderingState: AccountSelectorState;
   isSensitiveDataHidden?: true;
+  isActive?: boolean;
   onViewModeChange: (state: AccountSelectorState) => void;
   onReorderClick: NoneToVoidFunction;
 }
@@ -64,6 +66,7 @@ const AccountSelectorHeader = ({
   totalBalance,
   renderingState,
   isSensitiveDataHidden,
+  isActive,
   onViewModeChange,
   onReorderClick,
 }: OwnProps) => {
@@ -73,11 +76,15 @@ const AccountSelectorHeader = ({
   const [isMenuOpen, openMenu, closeMenu] = useFlag(false);
   const renderingKey = useTransitionActiveKey([walletsCount, totalBalance]);
 
+  // The menu stays mounted while closed, so only the active slide's copy carries the id
+  const listTestId = isActive ? getTestId('wallets_view_list') : undefined;
+
   const menuItems = useMemo((): DropdownItem<MenuHandler>[] => {
     const currentHandler = RENDERING_STATE_TO_MENU_HANDLER[renderingState];
+    const items = ALL_MENU_ITEMS.filter((item) => item.value !== currentHandler);
 
-    return ALL_MENU_ITEMS.filter((item) => item.value !== currentHandler);
-  }, [renderingState]);
+    return listTestId ? items.map((item) => (item.value === 'list' ? { ...item, testId: listTestId } : item)) : items;
+  }, [renderingState, listTestId]);
   const renderingMenuItems = usePrevDuringAnimationSimple(menuItems);
 
   const handleMenuButtonClick = useLastCallback(() => {
@@ -102,6 +109,7 @@ const AccountSelectorHeader = ({
         isRound
         className={buildClassName(styles.menuButton, styles.headerButton)}
         ariaLabel={lang('Menu')}
+        testId={isActive ? getTestId('wallets_menu_button') : undefined}
         onClick={handleMenuButtonClick}
       >
         <i className={buildClassName(styles.filterIcon, 'icon-filter')} aria-hidden />
@@ -123,6 +131,7 @@ const AccountSelectorHeader = ({
         isRound
         className={buildClassName(styles.closeButton, styles.headerButton)}
         ariaLabel={lang('Close')}
+        testId={isActive ? getTestId('nav_close') : undefined}
         onClick={closeAccountSelector}
       >
         <i className={buildClassName(modalStyles.closeIcon, 'icon-close')} aria-hidden />

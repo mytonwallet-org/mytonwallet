@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useRef } from '../../../../../lib/teact/teact';
 
 import type { IAnchorPosition } from '../../../../../global/types';
-import type { SubMenuPosition } from './calculateSubMenuPosition';
+import type { SubMenuPosition } from '../../../../ui/helpers/calculateSubMenuPosition';
 
 import { requestMutation } from '../../../../../lib/fasterdom/fasterdom';
 

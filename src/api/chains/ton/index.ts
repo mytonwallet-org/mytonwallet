@@ -1,6 +1,7 @@
 import type { ChainSdk } from '../../types/chains';
 import { DappProtocolType } from '../../dappProtocols/types';
 
+import { DIESEL_NOT_AVAILABLE } from '../../common/other';
 import { fetchNftByAddress } from './toncenter/nfts';
 import { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
@@ -78,6 +79,7 @@ const tonSdk: ChainSdk<'ton'> = {
   buildOnchainSwapTransfer,
   submitOnchainSwapTransfer,
   resolveSwapNeedsBatch: () => false,
+  estimateSwapDiesel: () => DIESEL_NOT_AVAILABLE,
   getAddressInfo: checkToAddress,
   getWalletBalance,
   getWalletAssets: fetchBalances,

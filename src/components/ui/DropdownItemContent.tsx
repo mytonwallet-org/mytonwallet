@@ -21,6 +21,9 @@ interface OwnProps<T extends string> {
   itemClassName?: string;
   itemDescriptionClassName?: string;
   onClick?(event: React.MouseEvent<HTMLButtonElement, MouseEvent>, value: T): void;
+  onMouseEnter?(event: React.MouseEvent<HTMLButtonElement, MouseEvent>, value: T): void;
+  /** The item opens a menu, which is shown while it is expanded */
+  isExpanded?: boolean;
 }
 
 function DropdownItemContent<T extends string>({
@@ -35,6 +38,8 @@ function DropdownItemContent<T extends string>({
   itemClassName,
   itemDescriptionClassName,
   onClick,
+  onMouseEnter,
+  isExpanded,
 }: OwnProps<T>) {
   const lang = useLang();
   const displayedName = shouldUseSelectedName ? (item.selectedName ?? item.name) : item.name;
@@ -74,7 +79,11 @@ function DropdownItemContent<T extends string>({
       type="button"
       className={fullClassName}
       disabled={item.isDisabled}
+      data-testid={item.testId}
+      aria-haspopup={isExpanded !== undefined ? 'menu' : undefined}
+      aria-expanded={isExpanded}
       onClick={onClick && ((e) => onClick(e, item.value))}
+      onMouseEnter={onMouseEnter && ((e) => onMouseEnter(e, item.value))}
     >
       {prefix}
       {Boolean(item.icon) && renderIcon()}

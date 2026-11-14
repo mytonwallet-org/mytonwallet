@@ -7,6 +7,7 @@ import { MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT } from '../../config';
 import { selectOrderedAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
+import getTestId from '../../util/getTestId';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -157,7 +158,11 @@ function SettingsPushNotifications({
           </>
         )}
         <div className={styles.settingsBlock}>
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleCanPlaySoundToggle}>
+          <div
+            className={buildClassName(styles.item, styles.item_small)}
+            data-testid={getTestId('notifications_play_sounds')}
+            onClick={handleCanPlaySoundToggle}
+          >
             <span className={styles.itemTitle}>{lang('Play Sounds')}</span>
 
             <Switcher

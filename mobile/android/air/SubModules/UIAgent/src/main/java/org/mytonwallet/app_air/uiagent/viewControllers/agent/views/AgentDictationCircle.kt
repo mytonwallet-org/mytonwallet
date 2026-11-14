@@ -7,8 +7,6 @@ import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.view.Choreographer
@@ -136,6 +134,7 @@ internal class AgentDictationCircle(private val anchor: View) {
     private val innerMotion = BlobMotion()
 
     private var tint = WColor.Tint.color
+    private var onTintColor = WColor.TextOnTint.color
     private var error = WColor.Error.color
     private var panelColor = WColor.Background.color
     private var iconColor = WColor.SecondaryText.color
@@ -193,6 +192,7 @@ internal class AgentDictationCircle(private val anchor: View) {
 
     fun updateTheme() {
         tint = WColor.Tint.color
+        onTintColor = WColor.TextOnTint.color
         error = WColor.Error.color
         panelColor = WColor.Background.color
         iconColor = WColor.SecondaryText.color
@@ -507,11 +507,13 @@ internal class AgentDictationCircle(private val anchor: View) {
         private val leftBarRadii = FloatArray(CORNER_VALUES)
         private val rightBarRadii = FloatArray(CORNER_VALUES)
 
-        // White on the accent; its alpha follows the glyph's
-        private val microphone = ContextCompat
-            .getDrawable(anchor.context, R.drawable.ic_agent_microphone)
-            ?.mutate()
-            ?.apply { colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN) }
+        // On the accent, in the colour of text on it, made once the circle's colours are set. Its
+        // alpha follows the glyph's.
+        private val microphone by lazy {
+            ContextCompat.getDrawable(anchor.context, R.drawable.ic_agent_microphone)
+                ?.mutate()
+                ?.apply { setTint(onTintColor) }
+        }
 
         // The pause button's microphone, which resumes the recording; made once the circle's colours are set
         private val resumeMicrophone by lazy {
@@ -521,6 +523,7 @@ internal class AgentDictationCircle(private val anchor: View) {
         }
 
         fun updateTheme() {
+            microphone?.setTint(onTintColor)
             resumeMicrophone?.setTint(iconColor)
         }
 
@@ -588,7 +591,6 @@ internal class AgentDictationCircle(private val anchor: View) {
             if (alpha <= 0f || scale <= 0f) return
             canvas.save()
             canvas.scale(scale, scale)
-            val white = applyAlpha(Color.WHITE, alpha)
             when (kind) {
                 Glyph.MICROPHONE -> microphone?.let { icon ->
                     val half = MICROPHONE_GLYPH.dp / 2
@@ -604,14 +606,15 @@ internal class AgentDictationCircle(private val anchor: View) {
                     glyphPath.lineTo(-0.11f * unit, 0.26f * unit)
                     glyphPath.lineTo(0.38f * unit, -0.26f * unit)
                     strokePaint.strokeWidth = GLYPH_STROKE.dp
-                    strokePaint.color = white
+                    strokePaint.color = applyAlpha(onTintColor, alpha)
                     canvas.drawPath(glyphPath, strokePaint)
                 }
 
                 Glyph.CROSS -> {
                     val half = CROSS_GLYPH.dp / 2
                     strokePaint.strokeWidth = CROSS_STROKE.dp
-                    strokePaint.color = white
+                    // White on the failure's red
+                    strokePaint.color = applyAlpha(Color.WHITE, alpha)
                     canvas.drawLine(-half, -half, half, half, strokePaint)
                     canvas.drawLine(-half, half, half, -half, strokePaint)
                 }

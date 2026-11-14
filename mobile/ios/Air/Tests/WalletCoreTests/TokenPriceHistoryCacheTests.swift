@@ -21,12 +21,12 @@ struct TokenPriceHistoryCacheTests {
         #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .day) == nil)
     }
 
-    @Test(arguments: [false, true])
-    func `cached stock history survives serialization`(hasTokenHistory: Bool) throws {
+    @Test
+    func `cached stock history survives serialization`() throws {
         let slug = "test-stock-price-history-\(UUID())"
         let now = Date.now.timeIntervalSince1970
         let history = ApiPriceHistory(
-            points: hasTokenHistory ? [[now, 400]] : [],
+            points: [[now, 400]],
             backfill: ApiPriceHistoryBackfill(symbol: "TSLA", points: [[now - 60, 399]])
         )
         #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .all, history: history, baseCurrency: TokenStore.baseCurrency))
@@ -47,17 +47,17 @@ struct TokenPriceHistoryCacheTests {
     }
 
     @Test
-    func `stock-only history expires according to the selected period`() {
+    func `stock-only history is not restored without token history`() {
         let slug = "test-stock-history-expiry-\(UUID())"
         let history = ApiPriceHistory(
             points: [],
-            backfill: ApiPriceHistoryBackfill(symbol: "TSLA", points: [[Date.now.timeIntervalSince1970 - 4 * 3600, 400]])
+            backfill: ApiPriceHistoryBackfill(symbol: "TSLA", points: [[Date.now.timeIntervalSince1970, 400]])
         )
         let currency = TokenStore.baseCurrency
         #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .day, history: history, baseCurrency: currency))
         #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .all, history: history, baseCurrency: currency))
         #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .day) == nil)
-        #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .all) == history)
+        #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .all) == nil)
     }
 
     @Test

@@ -24,7 +24,8 @@ import { handleServerError } from '../../errors';
 import { isValidAddress } from './address';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import { EVM_RPC_URLS } from './constants';
-import { buildTransaction, estimateEvmFee } from './transfer';
+import { estimateEvmFee } from './fee';
+import { buildTransaction } from './transfer';
 import { getIsWalletActive, getWalletBalance } from './wallet';
 
 type AlchemyNftMetadataResponse = Omit<AlchemyOwnedNft, 'balance'>;

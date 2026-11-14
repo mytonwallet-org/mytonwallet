@@ -28,6 +28,7 @@ interface OwnProps {
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
+  testId?: string;
   onTokenClick?: (slug: string) => void;
 }
 
@@ -44,6 +45,7 @@ function TransactionAmount({
   isSensitiveDataHidden,
   baseCurrency,
   currencyRates,
+  testId,
   onTokenClick,
 }: OwnProps) {
   const amountRef = useRef<HTMLDivElement>();
@@ -94,6 +96,7 @@ function TransactionAmount({
             'rounded-font',
             isClickable && styles.clickable,
           )}
+          data-testid={testId}
           onClick={isClickable ? handleClick : undefined}
         >
           {wholePart.trim().replace('\u202F', '')}

@@ -17,6 +17,7 @@ import styles from './Site.module.scss';
 interface OwnProps {
   site: ApiSite;
   className?: string;
+  testId?: string;
   role?: 'option' | 'button';
   isEmbedded?: boolean;
   isSelected?: boolean;
@@ -26,6 +27,7 @@ interface OwnProps {
 function Site({
   site: { url, icon, name, description, isExternal, isVerified, badgeText },
   className,
+  testId,
   role = 'button',
   isEmbedded = false,
   isSelected,
@@ -51,6 +53,7 @@ function Site({
       tabIndex={isSelected ? 0 : -1}
       role={role}
       aria-selected={isSelected}
+      data-testid={testId}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
     >

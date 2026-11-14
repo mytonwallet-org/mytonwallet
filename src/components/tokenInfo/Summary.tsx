@@ -37,7 +37,7 @@ function Summary({
     <div ref={rootRef} className={buildClassName(styles.root, className)}>
       <Balance token={token} change={balanceChange} />
 
-      <TopActions tokenSlug={slug} className={styles.actions} />
+      <TopActions tokenSlug={slug} isActive={isActive} className={styles.actions} />
 
       <div className={styles.panels}>
         <Chart

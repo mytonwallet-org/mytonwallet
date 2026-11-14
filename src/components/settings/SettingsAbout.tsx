@@ -13,6 +13,7 @@ import {
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import { vibrate } from '../../util/haptics';
 import { handleUrlClick } from '../../util/openUrl';
 import { getBlogUrl, getTelegramNewsChannelUrl, getTelegramTipsChannelUrl } from '../../util/url';
@@ -101,7 +102,7 @@ function SettingsAbout({
             <img src={logoWebpPath} alt={lang('Logo')} className={buildClassName(styles.logo, styles.aboutLogoImage)} />
           )}
         </div>
-        <h2 ref={headerRef} className={styles.title}>
+        <h2 ref={headerRef} className={styles.title} data-testid={getTestId('about_title')}>
           {APP_NAME} {APP_VERSION} {APP_ENV_MARKER}
           <a href={APP_PROMO_URL} target="_blank" className={styles.titleLink} rel="noreferrer">
             {APP_WEBSITE_HOST}

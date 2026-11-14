@@ -346,6 +346,15 @@ function hasUnsafeDirectoryLabelCharacters(value: string): boolean {
   });
 }
 
+/** Checks a context the host passes for one read like a published one; an invalid context reads as none */
+export function readAgentV2HostContext(snapshot: AgentV2HostContextSnapshot) {
+  try {
+    return normalizeHostContext(snapshot);
+  } catch {
+    return undefined;
+  }
+}
+
 function normalizeHostContext(snapshot?: AgentV2HostContextSnapshot) {
   if (!snapshot) return;
   if (

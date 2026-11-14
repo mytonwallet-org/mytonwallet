@@ -65,6 +65,7 @@ import {
   updateCurrentAccountId,
   updateDappConnectRequest,
   updateSettings,
+  updateShownCardAccountId,
 } from '../../reducers';
 import {
   selectAccount,
@@ -73,6 +74,7 @@ import {
   selectCurrentNetwork,
   selectEnclaveToken,
   selectHasPassword,
+  selectIsDappRequestOpen,
   selectIsOneAccount,
   selectNetworkAccounts,
   selectNetworkAccountsMemoized,
@@ -87,17 +89,42 @@ type AuthSessionResult = { isProvisioned: boolean; enclaveSession?: EnclaveSessi
 const CREATING_DURATION = 3300;
 const SWITHCHING_ACCOUNT_DURATION_MS = IS_IOS ? 450 : IS_ANDROID ? 350 : 300;
 
-export async function switchAccount(global: GlobalState, accountId: string, newNetwork?: ApiNetwork) {
+let lastSwitchId = 0;
+let pendingSwitchCount = 0;
+
+let isCardAccountSwitching = false;
+let requestedCardAccountId = '';
+// The current account when the card carousel last agreed with it
+let followedCardAccountId: string | undefined;
+
+export async function switchAccount(
+  global: GlobalState,
+  accountId: string,
+  newNetwork?: ApiNetwork,
+  shouldKeepSettingsOpen = false,
+) {
   const currentActiveAccountId = selectCurrentAccountId(global);
   const currentNetwork = selectCurrentNetwork(global);
-  if (accountId === currentActiveAccountId && newNetwork === currentNetwork) {
-    return;
+  // A pending switch is about to replace the current account, so a request for that account still has to run.
+  // Without one, the account stays, and so do the callers that are still finishing their own switch to it.
+  if (!pendingSwitchCount && accountId === currentActiveAccountId && newNetwork === currentNetwork) {
+    return lastSwitchId;
   }
 
+  const switchId = ++lastSwitchId;
   const actions = getActions();
 
   const newestActivityTimestamps = selectNewestActivityTimestamps(global, accountId);
-  await callApi('activateAccount', accountId, newestActivityTimestamps);
+
+  pendingSwitchCount++;
+  try {
+    await callApi('activateAccount', accountId, newestActivityTimestamps);
+  } finally {
+    pendingSwitchCount--;
+  }
+
+  // A switch that started later owns the result, such as the account of a dapp request
+  if (switchId !== lastSwitchId) return;
 
   global = getGlobal();
   setGlobal(switchAccountAndClearGlobal(global, accountId));
@@ -108,10 +135,17 @@ export async function switchAccount(global: GlobalState, accountId: string, newN
   global = getGlobal();
   updatePoisoningCacheFromGlobalState(global);
 
-  actions.closeSettings();
+  if (!shouldKeepSettingsOpen) actions.closeSettings();
+
   if (newNetwork) {
     actions.changeNetwork({ network: newNetwork });
   }
+
+  return switchId;
+}
+
+export function getIsAccountSwitchCurrent(switchId: number | undefined) {
+  return switchId === lastSwitchId;
 }
 
 function finalizeDappConnectWalletCreationAbort() {
@@ -796,14 +830,74 @@ addActionHandler('startChangingNetwork', (global, actions, { network }) => {
 });
 
 addActionHandler('switchAccount', async (global, actions, payload) => {
-  const { accountId, newNetwork } = payload;
+  const { accountId, newNetwork, shouldKeepSettingsOpen } = payload;
   if (global.currentTemporaryViewAccountId) {
     await removeTemporaryAccount(global.currentTemporaryViewAccountId);
     global = getGlobal();
   }
 
-  await switchAccount(global, accountId, newNetwork);
+  await switchAccount(global, accountId, newNetwork, shouldKeepSettingsOpen);
 });
+
+addActionHandler('showCardAccount', (global, actions, { accountId }) => {
+  const currentAccountId = selectCurrentAccountId(global);
+
+  if (global.shownCardAccountId === undefined) {
+    if (accountId === currentAccountId) return undefined;
+
+    // The card leaves the current account here. Another current account at the end of the gesture
+    // means that another flow has switched it.
+    if (!isCardAccountSwitching) followedCardAccountId = currentAccountId;
+  }
+
+  return updateShownCardAccountId(global, accountId);
+});
+
+addActionHandler('switchToCardAccount', (global, actions, { accountId }) => {
+  return switchToCardAccount(global, accountId);
+});
+
+/** Makes the account of the settled card current. The switches run one at a time and end with the last settled card. */
+export async function switchToCardAccount(global: GlobalState, accountId: string) {
+  requestedCardAccountId = accountId;
+  setGlobal(updateShownCardAccountId(global, accountId));
+
+  if (isCardAccountSwitching) return;
+
+  isCardAccountSwitching = true;
+
+  try {
+    // An account that another flow has activated during the gesture stays active
+    if (followedCardAccountId && selectCurrentAccountId(global) !== followedCardAccountId) return;
+
+    while (getCanSwitchToCardAccount(getGlobal(), requestedCardAccountId)) {
+      const nextAccountId = requestedCardAccountId;
+
+      await switchAccount(getGlobal(), nextAccountId, undefined, true);
+
+      // Another flow has activated its own account, and it stays active
+      if (selectCurrentAccountId(getGlobal()) !== nextAccountId) break;
+
+      followedCardAccountId = nextAccountId;
+    }
+  } finally {
+    isCardAccountSwitching = false;
+    global = getGlobal();
+
+    // A card that a new gesture already shows stays until that gesture settles
+    if (global.shownCardAccountId === requestedCardAccountId) {
+      followedCardAccountId = undefined;
+      setGlobal(updateShownCardAccountId(global, undefined));
+    }
+  }
+}
+
+function getCanSwitchToCardAccount(global: GlobalState, accountId: string) {
+  return accountId !== selectCurrentAccountId(global)
+    && Boolean(selectAccount(global, accountId))
+    // An open dapp request signs with the current account, so a swipe must not replace it
+    && !selectIsDappRequestOpen(global);
+}
 
 addActionHandler('afterSelectHardwareWallets', (global, actions, { hardwareSelectedIndices }) => {
   setGlobal(updateAuth(global, {

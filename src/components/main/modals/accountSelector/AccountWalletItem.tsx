@@ -33,6 +33,7 @@ interface OwnProps {
   cardBackgroundNft?: ApiNft;
   withContextMenu?: boolean;
   isSensitiveDataHidden?: true;
+  testId?: string;
   onClick: (accountId: string) => void;
   onRename: (accountId: string) => void;
   onReorder: NoneToVoidFunction;
@@ -61,6 +62,7 @@ function AccountWalletItem({
   cardBackgroundNft,
   withContextMenu,
   isSensitiveDataHidden,
+  testId,
   onClick,
   onRename,
   onReorder,
@@ -157,6 +159,7 @@ function AccountWalletItem({
         className={buildClassName(accountRowStyles.row, rowClassName)}
         role="button"
         tabIndex={isSelected ? -1 : 0}
+        data-testid={testId}
         onKeyDown={handleKeyDown}
         onMouseDown={handleBeforeContextMenu}
         onContextMenu={handleContextMenu}

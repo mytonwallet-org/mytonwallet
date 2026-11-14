@@ -1,12 +1,14 @@
-import './auth';
-
 import type { GlobalState } from '../../types';
-import { AppState, AuthState } from '../../types';
+import {
+  AppState, AuthState, SignDataState, TransferState, WalletConnectPayState,
+} from '../../types';
 
 import { callApi } from '../../../api';
 import { enclave, legacyAuth } from '../../../enclave';
 import { holdAccountCreationSession } from '../../helpers/auth';
 import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
+import { selectCurrentNetwork, selectIsCardAccountPending } from '../../selectors';
+import { getIsAccountSwitchCurrent, switchAccount, switchToCardAccount } from './auth';
 
 jest.mock('../../index', () => ({
   addActionHandler: jest.fn(),
@@ -528,5 +530,246 @@ describe('replacing biometrics with a passcode', () => {
 
     expect(onError).not.toHaveBeenCalled();
     expect(store.authTypes).toEqual(['passcode']);
+  });
+});
+
+it('keeps Settings open when the switch asks for it', async () => {
+  const closeSettings = jest.fn();
+  (getActions as jest.Mock).mockReturnValue({ closeSettings });
+  let store = makeGlobal({ currentAccountId: ACCOUNT_ID, byAccountId: {}, areSettingsOpen: true });
+  (getGlobal as jest.Mock).mockImplementation(() => store);
+  (setGlobal as jest.Mock).mockImplementation((next: GlobalState) => {
+    store = next;
+  });
+
+  await switchAccount(store, '1-ton-mainnet', undefined, true);
+
+  expect(store.currentAccountId).toBe('1-ton-mainnet');
+  expect(closeSettings).not.toHaveBeenCalled();
+});
+
+it('keeps the account of the switch that started last', async () => {
+  let finishFirstActivation!: NoneToVoidFunction;
+  (getActions as jest.Mock).mockReturnValue({ closeSettings: jest.fn() });
+  let store = makeGlobal({ currentAccountId: ACCOUNT_ID, byAccountId: {} });
+  (getGlobal as jest.Mock).mockImplementation(() => store);
+  (setGlobal as jest.Mock).mockImplementation((next: GlobalState) => {
+    store = next;
+  });
+  (callApi as jest.Mock).mockImplementationOnce(() => new Promise<void>((resolve) => {
+    finishFirstActivation = resolve;
+  }));
+
+  const firstSwitch = switchAccount(store, '1-ton-mainnet');
+  const switchId = await switchAccount(store, '2-ton-mainnet');
+  finishFirstActivation();
+  const supersededSwitchId = await firstSwitch;
+
+  expect(store.currentAccountId).toBe('2-ton-mainnet');
+  expect(getIsAccountSwitchCurrent(switchId)).toBe(true);
+  expect(getIsAccountSwitchCurrent(supersededSwitchId)).toBe(false);
+});
+
+it('keeps the previous switch current when a request for the same account arrives', async () => {
+  (getActions as jest.Mock).mockReturnValue({ closeSettings: jest.fn() });
+  let store = makeGlobal({ currentAccountId: ACCOUNT_ID, byAccountId: {} });
+  (getGlobal as jest.Mock).mockImplementation(() => store);
+  (setGlobal as jest.Mock).mockImplementation((next: GlobalState) => {
+    store = next;
+  });
+  const switchId = await switchAccount(store, '1-ton-mainnet');
+  (callApi as jest.Mock).mockClear();
+
+  const sameAccountSwitchId = await switchAccount(store, '1-ton-mainnet', selectCurrentNetwork(store));
+
+  expect(getIsAccountSwitchCurrent(switchId)).toBe(true);
+  expect(getIsAccountSwitchCurrent(sameAccountSwitchId)).toBe(true);
+  expect(callApi).not.toHaveBeenCalled();
+});
+
+it('returns to the current account when its request arrives during another switch', async () => {
+  let finishFirstActivation!: NoneToVoidFunction;
+  (getActions as jest.Mock).mockReturnValue({ closeSettings: jest.fn(), changeNetwork: jest.fn() });
+  let store = makeGlobal({ currentAccountId: ACCOUNT_ID, byAccountId: {} });
+  (getGlobal as jest.Mock).mockImplementation(() => store);
+  (setGlobal as jest.Mock).mockImplementation((next: GlobalState) => {
+    store = next;
+  });
+  (callApi as jest.Mock).mockClear();
+  (callApi as jest.Mock).mockImplementationOnce(() => new Promise<void>((resolve) => {
+    finishFirstActivation = resolve;
+  }));
+
+  const firstSwitch = switchAccount(store, '1-ton-mainnet');
+  await switchAccount(store, ACCOUNT_ID, selectCurrentNetwork(store));
+  finishFirstActivation();
+  await firstSwitch;
+
+  expect(callApi).toHaveBeenLastCalledWith('activateAccount', ACCOUNT_ID, expect.anything());
+  expect(store.currentAccountId).toBe(ACCOUNT_ID);
+});
+
+it('closes Settings when switching accounts by default', async () => {
+  const closeSettings = jest.fn();
+  (getActions as jest.Mock).mockReturnValue({ closeSettings });
+  let store = makeGlobal({ currentAccountId: ACCOUNT_ID, byAccountId: {}, areSettingsOpen: true });
+  (getGlobal as jest.Mock).mockImplementation(() => store);
+  (setGlobal as jest.Mock).mockImplementation((next: GlobalState) => {
+    store = next;
+  });
+
+  await switchAccount(store, '1-ton-mainnet');
+
+  expect(store.currentAccountId).toBe('1-ton-mainnet');
+  expect(closeSettings).toHaveBeenCalledTimes(1);
+});
+
+describe('account of the card carousel', () => {
+  const SECOND_ID = '1-ton-mainnet';
+  const THIRD_ID = '2-ton-mainnet';
+  const WALLET = { title: 'Wallet', type: 'mnemonic', byChain: { ton: { address: 'ton-address' } } };
+
+  let store: GlobalState;
+
+  function deferActivation() {
+    let finishActivation!: NoneToVoidFunction;
+
+    (callApi as jest.Mock).mockImplementationOnce(() => new Promise<void>((resolve) => {
+      finishActivation = resolve;
+    }));
+
+    return () => finishActivation();
+  }
+
+  const showCardAccount = getHandler('showCardAccount');
+
+  function showCard(accountId: string) {
+    store = showCardAccount(store, {}, { accountId }) as GlobalState;
+  }
+
+  function getActivatedAccountIds() {
+    return (callApi as jest.Mock).mock.calls
+      .filter(([method]) => method === 'activateAccount')
+      .map(([, accountId]) => accountId);
+  }
+
+  beforeEach(() => {
+    (callApi as jest.Mock).mockReset();
+    (getActions as jest.Mock).mockReturnValue({ closeSettings: jest.fn() });
+    store = makeGlobal({
+      currentAccountId: ACCOUNT_ID,
+      byAccountId: {},
+      accounts: { byId: { [ACCOUNT_ID]: WALLET, [SECOND_ID]: WALLET, [THIRD_ID]: WALLET } },
+      currentDappTransfer: { state: TransferState.None },
+      currentDappSignData: { state: SignDataState.None },
+      currentWalletConnectPay: { state: WalletConnectPayState.None },
+    } as unknown as Partial<GlobalState>);
+    (getGlobal as jest.Mock).mockImplementation(() => store);
+    (setGlobal as jest.Mock).mockImplementation((next: GlobalState) => {
+      store = next;
+    });
+  });
+
+  it('switches to the settled card and stops showing it as pending', async () => {
+    showCard(SECOND_ID);
+
+    expect(selectIsCardAccountPending(store)).toBe(true);
+
+    await switchToCardAccount(store, SECOND_ID);
+
+    expect(store.currentAccountId).toBe(SECOND_ID);
+    expect(store.shownCardAccountId).toBeUndefined();
+    expect(selectIsCardAccountPending(store)).toBe(false);
+  });
+
+  it('runs one switch at a time and ends with the last settled card', async () => {
+    const finishFirstActivation = deferActivation();
+    const firstSwitch = switchToCardAccount(store, SECOND_ID);
+
+    await switchToCardAccount(store, THIRD_ID);
+
+    expect(getActivatedAccountIds()).toEqual([SECOND_ID]);
+
+    finishFirstActivation();
+    await firstSwitch;
+
+    expect(getActivatedAccountIds()).toEqual([SECOND_ID, THIRD_ID]);
+    expect(store.currentAccountId).toBe(THIRD_ID);
+  });
+
+  it('returns to the original account when the card comes back during a switch', async () => {
+    const finishFirstActivation = deferActivation();
+    const firstSwitch = switchToCardAccount(store, SECOND_ID);
+
+    await switchToCardAccount(store, ACCOUNT_ID);
+    finishFirstActivation();
+    await firstSwitch;
+
+    expect(getActivatedAccountIds()).toEqual([SECOND_ID, ACCOUNT_ID]);
+    expect(store.currentAccountId).toBe(ACCOUNT_ID);
+  });
+
+  it('does not leave the account while a dapp request is open', async () => {
+    store = { ...store, dappConnectRequest: { state: 0 } } as GlobalState;
+
+    await switchToCardAccount(store, SECOND_ID);
+
+    expect(getActivatedAccountIds()).toEqual([]);
+    expect(store.currentAccountId).toBe(ACCOUNT_ID);
+    expect(store.shownCardAccountId).toBeUndefined();
+  });
+
+  it('stops the queued switches when a dapp request opens', async () => {
+    const finishFirstActivation = deferActivation();
+    const firstSwitch = switchToCardAccount(store, SECOND_ID);
+
+    await switchToCardAccount(store, THIRD_ID);
+    store = { ...store, dappConnectRequest: { state: 0 } } as GlobalState;
+    finishFirstActivation();
+    await firstSwitch;
+
+    expect(getActivatedAccountIds()).toEqual([SECOND_ID]);
+    expect(store.currentAccountId).toBe(SECOND_ID);
+    expect(store.shownCardAccountId).toBeUndefined();
+  });
+
+  it('keeps an account that another flow has activated during the gesture', async () => {
+    showCard(SECOND_ID);
+    store = { ...store, currentAccountId: THIRD_ID };
+
+    await switchToCardAccount(store, SECOND_ID);
+
+    expect(getActivatedAccountIds()).toEqual([]);
+    expect(store.currentAccountId).toBe(THIRD_ID);
+    expect(store.shownCardAccountId).toBeUndefined();
+  });
+
+  it('yields to an account that another flow activates during a switch', async () => {
+    const finishFirstActivation = deferActivation();
+    const firstSwitch = switchToCardAccount(store, SECOND_ID);
+
+    await switchAccount(store, THIRD_ID);
+    finishFirstActivation();
+    await firstSwitch;
+
+    expect(store.currentAccountId).toBe(THIRD_ID);
+    expect(store.shownCardAccountId).toBeUndefined();
+  });
+
+  it('keeps the card of a new gesture when the queue ends', async () => {
+    const finishFirstActivation = deferActivation();
+    const firstSwitch = switchToCardAccount(store, SECOND_ID);
+
+    showCard(THIRD_ID);
+    finishFirstActivation();
+    await firstSwitch;
+
+    expect(store.currentAccountId).toBe(SECOND_ID);
+    expect(store.shownCardAccountId).toBe(THIRD_ID);
+
+    await switchToCardAccount(store, THIRD_ID);
+
+    expect(store.currentAccountId).toBe(THIRD_ID);
+    expect(store.shownCardAccountId).toBeUndefined();
   });
 });

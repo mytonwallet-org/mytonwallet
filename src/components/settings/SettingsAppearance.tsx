@@ -10,6 +10,7 @@ import {
 } from '../../config';
 import { selectCurrentAccountSettings } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import getTestId from '../../util/getTestId';
 import switchAnimationLevel from '../../util/switchAnimationLevel';
 import switchTheme from '../../util/switchTheme';
 import { IS_ELECTRON, IS_WINDOWS } from '../../util/windowEnvironment';
@@ -128,6 +129,7 @@ function SettingsAppearance({
         <div
           key={value}
           className={buildClassName(styles.theme, value === theme && styles.theme_active)}
+          data-testid={getTestId(`appearance_theme_${value}`)}
           onClick={() => handleThemeChange(value)}
         >
           <div className={buildClassName(styles.themeIcon, value === theme && styles.themeIcon_active)}>
@@ -172,6 +174,7 @@ function SettingsAppearance({
                 role="button"
                 tabIndex={0}
                 className={buildClassName(styles.item, styles.itemWithFixedHeight)}
+                data-testid={getTestId('appearance_customize_wallet')}
                 onClick={handleCustomizeWalletClick}
               >
                 {renderPalleteIcon()}

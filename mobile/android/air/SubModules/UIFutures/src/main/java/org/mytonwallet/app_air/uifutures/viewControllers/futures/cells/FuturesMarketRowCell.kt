@@ -40,7 +40,6 @@ class FuturesMarketRowCell(context: Context, private val onTap: (MApiPerpsListed
     private var market: MApiPerpsListedAsset? = null
     private var isFirst = false
     private var isLast = false
-    private var image: String? = null
 
     private val ripple = WRippleDrawable.create(0f)
     private val cardView = WView(context)
@@ -119,10 +118,8 @@ class FuturesMarketRowCell(context: Context, private val onTap: (MApiPerpsListed
             toBottom(bottomLeftLabel, bottomMargin)
             toBottom(bottomRightLabel, bottomMargin)
         }
-        if (image != market.image) {
-            image = market.image
-            market.image?.let { iconView.set(Content.ofUrl(it)) } ?: iconView.clear()
-        }
+        market.image?.let { iconView.set(Content.ofUrl(it, market.isRwaStock)) }
+            ?: iconView.clear()
         topLeftLabel.text = market.symbol
         leverageLabel.text = "${market.maxLeverage}x"
         val volume = formatCompactNumber(market.volume24h)

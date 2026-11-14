@@ -989,6 +989,53 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(chat.screenMaxY(ofMessageFromEnd: 1)), questionY, accuracy: 1)
     }
 
+    func testMessageSentToSupportGoesToTheEndWithoutPinOrReserve() async throws {
+        let chat = try await makeChat()
+        chat.backend.supportState = .waiting
+
+        try await chat.sendAndWaitForTypingIndicator()
+
+        XCTAssertEqual(chat.reserveSpaceHeight, 0, accuracy: 0.5)
+        XCTAssertEqual(try chat.getLatestRowBottomGap(), 0, accuracy: 1)
+        XCTAssertNil(chat.controller.pinnedUserMessageID)
+    }
+
+    func testSupportFollowsNewMessagesAtTheEndAndKeepsAPositionScrolledUp() async throws {
+        let chat = try await makeChat()
+        chat.backend.supportState = .operator(nil)
+
+        chat.appendOperatorReply()
+        try await chat.waitForStableLayout()
+        XCTAssertEqual(try chat.getLatestRowBottomGap(), 0, accuracy: 1)
+        XCTAssertFalse(chat.controller.scrollToBottomButton.isButtonVisible)
+
+        chat.collectionView.contentOffset.y -= 200
+        try await chat.waitForStableLayout()
+        let offsetY = chat.collectionView.contentOffset.y
+        chat.appendOperatorReply()
+        try await chat.waitForStableLayout()
+        XCTAssertEqual(chat.collectionView.contentOffset.y, offsetY, accuracy: 1)
+        XCTAssertTrue(chat.controller.scrollToBottomButton.isButtonVisible)
+    }
+
+    func testSupportTakingAPinnedQuestionKeepsItsPlaceUntilTheNextSend() async throws {
+        let chat = try await makeChat()
+        try await chat.sendAndWaitForTypingIndicator()
+        let questionY = try questionBubbleFrame(in: chat).minY
+        let reserveHeight = chat.reserveSpaceHeight
+        XCTAssertGreaterThan(reserveHeight, 0)
+
+        chat.backend.supportState = .waiting
+        chat.appendOperatorReply()
+        try await chat.waitForStableLayout()
+        XCTAssertEqual(try questionBubbleFrame(in: chat).minY, questionY, accuracy: 1)
+        XCTAssertGreaterThan(chat.reserveSpaceHeight, 0)
+
+        try await chat.sendAndWaitForTypingIndicator()
+        XCTAssertEqual(chat.reserveSpaceHeight, 0, accuracy: 0.5)
+        XCTAssertEqual(try chat.getLatestRowBottomGap(), 0, accuracy: 1)
+    }
+
     func testReplyArrivalPreservesPositionAfterUserScrollsUp() async throws {
         let chat = try await makeChat()
         try await chat.sendAndWaitForTypingIndicator()
@@ -1733,6 +1780,24 @@ private struct PinnedReplyChat {
         return reply
     }
 
+    /// How far above the area the composer covers the latest row ends
+    func getLatestRowBottomGap() throws -> CGFloat {
+        let indexPath = try XCTUnwrap(controller.lastItemIndexPath)
+        let frame = try XCTUnwrap(collectionView.layoutAttributesForItem(at: indexPath)?.frame)
+        return collectionView.contentOffset.y + collectionView.bounds.height - controller.occlusionBottomInset - frame.maxY
+    }
+
+    /// A reply of support's at the chat's end, long enough to take a few lines
+    /// A reply an operator writes, as the chat shows it: plain text under the operator's name
+    func appendOperatorReply() {
+        let text = String(repeating: "The operator checks the transfer and answers here. ", count: 4)
+        var reply = AgentMessage(role: .assistant, text: text, isStreaming: false)
+        reply.author = .operator(ApiAgentV2OperatorAuthor(operatorId: "alex", name: "Alex"))
+        reply.shouldShowAuthor = true
+        reply.isPlainText = true
+        backend.context?.append(.message(reply), animated: true)
+    }
+
     func stream(_ reply: AgentMessage, repeating count: Int) {
         var reply = reply
         reply.text = String(repeating: "Gram and TON network news for the last two days. ", count: count)
@@ -1811,6 +1876,7 @@ private final class PinnedReplyTestBackend: AgentBackend {
     var context: AgentBackendContext?
     var typingIndicatorID: AgentItemID?
     var typingIndicatorStatusText: String?
+    var supportState: AgentSupportState = .none
     var sentTexts: [String] = []
 
     func attach(to context: AgentBackendContext) { self.context = context }

@@ -4,6 +4,7 @@ import React, { memo } from '../../../lib/teact/teact';
 import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../../config';
 import renderText from '../../../global/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
+import getTestId from '../../../util/getTestId';
 import { ANIMATED_STICKERS_PATHS } from '../../ui/helpers/animatedAssets';
 
 import useLang from '../../../hooks/useLang';
@@ -101,6 +102,7 @@ function SafetyRulesContent({
       )}
 
       <Checkbox
+        testId={getTestId('create_warning_1')}
         checked={isFirstCheckboxSelected}
         className={buildClassName(styles.checkboxBlock, styles.accessible)}
         contentClassName={styles.checkbox}
@@ -110,6 +112,7 @@ function SafetyRulesContent({
       </Checkbox>
 
       <Checkbox
+        testId={getTestId('create_warning_2')}
         isDisabled={!isFirstCheckboxSelected}
         checked={isSecondCheckboxSelected}
         className={buildClassName(styles.checkboxBlock, isFirstCheckboxSelected && styles.accessible)}
@@ -120,6 +123,7 @@ function SafetyRulesContent({
       </Checkbox>
 
       <Checkbox
+        testId={getTestId('create_warning_3')}
         isDisabled={!isSecondCheckboxSelected}
         checked={isThirdCheckboxSelected}
         className={buildClassName(styles.checkboxBlock, isSecondCheckboxSelected && styles.accessible)}
@@ -132,6 +136,7 @@ function SafetyRulesContent({
       <div className={customButtonWrapperClassName || styles.buttonWrapper}>
         <Button
           isPrimary
+          testId={getTestId('create_go_to_words')}
           isDisabled={!canSubmit}
           className={isFullSizeButton ? styles.footerButton : undefined}
           onClick={handleSubmit}

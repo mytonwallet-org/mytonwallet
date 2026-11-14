@@ -5,15 +5,14 @@ import React, {
 import { getActions } from '../../global';
 
 import type {
-  AgentPublicFollowUpV2, AgentThreadDigestCardV2, AgentThreadNewsCardV2,
+  AgentNewsFeedLocaleV2, AgentPublicFollowUpV2, AgentThreadDigestCardV2, AgentThreadNewsCardV2,
 } from '../../api/agentV2/protocol/types';
 import type { AgentMessage } from '../../global/types';
 import { MediaType } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
-import { formatTime } from '../../util/dateFormat';
-import { getIsAgentNewsCardFlying, waitForAgentNewsCardLanding } from './agentNewsCardFlight';
-import { formatAgentNewsPostTime } from './agentNewsFeedItems';
+import { getAgentNewsPostKey, getIsAgentNewsCardFlying, waitForAgentNewsCardLanding } from './agentNewsCardFlight';
+import { formatAgentDigestHeadlines, formatAgentNewsPostTime } from './agentNewsFeedItems';
 import { buildAgentNewsPictures, getAgentNewsPictureId } from './agentNewsPictures';
 
 import useFlag from '../../hooks/useFlag';
@@ -22,6 +21,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import AgentMessageControls from './AgentMessageControls';
 import AgentNewsBubble from './AgentNewsBubble';
+import AgentNewsDigestHeadlines from './AgentNewsDigestHeadlines';
 import AgentNewsIcon from './AgentNewsIcon';
 
 import bubbleStyles from '../agent/MessageBubble.module.scss';
@@ -29,6 +29,8 @@ import styles from './AgentNews.module.scss';
 
 type OwnProps = {
   message: AgentMessage;
+  /** The language the discussion opened the news in, which its shared link names */
+  locale?: AgentNewsFeedLocaleV2;
   isDisabled: boolean;
   shouldShowFollowups: boolean;
   /** The chat failed to load, so no placeholders wait for the post's suggestions */
@@ -38,6 +40,8 @@ type OwnProps = {
   onFollowup?: (messageId: number, followup: AgentPublicFollowUpV2) => void;
   /** Called on each frame while the suggestions open their space, so that a list at its end can follow them */
   onFollowupsGrowthFrame?: NoneToVoidFunction;
+  /** A digest's headline opens its news item's discussion */
+  onOpenDigestNews?: (eventId: number) => void;
 } & (
   | { news: AgentThreadNewsCardV2; digest?: undefined }
   | { news?: undefined; digest: AgentThreadDigestCardV2 }
@@ -48,25 +52,28 @@ type OwnProps = {
 const FOLLOWUP_PLACEHOLDER_DELAY = 1000;
 // The post waits for its suggestions this long, as on iOS; a post that gets none by then shows none
 const FOLLOWUP_WAIT_TIMEOUT = 25000;
-const DIGEST_HEADLINE_SEPARATOR = ' · ';
 
 /**
  * The news a chat discusses, posted at its start as the feed's card of it, under a "News" line and with the
  * suggestions in place of the card's "Discuss" strip, as on mobile. A digest's discussion starts with the digest's
- * post in the same way: its title over its headlines in a line, under the digest's name and time, without a picture.
+ * post in the same way: its title over its headlines, listed as on its card, under the digest's name and time,
+ * without a picture of its own.
  */
 function AgentNewsPost({
   news,
   digest,
   message,
+  locale,
   isDisabled,
   shouldShowFollowups,
   hasLoadFailed = false,
   shouldAnimateFollowups = false,
   onFollowup,
   onFollowupsGrowthFrame,
+  onOpenDigestNews,
 }: OwnProps) {
   const lang = useLang();
+  const postKey = getAgentNewsPostKey(news ?? digest);
   const [isFollowupWaitLong, markFollowupWaitLong, resetFollowupWaitLong] = useFlag(false);
   const [hasFollowupWaitExpired, expireFollowupWait] = useFlag(false);
   // The post waits for its suggestions while they would show under it and have not come, and the delays count from
@@ -87,15 +94,12 @@ function AgentNewsPost({
     };
   }, [expireFollowupWait, isWaitingForFollowups, markFollowupWaitLong, resetFollowupWaitLong]);
   const isLoadingFollowups = isWaitingForFollowups && isFollowupWaitLong;
-  // The suggestions wait for the card flying in from the feed to turn into the post; a digest's card does not fly
-  const flyingEventId = news?.eventId;
-  const [isCardLanded, setIsCardLanded] = useState(() => (
-    flyingEventId === undefined || !getIsAgentNewsCardFlying(flyingEventId)
-  ));
+  // The suggestions wait for the card flying in from the feed to turn into the post
+  const [isCardLanded, setIsCardLanded] = useState(() => !getIsAgentNewsCardFlying(postKey));
   const areFollowupsShown = shouldShowFollowups && isCardLanded;
-  // As under an answer, suggestions that come while the chat is open grow into place; a post from the history has them
-  // already
-  const hadFollowupsAtMountRef = useRef(areFollowupsShown);
+  // As under an answer, suggestions that come while the chat is open grow into place, whether the post came in a card's
+  // flight or, as from a digest's headline, without one; a post from the history has them already
+  const hadFollowupsAtMountRef = useRef(areFollowupsShown && Boolean(message.followups?.length));
   const body = news && (news.body || news.excerpt);
   // Suggestions and the placeholders that stand in for them hang from the post, which has no tail over them while they
   // show, as an answer does and as on iOS
@@ -105,7 +109,7 @@ function AgentNewsPost({
 
   // The viewer shows the post's picture alone
   const handleImageClick = useLastCallback(() => {
-    const pictures = buildAgentNewsPictures([{ ...news!, body, time: news!.publishedAt }], 'post');
+    const pictures = buildAgentNewsPictures([{ ...news!, body, time: news!.publishedAt }], 'post', locale);
     getActions().openMediaViewer({ mediaType: MediaType.AgentNews, mediaId: pictures.ids[0], pictures });
   });
 
@@ -113,16 +117,21 @@ function AgentNewsPost({
     onFollowup?.(message.id, followup);
   });
 
+  const handleDigestNewsOpen = useLastCallback((eventId: number) => {
+    onOpenDigestNews?.(eventId);
+  });
+
   useEffect(() => {
     if (isCardLanded) return undefined;
 
-    return waitForAgentNewsCardLanding(flyingEventId!, () => setIsCardLanded(true));
-  }, [flyingEventId, isCardLanded]);
+    return waitForAgentNewsCardLanding(postKey, () => setIsCardLanded(true));
+  }, [postKey, isCardLanded]);
 
   function renderNewsBubble(newsCard: AgentThreadNewsCardV2) {
     return (
       <AgentNewsBubble
         news={{ ...newsCard, body }}
+        locale={locale}
         // The foot tells when the news was published, with its date unless it is today's; the menu dates the post
         // message, as on mobile
         time={formatAgentNewsPostTime(lang.code ?? 'en', newsCard.publishedAt)}
@@ -137,18 +146,31 @@ function AgentNewsPost({
   }
 
   // The digest's day ends at its foot and in its header, which tells the time as the feed's cards do
-  function renderDigestBubble({ windowEnd, top }: AgentThreadDigestCardV2) {
+  function renderDigestBubble({
+    id, windowEnd, top, total,
+  }: AgentThreadDigestCardV2) {
     return (
       <AgentNewsBubble
+        // The headlines are copied one per line
         news={{
           headline: lang('$agent_digest_title'),
-          body: top.map(({ headline }) => headline).join(DIGEST_HEADLINE_SEPARATOR),
+          body: formatAgentDigestHeadlines(top),
         }}
+        content={(
+          <AgentNewsDigestHeadlines
+            digestId={id}
+            headlines={top}
+            remainder={total - top.length}
+            time={windowEnd}
+            isInText
+            onOpen={handleDigestNewsOpen}
+          />
+        )}
         time={formatAgentNewsPostTime(lang.code ?? 'en', windowEnd)}
         timeDateTime={windowEnd}
         menuTimestamp={message.timestamp}
         className={bubbleClassName}
-        header={renderHeader(lang('$agent_digest_post_header', { time: formatTime(windowEnd) }))}
+        header={renderHeader(lang('News'))}
       />
     );
   }
@@ -167,6 +189,7 @@ function AgentNewsPost({
       className={buildClassName(bubbleStyles.message, bubbleStyles.messageIncoming)}
       data-agent-v2-message-role="assistant"
       data-agent-news-post-event-id={news && String(news.eventId)}
+      data-agent-news-post-key={postKey}
       data-agent-digest-post-id={digest?.id}
     >
       <div className={styles.postColumn}>

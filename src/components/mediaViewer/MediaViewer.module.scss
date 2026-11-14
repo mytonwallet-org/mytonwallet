@@ -66,6 +66,13 @@ $pictureInfoHeight: 2.6875rem;
   }
 }
 
+// The desktop's Sources button, its menu beside it in a row, so the menu hangs under it as the phone's menu under its
+// button
+.pictureSources {
+  position: relative;
+  display: flex;
+}
+
 .actionButton {
   cursor: var(--custom-cursor, pointer);
   user-select: none;

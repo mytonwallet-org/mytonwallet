@@ -6,6 +6,7 @@ import type { UserToken } from '../../../global/types';
 import type { TokenBalanceChange } from '../helpers/resolveBalanceChange';
 
 import { selectCurrentAccountId, selectIsMultichainAccount } from '../../../global/selectors';
+import { getAssetAmountPrecision } from '../../../util/assetPrecision';
 import buildClassName from '../../../util/buildClassName';
 import { calcBigChangeValue } from '../../../util/calcChangeValue';
 import { toBig, toDecimal } from '../../../util/decimals';
@@ -64,7 +65,7 @@ function Balance({
   const changePercent = (chartChange ? chartChange.price / chartChange.initialPrice - 1 : change24h) * 100;
 
   const { wholePart, fractionPart, handleAmountClick, hideFullAmount } = useFullAmountToggle(
-    toDecimal(amount, decimals), decimals,
+    toDecimal(amount, decimals), decimals, getAssetAmountPrecision(token),
   );
 
   useLayoutEffect(updateFontScale, [wholePart, fractionPart, symbol, updateFontScale]);

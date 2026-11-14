@@ -138,6 +138,33 @@ class AgentSessionTest {
         assertEquals(emptyList<Model>(), destroyed)
     }
 
+    @Test
+    fun aDeletedThreadsChatGoesOnceNoOneOwnsItThoughItHasWorkUnderWay() {
+        val destroyed = mutableListOf<Model>()
+        val sessions = createSessions(destroyed, recentLimit = 2)
+        val queued = sessions.acquire("queued") { Model(shouldRetain = true) }
+        val kept = sessions.acquire("kept", keepsRecent = true) { Model() }
+        val open = sessions.acquire("open") { Model(shouldRetain = true) }
+        sessions.release("queued", queued)
+        sessions.release("kept", kept)
+        val queuedIdle = checkNotNull(queued.onIdle)
+        assertEquals(emptyList<Model>(), destroyed)
+
+        // A left chat goes at once, though it has questions queued or is kept for reopening
+        sessions.dropDeleted("queued")
+        sessions.dropDeleted("kept")
+        sessions.dropDeleted("open")
+        assertEquals(listOf(queued, kept), destroyed)
+        assertNull(queued.onIdle)
+        queuedIdle()
+        assertEquals(listOf(queued, kept), destroyed)
+
+        // An open one goes once its last owner leaves
+        sessions.release("open", open)
+        assertEquals(listOf(queued, kept, open), destroyed)
+        assertNotSame(kept, sessions.acquire("kept") { Model() })
+    }
+
     private fun createSessions(destroyed: MutableList<Model>, recentLimit: Int = 0) =
         AgentThreadSessions<Model>(
             shouldRetain = { it.shouldRetain },

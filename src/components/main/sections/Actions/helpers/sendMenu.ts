@@ -2,6 +2,7 @@ import { getActions } from '../../../../../global';
 
 import type { DropdownItem } from '../../../../ui/Dropdown';
 
+import getTestId from '../../../../../util/getTestId';
 import { vibrate } from '../../../../../util/haptics';
 import { openMultisend } from '../../../../../util/openMultisend';
 
@@ -11,14 +12,17 @@ export const SEND_CONTEXT_MENU_ITEMS: DropdownItem<MenuHandler>[] = [{
   name: 'Send',
   fontIcon: 'menu-send',
   value: 'send',
+  testId: getTestId('send_menu_send'),
 }, {
   name: 'Multisend',
   fontIcon: 'menu-multisend',
   value: 'multisend',
+  testId: getTestId('send_menu_multisend'),
 }, {
   name: 'Sell',
   fontIcon: 'menu-sell',
   value: 'sell',
+  testId: getTestId('send_menu_sell'),
 }];
 
 export const SEND_CONTEXT_MENU_ITEMS_WITHOUT_SELL = SEND_CONTEXT_MENU_ITEMS

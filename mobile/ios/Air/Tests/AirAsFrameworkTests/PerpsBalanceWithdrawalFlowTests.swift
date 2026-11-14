@@ -57,7 +57,7 @@ final class PerpsBalanceWithdrawalFlowTests: XCTestCase {
             review.loadViewIfNeeded()
             let state = try XCTUnwrap(review.children
                 .compactMap { $0 as? UIHostingController<PerpsBalanceWithdrawalReviewView> }.first?.rootView.state)
-            XCTAssertEqual(state.data.receiveAmount, PerpsFormatting.quantity("1.27", symbol: "USDC"))
+            XCTAssertEqual(state.data.receiveAmount.amount, 1_270_000)
             XCTAssertEqual(state.data.amount, PerpsFormatting.quantity("1.47", symbol: "USDC"))
             XCTAssertEqual(state.data.bridgeFee, PerpsFormatting.quantity("0.2", symbol: "USDC"))
             XCTAssertEqual(state.data.destination, formatStartEndAddress("0x1234567890123456789012345678901234567890"))
@@ -65,7 +65,7 @@ final class PerpsBalanceWithdrawalFlowTests: XCTestCase {
 
             state.confirm()
             try await waitUntil(window) { prepared == 2 && state.pendingRequestID == nil }
-            XCTAssertEqual(state.data.receiveAmount, PerpsFormatting.quantity("0.97", symbol: "USDC"))
+            XCTAssertEqual(state.data.receiveAmount.amount, 970_000)
             XCTAssertEqual(state.data.notice, lang("PerpsBalanceWithdrawalUpdated"))
             XCTAssertTrue(state.canConfirm)
             XCTAssertEqual(submitted, 0)

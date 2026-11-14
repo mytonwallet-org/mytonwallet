@@ -30,6 +30,7 @@ import { toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { getTonStakingFees } from '../../util/fee/getTonOperationFees';
 import { formatCurrency } from '../../util/formatNumber';
+import getTestId from '../../util/getTestId';
 import { vibrate } from '../../util/haptics';
 import { animateShift } from '../../util/layoutChangeAnimation';
 import { openUrl } from '../../util/openUrl';
@@ -396,7 +397,7 @@ function StakingInitial({
               {lang('Help Center')}
             </Button>
           )}
-          <Button onClick={closeSafeInfoModal}>{lang('Close')}</Button>
+          <Button testId={getTestId('stake_safe_close')} onClick={closeSafeInfoModal}>{lang('Close')}</Button>
         </div>
       </Modal>
     );
@@ -493,6 +494,7 @@ function StakingInitial({
           isMaxAmountLoading={!selectedToken}
           isSensitiveDataHidden={isSensitiveDataHidden}
           renderBottomRight={renderBottomRight}
+          testId={getTestId('stake_amount_input')}
           onPressEnter={handleSubmit}
         />
 
@@ -522,6 +524,7 @@ function StakingInitial({
               isDisabled={!canSubmit}
               isLoading={isLoading}
               className={styles.submitButton}
+              testId={getTestId('stake_submit')}
             >
               {renderButtonText()}
             </Button>

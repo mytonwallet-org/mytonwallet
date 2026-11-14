@@ -1583,6 +1583,8 @@ sealed class ApiMethod<T> {
                 val userToken: String,
                 val langCode: String,
                 val digestHour: Int,
+                // A request stored without a minute was applied on the hour
+                val digestMinute: Int = 0,
                 val timeZone: String,
                 val platform: String = "android"
             )
@@ -1786,8 +1788,13 @@ sealed class ApiMethod<T> {
                 lang: String,
                 cursor: String? = null,
                 digestHour: Int? = null,
-                timeZone: String? = null
-            ) : this(AgentV2NewsFeedRequest(lang, cursor, digestHour, timeZone), ArgumentsBuilder())
+                digestMinute: Int? = null,
+                timeZone: String? = null,
+                view: String? = null
+            ) : this(
+                AgentV2NewsFeedRequest(lang, cursor, digestHour, digestMinute, timeZone, view),
+                ArgumentsBuilder()
+            )
 
             internal constructor(request: AgentV2NewsFeedRequest, moshi: Moshi) :
                 this(request, ArgumentsBuilder(moshi))

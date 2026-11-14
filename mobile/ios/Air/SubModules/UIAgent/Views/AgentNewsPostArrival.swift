@@ -2,7 +2,17 @@ import UIKit
 import UIComponents
 import WalletCore
 
-/// Flies a news card from the feed into a new discussion's post.
+/// A card of the News feed that flies into its discussion's post: a news item's or a digest's
+@MainActor
+protocol AgentNewsFlightSource: AnyObject {
+    /// A picture of the card and its frame in the window. The picture leaves out the card's tail, which the post shows
+    /// as the card lands on it.
+    func makeFlightSnapshot() -> (view: UIView, frame: CGRect)?
+    /// Hides the card while its picture flies into the discussion, so the feed does not show it twice
+    func setFlightSourceHidden(_ isHidden: Bool)
+}
+
+/// Flies a news or digest card from the feed into a new discussion's post.
 ///
 /// As soon as the chat sliding in lays the post out, the card leaves the place it had on screen and flies onto the post,
 /// turning into it on the way: it lifts toward the viewer with a shadow, leans into its flight in perspective, and drops
@@ -19,7 +29,7 @@ final class AgentNewsPostArrival {
         /// The chat's view, which a navigation transition may be moving
         let hostView: UIView
         let cell: AgentNewsPostCell?
-        let news: ApiAgentV2ThreadNewsCard?
+        let post: AgentNewsPostView.Content?
         /// Where the chat's header ends, in the window's coordinates
         let contentTop: CGFloat
         let contentBottom: CGFloat
@@ -170,9 +180,9 @@ final class AgentNewsPostArrival {
         switch phase {
         case .holding:
             // The card takes off as soon as the post is laid out, while the chat still slides in
-            if let cell = destination.cell, let news = destination.news,
+            if let cell = destination.cell, let post = destination.post,
                cell.window != nil, cell.postView.bounds.height > AgentBubbleBackgroundView.tailBottomOverflow {
-                beginFlight(in: destination, cell: cell, news: news)
+                beginFlight(in: destination, cell: cell, post: post)
             } else if CACurrentMediaTime() - phaseStartedAt > Self.holdTimeout {
                 dissolve()
             }
@@ -204,7 +214,7 @@ final class AgentNewsPostArrival {
         }
     }
 
-    private func beginFlight(in destination: Destination, cell: AgentNewsPostCell, news: ApiAgentV2ThreadNewsCard) {
+    private func beginFlight(in destination: Destination, cell: AgentNewsPostCell, post: AgentNewsPostView.Content) {
         guard window != nil else {
             finish()
             return
@@ -218,7 +228,7 @@ final class AgentNewsPostArrival {
         standIn.accessibilityElementsHidden = true
         standIn.alpha = 0
         flightContainer.addSubview(standIn)
-        standIn.configure(with: news)
+        standIn.configure(with: post)
         standIn.matchTail(of: cell)
         standIn.layoutIfNeeded()
         let fittingHeight = standIn.contentView.systemLayoutSizeFitting(

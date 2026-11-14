@@ -17,6 +17,7 @@ const PROPS: MethodArgs<'setNewsNotifications'>[0] = {
   platform: 'ios',
   langCode: 'ru',
   digestHour: 9,
+  digestMinute: 45,
   timeZone: 'Europe/Moscow',
 };
 const EXPECTED_REQUESTS = {
@@ -26,7 +27,7 @@ const EXPECTED_REQUESTS = {
   ],
   digest: [
     ['/notifications/news-digest/subscribe', {
-      userToken: 'device-push-token', platform: 'ios', hour: 9, timezone: 'Europe/Moscow', langCode: 'ru',
+      userToken: 'device-push-token', platform: 'ios', hour: 9, minute: 45, timezone: 'Europe/Moscow', langCode: 'ru',
     }, { shouldRetry: true }],
     ['/notifications/news/unsubscribe', { userToken: 'device-push-token' }, { shouldRetry: true }],
   ],

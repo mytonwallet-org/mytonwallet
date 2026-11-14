@@ -5,6 +5,7 @@ import { getActions, withGlobal } from '../../global';
 
 import { selectAccount } from '../../global/selectors';
 import { stopEvent } from '../../util/domEvents';
+import getTestId from '../../util/getTestId';
 
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
 import useLang from '../../hooks/useLang';
@@ -64,15 +65,23 @@ function WalletRenameModal({ accountId, accountTitle }: StateProps) {
           value={newName}
           maxLength={ACCOUNT_NAME_MAX_LENGTH}
           enterKeyHint="done"
+          testId={getTestId('rename_wallet_input')}
         />
 
         <div className={modalStyles.buttons}>
-          <Button onClick={closeWalletRenameModal} className={modalStyles.button}>{lang('Cancel')}</Button>
+          <Button
+            onClick={closeWalletRenameModal}
+            className={modalStyles.button}
+            testId={getTestId('dialog_secondary')}
+          >
+            {lang('Cancel')}
+          </Button>
           <Button
             isPrimary
             isSubmit
             isDisabled={newName.trim().length === 0}
             className={modalStyles.button}
+            testId={getTestId('dialog_action')}
           >
             {lang('Save')}
           </Button>

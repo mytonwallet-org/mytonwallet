@@ -6,89 +6,136 @@ import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificatio
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationOutcome
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationSettings
 
-/** The device's MyPulse notification choice and the digest's hour, which the digest sheet changes */
+/** The digest's local time of day: an hour and its minute 0, 15, 30 or 45 */
+internal data class AgentDigestTime(val hour: Int, val minute: Int)
+
+/** The device's MyPulse notification choice and the digest's time, which the digest sheet changes */
 internal interface AgentDigestNotificationSettings {
     val mode: AgentNewsNotificationMode
-    val digestHour: Int
+    val digestTime: AgentDigestTime
 
     suspend fun setMode(mode: AgentNewsNotificationMode): AgentNewsNotificationOutcome
 
-    suspend fun setDigestHour(hour: Int): AgentNewsNotificationOutcome
+    suspend fun setDigestTime(time: AgentDigestTime): AgentNewsNotificationOutcome
 
     /** The settings the device keeps */
     object Shared : AgentDigestNotificationSettings {
         private val settings get() = AgentNewsNotificationSettings.shared
         override val mode get() = settings.mode
-        override val digestHour get() = settings.digestHour
+        override val digestTime get() = AgentDigestTime(settings.digestHour, settings.digestMinute)
 
         override suspend fun setMode(mode: AgentNewsNotificationMode) = settings.setMode(mode)
 
-        override suspend fun setDigestHour(hour: Int) = settings.setDigestHour(hour)
+        override suspend fun setDigestTime(time: AgentDigestTime) =
+            settings.setDigestTime(time.hour, time.minute)
     }
 }
 
 /**
- * The digest sheet's state. A notification choice shows once the settings take it: while one is applied no other can
- * be picked, and one turned down keeps the previous choice. A picked hour shows at once and stays, also when applying
- * it fails, since the settings keep it and apply it at the next start; while it is applied no other hour is taken.
+ * The digest sheet's state. A notification choice and a time show at once. A choice or a time picked while another is
+ * applied goes next across sheets, the last one picked winning; a choice the settings turn down gives way to the one
+ * they keep. A picked time stays also when applying it fails, since the settings keep it and apply it at the next start.
  */
 internal class AgentDigestSettingsModel(
     private val settings: AgentDigestNotificationSettings,
-    private val showError: () -> Unit
+    private val pendingState: PendingState
 ) {
-    var mode = settings.mode
-        private set
-    var digestHour = settings.digestHour
-        private set
+    val mode get() = pendingState.queuedMode ?: pendingMode ?: settings.mode
+    val digestTime get() = pendingState.queuedTime ?: pendingState.time ?: settings.digestTime
 
     /** The choice being applied */
-    var pendingMode: AgentNewsNotificationMode? = null
-        private set
-    var isApplyingHour = false
-        private set
+    val pendingMode get() = pendingState.mode
+    val isApplyingTime get() = pendingState.time != null
 
     /** The system turned notifications down for the app at the last choice that needs them */
-    var isPermissionDenied = false
-        private set
-    var onChange: (() -> Unit)? = null
+    val isPermissionDenied get() = pendingState.isPermissionDenied
+    var onChange: (() -> Unit)?
+        get() = pendingState.onChange
+        set(value) {
+            pendingState.onChange = value
+        }
+    var onError: (() -> Unit)?
+        get() = pendingState.onError
+        set(value) {
+            pendingState.onError = value
+        }
+
+    init {
+        if (pendingMode == null) pendingState.isPermissionDenied = false
+    }
 
     suspend fun selectMode(mode: AgentNewsNotificationMode) {
-        if (pendingMode != null || mode == this.mode) return
-        pendingMode = mode
+        if (mode == this.mode) return
+        pendingState.isPermissionDenied = false
+        if (pendingMode != null) {
+            pendingState.queuedMode = mode
+            onChange?.invoke()
+            return
+        }
+        var next: AgentNewsNotificationMode? = mode
+        while (next != null) {
+            pendingState.queuedMode = null
+            pendingState.mode = next
+            onChange?.invoke()
+            val outcome = settings.setMode(next)
+            next = pendingState.queuedMode
+            // Only the last choice's outcome is told: an earlier one is already replaced
+            if (next == null) {
+                pendingState.isPermissionDenied =
+                    outcome == AgentNewsNotificationOutcome.PermissionDenied
+                if (outcome == AgentNewsNotificationOutcome.Failed) onError?.invoke()
+            }
+        }
+        pendingState.mode = null
         onChange?.invoke()
-        val outcome = settings.setMode(mode)
-        pendingMode = null
-        this.mode = settings.mode
-        isPermissionDenied = outcome == AgentNewsNotificationOutcome.PermissionDenied
-        onChange?.invoke()
-        if (outcome == AgentNewsNotificationOutcome.Failed) showError()
     }
 
-    suspend fun selectHour(hour: Int) {
-        if (isApplyingHour || hour == digestHour) return
-        isApplyingHour = true
-        digestHour = hour
+    /** Applies [time], its hour and minute at once */
+    suspend fun selectTime(time: AgentDigestTime) {
+        if (time == digestTime) return
+        if (isApplyingTime) {
+            pendingState.queuedTime = time
+            onChange?.invoke()
+            return
+        }
+        var next: AgentDigestTime? = time
+        while (next != null) {
+            pendingState.queuedTime = null
+            pendingState.time = next
+            onChange?.invoke()
+            if (settings.setDigestTime(next) ==
+                AgentNewsNotificationOutcome.Failed
+            ) {
+                onError?.invoke()
+            }
+            next = pendingState.queuedTime
+        }
+        pendingState.time = null
         onChange?.invoke()
-        val outcome = settings.setDigestHour(hour)
-        digestHour = settings.digestHour
-        isApplyingHour = false
-        onChange?.invoke()
-        if (outcome == AgentNewsNotificationOutcome.Failed) showError()
     }
 
-    fun hint(mode: AgentNewsNotificationMode): String = when (mode) {
-        AgentNewsNotificationMode.Off ->
-            LocaleController.getString("\$agent_digest_notifications_off_hint")
-
+    /** Only the digest's choice has a hint, which tells its time */
+    fun hint(mode: AgentNewsNotificationMode): String? = when (mode) {
         AgentNewsNotificationMode.Digest ->
             LocaleController.getString("\$agent_digest_notifications_daily_hint")
-                .replace("%time%", formatHour(digestHour))
+                .replace("%time%", formatTime(digestTime))
 
-        AgentNewsNotificationMode.News ->
-            LocaleController.getString("\$agent_digest_notifications_every_hint")
+        AgentNewsNotificationMode.Off, AgentNewsNotificationMode.News -> null
+    }
+
+    class PendingState {
+        var mode: AgentNewsNotificationMode? = null
+        var queuedMode: AgentNewsNotificationMode? = null
+        var time: AgentDigestTime? = null
+        var queuedTime: AgentDigestTime? = null
+        var isPermissionDenied = false
+        var onChange: (() -> Unit)? = null
+        var onError: (() -> Unit)? = null
     }
 
     companion object {
+        val sharedPendingState = PendingState()
+
         val HOURS = 0..23
         val MODES = listOf(
             AgentNewsNotificationMode.Off,
@@ -96,7 +143,11 @@ internal class AgentDigestSettingsModel(
             AgentNewsNotificationMode.News
         )
 
-        fun formatHour(hour: Int): String = String.format(Locale.US, "%02d:00", hour)
+        fun formatTime(time: AgentDigestTime): String =
+            String.format(Locale.US, "%02d:%02d", time.hour, time.minute)
+
+        /** An hour or a minute alone, as the time wheel shows it */
+        fun formatWheelValue(value: Int): String = String.format(Locale.US, "%02d", value)
 
         fun title(mode: AgentNewsNotificationMode): String = LocaleController.getString(
             when (mode) {

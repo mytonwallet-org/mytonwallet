@@ -88,6 +88,7 @@ export function getSwapEstimateResetParams(global: GlobalState) {
     currentCexPrivacyPolicyUrl: undefined,
     currentCexAmlKycPolicyUrl: undefined,
     swapHint: undefined,
+    swapQuoteHint: undefined,
     estimateDebugSummary: undefined,
     isManualDepositRequired: undefined,
     networkFee: undefined,

@@ -38,8 +38,9 @@ struct AssetInfoMetricRow: View {
             }
             .lineLimit(1)
             .minimumScaleFactor(0.8)
+            .layoutPriority(previousValue == nil ? 0 : 1)
             Spacer(minLength: 4)
-            ((previousValue.map { Text(verbatim: $0).foregroundColor(.air.secondaryLabel) + Text(" → ").foregroundColor(valueColor) } ?? Text("")) + Text(verbatim: value))
+            valueText
                 .textStyle(.body, content: .technical)
                 .foregroundStyle(valueColor)
                 .lineLimit(1)
@@ -48,6 +49,23 @@ struct AssetInfoMetricRow: View {
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 48)
+    }
+
+    /// A change too wide for one line puts the new value on a second line instead of truncating it.
+    @ViewBuilder private var valueText: some View {
+        if let previousValue {
+            let previous = Text(verbatim: previousValue).foregroundColor(.air.secondaryLabel)
+            ViewThatFits(in: .horizontal) {
+                previous + Text(" → ").foregroundColor(valueColor) + Text(verbatim: value)
+                VStack(alignment: .trailing, spacing: 2) {
+                    previous + Text(" →").foregroundColor(valueColor)
+                    Text(verbatim: value)
+                }
+                .padding(.vertical, 10)
+            }
+        } else {
+            Text(verbatim: value)
+        }
     }
 }
 

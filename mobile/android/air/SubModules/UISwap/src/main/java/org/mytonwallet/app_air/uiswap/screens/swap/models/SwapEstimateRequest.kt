@@ -36,6 +36,9 @@ data class SwapEstimateRequest private constructor(
         )
 
     val shouldTryDiesel: Boolean
+    private val nativeBalanceForEstimate = wallet.balances[tokenToSendChain.nativeSlug]
+        ?.takeIf { tokenToSendIsSupported }
+        ?.let { CoinUtils.toDecimalString(it, nativeTokenToSend.decimals) }
 
     init {
         val swapType = SwapType.from(tokenToSend, tokenToReceive, wallet.addressByChain)
@@ -94,7 +97,8 @@ data class SwapEstimateRequest private constructor(
             shouldTryDiesel = shouldTryDiesel,
             walletVersion = null,
             isFromAmountMax = isFromAmountMax,
-            toncoinBalance = nativeTokenToSendBalance
+            toncoinBalance = nativeTokenToSendBalance,
+            nativeBalance = nativeBalanceForEstimate
         )
 
     val estimateRequestCex: MApiSwapEstimateRequest
@@ -115,7 +119,8 @@ data class SwapEstimateRequest private constructor(
                 shouldTryDiesel = null,
                 walletVersion = null,
                 isFromAmountMax = isFromAmountMax,
-                toncoinBalance = nativeTokenToSendBalance
+                toncoinBalance = nativeTokenToSendBalance,
+                nativeBalance = nativeBalanceForEstimate
             )
         }
 

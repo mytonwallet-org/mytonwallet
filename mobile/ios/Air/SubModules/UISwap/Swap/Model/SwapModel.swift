@@ -43,6 +43,33 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
         )
     }
 
+    func getQuoteHintText(isTrade: Bool = false) -> String? {
+        guard estimate.failure == nil,
+              let response = estimate.current?.draft.stateUpdate?.response, response.isQuote,
+              let hint = response.hint else { return nil }
+        if hint.type == "betterRate" {
+            let locale = Locale(identifier: "en_US_POSIX")
+            guard let rawAmount = hint.additionalAmount, let amount = Decimal(string: rawAmount, locale: locale),
+                  let symbol = hint.symbol else { return nil }
+            let value = amount.formatted(
+                .number.locale(locale).grouping(.never).precision(.significantDigits(1...2)).rounded(rule: .up)
+            )
+            return L10n.betterRateIsAvailableIfYouAddAmountSymbolForNetworkFee(amount: value, symbol: symbol)
+        }
+        if hint.type == "betterRateMinimum" {
+            guard let minimum = hint.minimumAmount, let symbol = hint.symbol else { return nil }
+            return L10n.swapBetterRateMinimum(value: "\(localizedIntegerDigits(in: minimum)) \(symbol)")
+        }
+        guard !isTrade, hint.type == "oneToOne",
+              let rawAmount = hint.minimumAmount, let amount = MDouble(rawAmount), amount.value.isFinite,
+              let sellingToken = input.sellingToken else { return nil }
+        let minimum = amount.bigintAmount(decimals: sellingToken.decimals)
+        let step = powI64(10, max(0, sellingToken.decimals - 2))
+        let roundedMinimum = (minimum + step - 1) / step * step
+        let value = TokenAmount(roundedMinimum, sellingToken).formatted(nil)
+        return L10n.swapOneToOne(value: value)
+    }
+
     var estimateDebugSummary: String? {
         estimate.current?.draft.stateUpdate?.response?.debugSummary
     }

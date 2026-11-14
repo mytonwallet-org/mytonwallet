@@ -1,6 +1,9 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
+import android.content.Context
+import android.content.ContextWrapper
 import java.lang.reflect.Proxy
+import java.util.Date
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -8,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -29,12 +33,19 @@ import org.mytonwallet.app_air.uiagent.agentV2.AgentV2HostContextProvider
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
 import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadTitle
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.formatAgentChatTime
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerButton
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.resolveAgentComposerButton
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadListClient
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadListModel
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadReadState
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.LiveAgentThreadListClient
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -43,6 +54,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Action
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerFeedbackResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Availability
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2CachedMessages
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
@@ -54,14 +66,20 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSupport
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class AgentVMTest {
     @Test
@@ -537,6 +555,10 @@ class AgentVMTest {
             assertTrue(model.sendMessage("Question"))
             awaitReady(model)
             val staleRetry = checkNotNull(model.failureRetry)
+            assertEquals(
+                agentV2ErrorText("user_quota_exhausted"),
+                model.messages.last { it.isFailure }.text
+            )
             val failedMessages = model.messages.toList()
             for (state in listOf("waiting", "operator")) {
                 model.onBridgeUpdate(
@@ -2285,7 +2307,9 @@ class AgentVMTest {
         try {
             awaitReady(model)
             assertTrue(model.regenerateMessage("answer"))
-            withTimeout(1_000) { while (client.startedTexts.isEmpty()) yield() }
+            withTimeout(1_000) {
+                while (client.startedTexts.isEmpty()) yield()
+            }
 
             model.stopAnswer()
 
@@ -2298,6 +2322,63 @@ class AgentVMTest {
             assertTrue(model.canRegenerateMessage("answer"))
         } finally {
             model.detach(delegate)
+            model.onDestroy()
+        }
+    }
+
+    /**
+     * A question sent right after Regenerate, before the server admits the new answer, queues
+     * behind it: the new answer takes the old one's place above it, and it goes once that ends
+     */
+    @Test
+    fun aQuestionSentDuringARegenerationQueuesBelowTheNewAnswer() = runBlocking {
+        val client = FakeClient(history())
+        val model = newModel(client)
+        val threadId = client.thread.id
+        val mayAdmit = CompletableDeferred<Unit>()
+        val answerMayEnd = CompletableDeferred<Unit>()
+        client.onStartRun = { clientRunId ->
+            if (client.startedTexts.size == 1) {
+                mayAdmit.await()
+                model.onBridgeUpdate(
+                    ApiUpdate.ApiUpdateAgentV2(
+                        AgentV2Update.RunStarted(clientRunId, "run-1", threadId, 2)
+                    )
+                )
+                answerMayEnd.await()
+            }
+            AgentV2RunResult(clientRunId, "run-${client.startedTexts.size}", state = "completed")
+        }
+        try {
+            awaitReady(model)
+            assertTrue(model.regenerateMessage("answer"))
+            withTimeout(1_000) {
+                while (client.startedTexts.isEmpty()) yield()
+            }
+
+            assertTrue(model.sendMessage("Queued"))
+            val queued = model.messages.last()
+            assertTrue(model.isMessageQueued(queued.id))
+            assertEquals(listOf("Old answer"), client.startedTexts)
+
+            mayAdmit.complete(Unit)
+            withTimeout(1_000) {
+                while (model.messages.any { it.text == "Old answer" }) yield()
+            }
+            assertEquals(
+                listOf(AgentMessageRole.USER, AgentMessageRole.ASSISTANT, AgentMessageRole.USER),
+                model.messages.map { it.role }
+            )
+            assertEquals(queued.id, model.messages.last().id)
+
+            answerMayEnd.complete(Unit)
+            withTimeout(1_000) {
+                while (client.startedTexts.size < 2) yield()
+            }
+            awaitReady(model)
+            assertEquals(listOf("Old answer", "Queued"), client.startedTexts)
+            assertFalse(model.isMessageQueued(queued.id))
+        } finally {
             model.onDestroy()
         }
     }
@@ -2759,6 +2840,525 @@ class AgentVMTest {
     }
 
     @Test
+    fun aLimitHoldsTheQueueAndTheQuestionItHeldBackGoesFirstOnRetry() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 1_000
+        val client = FakeClient(emptyList())
+        val model = newModel(client, now = { clock })
+        val questionMayFail = CompletableDeferred<Unit>()
+        val retriedRunIds = mutableListOf<String>()
+        client.onStartRun = { clientRunId ->
+            if (client.startedTexts.size == 1) {
+                questionMayFail.await()
+                model.onBridgeUpdate(
+                    ApiUpdate.ApiUpdateAgentV2(
+                        AgentV2Update.RunFailed(
+                            clientRunId,
+                            threadId = client.thread.id,
+                            code = "user_quota_exhausted",
+                            retryable = true,
+                            resetAt = resetAt
+                        )
+                    )
+                )
+                AgentV2RunResult(clientRunId, state = "failed")
+            } else {
+                AgentV2RunResult(clientRunId, "run-queued", state = "completed")
+            }
+        }
+        client.onRetryRun = { clientRunId ->
+            retriedRunIds += clientRunId
+            AgentV2RunResult(clientRunId, "run-retried", state = "completed")
+        }
+        try {
+            awaitReady(model)
+            assertTrue(model.sendMessage("Question"))
+            withTimeout(1_000) {
+                while (client.startedTexts.isEmpty()) yield()
+            }
+            assertTrue(model.sendMessage("Queued"))
+            questionMayFail.complete(Unit)
+            awaitReady(model)
+
+            // The queued question waits rather than meeting the same limit
+            assertEquals(listOf("Question"), client.startedTexts)
+            assertTrue(model.isInputBlockedByLimit)
+            assertNull(model.failureRetry)
+
+            // Once the limit resets, Retry sends the question it held back before the queued one
+            clock = resetAt
+            checkNotNull(model.failureRetry).invoke()
+            withTimeout(1_000) {
+                while (client.startedTexts.size < 2) yield()
+            }
+            awaitReady(model)
+            assertEquals(listOf(client.startedRunIds.first()), retriedRunIds)
+            assertEquals(listOf("Question", "Queued"), client.startedTexts)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun aWalletSwitchFailsTheQueuedQuestionsAndRetryQueuesThemForTheNewWallet() = runBlocking {
+        val client = FakeClient(emptyList())
+        lateinit var contextProvider: AgentV2HostContextProvider
+        val model = newModel(client, onContextProvider = { contextProvider = it })
+        val answerMayEnd = CompletableDeferred<Unit>()
+        client.onStartRun = { clientRunId ->
+            if (client.startedTexts.size == 1) answerMayEnd.await()
+            AgentV2RunResult(clientRunId, "run-${client.startedTexts.size}", state = "completed")
+        }
+        try {
+            awaitReady(model)
+            assertTrue(model.sendMessage("Question"))
+            withTimeout(1_000) {
+                while (client.startedTexts.isEmpty()) yield()
+            }
+            assertTrue(model.sendMessage("Queued"))
+
+            contextProvider.onWalletEvent(WalletEvent.AccountWillChange(fromHome = false))
+            // The wallet may stay the same until the change ends
+            assertTrue(model.messages.none { it.isFailure })
+            AccountStore.updateActiveAccount("other")
+            contextProvider.onWalletEvent(WalletEvent.AccountChanged())
+            // The queued question stays, as a failed send, with the failure after it
+            val queued = model.messages.single { it.text == "Queued" }
+            val failure = model.messages.last()
+            assertTrue(failure.isFailure)
+            assertEquals(queued.id, model.messages[model.messages.size - 2].id)
+            assertTrue(model.failureRetry != null)
+
+            // It isn't sent for the new wallet once the answer ends
+            answerMayEnd.complete(Unit)
+            awaitReady(model)
+            assertEquals(listOf("Question"), client.startedTexts)
+
+            // Retry queues it again for the new wallet, which sends it
+            checkNotNull(model.failureRetry).invoke()
+            withTimeout(1_000) {
+                while (client.startedTexts.size < 2) yield()
+            }
+            awaitReady(model)
+            assertEquals(listOf("Question", "Queued"), client.startedTexts)
+            assertTrue(model.messages.none { it.id == failure.id })
+            assertEquals(1, model.messages.count { it.text == "Queued" })
+        } finally {
+            AccountStore.updateActiveAccount(null)
+            model.onDestroy()
+        }
+    }
+
+    /**
+     * The authority published again for the same wallet, as when a switch is aborted or the
+     * wallet's chains update, keeps the queue and the question a limit held back, without a failure
+     */
+    @Test
+    fun aRepublishForTheSameWalletKeepsTheQueueAndTheHeldQuestion() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 100
+        val client = FakeClient(emptyList())
+        lateinit var contextProvider: AgentV2HostContextProvider
+        val model = newModel(client, now = { clock }, onContextProvider = { contextProvider = it })
+        try {
+            queueBehindLimit(model, client, resetAt)
+            val shownMessages = model.messages.toList()
+
+            contextProvider.onWalletEvent(WalletEvent.AccountWillChange(fromHome = false))
+            contextProvider.onWalletEvent(WalletEvent.AccountChangeAborted)
+            contextProvider.onWalletEvent(WalletEvent.ByChainUpdated("account"))
+            repeat(20) { yield() }
+            assertEquals(shownMessages, model.messages)
+
+            // Both go once the limit resets, the queued one under the new authority
+            clock = resetAt
+            withTimeout(1_000) {
+                while (client.startedTexts.size < 2) yield()
+            }
+            awaitReady(model)
+            assertEquals(listOf(client.startedRunIds.first()), client.retriedRunIds)
+            assertEquals(listOf("Question", "Queued"), client.startedTexts)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun aLeftChatSendsTheQueueALimitHoldsOnceItResetsAndThenLetsGo() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 100
+        val client = FakeClient(emptyList())
+        val destroyed = mutableListOf<AgentVM>()
+        val sessions = leftChatSessions(destroyed)
+        val model = sessions.acquire(client.thread.id) { newModel(client, now = { clock }) }
+        try {
+            queueBehindLimit(model, client, resetAt)
+
+            sessions.release(client.thread.id, model)
+            assertTrue(destroyed.isEmpty())
+
+            clock = resetAt
+            withTimeout(1_000) {
+                while (destroyed.isEmpty()) yield()
+            }
+            assertEquals(listOf(client.startedRunIds.first()), client.retriedRunIds)
+            assertEquals(listOf("Question", "Queued"), client.startedTexts)
+            assertEquals(listOf(model), destroyed)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun aChatKeepsItsQueueUntilDeletionSucceedsAndResumesItOnFailure() = runBlocking {
+        assertQueueWaitsForDeletion(isFromList = false)
+    }
+
+    @Test
+    fun aThreadListDeletionKeepsTheQueueUntilTheServerConfirmsIt() = runBlocking {
+        assertQueueWaitsForDeletion(isFromList = true)
+    }
+
+    @Test
+    fun aFailedListDeletionKeepsTheQueueHeldUntilTheChatDeletionSettles() = runBlocking {
+        val client = FakeClient(emptyList())
+        val answerMayEnd = CompletableDeferred<Unit>()
+        val deletionStarted = CompletableDeferred<Unit>()
+        val deletionMayEnd = CompletableDeferred<Unit>()
+        val chatDeletionFailed = CompletableDeferred<Throwable>()
+        val listDeletionFailed = CompletableDeferred<Unit>()
+        client.onStartRun = { clientRunId ->
+            if (client.startedTexts.size == 1) answerMayEnd.await()
+            AgentV2RunResult(clientRunId, state = "completed")
+        }
+        client.onDeleteThread = {
+            deletionStarted.complete(Unit)
+            deletionMayEnd.await()
+            error("Deletion refused")
+        }
+        val listClient = object : AgentThreadListClient by LiveAgentThreadListClient() {
+            override suspend fun delete(id: String): AgentV2ThreadDeleteResponse =
+                error("Deletion refused")
+        }
+        val listModel = AgentThreadListModel(this, client = listClient)
+        val model = AgentSession.acquire(client.thread) { newModel(client) }
+        try {
+            awaitReady(model)
+            assertTrue(model.sendMessage("Question"))
+            withTimeout(1_000) { while (client.startedTexts.isEmpty()) yield() }
+            assertTrue(model.sendMessage("Queued"))
+            AgentSession.deleteChat(model) { chatDeletionFailed.complete(it) }
+            AgentSession.release(model)
+            withTimeout(1_000) { deletionStarted.await() }
+            answerMayEnd.complete(Unit)
+            awaitReady(model)
+
+            assertTrue(listModel.delete(client.thread) { listDeletionFailed.complete(Unit) })
+            withTimeout(1_000) { listDeletionFailed.await() }
+            yield()
+
+            assertEquals(listOf("Question"), client.startedTexts)
+            assertSame(model, AgentSession.findLoadedModel(client.thread.id))
+            deletionMayEnd.complete(Unit)
+            withTimeout(1_000) {
+                chatDeletionFailed.await()
+                while (AgentSession.findLoadedModel(client.thread.id) != null) yield()
+            }
+            assertEquals(listOf("Question", "Queued"), client.startedTexts)
+        } finally {
+            answerMayEnd.complete(Unit)
+            deletionMayEnd.complete(Unit)
+            AgentSession.dropDeletedChat(client.thread.id)
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun cancellingAThreadListDeletionDoesNotResumeItsQueue() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 100
+        val client = FakeClient(emptyList())
+        val deletionStarted = CompletableDeferred<Unit>()
+        client.onDeleteThread = {
+            deletionStarted.complete(Unit)
+            awaitCancellation()
+        }
+        val listLifetime = Job()
+        val listScope = CoroutineScope(coroutineContext + listLifetime)
+        val listClient = object : AgentThreadListClient by LiveAgentThreadListClient() {
+            override suspend fun delete(id: String) = client.deleteThread(id)
+        }
+        val listModel = AgentThreadListModel(listScope, client = listClient)
+        val model = AgentSession.acquire(client.thread) { newModel(client, now = { clock }) }
+        try {
+            queueBehindLimit(model, client, resetAt)
+            assertTrue(listModel.delete(client.thread))
+            AgentSession.release(model)
+            withTimeout(1_000) { deletionStarted.await() }
+
+            listLifetime.cancelAndJoin()
+            clock = resetAt
+            delay(150)
+
+            assertEquals(listOf("Question"), client.startedTexts)
+            assertTrue(client.retriedRunIds.isEmpty())
+            assertNull(AgentSession.findLoadedModel(client.thread.id))
+        } finally {
+            listLifetime.cancel()
+            AgentSession.dropDeletedChat(client.thread.id)
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun accountsResetReleasesAnOpeningThatIsWaitingForWalletAuthority() = runBlocking {
+        val client = FakeClient(emptyList())
+        lateinit var contextProvider: AgentV2HostContextProvider
+        val destroyed = mutableListOf<AgentVM>()
+        val sessions = leftChatSessions(destroyed)
+        val model = sessions.acquire(client.thread.id) {
+            newModel(client, onContextProvider = { contextProvider = it })
+        }
+        try {
+            awaitReady(model)
+            contextProvider.onWalletEvent(WalletEvent.AccountWillChange(fromHome = false))
+            assertNull(contextProvider.captureMessageAuthority())
+            model.acceptOpening(
+                listOf(
+                    AgentMessage(
+                        role = AgentMessageRole.USER,
+                        text = "Opening",
+                        isStreaming = true
+                    ),
+                    AgentMessage(role = AgentMessageRole.ASSISTANT, text = "", isStreaming = true)
+                ),
+                AgentV2EntryPoint()
+            )
+            sessions.release(client.thread.id, model)
+            assertTrue(destroyed.isEmpty())
+
+            WalletCore.notifyEvent(WalletEvent.AccountsReset)
+
+            assertEquals(listOf(model), destroyed)
+            assertTrue(sessions.getModels().isEmpty())
+            AccountStore.updateActiveAccount("other")
+            contextProvider.onWalletEvent(WalletEvent.AccountChanged())
+            yield()
+            assertTrue(client.startedTexts.isEmpty())
+        } finally {
+            AccountStore.updateActiveAccount(null)
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun aLeftChatLetsGoWhenAccountsResetWithQuestionsQueued() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 100
+        AccountStore.updateActiveAccount("account")
+        val client = FakeClient(emptyList())
+        val destroyed = mutableListOf<AgentVM>()
+        val sessions = leftChatSessions(destroyed)
+        val model = sessions.acquire(client.thread.id) { newModel(client, now = { clock }) }
+        try {
+            queueBehindLimit(model, client, resetAt)
+            val queued = model.messages.last()
+            sessions.release(client.thread.id, model)
+            assertTrue(destroyed.isEmpty())
+
+            AccountStore.updateActiveAccount(null)
+            WalletCore.notifyEvent(WalletEvent.AccountsReset)
+
+            assertFalse(model.isMessageQueued(queued.id))
+            assertEquals(listOf(model), destroyed)
+            assertTrue(sessions.getModels().isEmpty())
+            clock = resetAt
+            delay(150)
+            assertEquals(listOf("Question"), client.startedTexts)
+            assertTrue(client.retriedRunIds.isEmpty())
+        } finally {
+            AccountStore.updateActiveAccount(null)
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun aLeftChatLetsGoOnceAWalletSwitchFailsTheQueueALimitHolds() = runBlocking {
+        val resetAt = 10_000L
+        val client = FakeClient(emptyList())
+        lateinit var contextProvider: AgentV2HostContextProvider
+        val destroyed = mutableListOf<AgentVM>()
+        val sessions = leftChatSessions(destroyed)
+        val model = sessions.acquire(client.thread.id) {
+            newModel(client, now = { resetAt - 100 }, onContextProvider = { contextProvider = it })
+        }
+        try {
+            queueBehindLimit(model, client, resetAt)
+            sessions.release(client.thread.id, model)
+            assertTrue(destroyed.isEmpty())
+
+            // The queue waits while the wallet may stay the same
+            contextProvider.onWalletEvent(WalletEvent.AccountWillChange(fromHome = false))
+            assertTrue(destroyed.isEmpty())
+            AccountStore.updateActiveAccount("other")
+            contextProvider.onWalletEvent(WalletEvent.AccountChanged())
+
+            assertEquals(listOf(model), destroyed)
+            assertEquals(listOf("Question"), client.startedTexts)
+            assertTrue(client.retriedRunIds.isEmpty())
+        } finally {
+            AccountStore.updateActiveAccount(null)
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun keptChatRefreshKeepsTheQueueALimitHoldsLast() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 100
+        val client = FakeClient(history())
+        val model = newModel(client, now = { clock })
+        try {
+            queueBehindLimit(model, client, resetAt)
+            val queued = model.messages.last()
+            assertEquals("Queued", queued.text)
+
+            val requests = client.messageRequests
+            model.refreshThreadIfNeeded(client.thread.copy(revision = 5))
+            withTimeout(1_000) {
+                while (client.messageRequests == requests) yield()
+            }
+            repeat(20) { yield() }
+
+            // The held question's failure, though later than the queued question, stays above it
+            assertEquals(queued.id, model.messages.last().id)
+            assertTrue(model.messages[model.messages.size - 2].isFailure)
+
+            clock = resetAt
+            withTimeout(1_000) {
+                while (client.startedTexts.size < 2) yield()
+            }
+            awaitReady(model)
+            assertEquals(listOf(client.startedRunIds.first()), client.retriedRunIds)
+            assertEquals(listOf("Question", "Queued"), client.startedTexts)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    /** At the reset, the question a limit held back goes alone, as the same run, then the queue */
+    @Test
+    fun aLimitResetSendsTheHeldQuestionAloneBeforeTheQueue() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 100
+        val client = FakeClient(emptyList())
+        val model = newModel(client, now = { clock })
+        try {
+            queueBehindLimit(model, client, resetAt)
+            val retryMayEnd = CompletableDeferred<Unit>()
+            client.onRetryRun = { clientRunId ->
+                retryMayEnd.await()
+                AgentV2RunResult(clientRunId, "run-retried", state = "completed")
+            }
+
+            clock = resetAt
+            withTimeout(1_000) {
+                while (client.retriedRunIds.isEmpty()) yield()
+            }
+            repeat(20) { yield() }
+            assertEquals(client.startedRunIds, client.retriedRunIds)
+            assertEquals(listOf("Question"), client.startedTexts)
+            assertTrue(model.messages.none { it.isFailure })
+
+            retryMayEnd.complete(Unit)
+            withTimeout(1_000) {
+                while (client.startedTexts.size < 2) yield()
+            }
+            awaitReady(model)
+            assertEquals(listOf("Question", "Queued"), client.startedTexts)
+            assertEquals(1, client.retriedRunIds.size)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    /** With nothing queued behind it, a question a limit held back waits for Retry at the reset */
+    @Test
+    fun aLimitResetLeavesAHeldQuestionWithoutAQueueToRetry() = runBlocking {
+        val resetAt = 4_102_444_800_000L
+        var clock = resetAt - 100
+        var inputLimitChanges = 0
+        val client = FakeClient(emptyList())
+        val model = newModel(client, now = { clock })
+        val dictionary = LocaleController::class.java.getDeclaredField("dictionary").apply {
+            isAccessible = true
+        }
+        val previousDictionary = dictionary.get(null)
+        val context = ApplicationContextHolder.applicationContext
+        val delegate = Proxy.newProxyInstance(
+            AgentVM.Delegate::class.java.classLoader,
+            arrayOf(AgentVM.Delegate::class.java)
+        ) { _, method, _ ->
+            if (method.name == "onInputLimitChanged") inputLimitChanges++
+            null
+        } as AgentVM.Delegate
+        model.attach(delegate)
+        client.onStartRun = { clientRunId ->
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.RunFailed(
+                        clientRunId,
+                        threadId = client.thread.id,
+                        code = "user_quota_exhausted",
+                        retryable = true,
+                        resetAt = resetAt
+                    )
+                )
+            )
+            AgentV2RunResult(clientRunId, state = "failed")
+        }
+        try {
+            dictionary.set(
+                null,
+                mapOf(
+                    "\$agent_daily_limit_resets_at" to
+                        "Daily agent limit reached. Resets at %time%.",
+                    "\$agent_daily_limit_reached" to "Daily agent limit reached"
+                )
+            )
+            awaitReady(model)
+            assertTrue(model.sendMessage("Question"))
+            awaitReady(model)
+            assertTrue(model.isInputBlockedByLimit)
+            val failure = model.messages.single { it.isFailure }
+            assertEquals(
+                "Daily agent limit reached. Resets at ${formatAgentChatTime(
+                    context,
+                    Date(resetAt)
+                )}.",
+                failure.text
+            )
+
+            clock = resetAt
+            val changesBeforeReset = inputLimitChanges
+            withTimeout(1_000) {
+                while (inputLimitChanges == changesBeforeReset) yield()
+            }
+            repeat(20) { yield() }
+            assertTrue(client.retriedRunIds.isEmpty())
+            assertTrue(model.failureRetry != null)
+            assertEquals(
+                "Daily agent limit reached",
+                model.messages.single { it.id == failure.id }.text
+            )
+        } finally {
+            model.detach(delegate)
+            model.onDestroy()
+            dictionary.set(null, previousDictionary)
+        }
+    }
+
+    @Test
     fun retryExpiresFiveMinutesAfterResetWithoutSendingOrChangingTheFailedQuestion() = runBlocking {
         val resetAt = 10_000L
         val expiresAt = resetAt + 5 * 60_000L
@@ -3033,6 +3633,8 @@ class AgentVMTest {
             assertFalse(model.canEditMessage("question"))
             assertFalse(model.canRegenerateMessage("answer"))
             assertFalse(model.canReportProblem)
+            assertTrue(model.isSupportRequestVisible)
+            assertFalse(model.canRequestSupport)
             model.rateMessage("answer", AgentAnswerFeedback.LIKE, onSaved = {}, onFailure = {})
             model.performAction("answer", "send")
             model.loadOlderMessages()
@@ -3685,6 +4287,575 @@ class AgentVMTest {
         createdAt = createdAt
     )
 
+    @Test
+    fun supportRequestIsOfferedOutsideSupportAndWaitsOnlyForARunOrARateLimit() = runBlocking {
+        var clock = 1_000L
+        val client = FakeClient(emptyList())
+        val model = newModel(client, now = { clock })
+        val runMayEnd = CompletableDeferred<Unit>()
+        client.onStartRun = { clientRunId ->
+            if (client.startedTexts.size == 1) {
+                runMayEnd.await()
+                model.onBridgeUpdate(
+                    ApiUpdate.ApiUpdateAgentV2(
+                        AgentV2Update.RunFailed(
+                            clientRunId,
+                            threadId = client.thread.id,
+                            code = "rate_limited",
+                            retryable = true,
+                            resetAt = 5_000L
+                        )
+                    )
+                )
+            }
+            AgentV2RunResult(clientRunId, state = "failed")
+        }
+        val news = newModel(FakeClient(emptyList(), news = NEWS_CARD))
+        val digest = newModel(
+            FakeClient(emptyList()).apply {
+                thread = thread.copy(
+                    digest = AgentV2ThreadDigestCard(
+                        "digest",
+                        "2026-10-20T00:00:00Z",
+                        0,
+                        emptyList()
+                    )
+                )
+            }
+        )
+        try {
+            awaitReady(model)
+            assertTrue(model.isSupportRequestVisible)
+            assertTrue(model.canRequestSupport)
+
+            // The daily quota and the Agent's capacity hold back questions, not a support request
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(AgentV2Update.UserQuotaChanged(EXHAUSTED_QUOTA))
+            )
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.AvailabilityChanged(
+                        AgentV2Availability("capacity_exhausted", resetAt = 5_000L)
+                    )
+                )
+            )
+            assertTrue(model.isInputBlockedByLimit)
+            assertTrue(model.canRequestSupport)
+            model.onBridgeUpdate(ApiUpdate.ApiUpdateAgentV2(AgentV2Update.UserQuotaChanged()))
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.AvailabilityChanged(AgentV2Availability("available"))
+                )
+            )
+
+            // A run under way, and then its rate limit's wait, hold it back
+            assertTrue(model.sendMessage("Question"))
+            assertFalse(model.canRequestSupport)
+            assertFalse(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+            val supportOpening = AgentMessage(
+                role = AgentMessageRole.USER,
+                text = getAgentSupportRequestText()
+            )
+            model.acceptOpening(
+                listOf(supportOpening),
+                AgentV2EntryPoint.supportRequest(AgentV2SupportRequestSource.HEADER)
+            )
+            assertTrue(model.messages.none { it.id == supportOpening.id })
+            runMayEnd.complete(Unit)
+            awaitReady(model)
+            assertTrue(model.isSupportRequestVisible)
+            assertFalse(model.canRequestSupport)
+            assertFalse(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+            clock = 5_000L
+            assertTrue(model.canRequestSupport)
+            assertEquals(listOf("Question"), client.startedTexts)
+
+            // Clearing holds it back
+            model.clearChat()
+            assertFalse(model.canRequestSupport)
+            awaitReady(model)
+            assertTrue(model.canRequestSupport)
+
+            // Support that has the chat hides it
+            for (state in listOf("waiting", "operator")) {
+                model.onBridgeUpdate(
+                    ApiUpdate.ApiUpdateAgentV2(
+                        AgentV2Update.ThreadChanged(
+                            client.thread.id,
+                            model.currentThread.copy(support = AgentV2ThreadSupport(state))
+                        )
+                    )
+                )
+                assertFalse(model.isSupportRequestVisible)
+                assertFalse(model.canRequestSupport)
+            }
+            // A news or digest discussion offers it like any other chat
+            for (discussion in listOf(news, digest)) {
+                awaitReady(discussion)
+                assertTrue(discussion.isSupportRequestVisible)
+                assertTrue(discussion.canRequestSupport)
+            }
+        } finally {
+            model.onDestroy()
+            news.onDestroy()
+            digest.onDestroy()
+        }
+    }
+
+    @Test
+    fun supportRequestWaitsForConsent() = runBlocking {
+        val client = FakeClient(emptyList()).apply { hasConsent = false }
+        val model = newModel(client)
+        try {
+            withTimeout(1_000) { while (model.state != AgentVM.State.CONSENT_REQUIRED) yield() }
+            assertTrue(model.isSupportRequestVisible)
+            assertFalse(model.canRequestSupport)
+            assertFalse(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+            assertTrue(client.startedTexts.isEmpty())
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun supportRequestSendsItsMessageFromEachSource() = runBlocking {
+        val entryPoints = listOf(
+            UIComponentsR.id.agent_support_button to AgentV2SupportRequestSource.HEADER,
+            UIComponentsR.id.agent_support_hint to AgentV2SupportRequestSource.STARTER_HINT
+        )
+        for ((entryPointId, expectedSource) in entryPoints) {
+            val source = getAgentSupportRequestSource(entryPointId)
+            assertEquals(expectedSource, source)
+            val client = FakeClient(emptyList())
+            client.onStartRun =
+                { clientRunId -> AgentV2RunResult(clientRunId, "run", state = "completed") }
+            val text = getAgentSupportRequestText()
+            val entryPoint = AgentV2EntryPoint.supportRequest(source)
+            // A new chat from the starter hint opens with the request, which the daily quota doesn't hold back
+            val model = if (source == AgentV2SupportRequestSource.STARTER_HINT) {
+                newModel(
+                    client,
+                    initialMessages = listOf(
+                        AgentMessage(role = AgentMessageRole.USER, text = text)
+                    ),
+                    initialOpeningEntryPoint = entryPoint
+                ).also {
+                    it.onBridgeUpdate(
+                        ApiUpdate.ApiUpdateAgentV2(AgentV2Update.UserQuotaChanged(EXHAUSTED_QUOTA))
+                    )
+                }
+            } else {
+                newModel(client)
+            }
+            try {
+                awaitReady(model)
+                if (source != AgentV2SupportRequestSource.STARTER_HINT) {
+                    // Cancel sends nothing; Call does
+                    lateinit var call: () -> Unit
+                    var cancel: (() -> Unit)? = null
+                    AgentSupportRequestConfirmation(hasConsent = true) {
+                        model.requestSupport(source)
+                    }.present { _, _, action, onAction, cancelTitle, onCancel ->
+                        assertEquals("\$agent_support_confirm_action", action)
+                        assertEquals("Cancel", cancelTitle)
+                        call = onAction
+                        cancel = onCancel
+                    }
+                    cancel?.invoke()
+                    yield()
+                    assertTrue(client.startedTexts.isEmpty())
+                    call()
+                }
+                withTimeout(1_000) { while (client.startedTexts.isEmpty()) yield() }
+                awaitReady(model)
+
+                assertEquals(listOf(text), client.startedTexts)
+                assertEquals(listOf<AgentV2EntryPoint?>(entryPoint), client.startedEntryPoints)
+            } finally {
+                model.onDestroy()
+            }
+        }
+    }
+
+    @Test
+    fun confirmationSendsNothingOnceSupportCanNoLongerBeCalled() = runBlocking {
+        val client = FakeClient(emptyList())
+        val runMayEnd = CompletableDeferred<Unit>()
+        client.onStartRun = { clientRunId ->
+            runMayEnd.await()
+            AgentV2RunResult(clientRunId, "run", state = "completed")
+        }
+        val model = newModel(client)
+        try {
+            awaitReady(model)
+            lateinit var call: () -> Unit
+            AgentSupportRequestConfirmation(hasConsent = true) {
+                model.requestSupport(AgentV2SupportRequestSource.HEADER)
+            }.present { _, _, _, onAction, _, _ -> call = onAction }
+            assertTrue(model.sendMessage("Question"))
+            call()
+            runMayEnd.complete(Unit)
+            awaitReady(model)
+
+            assertEquals(listOf("Question"), client.startedTexts)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun confirmationNamesTheWalletAddressesOnlyWithConsentAndAWallet() {
+        fun text(hasConsent: Boolean) = AgentSupportRequestConfirmation(hasConsent) {}.text
+        val noWallet = "\$agent_support_confirm_text_no_wallet"
+        assertEquals(noWallet, text(hasConsent = true))
+        AccountStore.updateActiveAccount("account")
+        try {
+            assertEquals("\$agent_support_confirm_text", text(hasConsent = true))
+            assertEquals(noWallet, text(hasConsent = false))
+        } finally {
+            AccountStore.updateActiveAccount(null)
+        }
+    }
+
+    @Test
+    fun failedSupportRequestLeavesRetryToTheQuestionALimitHeld() = runBlocking {
+        val resetAt = 10_000L
+        var clock = resetAt - 1_000
+        val client = FakeClient(emptyList())
+        val model = newModel(client, now = { clock })
+        client.onRetryRun =
+            { clientRunId -> AgentV2RunResult(clientRunId, "run-retried", state = "completed") }
+        client.onStartRun = { clientRunId ->
+            val isQuestion = client.startedTexts.size == 1
+            val code = if (isQuestion) "user_quota_exhausted" else "support_escalation_rate_limited"
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.RunFailed(
+                        clientRunId,
+                        threadId = client.thread.id,
+                        code = code,
+                        retryable = code == "user_quota_exhausted",
+                        resetAt = resetAt.takeIf { code == "user_quota_exhausted" }
+                    )
+                )
+            )
+            AgentV2RunResult(clientRunId, state = "failed")
+        }
+        try {
+            awaitReady(model)
+            assertTrue(model.sendMessage("Question"))
+            awaitReady(model)
+            assertTrue(model.isInputBlockedByLimit)
+
+            assertTrue(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+            awaitReady(model)
+            val (heldFailure, request, failure) = model.messages.takeLast(3)
+            assertTrue(failure.isFailure)
+            assertEquals("\$agent_support_rate_limited", failure.text)
+            assertEquals(getAgentSupportRequestText(), request.text)
+
+            // Once the quota resets, Retry shows under the held question's failure, above the failed request
+            clock = resetAt
+            assertTrue(heldFailure.isFailure)
+            val rowIds = model.messages.map { it.id } + null
+            assertEquals(
+                model.messages.indexOf(heldFailure),
+                model.findFailureRetryRowIndex(rowIds)
+            )
+            checkNotNull(model.failureRetry).invoke()
+            awaitReady(model)
+            assertEquals(listOf(client.startedRunIds.first()), client.retriedRunIds)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun rateLimitedSupportRequestKeepsTheCooldownAndTheHeldQuestionsRetry() = runBlocking {
+        val quotaResetAt = 5_000L
+        val cooldownEnd = 10_000L
+        var clock = 1_000L
+        val client = FakeClient(emptyList())
+        val model = newModel(client, now = { clock })
+        client.onRetryRun =
+            { clientRunId -> AgentV2RunResult(clientRunId, "run-retried", state = "completed") }
+        client.onStartRun = { clientRunId ->
+            val isQuestion = client.startedTexts.size == 1
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.RunFailed(
+                        clientRunId,
+                        threadId = client.thread.id,
+                        code = if (isQuestion) "user_quota_exhausted" else "rate_limited",
+                        retryable = true,
+                        resetAt = if (isQuestion) quotaResetAt else cooldownEnd
+                    )
+                )
+            )
+            AgentV2RunResult(clientRunId, state = "failed")
+        }
+        try {
+            awaitReady(model)
+            assertTrue(model.sendMessage("Question"))
+            awaitReady(model)
+            assertTrue(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+            awaitReady(model)
+            val heldFailure = model.messages[1]
+            assertEquals(agentV2ErrorText("rate_limited"), model.messages.last().text)
+
+            // The quota has reset, the server's cooldown hasn't: nothing goes, Retry included
+            clock = quotaResetAt
+            assertFalse(model.canRequestSupport)
+            assertTrue(model.isInputBlockedByLimit)
+            assertNull(model.failureRetry)
+
+            // After the cooldown, Retry sends the held question, never the support request
+            clock = cooldownEnd
+            assertTrue(model.canRequestSupport)
+            assertFalse(model.isInputBlockedByLimit)
+            assertEquals(
+                model.messages.indexOf(heldFailure),
+                model.findFailureRetryRowIndex(model.messages.map { it.id })
+            )
+            checkNotNull(model.failureRetry).invoke()
+            awaitReady(model)
+            assertEquals(listOf(client.startedRunIds.first()), client.retriedRunIds)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun emptyChatsSupportHintOpensTheChatSupportHasOrCallsSupportHere() = runBlocking {
+        val supportThread = AgentV2ThreadSummary(
+            "support",
+            1,
+            lastActivityAt = "2026-10-20T00:00:00Z",
+            support = AgentV2ThreadSupport("waiting")
+        )
+        val lists = listOf(
+            listOf(AgentV2ThreadListItem(supportThread)),
+            emptyList(),
+            null
+        )
+        for (threads in lists) {
+            val list = CompletableDeferred<AgentV2ThreadListResponse>()
+            var listRequests = 0
+            val client = FakeClient(emptyList()).apply {
+                onListThreads = {
+                    listRequests++
+                    list.await()
+                }
+                onStartRun =
+                    { clientRunId -> AgentV2RunResult(clientRunId, "run", state = "completed") }
+            }
+            val model = newModel(client)
+            val opened = mutableListOf<String>()
+            try {
+                awaitReady(model)
+                withTimeout(1_000) { while (model.visibleHints.isEmpty()) yield() }
+                assertEquals(AGENT_SUPPORT_HINT_ID, model.visibleHints.last().id)
+
+                // The hint waits for the server's chats, which the chat reads as it shows the hint
+                withTimeout(1_000) { while (listRequests == 0) yield() }
+                assertFalse(model.canRequestSupportFromStarterHint)
+                model.requestSupportFromStarterHint { opened += it.id }
+                if (threads == null) {
+                    list.completeExceptionally(IllegalStateException("Unavailable"))
+                } else {
+                    list.complete(AgentV2ThreadListResponse(threads))
+                }
+                repeat(3) { yield() }
+                assertEquals(threads != null, model.canRequestSupportFromStarterHint)
+                assertTrue(opened.isEmpty())
+                assertTrue(client.startedEntryPoints.isEmpty())
+
+                model.requestSupportFromStarterHint { opened += it.id }
+                awaitReady(model)
+                assertEquals(1, listRequests)
+
+                when {
+                    threads == null -> {
+                        assertTrue(opened.isEmpty())
+                        assertTrue(client.startedEntryPoints.isEmpty())
+                    }
+
+                    threads.isNotEmpty() -> {
+                        assertEquals(listOf("support"), opened)
+                        assertTrue(client.startedEntryPoints.isEmpty())
+                    }
+
+                    else -> {
+                        assertTrue(opened.isEmpty())
+                        assertEquals(
+                            listOf<AgentV2EntryPoint?>(
+                                AgentV2EntryPoint.supportRequest(
+                                    AgentV2SupportRequestSource.STARTER_HINT
+                                )
+                            ),
+                            client.startedEntryPoints
+                        )
+                    }
+                }
+            } finally {
+                model.onDestroy()
+            }
+        }
+    }
+
+    @Test
+    fun admittedSupportRequestQueuesTheQuestionALimitHeldAfterIt() = runBlocking {
+        val client = FakeClient(emptyList())
+        val model = newModel(client)
+        client.onStartRun = { clientRunId ->
+            when (client.startedTexts.size) {
+                1 -> {
+                    model.onBridgeUpdate(
+                        ApiUpdate.ApiUpdateAgentV2(
+                            AgentV2Update.RunFailed(
+                                clientRunId,
+                                threadId = client.thread.id,
+                                code = "user_quota_exhausted",
+                                retryable = true,
+                                resetAt = System.currentTimeMillis() + 60_000
+                            )
+                        )
+                    )
+                    AgentV2RunResult(clientRunId, state = "failed")
+                }
+
+                2 -> {
+                    listOf(
+                        AgentV2Update.RunStarted(
+                            clientRunId,
+                            "support-run",
+                            client.thread.id,
+                            2,
+                            "request"
+                        ),
+                        AgentV2Update.ThreadChanged(
+                            client.thread.id,
+                            client.thread.copy(
+                                revision = 2,
+                                support = AgentV2ThreadSupport("waiting")
+                            )
+                        )
+                    ).forEach { model.onBridgeUpdate(ApiUpdate.ApiUpdateAgentV2(it)) }
+                    AgentV2RunResult(clientRunId, "support-run", "request", state = "completed")
+                }
+
+                else -> AgentV2RunResult(clientRunId, "operator-run", state = "completed")
+            }
+        }
+        try {
+            awaitReady(model)
+            assertTrue(model.sendMessage("Question"))
+            awaitReady(model)
+            assertTrue(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+            withTimeout(1_000) { while (client.startedTexts.size < 3) yield() }
+            awaitReady(model)
+
+            // The quota holds back nothing that goes to an operator
+            assertEquals(
+                listOf("Question", getAgentSupportRequestText(), "Question"),
+                client.startedTexts
+            )
+            assertEquals(
+                listOf(getAgentSupportRequestText(), "Question"),
+                model.messages.filter { it.role == AgentMessageRole.USER }.map { it.text }
+            )
+            assertTrue(model.messages.none { it.isFailure })
+            assertTrue(client.retriedRunIds.isEmpty())
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun quotaAndCapacityDoNotBlockTheComposerWhileSupportHasTheChat() = runBlocking {
+        val client = FakeClient(emptyList())
+        val model = newModel(client)
+        try {
+            awaitReady(model)
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(AgentV2Update.UserQuotaChanged(EXHAUSTED_QUOTA))
+            )
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.AvailabilityChanged(
+                        AgentV2Availability(
+                            "capacity_exhausted",
+                            resetAt = System.currentTimeMillis() + 60_000
+                        )
+                    )
+                )
+            )
+            assertTrue(model.isInputBlockedByLimit)
+            for ((state, isBlocked) in listOf(
+                "waiting" to false,
+                "operator" to false,
+                "closed" to true
+            )) {
+                model.onBridgeUpdate(
+                    ApiUpdate.ApiUpdateAgentV2(
+                        AgentV2Update.ThreadChanged(
+                            client.thread.id,
+                            client.thread.copy(support = AgentV2ThreadSupport(state))
+                        )
+                    )
+                )
+                assertEquals(isBlocked, model.isInputBlockedByLimit)
+            }
+            // The capacity alone, without the quota
+            model.onBridgeUpdate(ApiUpdate.ApiUpdateAgentV2(AgentV2Update.UserQuotaChanged()))
+            assertTrue(model.isInputBlockedByLimit)
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.ThreadChanged(
+                        client.thread.id,
+                        client.thread.copy(support = AgentV2ThreadSupport("waiting"))
+                    )
+                )
+            )
+            assertFalse(model.isInputBlockedByLimit)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun supportRequestWaitsWhileOlderHistoryLoads() = runBlocking {
+        val olderPage = CompletableDeferred<AgentV2ThreadHydration>()
+        val client = FakeClient(history()).apply {
+            onMessagePage = { cursor, _ ->
+                if (cursor ==
+                    null
+                ) {
+                    AgentV2ThreadHydration(thread, history, "older")
+                } else {
+                    olderPage.await()
+                }
+            }
+        }
+        val model = newModel(client)
+        try {
+            awaitReady(model)
+            assertTrue(model.canRequestSupport)
+
+            model.loadOlderMessages()
+            assertTrue(model.isLoadingOlderMessages)
+            assertFalse(model.canRequestSupport)
+            assertFalse(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+
+            olderPage.complete(AgentV2ThreadHydration(client.thread, emptyList()))
+            withTimeout(1_000) { while (model.isLoadingOlderMessages) yield() }
+            assertTrue(model.canRequestSupport)
+            assertTrue(client.startedTexts.isEmpty())
+        } finally {
+            model.onDestroy()
+        }
+    }
+
     private fun history(question: String = "Original question", answer: String = "Old answer") =
         listOf(
             AgentV2PersistedMessage(
@@ -3842,12 +5013,17 @@ class AgentVMTest {
         exceptionHandler: CoroutineExceptionHandler? = null,
         cachedHistories: AgentCachedHistories = AgentCachedHistories(this) { null },
         stoppedAnswerDurationMs: Long = 0L,
-        waitForSupportPoll: suspend () -> Unit = { delay(15_000) }
+        waitForSupportPoll: suspend () -> Unit = { delay(15_000) },
+        onContextProvider: (AgentV2HostContextProvider) -> Unit = {}
     ): AgentVM {
         val modelScope = CoroutineScope(
             coroutineContext + SupervisorJob(coroutineContext[Job]) +
                 (exceptionHandler ?: EmptyCoroutineContext)
         )
+        val contextProvider = AgentV2HostContextProvider(client, modelScope) {
+            AgentHostContextSnapshot(AccountStore.activeAccountId, JSONObject())
+        }
+        onContextProvider(contextProvider)
         return AgentVM(
             client = client,
             initialThread = client.thread,
@@ -3856,9 +5032,7 @@ class AgentVMTest {
             canShowCachedMessages = canShowCachedMessages,
             cachedHistories = cachedHistories,
             scope = modelScope,
-            contextProvider = AgentV2HostContextProvider(client, modelScope) {
-                AgentHostContextSnapshot(null, JSONObject())
-            },
+            contextProvider = contextProvider,
             now = now,
             stoppedAnswerDurationMs = { stoppedAnswerDurationMs },
             waitForSupportPoll = waitForSupportPoll
@@ -3875,6 +5049,124 @@ class AgentVMTest {
             yield()
         }
     }
+
+    private suspend fun CoroutineScope.assertQueueWaitsForDeletion(isFromList: Boolean) {
+        for (shouldDelete in listOf(false, true)) {
+            val resetAt = 10_000L
+            var clock = resetAt - 100
+            val client = FakeClient(emptyList())
+            val deletionStarted = CompletableDeferred<Unit>()
+            val deletionMayEnd = CompletableDeferred<Unit>()
+            val deletionFailed = CompletableDeferred<Throwable>()
+            client.onDeleteThread = {
+                deletionStarted.complete(Unit)
+                deletionMayEnd.await()
+                if (!shouldDelete) error("Deletion refused")
+            }
+            val model = AgentSession.acquire(client.thread) { newModel(client, now = { clock }) }
+            try {
+                queueBehindLimit(model, client, resetAt)
+                val queued = model.messages.last()
+                if (isFromList) {
+                    val listClient = object : AgentThreadListClient by LiveAgentThreadListClient() {
+                        override suspend fun delete(id: String) = client.deleteThread(id)
+                    }
+                    val listModel = AgentThreadListModel(this, client = listClient)
+                    assertTrue(
+                        listModel.delete(client.thread) {
+                            deletionFailed.complete(IllegalStateException("Deletion refused"))
+                        }
+                    )
+                } else {
+                    AgentSession.deleteChat(model) { deletionFailed.complete(it) }
+                }
+                AgentSession.release(model)
+                withTimeout(1_000) { deletionStarted.await() }
+
+                assertTrue(model.isMessageQueued(queued.id))
+                assertSame(model, AgentSession.findLoadedModel(client.thread.id))
+                clock = resetAt
+                delay(150)
+                assertEquals(listOf("Question"), client.startedTexts)
+                assertTrue(client.retriedRunIds.isEmpty())
+
+                deletionMayEnd.complete(Unit)
+                if (!shouldDelete) {
+                    withTimeout(1_000) {
+                        deletionFailed.await()
+                        while (client.startedTexts.size < 2) yield()
+                    }
+                    awaitReady(model)
+                    assertEquals(listOf("Question", "Queued"), client.startedTexts)
+                }
+                withTimeout(1_000) {
+                    while (AgentSession.findLoadedModel(client.thread.id) != null) yield()
+                }
+                assertFalse(model.isMessageQueued(queued.id))
+                if (shouldDelete) {
+                    assertEquals(listOf("Question"), client.startedTexts)
+                    assertTrue(client.retriedRunIds.isEmpty())
+                }
+            } finally {
+                deletionMayEnd.complete(Unit)
+                AgentSession.dropDeletedChat(client.thread.id)
+                model.onDestroy()
+            }
+        }
+    }
+
+    /**
+     * Sends a question that a quota resetting at [resetAt] holds back, after queueing another
+     * behind it while it runs, and returns once the chat is ready with the queue held. The held
+     * question's retry and the questions sent after it complete.
+     */
+    private suspend fun queueBehindLimit(model: AgentVM, client: FakeClient, resetAt: Long) {
+        val questionMayFail = CompletableDeferred<Unit>()
+        client.onRetryRun = { clientRunId ->
+            AgentV2RunResult(clientRunId, "run-retried", state = "completed")
+        }
+        client.onStartRun = { clientRunId ->
+            if (client.startedTexts.size == 1) {
+                questionMayFail.await()
+                model.onBridgeUpdate(
+                    ApiUpdate.ApiUpdateAgentV2(
+                        AgentV2Update.RunFailed(
+                            clientRunId,
+                            threadId = client.thread.id,
+                            code = "user_quota_exhausted",
+                            retryable = true,
+                            resetAt = resetAt
+                        )
+                    )
+                )
+                AgentV2RunResult(clientRunId, state = "failed")
+            } else {
+                AgentV2RunResult(clientRunId, "run-queued", state = "completed")
+            }
+        }
+        awaitReady(model)
+        assertTrue(model.sendMessage("Question"))
+        withTimeout(1_000) {
+            while (client.startedTexts.isEmpty()) yield()
+        }
+        assertTrue(model.sendMessage("Queued"))
+        // The held question's failure comes later than the queued question
+        delay(5)
+        questionMayFail.complete(Unit)
+        awaitReady(model)
+        assertTrue(model.isInputBlockedByLimit)
+        assertEquals(listOf("Question"), client.startedTexts)
+    }
+
+    // No left chat stays loaded for reopening, as when it is no longer among the latest ones
+    private fun leftChatSessions(destroyed: MutableList<AgentVM>) = AgentThreadSessions<AgentVM>(
+        shouldRetain = { it.shouldRetainSession },
+        setIdleHandler = { model, handler -> model.onSessionIdle = handler },
+        destroy = { model ->
+            destroyed += model
+            model.onDestroy()
+        }
+    )
 
     private class FakeClient(
         var history: List<AgentV2PersistedMessage>,
@@ -3903,8 +5195,10 @@ class AgentVMTest {
         val startedTexts = mutableListOf<String>()
         val stopRequests = mutableListOf<String>()
         var onStopRun: suspend () -> Unit = {}
+        var onDeleteThread: suspend () -> Unit = { error("Unexpected deletion") }
         val startedRunIds = mutableListOf<String>()
         val startedRevisions = mutableListOf<Int>()
+        val startedEntryPoints = mutableListOf<AgentV2EntryPoint?>()
         var onStartRun: suspend (String) -> AgentV2RunResult = { error("Unexpected run") }
         var onRetryRun: suspend (String) -> AgentV2RunResult? = { error("Unexpected Retry") }
         var onSetFeedback: suspend (String?) -> AgentV2AnswerFeedbackResponse = {
@@ -3912,10 +5206,13 @@ class AgentVMTest {
         }
         var onActionPresentationOf: (suspend (String, String) -> AgentV2ActionPresentation)? = null
         var hasConsent = true
+        var onListThreads: suspend () -> AgentV2ThreadListResponse = { error("Unexpected list") }
         var onProblemReportAvailability: suspend () -> Boolean = { false }
         val reports = mutableListOf<Pair<String, String?>>()
 
         override suspend fun consent() = hasConsent
+        override suspend fun listThreads(cursor: String?, limit: Int?, query: String?) =
+            onListThreads()
         override suspend fun updateHostContext(context: JSONObject?) {}
         override suspend fun setChatActive(isActive: Boolean) {}
         override suspend fun problemReportAvailability() = onProblemReportAvailability()
@@ -3982,6 +5279,7 @@ class AgentVMTest {
             startedTexts += text
             startedRunIds += clientRunId
             startedRevisions += revision
+            startedEntryPoints += entryPoint
             return onStartRun(clientRunId)
         }
 
@@ -3990,7 +5288,18 @@ class AgentVMTest {
             onStopRun()
         }
 
-        override suspend fun retryRun(clientRunId: String) = onRetryRun(clientRunId)
+        override suspend fun deleteThread(threadId: String): AgentV2ThreadDeleteResponse {
+            assertEquals(thread.id, threadId)
+            onDeleteThread()
+            return AgentV2ThreadDeleteResponse(threadId, duplicate = false)
+        }
+
+        val retriedRunIds = mutableListOf<String>()
+
+        override suspend fun retryRun(clientRunId: String): AgentV2RunResult? {
+            retriedRunIds += clientRunId
+            return onRetryRun(clientRunId)
+        }
 
         override suspend fun clearThread(threadId: String, revision: Int) =
             AgentV2ThreadResponse(thread.copy(revision = revision + 1, messageCount = 0))
@@ -4006,16 +5315,23 @@ class AgentVMTest {
     }
 
     companion object {
+        private val EXHAUSTED_QUOTA = AgentV2UserQuota(20, 20, 0, "2100-01-01T00:00:00Z")
         private val NEWS_CARD = AgentV2ThreadNewsCard(
             eventId = 7,
             headline = "Headline",
             publishedAt = "2026-10-20T00:00:00Z"
         )
         private var previousLanguage: WLanguage? = null
+        private var previousApplicationContext: Context? = null
 
         @JvmStatic
         @BeforeClass
         fun initializeEmptyWalletStorage() {
+            ApplicationContextHolder::class.java.getDeclaredField("applicationContext").apply {
+                isAccessible = true
+                previousApplicationContext = get(null) as Context?
+                set(null, ContextWrapper(null))
+            }
             LocaleController::class.java.getDeclaredField("_activeLanguage").apply {
                 isAccessible = true
                 previousLanguage = get(null) as WLanguage?
@@ -4043,6 +5359,10 @@ class AgentVMTest {
         @JvmStatic
         @AfterClass
         fun restoreLanguage() {
+            ApplicationContextHolder::class.java.getDeclaredField("applicationContext").apply {
+                isAccessible = true
+                set(null, previousApplicationContext)
+            }
             LocaleController::class.java.getDeclaredField("_activeLanguage").apply {
                 isAccessible = true
                 set(null, previousLanguage)

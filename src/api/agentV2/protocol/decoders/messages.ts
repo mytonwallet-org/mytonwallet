@@ -1,12 +1,16 @@
 import type {
+  AgentActionKind,
   AgentAnswerFeedbackResponseV2,
   AgentAnswerFeedbackV2,
   AgentDefaultThreadResponseV2,
   AgentErrorCodeV2,
+  AgentHintPoolItemV2,
+  AgentHintPoolResponseV2,
   AgentHintsResponseV2,
   AgentMessageErrorV2,
   AgentPersistedMessageV2,
   AgentProblemReportResponseV2,
+  AgentStarterHintIdV2,
   AgentStarterHintV2,
   AgentThreadClearResponseV2,
   AgentThreadCreateResponseV2,
@@ -20,6 +24,7 @@ import type {
   JsonObject,
 } from '../wireReader';
 
+import { AGENT_ACTION_KINDS } from '../../generated/constants';
 import {
   AgentV2CompatibilityError,
   AgentV2ContractError,
@@ -55,6 +60,20 @@ import {
 } from './semantic';
 
 const ANSWER_FEEDBACK = new Set(['like', 'dislike']);
+const HINT_POOL_MAX_ITEMS = 64;
+const HINT_POOL_MAX_REQUIRED_ACTIONS = 4;
+const HINT_POOL_IDS: ReadonlySet<AgentStarterHintIdV2> = new Set<AgentStarterHintIdV2>([
+  'agent.capabilities', 'learn.swap', 'learn.staking', 'learn.security', 'receive.tokens',
+  'wallet.assets', 'wallet.total', 'wallet.spending', 'wallet.last_transfer', 'wallet.fund',
+  'market.today', 'news.today', 'market.bitcoin', 'market.price',
+  'staking.yield', 'staking.options', 'learn.multisend',
+  'action.swap', 'action.send', 'action.stake',
+]);
+const HINT_POOL_GROUPS: ReadonlySet<AgentHintPoolItemV2['group']> = new Set<AgentHintPoolItemV2['group']>([
+  'wallet', 'market', 'learn', 'action',
+]);
+const HINT_POOL_WALLET_STATES: ReadonlySet<string> = new Set(['funded', 'empty']);
+const ACTION_KINDS: ReadonlySet<string> = new Set(AGENT_ACTION_KINDS);
 const CURSOR_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
 const FOLLOWUP_MARKDOWN_PATTERN = /(?:[*_~`]|\[[^\]]*\]\(|<\/?[A-Za-z]|^\s{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])\s)/mu;
 const RESPONSE_LANGUAGE_PATTERN = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u;
@@ -134,9 +153,10 @@ export function followup(value: unknown, path: string) {
   followupText(result.text, `${path}.text`, 80);
 }
 
-function followupText(value: unknown, path: string, maxLength: number) {
+export function followupText(value: unknown, path: string, maxLength: number) {
   const result = boundedString(value, path, 1, maxLength);
   if (result.trim() !== result || /\p{Cc}/u.test(result) || FOLLOWUP_MARKDOWN_PATTERN.test(result)) fail(path);
+  return result;
 }
 
 export function filterFollowups(value: unknown, path: string, minLength = 0) {
@@ -344,6 +364,26 @@ export function decodeAgentV2Hints(value: unknown): AgentHintsResponseV2 {
   };
 }
 
+// An item this client cannot read is dropped, so a newer server can extend the pool
+export function decodeAgentV2HintPool(value: unknown): AgentHintPoolResponseV2 {
+  const result = object(value, '$');
+  protocol(result, '$');
+  literal(result.catalogVersion, 'agent-starter-hints-v2', '$.catalogVersion');
+  const items = array(result.items, '$.items', HINT_POOL_MAX_ITEMS).flatMap((item, index) => {
+    try {
+      return [hintPoolItem(item, `$.items[${index}]`)];
+    } catch (error) {
+      if (error instanceof AgentV2ContractError || error instanceof AgentV2CompatibilityError) return [];
+      throw error;
+    }
+  });
+  return {
+    protocolVersion: 3,
+    catalogVersion: 'agent-starter-hints-v2',
+    items,
+  };
+}
+
 export function decodeAgentV2DefaultThread(value: unknown): AgentDefaultThreadResponseV2 {
   const result = object(value, '$');
   protocol(result, '$');
@@ -479,6 +519,30 @@ export function decodeAgentV2ProblemReport(value: unknown): AgentProblemReportRe
     protocolVersion: 3,
     reportId: uuid(result.reportId, '$.reportId'),
     duplicate: boolean(result.duplicate, '$.duplicate'),
+  };
+}
+
+function hintPoolItem(value: unknown, path: string): AgentHintPoolItemV2 {
+  const item = object(value, path);
+  const id = extensibleOneOf<AgentStarterHintIdV2>(item.id, HINT_POOL_IDS, `${path}.id`);
+  const group = extensibleOneOf<AgentHintPoolItemV2['group']>(item.group, HINT_POOL_GROUPS, `${path}.group`);
+  let requiredActions: AgentActionKind[] | undefined;
+  if (item.requiredActions !== undefined) {
+    const actionsPath = `${path}.requiredActions`;
+    requiredActions = array(item.requiredActions, actionsPath, HINT_POOL_MAX_REQUIRED_ACTIONS)
+      .map((action, index) => extensibleOneOf<AgentActionKind>(action, ACTION_KINDS, `${actionsPath}[${index}]`));
+    if (!requiredActions.length) fail(actionsPath);
+  }
+  const walletState = item.walletState === undefined
+    ? undefined
+    : extensibleOneOf<NonNullable<AgentHintPoolItemV2['walletState']>>(
+      item.walletState, HINT_POOL_WALLET_STATES, `${path}.walletState`,
+    );
+  return {
+    id,
+    group,
+    ...(requiredActions && { requiredActions }),
+    ...(walletState && { walletState }),
   };
 }
 

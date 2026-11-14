@@ -313,7 +313,7 @@ struct PerpsSDKAdapterTests {
         func receipt() throws -> PerpsPositionReceiptDisplayData { try #require(PerpsSDKAdapter.balanceWithdrawalReceipt(operation)) }
         func receiveAmount() throws -> String {
             guard case .balanceWithdrawal(let withdrawal) = try receipt().event else { throw PerpsReceiptEventMismatch() }
-            return withdrawal.receiveAmount
+            return withdrawal.formattedReceiveAmount
         }
 
         #expect(try receipt().status == .pending)
@@ -545,7 +545,16 @@ struct PerpsSDKAdapterTests {
         let data = PerpsSDKAdapter.balanceWithdrawalReview(quote)
         #expect(data.fee == PerpsFormatting.quantity(firstTransferFee == "1" ? "1.2" : "0.2", symbol: "USDC"))
         #expect(data.feeRows.map(\.id) == (firstTransferFee == nil ? ["bridge"] : ["bridge", "firstTransfer"]))
-        #expect(data.receiveAmount == PerpsFormatting.quantity("9.71", symbol: "USDC"))
+        #expect(data.receiveAmount.amount == 9_710_000)
+        #expect(data.formattedReceiveAmount == TokenAmount(9_710_000, data.token).formatted(.defaultAdaptive))
+    }
+
+    @Test func roundWithdrawalDisplayWithoutChangingQuotePrecision() throws {
+        let quote: ApiPerpsBalanceWithdrawalQuote = try decode(#"{"id":"quote","accountId":"account","destination":"0xwallet","balance":"496","amount":"494.971149","bridgeFee":"0.2","receiveAmount":"494.771149","expiresAt":1}"#)
+        let data = PerpsSDKAdapter.balanceWithdrawalReview(quote)
+        #expect(data.receiveAmount.amount == 494_771_149)
+        #expect(data.formattedReceiveAmount == TokenAmount(494_770_000, data.token).formatted(.none))
+        #expect(quote.receiveAmount == "494.771149")
     }
 
     @Test(arguments: ["open", "increase", "reduce", "close", "leverage"])
@@ -884,6 +893,23 @@ struct PerpsSDKAdapterTests {
         #expect(eth.buttonTitle == L10n.notEnoughSymbol(symbol: "ETH"))
         requirements.needsEth = false
         #expect(PerpsSDKAdapter.fundingRequirement(requirements) == nil)
+    }
+
+    /// The minimum-amount warning states the order amount, so the funding notice names the same amount and the fees.
+    @Test func usdcFundingNoticeSeparatesTheOrderAmountFromItsFees() throws {
+        var requirements: ApiPerpsFundingRequirements = try decode("""
+        {"requiredUsdc":"10.2","requiredBridgeFeeUsdc":"0.2","requiredGasUsdc":"0.5","requiredEth":"0",
+         "requiredEthUsd":"0","usdcBalance":"3","ethBalance":"0","needsUsdc":true,"needsEth":false}
+        """)
+        #expect(PerpsSDKAdapter.fundingRequirement(requirements)?.message
+                == L10n.perpsFundingUsdcFees(minUSDC: "10.7", amount: "10", fees: "0.7"))
+        requirements.requiredUsdc = "1.25"
+        #expect(PerpsSDKAdapter.fundingRequirement(requirements, isEditing: true)?.message
+                == L10n.perpsFundingUsdcIncreaseFees(minUSDC: "1.75", amount: "1.05", fees: "0.7"))
+        // An edit that adds nothing bridges only the fee, so there is no amount to name.
+        requirements.requiredUsdc = "0.2"
+        #expect(PerpsSDKAdapter.fundingRequirement(requirements, isEditing: true)?.message
+                == L10n.perpsFundingUsdcIncrease(minUSDC: "0.7"))
     }
 
     @Test func initialOrderCanShowFundingRequirementsWithoutAnAmountOrQuote() throws {

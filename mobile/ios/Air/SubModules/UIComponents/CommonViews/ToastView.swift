@@ -12,7 +12,12 @@ public final class ToastController {
     private var currentToastIdentity: ToastIdentity?
     private var currentTransition: ToastTransition = .fadeIn
     /// What the toasts keep above besides the keyboard and the safe area
-    private var bottomBoundary: (anchor: NSLayoutYAxisAnchor, spacing: CGFloat)?
+    private var bottomBoundary: BottomBoundary?
+
+    private struct BottomBoundary {
+        weak var guide: UILayoutGuide?
+        let spacing: CGFloat
+    }
 
     /// Note this does not include action handler, because it is not equatable.
     /// In practice this should be fine - things like this are not going to be updated.
@@ -27,10 +32,12 @@ public final class ToastController {
         self.containerView = containerView
     }
 
-    /// Rests the toasts `spacing` above `anchor`, such as the top of a screen's input field, as Telegram's chat keeps its
-    /// overlays above its input panel, and never lower than the keyboard and the safe area allow
-    public func keepAbove(_ anchor: NSLayoutYAxisAnchor, spacing: CGFloat) {
-        bottomBoundary = (anchor, spacing)
+    /// Rests the toasts `spacing` above `guide`, such as the top of a screen's input field, as Telegram's chat keeps its
+    /// overlays above its input panel, and never lower than the keyboard and the safe area allow. The guide may belong
+    /// to a view outside the container, such as a field a parent screen hosts over it; while that view is away from the
+    /// container's hierarchy, the toasts rest as they would without the guide.
+    public func keepAbove(_ guide: UILayoutGuide, spacing: CGFloat) {
+        bottomBoundary = BottomBoundary(guide: guide, spacing: spacing)
     }
 
     public func showToast(_ config: ToastConfig) {
@@ -67,12 +74,20 @@ public final class ToastController {
             toastView.leftAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.leftAnchor, constant: sideInset),
             toastView.rightAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.rightAnchor, constant: -sideInset),
         ]
-        if let bottomBoundary {
+        // A guide outside the container's hierarchy, such as a field its host has taken away, shares no ancestor with
+        // the toast to constrain them in
+        var containerRoot: UIView = containerView
+        while let superview = containerRoot.superview {
+            containerRoot = superview
+        }
+        if let bottomBoundary,
+           let guide = bottomBoundary.guide,
+           guide.owningView?.isDescendant(of: containerRoot) == true {
             // The toast rests on the boundary itself. A pull toward the screen's bottom would weigh as much as the
             // boundary view's own height, so the layout could as well squeeze that view under the toast.
             constraints += [
-                toastView.bottomAnchor.constraint(lessThanOrEqualTo: bottomBoundary.anchor, constant: -bottomBoundary.spacing),
-                toastView.bottomAnchor.constraint(equalTo: bottomBoundary.anchor, constant: -bottomBoundary.spacing).withPriority(.defaultHigh),
+                toastView.bottomAnchor.constraint(lessThanOrEqualTo: guide.topAnchor, constant: -bottomBoundary.spacing),
+                toastView.bottomAnchor.constraint(equalTo: guide.topAnchor, constant: -bottomBoundary.spacing).withPriority(.defaultHigh),
             ]
         } else {
             constraints.append(

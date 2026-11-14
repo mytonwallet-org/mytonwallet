@@ -6,6 +6,7 @@ import type { ApiChain, ApiCountryCode } from '../../../api/types';
 import { selectIsCurrentAccountViewMode, selectIsOnRampAllowed } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { getChainConfig } from '../../../util/chain';
+import getTestId from '../../../util/getTestId';
 import { getNativeToken } from '../../../util/tokens';
 
 import useLang from '../../../hooks/useLang';
@@ -15,6 +16,7 @@ import styles from './Actions.module.scss';
 
 interface OwnProps {
   chain: ApiChain;
+  isActive?: boolean;
   isLedger?: boolean;
   className?: string;
   onClose?: NoneToVoidFunction;
@@ -30,6 +32,7 @@ interface StateProps {
 
 function Actions({
   chain,
+  isActive,
   className,
   isTestnet,
   isLedger,
@@ -87,6 +90,7 @@ function Actions({
       {isOnRampAllowed && (
         <div
           className={buildClassName(styles.actionButton, !canBuyWithCard && styles.disabled)}
+          data-testid={isActive ? getTestId('receive_buy_card') : undefined}
           onClick={canBuyWithCard ? handleBuyFiat : undefined}
         >
           <i className={buildClassName(styles.actionIcon, 'icon-card')} aria-hidden />
@@ -95,14 +99,22 @@ function Actions({
         </div>
       )}
       {isSwapAllowed && (
-        <div className={styles.actionButton} onClick={handleSwapClick}>
+        <div
+          className={styles.actionButton}
+          data-testid={isActive ? getTestId('receive_buy_crypto') : undefined}
+          onClick={handleSwapClick}
+        >
           <i className={buildClassName(styles.actionIcon, 'icon-crypto')} aria-hidden />
           {lang('Buy with Crypto')}
           <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
         </div>
       )}
       {isDepositLinkSupported && (
-        <div className={styles.actionButton} onClick={handleReceiveClick}>
+        <div
+          className={styles.actionButton}
+          data-testid={isActive ? getTestId('receive_deposit_link') : undefined}
+          onClick={handleReceiveClick}
+        >
           <i className={buildClassName(styles.actionIcon, 'icon-link')} aria-hidden />
           {lang('Create Deposit Link')}
           <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />

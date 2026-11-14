@@ -36,6 +36,7 @@ extension NSAttributedString.Key {
 enum AgentMessageMarkdownProfile: Hashable {
     case legacy
     case agentMarkdownV1
+    case plainText
 }
 
 @MainActor
@@ -84,6 +85,9 @@ enum AgentMessageTextRenderer {
         linkColor: UIColor = .tintColor
     ) -> NSAttributedString {
         let normalizedText = normalizedMessageSource(text)
+        if markdownProfile == .plainText {
+            return makePlainText(normalizedText, color: textColor, font: baseFont)
+        }
         let attributedText: NSMutableAttributedString
 
         if rendersMarkdown, markdownProfile == .agentMarkdownV1 {

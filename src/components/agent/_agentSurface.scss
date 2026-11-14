@@ -1,6 +1,10 @@
 @use "../../styles/mixins";
 
+@use "agentBubble";
+
 @mixin variables {
+  @include agentBubble.variables;
+
   // The Agent's surface: white, and in the dark theme the window color in the wide layout, as Market's and Explore's
   // panels, and black on a phone, as Explore. The blurred one is that of a header over the scrolled content, and the
   // content fades out into the faded one under the field and the tab bar.
@@ -37,4 +41,17 @@
     border-radius: var(--agent-card-radius);
     clip-path: inset(0 round var(--agent-card-radius));
   }
+}
+
+@mixin glass-capsule {
+  // The glass of the field, which the microphone beside it and the Agent's other capsules share, as in the design
+  background-color: var(--color-app-background);
+  box-shadow: var(--shadow-glass-capsule);
+
+  @supports (backdrop-filter: blur(16px)) {
+    background-color: var(--color-background-blurred);
+    backdrop-filter: blur(var(--blur-glass-capsule));
+  }
+
+  @include mixins.frostedGlass(0.8);
 }

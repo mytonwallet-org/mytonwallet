@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkInstallationStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -216,7 +217,7 @@ object SupportDiagnosticsReport {
             .put("lastUpdateAt", formatDate(packageInfo.lastUpdateTime))
             .put("processStartedAt", formatDate(System.currentTimeMillis() - processUptimeMillis))
             .put("processUptimeSeconds", processUptimeMillis / 1000.0)
-            .put("clientId", secureValue("clientId"))
+            .put("clientId", installationValue("clientId") ?: secureValue("clientId"))
             .put("stateVersion", secureValue("stateVersion"))
             .put("secureStorageCurrentAccountId", secureValue("currentAccountId"))
             .put("baseCurrency", WGlobalStorage.getBaseCurrency())
@@ -372,6 +373,8 @@ object SupportDiagnosticsReport {
         MAccount.AccountType.HARDWARE.value, MAccount.AccountType.VIEW.value -> false
         else -> true
     }
+
+    private fun installationValue(key: String): String? = WSdkInstallationStorage.getValue(key)
 
     private fun secureValue(key: String): Any = WSecureStorage.getSecValue(key).ifEmpty {
         null

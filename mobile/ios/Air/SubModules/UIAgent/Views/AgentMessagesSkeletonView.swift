@@ -54,11 +54,10 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
     private static let minimumBubbleWidth: CGFloat = 44
 
     /// Cards with and without a picture, from the bottom, with the feed's insets and spacing: the cards' rows are a
-    /// chat's rows apart, and each card's tail hangs into its row's end
+    /// chat's rows apart, and each card is the Agent's bubble with its tail, as the feed's cards are
     private static let newsCardHeights: [CGFloat] = [380, 204]
-    private static let newsCardSpacing = AgentVCLayout.rowSpacing + AgentBubbleBackgroundView.tailBottomOverflow
+    private static let newsCardSpacing = AgentVCLayout.rowSpacing
     private static let newsCardHorizontalInset: CGFloat = 16
-    private static let newsCardCornerRadius: CGFloat = 20
 
     private static let shimmerDuration: CFTimeInterval = 1.6
     private static let fillBandWidth: CGFloat = 280
@@ -98,7 +97,10 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
                 addSubview(view)
                 bubbleViews.append(view)
             }
-        case .newsCards, .suggestion:
+        case .newsCards:
+            // The cards' bubbles come as the skeleton's height asks for them
+            break
+        case .suggestion:
             layer.addSublayer(cardsLayer)
         }
         for (container, band, mask) in [
@@ -185,17 +187,39 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
 
     private func layoutCards(into path: UIBezierPath) {
         let width = bounds.width - 2 * Self.newsCardHorizontalInset
-        guard width > 0 else { return }
         var maxY = bounds.maxY - bottomInset
         var index = 0
-        while maxY > bounds.minY {
+        while width > 0, maxY > bounds.minY {
             let height = Self.newsCardHeights[index % Self.newsCardHeights.count]
-            let frame = CGRect(x: bounds.minX + Self.newsCardHorizontalInset, y: maxY - height, width: width, height: height)
+                + AgentBubbleBackgroundView.tailBottomOverflow
+            let frame = CGRect(
+                x: bounds.minX + Self.newsCardHorizontalInset, y: maxY - height, width: width, height: height
+            )
+            let view = getCardView(at: index)
+            view.isHidden = false
+            view.frame = frame
+            view.layoutIfNeeded()
             placeholders.append(Placeholder(frame: frame, isOutgoing: false))
-            path.append(UIBezierPath(roundedRect: frame, cornerRadius: Self.newsCardCornerRadius))
+            let cardPath = view.previewPath()
+            cardPath.apply(CGAffineTransform(translationX: frame.minX, y: frame.minY))
+            path.append(cardPath)
             maxY = frame.minY - Self.newsCardSpacing
             index += 1
         }
+        for view in bubbleViews.dropFirst(index) {
+            view.isHidden = true
+        }
+    }
+
+    private func getCardView(at index: Int) -> AgentBubbleBackgroundView {
+        if index < bubbleViews.count { return bubbleViews[index] }
+        let view = AgentBubbleBackgroundView()
+        // Placed by frame: without constraints of its own, Auto Layout would collapse the body to the tail
+        view.translatesAutoresizingMaskIntoConstraints = true
+        view.configure(direction: .incoming, fillColor: .air.agentBubbleFill, showsTail: true)
+        insertSubview(view, at: bubbleViews.count)
+        bubbleViews.append(view)
+        return view
     }
 
     /// Telegram's highlight: a white band over the bubbles and a brighter one along their outlines. Light bubbles sit on a

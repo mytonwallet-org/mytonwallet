@@ -102,37 +102,12 @@ $feedMaxWidth: agentBubble.$maxWidth;
   color: var(--color-black);
 }
 
-// A blank line under the headline, and none above the sources or the time, in place of the bubble's paragraph margins.
-// The selector outweighs `.incoming p` in `MessageBubble.module.scss`, which `.newsBody` alone does not.
+// A blank line under the headline, and none above the time, in place of the bubble's paragraph margins. The selector
+// outweighs `.incoming p` in `MessageBubble.module.scss`, which `.newsBody` alone does not.
 .newsText > .newsBody {
   margin: 1.25rem 0 0;
   overflow-wrap: anywhere;
   white-space: pre-line;
-}
-
-// The sources in the time's type, from the news text's start, wrapping rather than cut off
-.newsSources {
-  margin-top: 0.5rem;
-
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1rem;
-  color: var(--color-gray-2);
-  overflow-wrap: anywhere;
-}
-
-// A source link stays grey, the hover colour of links included. The app turns off the touch callout for the whole page
-// (see `styles/index.scss`); a source link turns it back on, so a long press on it shows the system's link menu, as on
-// a link in an answer.
-.newsSourceLink {
-  color: inherit;
-
-  -webkit-touch-callout: default;
-
-  &:hover,
-  &:focus-visible {
-    color: inherit;
-  }
 }
 
 // The time at the bubble's foot, where a message's time is, on the app's trailing side rather than the news text's. It
@@ -150,10 +125,6 @@ $feedMaxWidth: agentBubble.$maxWidth;
   color: var(--color-gray-2);
   text-align: end;
   white-space: nowrap;
-}
-
-.newsTimeUnderSources {
-  margin-top: 0.25rem;
 }
 
 // Telegram's comments strip under a channel post
@@ -253,7 +224,8 @@ $feedMaxWidth: agentBubble.$maxWidth;
 }
 
 // A daily digest's card, in the bubble the news cards have: its title and meta line, its headlines, each a button with
-// a bullet by its first line and an arrow where the "Discuss" strip has its own, and the news it leaves out
+// a bullet by its first line and a gray arrow where the "Discuss" strip has its own, and the news it leaves out. The
+// digest's post lists them under its title, from the bubble's sides as on the card.
 
 .digestHeader {
   display: flex;
@@ -275,7 +247,14 @@ $feedMaxWidth: agentBubble.$maxWidth;
   padding-inline: 1rem 0.5625rem;
 }
 
+.digestHeadlinesInText {
+  margin-top: 0.125rem;
+  margin-inline: -1rem;
+}
+
 .digestHeadlineItem {
+  position: relative;
+
   &:not(:first-child) {
     border-top: 0.0625rem solid var(--color-separator);
   }
@@ -304,9 +283,10 @@ $feedMaxWidth: agentBubble.$maxWidth;
 
   @include mixins.transition(opacity 200ms);
 
-  &:active {
-    opacity: 0.4;
-    transition: none;
+  @media (hover: hover) {
+    &:hover {
+      opacity: 0.6;
+    }
   }
 
   &:focus-visible {
@@ -330,10 +310,73 @@ $feedMaxWidth: agentBubble.$maxWidth;
   }
 }
 
+// A headline that leads with a picture or the News mark in its place stands 12 px from its 40 px square
+.digestHeadlineWithPicture {
+  gap: 0.75rem;
+}
+
+// The square a picture loads over, in the fill of a loading picture, as the post's, which shows the News mark when the
+// headline has no picture or its picture fails
+.digestThumbnailPlace {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
+
+  background-color: var(--color-separator);
+}
+
+// The picture lies over its square in the button, so a click on it opens it and not the news item's discussion. It
+// dims with the row under the pointer and, as its own target, at once under the finger, coming back over 200 ms.
+.digestThumbnail {
+  cursor: var(--custom-cursor, pointer);
+  user-select: none;
+
+  position: absolute;
+  top: 0.625rem;
+  inset-inline-start: 0;
+
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
+
+  object-fit: cover;
+  outline: none;
+
+  @include mixins.transition(opacity 200ms);
+
+  @media (hover: hover) {
+    &:hover,
+    .digestHeadline:hover + & {
+      opacity: 0.6;
+    }
+  }
+
+  &:active {
+    opacity: 0.6;
+    transition: none;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 0.125rem var(--color-accent-10o);
+  }
+}
+
 .digestHeadlineText {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+// Beside a picture, a headline shorter than its square stands centred on it, and a longer one starts at its top
+.digestHeadlineTextBesidePicture {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
 }
 
 .digestHeadlineChevron {
@@ -343,7 +386,7 @@ $feedMaxWidth: agentBubble.$maxWidth;
   width: 1.5rem;
   height: 1.5rem;
 
-  color: var(--color-accent);
+  color: var(--color-gray-4);
 
   fill: none;
   stroke: currentColor;
@@ -354,9 +397,9 @@ $feedMaxWidth: agentBubble.$maxWidth;
   @include mixins.rtl-mirror();
 }
 
-// Under the headlines' text, past their bullets
+// Under the headlines' text, past their bullets, over the card's time
 .digestRemainder {
-  padding-block: 0.25rem 0.75rem;
+  padding-block: 0.25rem 0.5rem;
   padding-inline: 2rem 1rem;
 
   font-size: 0.875rem;
@@ -366,6 +409,26 @@ $feedMaxWidth: agentBubble.$maxWidth;
   @include mixins.is-mobile() {
     font-size: 0.9375rem;
   }
+}
+
+// The card's time, in the bubble's trailing corner as a news card's; the last headline's row already ends with its room
+.digestFooter {
+  padding: 0 1rem 0.4375rem;
+}
+
+.newsTimeInDigestFooter {
+  margin-top: 0;
+}
+
+// Under the headlines' text, past their pictures
+.digestRemainderWithPictures {
+  padding-inline-start: 4.25rem;
+}
+
+// The post's time stands under it, as under a body
+.digestRemainderInText {
+  margin-inline: -1rem;
+  padding-bottom: 0;
 }
 
 // The news a chat discusses, posted at its start as the news card it was
@@ -403,7 +466,10 @@ $feedMaxWidth: agentBubble.$maxWidth;
   visibility: hidden;
 }
 
+// The flight lies in the page's body, outside the Agent, so it sets the bubble's fill for itself
 .flight {
+  @include agentBubble.variables;
+
   pointer-events: none;
 
   position: fixed;
@@ -440,7 +506,7 @@ $feedMaxWidth: agentBubble.$maxWidth;
   border-radius: var(--flight-frame-radius, var(--border-radius-content));
   border-end-start-radius: 0;
 
-  background-color: var(--color-activity-gray-background);
+  background-color: var(--agent-bubble-background);
 
   @include mixins.transition("opacity 250ms ease-in, scale 250ms ease-in");
 
@@ -473,7 +539,7 @@ $feedMaxWidth: agentBubble.$maxWidth;
     width: agentBubble.$tailWidth;
     height: agentBubble.$tailHeight;
 
-    background-color: var(--color-activity-gray-background);
+    background-color: var(--agent-bubble-background);
 
     mask-image: agentBubble.$incomingTailMask;
     mask-repeat: no-repeat;

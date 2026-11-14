@@ -12,8 +12,13 @@ final class AgentChatActions {
     private let refreshNavigationItemMenu: () -> Void
     private let showError: (DisplayError) -> Void
     private let showToast: (String) -> Void
+    /// Shows the support sheet over the screen
+    private let presentConfirmation: (UIAlertController, UIViewController) -> Void
     /// The user confirmed deletion, so the screen closes before server cleanup finishes.
     private(set) var isDeletingChat = false
+    /// The support sheet on screen, whose Call follows `canConfirmSupportRequest`
+    private weak var supportConfirmation: UIAlertController?
+    private var canConfirmSupportRequest: () -> Bool = { false }
 
     init(
         model: AgentModel,
@@ -21,7 +26,8 @@ final class AgentChatActions {
         cancelDictation: @escaping () -> Void,
         refreshNavigationItemMenu: @escaping () -> Void,
         showError: @escaping (DisplayError) -> Void = { AppActions.showError(error: $0) },
-        showToast: @escaping (String) -> Void = { AppActions.showToast(message: $0) }
+        showToast: @escaping (String) -> Void = { AppActions.showToast(message: $0) },
+        presentConfirmation: @escaping (UIAlertController, UIViewController) -> Void = { $1.present($0, animated: true) }
     ) {
         self.model = model
         self.viewController = viewController
@@ -29,6 +35,7 @@ final class AgentChatActions {
         self.refreshNavigationItemMenu = refreshNavigationItemMenu
         self.showError = showError
         self.showToast = showToast
+        self.presentConfirmation = presentConfirmation
     }
 
     /// A news discussion the user hasn't written in has no Delete: the chat list leaves it out, and it has nothing of
@@ -70,6 +77,49 @@ final class AgentChatActions {
             })
         }
         return UIMenu(children: children)
+    }
+
+    /// Contact Support from the header's headset: the sheet asks, and Call sends the request
+    func confirmHeaderSupportRequest() {
+        guard model.canRequestSupport else { return }
+        presentSupportConfirmation(canConfirm: { [weak model] in model?.canRequestSupport == true }) { [weak model] in
+            model?.requestSupport(source: .header)
+        }
+    }
+
+    /// Contact Support among the starter hints: after the sheet, the chat support has takes the request through
+    /// `openThread`, or this chat asks, unless `hasStayedOnScreen` finds the chat left by then
+    func confirmStarterHintSupportRequest(
+        hasStayedOnScreen: @escaping () -> Bool,
+        openThread: @escaping (ApiAgentV2ThreadSummary) -> Void
+    ) {
+        guard let model = model as? AgentV2Model, model.canRequestSupportFromHint else { return }
+        presentSupportConfirmation(canConfirm: { [weak model] in model?.canRequestSupportFromHint == true }) { [weak model] in
+            guard let model else { return }
+            Task {
+                let outcome = await model.requestSupportFromStarterHint(hasStayedOnScreen: hasStayedOnScreen)
+                guard case .opened(let thread) = outcome else { return }
+                openThread(thread)
+            }
+        }
+    }
+
+    /// Keeps the support sheet's Call enabled only while the chat can ask, as the chat changes under it
+    func updateSupportConfirmation() {
+        AgentSupportRequest.findCallAction(in: supportConfirmation)?.isEnabled = canConfirmSupportRequest()
+    }
+
+    private func presentSupportConfirmation(canConfirm: @escaping () -> Bool, onConfirm: @escaping () -> Void) {
+        guard let viewController, viewController.presentedViewController == nil else { return }
+        cancelDictation()
+        let alert = AgentSupportRequest.makeConfirmation(
+            hasWalletAddresses: (model as? AgentV2Model)?.hasSupportWalletAddresses == true,
+            canConfirm: canConfirm,
+            onConfirm: onConfirm
+        )
+        canConfirmSupportRequest = canConfirm
+        supportConfirmation = alert
+        presentConfirmation(alert, viewController)
     }
 
     /// Asks to delete the chat with the thread list's confirmation, then deletes its thread as the list does

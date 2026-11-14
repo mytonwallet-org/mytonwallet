@@ -151,6 +151,7 @@ fileprivate struct StakeInfoSection: View {
                         .tint(.accentColor)
                         .padding(.top, -1)
                 }
+                .accessibilityIdentifier("stake_why_safe")
             } header: {
                 Text(lang("Staking Details"))
             } footer: {}

@@ -35,6 +35,17 @@ public final class ExplorerHelper {
         return url
     }
 
+    /// The short link of a MyPulse news item: the apps open its discussion, and messengers show its preview card
+    public static func makeAgentNewsShareUrl(eventId: Int, lang: String) -> URL {
+        var url = URL(string: SHORT_UNIVERSAL_URL)!.appending(components: "agent")
+        url.append(queryItems: [
+            URLQueryItem(name: "news", value: String(eventId)),
+            URLQueryItem(name: "lang", value: lang),
+            URLQueryItem(name: "utm_source", value: "pulse_share"),
+        ])
+        return url
+    }
+
     public static func addressUrl(chain: ApiChain, address: String) -> URL {
         let network = AccountStore.activeNetwork
         if let explorer = selectedExplorerConfig(for: chain),

@@ -50,3 +50,13 @@ $tailBackEasing: spring-easing(0.75);
 // The tail at its smallest, as Android's drawable has it: 40% of its size, raised into the corner by a third of what it
 // lost of its height
 $tailAwayTransform: translateY(-0.25rem) scale(0.4);
+
+@mixin variables {
+  // The fill of the Agent's bubbles and of what is drawn in their colour, as their placeholders: the activities' grey,
+  // and in the dark theme the grey of the app's blocks, as on iOS and Android
+  --agent-bubble-background: var(--color-activity-gray-background);
+
+  :global(html.theme-dark) & {
+    --agent-bubble-background: var(--color-background-first);
+  }
+}

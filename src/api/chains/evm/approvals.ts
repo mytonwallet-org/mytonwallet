@@ -27,7 +27,7 @@ import {
   UNISWAP_PERMIT2_ADDRESS,
   ZERO_ADDRESS,
 } from './constants';
-import { estimateEvmFee } from './transfer';
+import { estimateEvmFee } from './fee';
 import { getWalletBalance } from './wallet';
 
 const ERC20_APPROVE_ABI = ['function approve(address spender, uint256 amount) returns (bool)'];

@@ -22,7 +22,7 @@ enum AgentNewsDiscussionMetrics {
 
 /// A news item of the News feed: the post the item's discussion starts with, ended by Telegram's comments strip that
 /// opens the discussion
-final class AgentNewsFeedCardCell: UICollectionViewCell {
+final class AgentNewsFeedCardCell: UICollectionViewCell, AgentNewsFlightSource {
     var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)? {
         get { newsView.contextMenuConfigurationProvider }
         set { newsView.contextMenuConfigurationProvider = newValue }
@@ -31,7 +31,7 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
         get { newsView.onPreferredHeightChanged }
         set { newsView.onPreferredHeightChanged = newValue }
     }
-    var openSourceAction: ((String) -> Void)? {
+    var openSourceAction: (() -> Void)? {
         get { newsView.openSourceAction }
         set { newsView.openSourceAction = newValue }
     }
@@ -93,13 +93,10 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
         )
     }
 
-    /// A picture of the card and its frame in the window, for the post that flies into the new discussion. The picture
-    /// leaves out the card's tail, which the post shows as the card lands on it.
     func makeFlightSnapshot() -> (view: UIView, frame: CGRect)? {
         newsView.makeFlightSnapshot()
     }
 
-    /// Hides the card while its picture flies into the new discussion, so the feed does not show it twice
     func setFlightSourceHidden(_ isHidden: Bool) {
         newsView.alpha = isHidden ? 0 : 1
     }

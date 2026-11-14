@@ -3,18 +3,18 @@ import { expect, test } from './fixtures';
 test.use({ launchOptions: { args: ['--enable-unsafe-swiftshader'] } });
 
 for (const width of [390, 1280]) {
-  test(`shows suggestions and keeps News accessible without input focus at ${width}px`, async ({
+  test(`shows suggestions, focuses the field on return to the Agent and keeps News accessible at ${width}px`, async ({
     agentV2, page, context,
   }) => {
     await page.setViewportSize({ width, height: 844 });
     await agentV2.reset();
     await agentV2.seedWallet();
-    await context.route('**/api/v2/hints*', (route) => route.fulfill({
+    // One hint of each group, so that the pick shows them all
+    await context.route('**/api/v2/hints/pool*', (route) => route.fulfill({
       json: {
         protocolVersion: 3,
-        catalogVersion: 'agent-starter-hints-v1',
-        items: ['agent.capabilities', 'learn.swap', 'learn.staking', 'learn.security', 'receive.tokens']
-          .map((id) => ({ id, requiredCapabilities: [] })),
+        catalogVersion: 'agent-starter-hints-v2',
+        items: [{ id: 'agent.capabilities', group: 'learn' }, { id: 'receive.tokens', group: 'wallet' }],
       },
     }));
     await agentV2.open();
@@ -30,7 +30,8 @@ for (const width of [390, 1280]) {
     await agentV2.waitForList();
     const hint = page.getByRole('button', { name: 'What can you do?', exact: true });
     await expect(hint).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Ask anything' })).not.toBeFocused();
+    // A desktop gives the field the focus as the list comes back on screen
+    await expect(page.getByRole('textbox', { name: 'Ask anything' })).toBeFocused();
     await expect(page.getByText('Ask a question to start a new chat.', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^News,/u })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Receive tokens', exact: true })).toBeVisible();

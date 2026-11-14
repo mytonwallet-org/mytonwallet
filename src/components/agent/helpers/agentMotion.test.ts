@@ -1,5 +1,5 @@
 import {
-  getBezierProgress, getShare, getTelegramProgress, interpolateRect,
+  cacheWhileConnected, getBezierProgress, getShare, getTelegramProgress, interpolateRect,
 } from './agentMotion';
 
 // Telegram's curve, `cubic-bezier(0.38, 0.7, 0.125, 1)`, drawn point by point
@@ -72,5 +72,28 @@ describe('interpolateRect', () => {
     )).toEqual({
       left: 50, top: 75, width: 150, height: 50,
     });
+  });
+});
+
+describe('cacheWhileConnected', () => {
+  it('looks for its element again only once the one it found has left the document', () => {
+    const first = document.createElement('div');
+    const second = document.createElement('div');
+    document.body.append(first, second);
+    let shown = first;
+    const find = jest.fn(() => shown);
+    const findShown = cacheWhileConnected(find);
+
+    expect(findShown()).toBe(first);
+    expect(findShown()).toBe(first);
+    expect(find).toHaveBeenCalledTimes(1);
+
+    // The list renders it anew
+    first.remove();
+    shown = second;
+    expect(findShown()).toBe(second);
+    expect(find).toHaveBeenCalledTimes(2);
+
+    second.remove();
   });
 });

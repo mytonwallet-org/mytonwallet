@@ -32,6 +32,7 @@ import { getChainConfig } from '../../util/chain';
 import { SECOND } from '../../util/dateFormat';
 import { stopEvent } from '../../util/domEvents';
 import { getMaxTransferAmount, isBalanceSufficientForTransfer } from '../../util/fee/transferFee';
+import getTestId from '../../util/getTestId';
 import { vibrate } from '../../util/haptics';
 import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { debounce } from '../../util/schedulers';
@@ -488,6 +489,7 @@ function TransferInitial({
               accountId={accountId}
               title={accountTitle}
               className={styles.accountPill}
+              testId={isActive ? getTestId('send_account_switcher') : undefined}
               onClick={handleOpenAccountSelector}
             />
           )}
@@ -496,6 +498,7 @@ function TransferInitial({
             isRound
             className={buildClassName(modalStyles.closeButton, styles.closeButton)}
             ariaLabel={lang('Close')}
+            testId={isActive ? getTestId('nav_close') : undefined}
             onClick={handleCloseClick}
           >
             <i className={buildClassName(modalStyles.closeIcon, 'icon-close')} aria-hidden />
@@ -506,7 +509,10 @@ function TransferInitial({
               {lang(nfts.length > 1 ? 'Send Collectibles' : 'Send Collectible')}
             </div>
           ) : (
-            <SentTabs className={buildClassName(hasMultipleAccounts && styles.sentTabsWithSwitcher)} />
+            <SentTabs
+              className={buildClassName(hasMultipleAccounts && styles.sentTabsWithSwitcher)}
+              isActive={isActive}
+            />
           )}
 
           {nfts?.length === 1 && <NftInfo nft={nfts[0]} withMediaViewer />}
@@ -514,6 +520,7 @@ function TransferInitial({
 
           <AddressInput
             label={lang('Recipient Address')}
+            testId={isActive ? getTestId('send_address_input') : undefined}
             value={toAddress}
             chain={chain}
             // NFT transfers are available only on the TON blockchain on this moment
@@ -543,6 +550,9 @@ function TransferInitial({
               withChainIcon
               isMaxAmountLoading={maxAmount === undefined}
               isSensitiveDataHidden={isSensitiveDataHidden}
+              testId={isActive ? getTestId('send_amount_input') : undefined}
+              tokenSelectorTestId={isActive ? getTestId('send_token_selector') : undefined}
+              tokenRowTestId={isActive ? getTestId('token_selector_row') : undefined}
               onPressEnter={handleSubmit}
             />
           )}
@@ -557,6 +567,7 @@ function TransferInitial({
               isReadonly={isTransferReadonly}
               isCommentRequired={isCommentRequired}
               isEncryptedCommentSupported={doesSupportCommentEncryption}
+              testId={isActive ? getTestId('send_comment_input') : undefined}
               onCommentChange={handleCommentChange}
             />
           )}
@@ -578,6 +589,7 @@ function TransferInitial({
                 isDisabled={!canSubmit}
                 isLoading={isLoading}
                 className={styles.button}
+                testId={isActive ? getTestId('send_continue') : undefined}
               >
                 {renderButtonText()}
               </Button>

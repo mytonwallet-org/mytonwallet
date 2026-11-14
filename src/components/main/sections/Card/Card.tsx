@@ -1,8 +1,7 @@
 import React, {
-  type ElementRef,
   memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../../../lib/teact/teact';
-import { getActions, getGlobal, withGlobal } from '../../../../global';
+import { getActions, withGlobal } from '../../../../global';
 
 import type {
   ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState,
@@ -19,35 +18,34 @@ import type { DropdownItem } from '../../../ui/Dropdown';
 
 import { ANIMATION_LEVEL_MIN, IS_GRAM_WALLET } from '../../../../config';
 import {
-  selectAccountStakingStates, selectCurrentAccount,
-  selectCurrentAccountId,
-  selectCurrentAccountSettings,
-  selectCurrentAccountState,
-  selectCurrentAccountTokens,
+  selectAccount,
+  selectAccountSettings,
+  selectAccountStakingStates,
+  selectAccountState,
+  selectAccountTokens,
   selectIs3dCardDisabled,
-  selectIsCurrentAccountViewMode,
   selectSeasonalTheme,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import { getCardTextPalette } from '../../../../util/card/surfaceProfile';
 import { formatCurrency, formatCurrencyExtended, getShortCurrencySymbol } from '../../../../util/formatNumber';
+import getTestId from '../../../../util/getTestId';
+import { getIsViewAccountDisabled } from '../../../../util/isViewAccount';
 import { toNativeDigits } from '../../../../util/nativeDigits';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
-import useCardArtwork, { preloadCardArtworks } from '../../../../hooks/useCardArtwork';
+import useCardArtwork from '../../../../hooks/useCardArtwork';
 import useCardBalanceGesture from '../../../../hooks/useCardBalanceGesture';
 import useCardController from '../../../../hooks/useCardController';
 import useCardCustomization from '../../../../hooks/useCardCustomization';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
-import useEffectOnce from '../../../../hooks/useEffectOnce';
 import useFontScale from '../../../../hooks/useFontScale';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import { useMediaQuery } from '../../../../hooks/useMediaQuery';
-import useSyncEffect from '../../../../hooks/useSyncEffect';
 import useUniqueId from '../../../../hooks/useUniqueId';
 import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 import useWindowSize from '../../../../hooks/useWindowSize';
@@ -71,14 +69,14 @@ import promoBgMaskUrl from '../../../../assets/cards/promo_card_bg.png';
 import promoOverlayMaskUrl from '../../../../assets/cards/promo_card_overlay.png';
 
 interface OwnProps {
-  ref?: ElementRef<HTMLDivElement>;
+  accountId: string;
+  isActive: boolean;
+  isPaused?: boolean;
   onYieldClick: (stakingId?: string) => void;
 }
 
 interface StateProps {
   theme: Theme;
-  currentAccountId: string;
-  isTemporaryAccount?: boolean;
   tokens?: UserToken[];
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
@@ -93,8 +91,6 @@ interface StateProps {
   seasonalTheme?: ApiBackendConfig['seasonalTheme'];
   activePromotion?: ApiPromotion;
 }
-
-let mainKey = 0;
 
 function useSeasonalTheming({
   toggleSeasonalTheming,
@@ -132,10 +128,10 @@ const CARD_LANDSCAPE_WIDTH = 328;
 const CARD_LANDSCAPE_HEIGHT = 200;
 
 function Card({
-  ref,
+  accountId,
+  isActive,
+  isPaused,
   theme,
-  currentAccountId,
-  isTemporaryAccount,
   tokens,
   onYieldClick,
   baseCurrency,
@@ -175,16 +171,10 @@ function Card({
 
   const { isPortrait } = useDeviceScreen();
   const { width: screenWidth } = useWindowSize();
-  const isUpdating = useUpdateIndicator('balanceUpdateStartedAt');
+  const isUpdating = useUpdateIndicator('balanceUpdateStartedAt', accountId);
   const { updateFontScale } = useFontScale(amountRef);
   // Screen width affects font size only in portrait orientation
   const screenWidthDep = isPortrait ? screenWidth : 0;
-
-  useSyncEffect(() => {
-    if (currentAccountId) {
-      mainKey += 1;
-    }
-  }, [currentAccountId, isTemporaryAccount]);
 
   const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
 
@@ -217,18 +207,11 @@ function Card({
     onMenu: openCurrencyMenu,
   });
 
-  useEffect(() => {
-    if (isSensitiveDataHidden) closeCurrencyMenu();
-  }, [isSensitiveDataHidden]);
+  const isInteractive = isActive && !isPaused;
 
-  // The card remounts when the wallet changes; other wallets' cards are decoded ahead of time, so the new
-  // card never starts with the default artwork
-  useEffectOnce(() => {
-    const nfts = Object.values(getGlobal().settings.byAccountId)
-      .map(({ cardBackgroundNft }) => cardBackgroundNft)
-      .filter((nft): nft is ApiNft => Boolean(nft));
-    preloadCardArtworks(nfts);
-  });
+  useEffect(() => {
+    if (isSensitiveDataHidden || !isInteractive) closeCurrencyMenu();
+  }, [isSensitiveDataHidden, isInteractive]);
 
   const { seasonalContextMenuItems, handleDisableSeasonalTheming } = useSeasonalTheming({
     toggleSeasonalTheming,
@@ -302,6 +285,7 @@ function Card({
             <span
               ref={balanceHitRef}
               className={styles.balanceHit}
+              data-testid={isActive ? getTestId('home_balance') : undefined}
               role="button"
               tabIndex={0}
               data-card-play-allowed={isSensitiveDataHidden || undefined}
@@ -370,6 +354,7 @@ function Card({
               )}
               role="button"
               tabIndex={0}
+              data-testid={isActive ? getTestId('home_portfolio_pill') : undefined}
               onClick={!isSensitiveDataHidden ? () => switchToPortfolio() : undefined}
             >
               <span className={styles.changeValue}>
@@ -401,19 +386,20 @@ function Card({
   }
 
   return (
-    <div ref={ref} className={styles.containerWrapper}>
+    <div className={styles.containerWrapper}>
       <Transition activeKey={isUpdating ? 1 : 0} name="fade" shouldCleanup className={styles.loadingDotsContainer}>
         {isUpdating ? <LoadingDots isActive isDoubled /> : undefined}
       </Transition>
 
       <CardTilt
-        isDisabled={isTiltDisabled}
+        isDisabled={isTiltDisabled || !isActive || isPaused}
         className={styles.tiltArea}
         onMotionFrame={handleMotionFrame}
       >
         <div
           ref={surfaceRef}
-          className={buildClassName(styles.container, customCardClassName)}
+          className={buildClassName(styles.container, customCardClassName, !isInteractive && styles.containerInert)}
+          inert={!isInteractive}
         >
           <CardSurface
             nft={shownCardNft}
@@ -469,16 +455,16 @@ function Card({
 
           <div className={buildClassName(styles.containerInner, customCardClassName)}>
             {values ? renderBalance() : renderLoader()}
-            <Transition
-              activeKey={mainKey}
-              name="fade"
-              className={styles.cardAddressContainer}
-              slideClassName={styles.cardAddressSlide}
-            >
-              <CardAddress withTextGradient={withTextGradient} />
-            </Transition>
+            <div className={buildClassName(styles.cardAddressContainer, styles.cardAddressSlide)}>
+              <CardAddress
+                accountId={accountId}
+                withTextGradient={withTextGradient}
+                isDisabled={!isInteractive}
+                testId={isActive ? getTestId('home_wallet_name') : undefined}
+              />
+            </div>
             {!isNftBuyingDisabled && !isViewMode && (
-              <MintCardButton />
+              <MintCardButton accountId={accountId} isActive={isActive} />
             )}
           </div>
         </div>
@@ -490,19 +476,16 @@ function Card({
 
 export default memo(
   withGlobal<OwnProps>(
-    (global): StateProps => {
-      const currentAccountId = selectCurrentAccountId(global)!;
-      const accountState = selectCurrentAccountState(global);
-      const stakingStates = selectAccountStakingStates(global, currentAccountId);
-      const { cardBackgroundNft: cardNft } = selectCurrentAccountSettings(global) || {};
+    (global, { accountId }): StateProps => {
+      const accountState = selectAccountState(global, accountId);
+      const stakingStates = selectAccountStakingStates(global, accountId);
+      const { cardBackgroundNft: cardNft } = selectAccountSettings(global, accountId) || {};
 
       const { baseCurrency } = global.settings;
       return {
         theme: global.settings.theme,
-        currentAccountId,
-        isTemporaryAccount: selectCurrentAccount(global)?.isTemporary,
-        isViewMode: selectIsCurrentAccountViewMode(global),
-        tokens: selectCurrentAccountTokens(global),
+        isViewMode: getIsViewAccountDisabled(selectAccount(global, accountId)),
+        tokens: selectAccountTokens(global, accountId),
         baseCurrency,
         currencyRates: global.currencyRates,
         stakingStates,
@@ -516,7 +499,6 @@ export default memo(
         activePromotion: accountState?.config?.activePromotion,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Card),
 );
 

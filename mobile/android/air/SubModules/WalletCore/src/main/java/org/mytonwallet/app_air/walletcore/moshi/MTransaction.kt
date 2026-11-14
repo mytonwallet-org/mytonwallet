@@ -35,6 +35,8 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 @JsonClass(generateAdapter = true)
 data class ActivityExtra(
     @Json(name = "withW5Gasless") val withW5Gasless: Boolean? = null, // Only for TON
+    // The fee is paid in the transferred token, or the sold token of a swap
+    @Json(name = "isGasless") val isGasless: Boolean? = null,
     // Only for TON liquidity deposit and withdrawal
     @Json(name = "dex") val dex: MApiSwapDexLabel? = null,
     @Json(name = "marketplace") val marketplace: String? = null,

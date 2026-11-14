@@ -5,9 +5,6 @@
 //  Created by Sina on 6/25/24.
 //
 
-import Combine
-import Kingfisher
-import SwiftUI
 import UIComponents
 import UIKit
 import WalletContext
@@ -17,23 +14,12 @@ final class ExploreCategoryVC: WViewController {
     private let exploreVM: ExploreVM
     private let categoryId: Int
 
-    private let collectionView = UICollectionView(frame: .zero, collectionViewLayout: ExploreCategoryVC.makeLayout())
-    private let dataSource: UICollectionViewDiffableDataSource<Section, Item>
-
-    private let viewOutput = ViewOutput()
-
-    private let backgroundColor: UIColor = .air.background
-    private let backgroundColorSUI: Color = .air.background
-
-    private var cancelBag = Set<AnyCancellable>()
+    private let collectionView = ExploreCategoryCollectionView(frame: .zero, collectionViewLayout: ExploreCategoryVC.makeLayout())
+    private lazy var dataSource = makeDataSource()
 
     init(exploreVM: ExploreVM, categoryId: Int) {
         self.exploreVM = exploreVM
         self.categoryId = categoryId
-        dataSource = Self.makeDataSource(collectionView: collectionView,
-                                         exploreVM: exploreVM,
-                                         viewOutput: viewOutput,
-                                         backgroundColorSUI: backgroundColorSUI)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -44,17 +30,11 @@ final class ExploreCategoryVC: WViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        initialSetup()
+        setupViews()
 
         applySnapshot(animated: false)
-        exploreVM.refresh() // for what? all data exist when screen opened
-
-        cancelBag.formUnion([
-            viewOutput.dappItemTap.sink(withUnretained: self) { uSelf, site in uSelf.openDapp(site: site) },
-        ])
+        exploreVM.refresh()
     }
-    
-    override func updateMaxContentWidthIfNeeded() {} // superclass imp breaks layout, override with empty imp
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -67,28 +47,28 @@ final class ExploreCategoryVC: WViewController {
     }
     
     override func scrollToTop(animated: Bool) {
-        collectionView.setContentOffset(.zero, animated: animated)
+        collectionView.setContentOffset(CGPoint(x: -collectionView.adjustedContentInset.left,
+                                               y: -collectionView.adjustedContentInset.top), animated: animated)
     }
 
     // MARK: - Initial Setup
 
-    private func initialSetup() {
+    private func setupViews() {
         navigationItem.title = exploreVM.exploreCategories[categoryId]?.displayName ?? ""
         
-        view.backgroundColor = backgroundColor
-        view.addStretchedToSafeArea(subview: collectionView,
-                                    top: \.topAnchor,
-                                    insets: UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20))
+        view.backgroundColor = .air.background
+        view.addStretchedToBounds(subview: collectionView)
+        setContentScrollView(collectionView)
         
         collectionView.delegate = self
         collectionView.alwaysBounceVertical = true
         collectionView.delaysContentTouches = false
-        collectionView.clipsToBounds = false
+        collectionView.canCancelContentTouches = true
+        collectionView.backgroundColor = .air.background
+        collectionView.accessibilityIdentifier = "explore_category_list"
         collectionView.showsVerticalScrollIndicator = false
         
         collectionView.contentInsetAdjustmentBehavior = .automatic
-        // The iOS 26 navigation bar adds 10 pt below its controls.
-        collectionView.contentInset.top = IOS_26_MODE_ENABLED ? -10 : 0
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(closeScreen))
         tapGesture.delegate = self
@@ -104,35 +84,14 @@ final class ExploreCategoryVC: WViewController {
         return layout
     }
 
-    private static func makeDataSource(collectionView: UICollectionView,
-                                       exploreVM: ExploreVM,
-                                       viewOutput: ViewOutput,
-                                       backgroundColorSUI: Color) -> UICollectionViewDiffableDataSource<Section, Item> {
-        // Register cell
-        let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
-            cell.backgroundColor = nil
-            cell.clipsToBounds = false
-            cell.contentView.clipsToBounds = false
+    private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, Item> {
+        let cellRegistration = UICollectionView.CellRegistration<ExploreCategoryCell, Item> { [weak self] cell, _, item in
+            guard let self else { return }
             switch item {
             case .dapp(let siteId):
                 if let site = exploreVM.exploreSites[siteId] {
-                    cell.configurationUpdateHandler = { cell, _ in
-                        cell.contentConfiguration = UIHostingConfiguration {
-                            ExploreCategoryRow(site: site, openAction: {
-                                viewOutput.dappItemTap.send(site)
-                            })
-                            .accessibilityIdentifier("explore_site_row")
-                        }
-                        .margins(.all, 0)
-                        // Disable the default highlight effect on cell selection, while still allowing didSelectItemAt to trigger
-                        .background {
-                            backgroundColorSUI
-                                .overlay(alignment: .bottom) {
-                                    Rectangle().fill(Color(UIColor(light: "#C8C7CB", dark: "#3A3A3D")))
-                                        .frame(height: 1 / max(collectionView.traitCollection.displayScale, 1))
-                                        .padding(.leading, 102)
-                                }
-                        }
+                    cell.configure(site: site) { [weak self] in
+                        self?.openDapp(site: site)
                     }
                 }
             }
@@ -222,10 +181,6 @@ extension ExploreCategoryVC: UIGestureRecognizerDelegate {
 }
 
 extension ExploreCategoryVC {
-    private struct ViewOutput {
-        let dappItemTap = PassthroughSubject<ApiSite, Never>()
-    }
-
     enum Section: Equatable, Hashable {
         case main
     }
@@ -235,17 +190,8 @@ extension ExploreCategoryVC {
     }
 }
 
-#if DEBUG
-@available(iOS 18, *)
-#Preview {
-    let vc: ExploreCategoryVC = {
-        let vc = ExploreVC()
-        vc.exploreVM.updateExploreSites(ApiSite.sampleExploreSites)
-        vc.exploreVM.updateDapps(dapps: [ApiDapp.sample])
-        let cat = ExploreCategoryVC(exploreVM: vc.exploreVM, categoryId: 1)
-        cat.view.backgroundColor = .black.withAlphaComponent(0.1)
-        return cat
-    }()
-    vc
+private final class ExploreCategoryCollectionView: UICollectionView {
+    override func touchesShouldCancel(in view: UIView) -> Bool {
+        view is UIButton || super.touchesShouldCancel(in: view)
+    }
 }
-#endif

@@ -13,8 +13,8 @@ $titleLineHeight: 1.5rem;
 
   display: grid;
   // Equal side columns keep the title centered whether or not the side buttons are shown; a long title shrinks, and
-  // never under the Back button, whose column is at least as wide as its label
-  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(2.75rem, 1fr);
+  // never under the Back button or the buttons at the end, whose columns are at least as wide as they are
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
   align-items: center;
 
   width: 100%;
@@ -38,6 +38,16 @@ $titleLineHeight: 1.5rem;
     // The header has square corners: the card alone rounds them in the wide layout, clipping the header with what
     // scrolls under it, so that no second rounded edge lets that show along the corners
     box-shadow: 0 0.025rem 0 0 var(--color-separator);
+  }
+}
+
+// With a panel attached under it, the header draws on the backdrop the two share
+.headerOverBackdrop {
+  &,
+  &:global(.is-scrolled) {
+    background-color: transparent !important;
+    backdrop-filter: none;
+    box-shadow: none;
   }
 }
 
@@ -175,7 +185,16 @@ $titleLineHeight: 1.5rem;
   white-space: nowrap;
 }
 
+// The column at the end keeps room for a button while it has none, so that a long title stays clear of the edge
+.menuCell,
+.menuPlaceholder {
+  min-width: 2.75rem;
+}
+
 .menuCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   justify-self: end;
 
   @include mixins.respond-above(xs) {
@@ -210,19 +229,23 @@ $titleLineHeight: 1.5rem;
   }
 }
 
-// The news feed's bell, 24 px, drawn as on Android
-.bellIcon {
-  // The desktop button is as wide as the icon, so its padding would squeeze a shrinkable icon to half its size
-  flex-shrink: 0;
+// The support button stands before the dots, as wide as it is tall at every width
+.supportButton {
+  @include mixins.respond-above(xs) {
+    width: 2.25rem;
+  }
+}
 
+// The support headset, as large as the settings' sliders and drawn with as thin a stroke
+.supportIcon {
   width: 1.5rem;
   height: 1.5rem;
+  stroke-width: 1.75;
+}
 
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
+// The news feed's settings, two sliders, 26 px, whose thin lines look as large as Back's arrow
+.settingsIcon {
+  font-size: 1.625rem;
 }
 
 // The chat menu hangs 12 px in from the screen's end, over the header's last 10 px, as in the design

@@ -7,6 +7,7 @@ import org.json.JSONObject
 internal interface TokenFields {
     fun optString(name: String): String
     fun optInt(name: String): Int
+    fun optNullableInt(name: String): Int?
     fun optDouble(name: String): Double
     fun optBoolean(name: String): Boolean
     fun optStrings(name: String): List<String>?
@@ -15,6 +16,8 @@ internal interface TokenFields {
 internal class JsonObjectTokenFields(private val json: JSONObject) : TokenFields {
     override fun optString(name: String) = json.optString(name)
     override fun optInt(name: String) = json.optInt(name)
+    override fun optNullableInt(name: String): Int? =
+        if (json.has(name) && !json.isNull(name)) json.optInt(name) else null
     override fun optDouble(name: String) = json.optDouble(name)
     override fun optBoolean(name: String) = json.optBoolean(name)
     override fun optStrings(name: String) = json.optJSONArray(name)?.let { values ->
@@ -62,6 +65,14 @@ private class StreamTokenFields(private val values: Array<Any?>) : TokenFields {
         is Number -> value.toInt()
         is String -> value.toDoubleOrNull()?.toInt() ?: 0
         else -> 0
+    }
+
+    override fun optNullableInt(name: String): Int? = when (val value = value(name)) {
+        MissingTokenField -> null
+        null -> null
+        is Number -> value.toInt()
+        is String -> value.toDoubleOrNull()?.toInt()
+        else -> null
     }
 
     override fun optDouble(name: String): Double = when (val value = value(name)) {
@@ -134,6 +145,7 @@ private val tokenFieldNames = arrayOf(
     "label",
     "percentChange24h",
     "priceUsd",
+    "precision",
     "isFromBackend",
     "type",
     "keywords",

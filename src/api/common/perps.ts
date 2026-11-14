@@ -14,6 +14,14 @@ export const PERPS_BUILD_REQUEST_TIMEOUT_MS = 60_000;
 /** Matches backend `HYPERLIQUID_DEPOSIT_WAIT_TIMEOUT_MS` plus HTTP margin. */
 export const PERPS_EXECUTE_DEPOSIT_WAIT_TIMEOUT_MS = 200_000;
 
+export const PERPS_TRADE_LOOKUP_INTERVAL_MS = 5_000;
+
+/**
+ * How long after an operation starts its trade can happen: the snapshot read and build, then the backend's wait of up
+ * to 180 s for the deposit, then the order. The backend never places the order after its wait.
+ */
+export const PERPS_TRADE_WINDOW_MS = 5 * 60_000;
+
 /** Phase-1 close/execute: backend polls until flat + withdrawable (see `HYPERLIQUID_CLOSE_SETTLE_EXECUTE_TIMEOUT_MS`). */
 export const PERPS_CLOSE_EXECUTE_TIMEOUT_MS = 195_000;
 

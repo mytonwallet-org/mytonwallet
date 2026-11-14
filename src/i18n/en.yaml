@@ -619,6 +619,7 @@ Buy crypto or choose another token to sell.: Buy crypto or choose another token 
 Your balances are small. Add funds or choose another token to swap.: Your balances are small. Add funds or choose another token to swap.
 To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: To buy %buy_token%, first buy %token%, then swap it for %buy_token%.
 Open %provider% to swap this pair in the browser.: Open %provider% to swap this pair in the browser.
+"Better rate is available if you add %amount% %symbol% for network fee.": "Better rate is available if you add %amount% %symbol% for network fee."
 Buy %token%: Buy %token%
 Open %provider%: Open %provider%
 Cannot load widget: Cannot load widget
@@ -1363,8 +1364,8 @@ $agent_consent_allow_button: Allow the agent
 $agent_consent_feature_answers: Get answers about %app_name%, tokens, and wallet activity.
 $agent_consent_feature_actions: Prepare supported actions like sending, receiving, and staking.
 $agent_consent_feature_context: Use wallet context so answers can reference relevant assets and addresses.
-$agent_consent_disclosure_text: By tapping “Allow the agent”, you allow %app_name% to send your messages to the agent and relevant wallet context to %app_name% Agent (agent.mywallet.io) and Anthropic Claude API, our third-party AI provider, to process your requests. Wallet context may include wallet addresses, balances, tokens, activity, and requested action details. Data is used only to provide the agent’s responses and prepare actions you request.
-$agent_consent_search_disclosure_text: For web searches, only search queries may be sent to Serper; wallet context and chat history are not sent.
+$agent_consent_disclosure_text: By tapping “Allow the agent”, you allow %app_name% to send your messages to the agent and relevant wallet context to %app_name% Agent (agent.mywallet.io) and to our third-party AI providers, OpenAI and Anthropic, to process your requests. Wallet context may include wallet addresses, balances, tokens, activity, and requested action details. If you use voice input, your recording is sent to Inworld and, when needed, to ElevenLabs via OpenRouter to convert it to text. Data is used only to provide the agent’s responses and prepare actions you request.
+$agent_consent_search_disclosure_text: For web searches, only search queries are sent to OpenAI and, when needed, to Serper; wallet context and chat history are not sent.
 $settings_token_change_threshold: Change % Threshold
 $settings_token_change_threshold_description: Hides 24-hour percentage changes below the selected threshold.
 $settings_token_change_threshold_off: "Off"
@@ -1422,14 +1423,29 @@ $agent_prompt_token_price: "Analyze the price of %token%."
 $agent_hint_capabilities_title: What can you do?
 $agent_hint_portfolio_title: Portfolio performance
 $agent_hint_portfolio_prompt: Analyze my portfolio performance.
-$agent_hint_swap_title: How swaps work
+$agent_hint_swap_title: How do swaps work?
 $agent_hint_swap_prompt: Explain how token swaps work.
-$agent_hint_staking_title: What is staking
+$agent_hint_staking_title: What is staking?
 $agent_hint_staking_prompt: Explain staking from scratch, as if I have never used crypto before.
-$agent_hint_security_title: Wallet security
+$agent_hint_security_title: How do I protect my wallet?
 $agent_hint_security_prompt: Show me how to keep my wallet safe.
 $agent_hint_receive_title: Receive tokens
 $agent_hint_receive_prompt: Help me receive tokens.
+$agent_hint_assets_title: Show my assets
+$agent_hint_total_title: What's my total balance?
+$agent_hint_spending_title: What did I spend this week?
+$agent_hint_last_transfer_title: Show my last transfer
+$agent_hint_fund_title: How do I top up my wallet?
+$agent_hint_market_today_title: What's the market doing today?
+$agent_hint_news_today_title: Top news of the day
+$agent_hint_bitcoin_title: What's going on with Bitcoin?
+$agent_hint_price_title: How much is 0.5 ETH?
+$agent_hint_staking_yield_title: Where is the yield higher?
+$agent_hint_staking_options_title: What staking options are there?
+$agent_hint_multisend_title: How do I send to several people?
+$agent_hint_action_swap_title: Swap tokens
+$agent_hint_action_send_title: Send crypto
+$agent_hint_action_stake_title: Start staking
 $agent_notice_content_over_budget: The result is too large to display completely.
 $agent_notice_web_search_no_results: No matching information could be found for your request.
 $agent_error_session: Your agent session expired. Reopen the agent and try again.
@@ -2136,8 +2152,7 @@ News: "News"
 Crypto Market News: "Crypto Market News"
 $agent_news_new: "New"
 $agent_news_open_source: "Open Source"
-$agent_news_source: "Source: %sources%"
-$agent_news_sources: "Sources: %sources%"
+$agent_news_sources: "Sources"
 $agent_news_unavailable: "News is currently unavailable"
 $agent_news_read_more: "Read More"
 $agent_news_discuss: "Discuss"
@@ -2149,6 +2164,9 @@ $agent_news_quote_accessibility: "MyPulse news: %headline%"
 $agent_news_unread_count:
   oneValue: "%count% unread news item"
   otherValue: "%count% unread news items"
+$agent_news_unread_digests_count:
+  oneValue: "%count% unread digest"
+  otherValue: "%count% unread digests"
 Explorer mode: Explorer mode
 Open a link to a wallet, transfer, token or collectible to see its details here.: Open a link to a wallet, transfer, token or collectible to see its details here.
 
@@ -2411,7 +2429,7 @@ $agent_chats_unavailable: "Couldn’t load chats"
 "View your assets and activity": "View your assets and activity"
 "Ask AI and follow the news": "Ask AI and follow the news"
 $underlying_stock: '%symbol% stock'
-$agent_support_requested: "You asked for support. An operator will reply here"
+$agent_support_requested: "You asked for support. An operator will reply here, usually within a couple of minutes"
 $agent_support_operator_joined: "Support joined the chat: %name%"
 $agent_support_closed_operator: "Support closed the request. The agent answers from here on"
 $agent_support_closed_inactivity: "The request closed after 48 hours without replies. The agent answers from here on"
@@ -2429,24 +2447,43 @@ Domain Unlinked: Domain Unlinked
 Drag here to add to the toolbar: Drag here to add to the toolbar
 $send_only_chain_and_token: Send only %symbol%, %tokenSymbol%, or other %chain%-based assets to this address. Sending other tokens will result in loss.
 $agent_digest_unavailable: "This digest is no longer available"
-$agent_digest_title: "Top stories of the day"
+$agent_digest_title: "Top news of the day"
 $agent_digest_meta:
-  oneValue: "%count% story · %time%"
-  otherValue: "%count% stories · %time%"
+  oneValue: "%count% news item"
+  otherValue: "%count% news items"
 $agent_digest_more:
   oneValue: "and %count% more — it's above in the feed"
   otherValue: "and %count% more — they're above in the feed"
+$agent_digest_more_count:
+  oneValue: "and %count% more"
+  otherValue: "and %count% more"
 $agent_digest_settings_title: "Digest and notifications"
 $agent_digest_settings_text: "Once a day the feed gets a digest of the day's top news."
-$agent_digest_time: "Digest time"
-$agent_digest_time_zone: "In your phone's time zone."
+$agent_digest_time: "Digest Time"
+$agent_digest_time_hint: "The digest appears in your feed at this time, even when notifications are off."
 $agent_digest_notifications_off: "Off"
-$agent_digest_notifications_off_hint: "The digest appears only in the feed"
-$agent_digest_notifications_daily: "Daily digest"
-$agent_digest_notifications_daily_hint: "At %time%, the top news in one notification"
-$agent_digest_notifications_every: "Every news item"
-$agent_digest_notifications_every_hint: "A notification for every news item"
-$agent_digest_post_header: "MyPulse · digest · %time%"
-$agent_digest_sheet_title: "Daily digest"
-$agent_digest_device_time_zone: "In this device's time zone."
+$agent_digest_notifications_daily: "Daily Digest"
+$agent_digest_notifications_daily_hint: "One notification at %time% with the day's top news."
+$agent_digest_notifications_every: "Every News Item"
+$agent_digest_sheet_title: "Daily Digest"
 $agent_dictation_microphone_denied_device: "Allow microphone access in your device settings to dictate."
+"$perps_funding_usdc_fees": "You need at least %minUSDC% USDC on Arbitrum to open a position: %amount% USDC plus %fees% USDC in fees."
+"$perps_funding_usdc_increase_fees": "You need at least %minUSDC% USDC on Arbitrum to increase this position: %amount% USDC plus %fees% USDC in fees."
+"PerpsOrderNotPlaced": "The order wasn't placed. Any USDC bridged for it stays on your Hyperliquid balance."
+$agent_feedback_support_liked_toast: "Thanks! Your rating will go to the support team."
+$agent_feedback_support_disliked_toast: "The support team will look into this reply."
+$agent_support_request_message: "I want to talk to a human"
+$agent_support_contact: "Contact support"
+$agent_support_confirm_title: "Call an operator?"
+$agent_support_confirm_text: "A support operator will see this chat and your wallet addresses and will reply here."
+$agent_support_confirm_text_no_wallet: "A support operator will see this chat and will reply here."
+$agent_support_confirm_action: "Call"
+$agent_support_rate_limited: "You have already contacted support three times today. Try again tomorrow or write to @mysupport in Telegram."
+$agent_news_digests_empty: "No digests yet"
+$agent_news_view_all: "All News"
+$agent_news_view_digests: "Digests"
+$agent_digest_hours: "Hours"
+$agent_digest_minutes: "Minutes"
+$swap_one_to_one: Better rate (1:1) is available starting from %value%.
+$swap_better_rate_minimum: "Better rate is available starting from %value%."
+$agent_daily_limit_resets_at: "Daily agent limit reached. Resets at %time%."

@@ -14,37 +14,75 @@ final class AgentNewsPostCellTests: XCTestCase {
         _ = WalletResourcesBundle.bundle.load()
     }
 
-    func testNewsMenuItemsOpenCopyAndShareTheFullPost() {
+    /// A source without a name shows its site without "www.", whatever the letters' case
+    func testSourceWithoutANameShowsItsSiteWithoutWww() {
+        let sources = AgentNewsPostView.Content.makeSources([
+            .init(url: "https://WWW.Decrypt.co/news"),
+            .init(url: "https://decrypt.co/other"),
+        ])
+        XCTAssertEqual(sources, [.init(name: "Decrypt.co", url: "https://WWW.Decrypt.co/news")])
+    }
+
+    /// Sources lists the sources the app can open, each by its name or its site, and opens the one picked; Copy gives
+    /// the full post, and Share its headline and its short link in the language it was shown in
+    func testNewsMenuListsTheSourcesCopiesTheFullPostAndSharesTheHeadlineWithItsLink() throws {
         let news = makeNews()
-        var openedSources = 0
-        var sharedText: String?
-        let actions = AgentMessageMenuItems.makeItems(
+        var openedSources: [String] = []
+        var sharedItems: [Any]?
+        let items = AgentMessageMenuItems.makeItems(
             for: AgentNewsPostView.Content(news: news),
-            openSource: { openedSources += 1 },
-            share: { sharedText = $0 }
-        ).compactMap { item -> ContextMenuAction? in
+            locale: "ru",
+            openSource: { openedSources.append($0) },
+            share: { sharedItems = $0 }
+        )
+        guard case .submenu(let sources) = items.first else { return XCTFail("The menu has no Sources") }
+        XCTAssertEqual(sources.title, lang("$agent_news_sources"))
+        let sourceActions = sources.makePage().items.compactMap { item -> ContextMenuAction? in
             guard case .action(let action) = item else { return nil }
             return action
         }
-        XCTAssertEqual(actions.map(\.title), [lang("$agent_news_open_source"), lang("Copy"), lang("Share")])
+        XCTAssertEqual(sourceActions.map(\.title), ["Market Source", "example.com"])
+        sourceActions[1].handler?()
+        XCTAssertEqual(openedSources, ["https://www.example.com/second"])
+
+        let actions = items.compactMap { item -> ContextMenuAction? in
+            guard case .action(let action) = item else { return nil }
+            return action
+        }
+        XCTAssertEqual(actions.map(\.title), [lang("Copy"), lang("Share")])
+        let pasteboard = UIPasteboard.withUniqueName()
+        AgentClipboard.pasteboard = pasteboard
+        defer {
+            AgentClipboard.pasteboard = .general
+            UIPasteboard.remove(withName: pasteboard.name)
+        }
         actions[0].handler?()
-        actions[2].handler?()
+        XCTAssertEqual(pasteboard.string, "Headline\n\nA bold report.\nSecond paragraph.\n\nhttps://example.com/first")
+        actions[1].handler?()
+        let shared = try XCTUnwrap(sharedItems)
+        XCTAssertEqual(shared.count, 2)
+        XCTAssertEqual(shared.first as? String, "Headline")
+        XCTAssertEqual(shared.last as? URL, URL(string: "https://my.tt/agent?news=3&lang=ru&utm_source=pulse_share"))
         let text = "Headline\n\nA bold report.\nSecond paragraph.\n\nhttps://example.com/first"
-        XCTAssertEqual(openedSources, 1)
-        XCTAssertEqual(sharedText, text)
         XCTAssertEqual(AgentNewsPostView.Content(news: news).copyText, text)
 
-        let oldNews = makeNews(body: nil, sourceURL: "ton://transfer/EQaddress")
-        let oldItems = AgentMessageMenuItems.makeItems(for: AgentNewsPostView.Content(news: oldNews), openSource: {}, share: { _ in })
-        XCTAssertEqual(oldItems.compactMap { item -> String? in
+        let oldNews = makeNews(body: nil, sourceURL: "ton://transfer/EQaddress", hasSecondSource: false)
+        let oldItems = AgentMessageMenuItems.makeItems(
+            for: AgentNewsPostView.Content(news: oldNews), locale: "en", openSource: { _ in }, share: { sharedItems = $0 }
+        )
+        let oldActions = oldItems.compactMap { item -> ContextMenuAction? in
             guard case .action(let action) = item else { return nil }
-            return action.title
-        }, [lang("Copy"), lang("Share")])
+            return action
+        }
+        XCTAssertEqual(oldActions.map(\.title), [lang("Copy"), lang("Share")])
+        XCTAssertEqual(oldItems.count, 2)
+        oldActions[1].handler?()
+        XCTAssertEqual(sharedItems?.last as? URL, URL(string: "https://my.tt/agent?news=3&lang=en&utm_source=pulse_share"))
         XCTAssertEqual(AgentNewsPostView.Content(news: oldNews).copyText, "Headline\n\nExcerpt\n\nton://transfer/EQaddress")
     }
 
-    /// VoiceOver reads the post, its source line and its time, and Copy and Open Source keep to the first source
-    func testAccessibilityReadsThePostWithItsSourcesAndCopyKeepsTheFirstSource() throws {
+    /// VoiceOver reads the post and its time without the source's name, and Copy keeps the first source's link
+    func testAccessibilityReadsThePostWithoutItsSourceAndCopyKeepsTheFirstSource() throws {
         let cell = AgentNewsPostCell(frame: .zero)
         let news = makeNews()
         cell.configure(with: news)
@@ -55,106 +93,75 @@ final class AgentNewsPostCellTests: XCTestCase {
         XCTAssertEqual(bubble.accessibilityIdentifier, "AgentNewsPost-3")
         XCTAssertEqual(
             bubble.accessibilityLabel,
-            "\(lang("News")), Headline, A bold report.\nSecond paragraph., "
-                + "\(makeSourcesLineText(["Market Source", "example.com"])), "
-                + AgentNewsMetaView.formatDiscussionTime(for: news.publishedAt)
+            "\(lang("News")), Headline, A bold report.\nSecond paragraph., \(AgentNewsMetaView.formatDiscussionTime(for: news.publishedAt))"
         )
-        XCTAssertEqual(
-            bubble.accessibilityCustomActions?.map(\.name),
-            [lang("$agent_news_open_source"), lang("More actions"), "Market Source", "example.com"]
-        )
+        XCTAssertEqual(bubble.accessibilityCustomActions?.map(\.name), [lang("$agent_news_open_source"), lang("More actions")])
         XCTAssertEqual(cell.contextMenuCopyText, "Headline\n\nA bold report.\nSecond paragraph.\n\nhttps://example.com/first")
-        var openedSources: [String] = []
-        cell.openSourceAction = { openedSources.append($0) }
+        var openedSources = 0
+        cell.openSourceAction = { openedSources += 1 }
         let openSource = try XCTUnwrap(bubble.accessibilityCustomActions?.first)
         XCTAssertEqual(openSource.actionHandler?(openSource), true)
-        XCTAssertEqual(openedSources, ["https://example.com/first"])
+        XCTAssertEqual(openedSources, 1)
     }
 
     func testUnsupportedSourceHasNoOpenSourceActionAndOldCardsUseExcerpt() throws {
         let cell = AgentNewsPostCell(frame: .zero)
         cell.configure(with: makeNews(body: nil, sourceURL: "ton://transfer/EQaddress"))
         let bubble = try XCTUnwrap((cell.accessibilityElements as? [UIView])?.first)
-        XCTAssertEqual(bubble.accessibilityCustomActions?.map(\.name), [lang("More actions"), "example.com"])
-        XCTAssertEqual(cell.contextMenuCopyText, "Headline\n\nExcerpt\n\nton://transfer/EQaddress")
-
-        // A card stored before news had sources names its old source as plain text
-        cell.configure(with: ApiAgentV2ThreadNewsCard(
-            eventId: 4, headline: "Old", excerpt: nil, imageUrl: nil, publishedAt: "2026-10-20T10:30:00Z", source: " Old source "
-        ))
-        let line = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsSourceLineLabel }.first)
-        XCTAssertEqual(line.text, L10n.agentNewsSource(sources: "Old source"))
-        XCTAssertFalse(line.isUserInteractionEnabled)
-        XCTAssertTrue(bubble.accessibilityLabel?.contains(L10n.agentNewsSource(sources: "Old source")) == true)
-    }
-
-    /// VoiceOver opens each source the line links by an action named after it, and keeps no action from an earlier post
-    func testEachLinkedSourceHasItsOwnAccessibilityAction() throws {
-        _ = WalletResourcesBundle.bundle.load()
-        let cell = AgentNewsPostCell(frame: .zero)
-        cell.configure(with: makeNews(sources: [
-            .init(name: "First", url: "https://example.com/first"),
-            .init(name: "Unsafe", url: "javascript:alert(1)"),
-            .init(name: "Third", url: "https://example.com/third"),
-        ]))
-        var openedSources: [String] = []
-        cell.openSourceAction = { openedSources.append($0) }
-        let bubble = try XCTUnwrap((cell.accessibilityElements as? [UIView])?.first)
-        let actions = try XCTUnwrap(bubble.accessibilityCustomActions)
-        XCTAssertEqual(actions.map(\.name), [lang("$agent_news_open_source"), lang("More actions"), "First", "Third"])
-        for action in actions[2...] {
-            XCTAssertEqual(action.actionHandler?(action), true)
-        }
-        XCTAssertEqual(openedSources, ["https://example.com/first", "https://example.com/third"])
-
-        cell.configure(with: makeNews(sources: [.init(name: "Unsafe", url: "javascript:alert(1)")]))
         XCTAssertEqual(bubble.accessibilityCustomActions?.map(\.name), [lang("More actions")])
+        XCTAssertEqual(cell.contextMenuCopyText, "Headline\n\nExcerpt\n\nton://transfer/EQaddress")
     }
 
-    /// Three long sources wrap under the body, and the row's measured height keeps all of them clear of the time
-    func testLongSourceLineWrapsAndTheRowGrowsForIt() throws {
-        _ = WalletResourcesBundle.bundle.load()
-        let cell = AgentNewsPostCell(frame: CGRect(x: 0, y: 0, width: 402, height: 100))
-        let sources: [ApiAgentV2NewsFeedItem.Source] = ["One", "Two", "Three"].map {
-            .init(name: "A source with a rather long name number \($0)", url: "https://example.com/\($0)")
-        }
-        cell.configure(with: makeNews(sources: sources))
-        let proposed = UICollectionViewLayoutAttributes(forCellWith: IndexPath(item: 0, section: 0))
-        proposed.size = CGSize(width: 402, height: 100)
-        cell.frame.size = cell.preferredLayoutAttributesFitting(proposed).size
-        cell.layoutIfNeeded()
-        let line = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsSourceLineLabel }.first)
-        let time = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsMetaView }.first).timeLabel
-        let lineFrame = line.convert(line.bounds, to: cell.postView)
-        let timeFrame = time.convert(time.bounds, to: cell.postView)
-        XCTAssertGreaterThan(lineFrame.height, 2 * line.font.lineHeight)
-        XCTAssertEqual(lineFrame.height, line.sizeThatFits(CGSize(width: lineFrame.width, height: .infinity)).height, accuracy: 1)
-        XCTAssertEqual(timeFrame.minY - lineFrame.maxY, 4, accuracy: 0.5)
-        XCTAssertLessThanOrEqual(timeFrame.maxY, cell.postView.bounds.height - cell.postTailOverflow)
-    }
-
-    /// A digest's post is the news post with the digest's card: its time in the header, its title and its headlines in a
-    /// line, without a picture or a source to open, keeping the post's menu
-    func testDigestPostShowsTheDigestCardWithoutSourceOrPicture() throws {
+    /// A digest's post is the news post with the digest's card: its time in the header, its title and its headlines
+    /// listed as on the card, each opening its news item, and the news it leaves out, without a picture or a source to
+    /// open, keeping the post's menu
+    func testDigestPostListsTheDigestsHeadlinesWithoutSourceOrPicture() throws {
         let digest = try JSONDecoder().decode(ApiAgentV2ThreadDigestCard.self, from: Data("""
         {"id":"en:2026-11-08T18:00:00.000Z","windowEnd":"2026-11-08T18:00:00.000Z","total":26,
          "top":[{"eventId":1,"headline":"Binance restored its tokens"},{"eventId":2,"headline":"BlackRock sold Bitcoin"}]}
         """.utf8))
-        let cell = AgentNewsPostCell(frame: .zero)
+        let cell = AgentNewsPostCell(frame: CGRect(x: 0, y: 0, width: 402, height: 600))
         cell.configure(with: AgentNewsPostView.Content(digest: digest))
+        cell.layoutIfNeeded()
         let bubble = try XCTUnwrap((cell.accessibilityElements as? [UIView])?.first)
-        let header = L10n.agentDigestPostHeader(time: AgentNewsFeedCardCell.timeText(for: digest.windowEnd))
-        let headlines = "Binance restored its tokens · BlackRock sold Bitcoin"
+        let header = lang("News")
+        let remainder = L10n.agentDigestMore(count: 24)
         XCTAssertTrue(descendants(cell).compactMap { $0 as? UILabel }.contains { $0.text == header })
+        XCTAssertTrue(descendants(cell).compactMap { $0 as? UILabel }.contains { $0.text == remainder && !$0.isHidden })
         XCTAssertEqual(bubble.accessibilityIdentifier, "AgentDigestPost-\(digest.id)")
         XCTAssertEqual(
             bubble.accessibilityLabel,
-            "\(header), \(lang("$agent_digest_title")), \(headlines), \(AgentNewsMetaView.formatDiscussionTime(for: digest.windowEnd))"
+            "\(header), \(lang("$agent_digest_title")), Binance restored its tokens, BlackRock sold Bitcoin, \(remainder), "
+                + AgentNewsMetaView.formatDiscussionTime(for: digest.windowEnd)
         )
-        XCTAssertEqual(bubble.accessibilityCustomActions?.map(\.name), [lang("More actions")])
-        XCTAssertEqual(cell.contextMenuCopyText, "\(lang("$agent_digest_title"))\n\n\(headlines)")
+        XCTAssertEqual(
+            bubble.accessibilityCustomActions?.map(\.name),
+            [lang("More actions"), "Binance restored its tokens", "BlackRock sold Bitcoin"]
+        )
+        XCTAssertEqual(
+            cell.contextMenuCopyText,
+            "\(lang("$agent_digest_title"))\n\n• Binance restored its tokens\n• BlackRock sold Bitcoin"
+        )
         XCTAssertTrue(try XCTUnwrap(descendants(cell).compactMap { $0 as? WImageView }.first).isHidden)
-        XCTAssertFalse(descendants(cell).contains { $0 is UIControl && !$0.isHidden })
+
+        let headlines = descendants(cell).compactMap { $0 as? UIButton }
+            .filter { $0.accessibilityIdentifier?.hasPrefix("AgentNewsDigestHeadline-") == true }
+        XCTAssertEqual(headlines.map(\.accessibilityLabel), ["Binance restored its tokens", "BlackRock sold Bitcoin"])
+        var openedEventIds: [Int] = []
+        cell.onDigestHeadlineTap = { openedEventIds.append($0) }
+        headlines[1].sendActions(for: .touchUpInside)
+        XCTAssertEqual(openedEventIds, [2])
+        // The arrows are gray and end as far from the bubble's edge as the Discuss strip's arrow box
+        let arrows = descendants(cell).compactMap { $0 as? UIImageView }.filter { $0.image == AgentNewsDiscussionStrip.arrowImage }
+        XCTAssertEqual(arrows.count, 2)
+        for arrow in arrows {
+            XCTAssertEqual(arrow.tintColor, UIColor.air.secondaryLabel)
+            let frame = arrow.convert(arrow.bounds, to: cell.postView)
+            XCTAssertEqual(cell.postView.bounds.width - frame.maxX, AgentNewsDiscussionMetrics.arrowTrailingInset, accuracy: 0.5)
+        }
+        // A tap on the arrow, past the text's inset, still opens its row
+        let arrowCenter = arrows[0].convert(CGPoint(x: arrows[0].bounds.midX, y: arrows[0].bounds.midY), to: cell)
+        XCTAssertTrue(cell.hitTest(arrowCenter, with: nil) === headlines[0])
     }
 
     func testFailedImageIsHiddenAndRequestsHeightUpdate() async throws {
@@ -175,7 +182,7 @@ final class AgentNewsPostCellTests: XCTestCase {
     func testPrepareForReuseClearsContentActionsAndImage() throws {
         let cell = AgentNewsPostCell(frame: .zero)
         cell.configure(with: makeNews())
-        cell.openSourceAction = { _ in }
+        cell.openSourceAction = {}
         cell.contextMenuConfigurationProvider = { nil }
         cell.onPreferredHeightChanged = {}
         let bubble = try XCTUnwrap((cell.accessibilityElements as? [UIView])?.first)
@@ -448,9 +455,8 @@ final class AgentNewsPostCellTests: XCTestCase {
         XCTAssertTrue(buttons.allSatisfy { abs($0.bounds.width - $0.intrinsicContentSize.width) < 1 })
     }
 
-    /// The time ends the post in the bubble's trailing corner, as a chat message's time does, 4 pt under the source line,
-    /// which starts where the body does
-    func testTimeSitsInTheBubblesTrailingCornerUnderTheSourceLine() throws {
+    /// The time alone ends the post in the bubble's trailing corner, as a chat message's time does, with no source
+    func testTimeAloneSitsInTheBubblesTrailingCorner() throws {
         let cell = AgentNewsPostCell(frame: CGRect(x: 0, y: 0, width: 402, height: 100))
         let news = makeNews()
         cell.configure(with: news)
@@ -465,17 +471,13 @@ final class AgentNewsPostCellTests: XCTestCase {
         let meta = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsMetaView }.first)
         XCTAssertEqual(meta.timeLabel.text, AgentNewsMetaView.formatDiscussionTime(for: news.publishedAt))
         XCTAssertEqual(descendants(meta).compactMap { $0 as? UILabel }, [meta.timeLabel])
-        let line = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsSourceLineLabel }.first)
-        XCTAssertEqual(line.text, makeSourcesLineText(["Market Source", "example.com"]))
+        XCTAssertFalse(descendants(cell).compactMap { $0 as? UILabel }.contains { $0.text?.contains("Market Source") == true })
         // 12 pt from the bubble's trailing edge, as on Android and the web, nearer than the text
         let timeFrame = meta.timeLabel.convert(meta.timeLabel.bounds, to: bubble)
-        let lineFrame = line.convert(line.bounds, to: bubble)
         XCTAssertEqual(AgentNewsMetaView.trailingInset, 12)
         XCTAssertEqual(timeFrame.maxX, bubble.bounds.width - AgentNewsMetaView.trailingInset, accuracy: 0.5)
         let headline = try XCTUnwrap(descendants(cell).compactMap { $0 as? UILabel }.first { $0.text == news.headline })
         XCTAssertEqual(headline.convert(headline.bounds, to: bubble).maxX, bubble.bounds.width - 16, accuracy: 0.5)
-        XCTAssertEqual(lineFrame.minX, 16, accuracy: 0.5)
-        XCTAssertEqual(timeFrame.minY - lineFrame.maxY, 4, accuracy: 0.5)
     }
 
     func testDiscussionTimeShowsTheDateForEarlierNews() {
@@ -552,8 +554,8 @@ final class AgentNewsPostCellTests: XCTestCase {
     private func makeNews(
         body: String? = "A **bold** report.\nSecond paragraph.",
         sourceURL: String = "https://example.com/first",
-        sources: [ApiAgentV2NewsFeedItem.Source]? = nil,
-        imageURL: String? = nil
+        imageURL: String? = nil,
+        hasSecondSource: Bool = true
     ) -> ApiAgentV2ThreadNewsCard {
         .init(
             eventId: 3,
@@ -563,7 +565,8 @@ final class AgentNewsPostCellTests: XCTestCase {
             publishedAt: "2026-10-20T10:30:00Z",
             source: "Old source",
             body: body,
-            sources: sources ?? [.init(name: "Market Source", url: sourceURL), .init(url: "https://example.com/second")]
+            sources: [.init(name: "Market Source", url: sourceURL)]
+                + (hasSecondSource ? [.init(url: "https://www.example.com/second")] : [])
         )
     }
 

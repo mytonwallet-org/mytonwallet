@@ -126,3 +126,13 @@ final class AssetDetailsView: UIView {
         else { hosting.disableSafeArea() }
     }
 }
+
+extension View {
+    /// Keeps a hosted section at the top of its host while the two heights differ. The host can still have the
+    /// previous height when the content is measured, and the content animates to a height the host already has;
+    /// either way centered content would jump by half the change. The host's intrinsic height stays the content's.
+    func alignedToHostTop() -> some View {
+        fixedSize(horizontal: false, vertical: true)
+            .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+    }
+}

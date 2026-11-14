@@ -5,6 +5,7 @@ import type { MarketToken } from './helpers/buildMarketSections';
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
 import { hex2rgb } from '../../util/colors';
+import getTestId from '../../util/getTestId';
 
 import useLastCallback from '../../hooks/useLastCallback';
 
@@ -30,7 +31,13 @@ function MoverCard({ token, onClick }: OwnProps) {
   const style = tintColor ? buildStyle(`--market-tint-rgb: ${hex2rgb(tintColor).join(' ')}`) : undefined;
 
   return (
-    <button type="button" className={buildClassName(styles.card, styles.moverCard)} style={style} onClick={handleClick}>
+    <button
+      type="button"
+      className={buildClassName(styles.card, styles.moverCard)}
+      style={style}
+      data-testid={getTestId('market_mover')}
+      onClick={handleClick}
+    >
       {sparkline && <Sparkline points={sparkline} />}
       <TokenIcon token={apiToken} withChainIcon={withChainIcon} iconClassName={styles.moverIcon} />
       <span className={styles.moverName}>{name}</span>

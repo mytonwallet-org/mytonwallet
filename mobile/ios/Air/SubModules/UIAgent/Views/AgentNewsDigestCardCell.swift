@@ -1,30 +1,28 @@
+import ContextMenuKit
 import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
 
 /// A daily digest of the News feed, in the Agent's tailed bubble as the news cards are: its title, how many news it
-/// covers and when it came, its top headlines, each opening its news item's discussion, and the Discuss strip that opens
-/// the digest's own discussion
-final class AgentNewsDigestCardCell: UICollectionViewCell {
+/// covers, its top headlines, each opening its news item's discussion, the time it came, and the Discuss strip that
+/// opens the digest's own discussion. A long press on the bubble opens its menu, as on a news card.
+final class AgentNewsDigestCardCell: UICollectionViewCell, AgentNewsFlightSource {
     private enum Metrics {
         static let horizontalInset: CGFloat = 16
         static let headerInsets = NSDirectionalEdgeInsets(top: 14, leading: 16, bottom: 6, trailing: 16)
-        static let headlineMinimumHeight: CGFloat = 44
-        static let headlineVerticalInset: CGFloat = 10
-        static let bulletSize: CGFloat = 6
-        static let bulletSpacing: CGFloat = 10
-        static let remainderInsets = NSDirectionalEdgeInsets(
-            top: 4,
-            leading: horizontalInset + bulletSize + bulletSpacing,
-            bottom: 12,
-            trailing: horizontalInset
-        )
+        static let headlinesInsets = NSDirectionalEdgeInsets(top: 0, leading: horizontalInset, bottom: 0, trailing: horizontalInset)
+        /// Over the time under the line of the news the card leaves out, as over a news card's time
+        static let remainderTimeSpacing: CGFloat = 8
     }
 
     /// A tap on the headline of the news item with this event ID
-    var headlineAction: ((Int) -> Void)?
+    var headlineAction: ((Int) -> Void)? {
+        get { headlinesView.headlineAction }
+        set { headlinesView.headlineAction = newValue }
+    }
     var discussionAction: (() -> Void)?
+    var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)?
     /// The card's height changed with the text size while it was on screen
     var onPreferredHeightChanged: (() -> Void)?
 
@@ -34,11 +32,34 @@ final class AgentNewsDigestCardCell: UICollectionViewCell {
     private let headerStack = UIStackView()
     private let titleLabel = UILabel()
     private let metaLabel = UILabel()
-    private let headlinesStack = UIStackView()
-    private let remainderLabel = UILabel()
-    private let remainderContainer = UIStackView()
+    private let headlinesView = AgentNewsDigestHeadlinesView()
+    private let headlinesContainer = UIStackView()
+    /// The digest's time in the bubble's trailing corner, as on the news cards and on the digest's post
+    private let metaView = AgentNewsMetaView()
+    private let footerContainer = UIStackView()
     private let discussionStrip = AgentNewsDiscussionStrip()
-    private var headlineButtons: [AgentNewsDimmingButton] = []
+    private lazy var contextMenuInteraction = ContextMenuInteraction(
+        triggers: .longPress,
+        sourcePortal: ContextMenuSourcePortal(mask: .customAttachmentPath { [weak self] attachmentRect in
+            self?.bubbleView.makePreviewPath(in: attachmentRect) ?? CGPath(rect: attachmentRect, transform: nil)
+        }),
+        pressAnimation: .default(transformMode: .sublayerTransform),
+        // A press on a headline or on Discuss keeps to it, as on a news card's Discuss
+        activationHitTestProvider: { sourceView, point in
+            var view = sourceView.hitTest(point, with: nil)
+            while let current = view, current !== sourceView {
+                if current is UIControl { return false }
+                view = current.superview
+            }
+            return true
+        }
+    ) { [weak self] _ in
+        self?.contextMenuConfigurationProvider?()
+    }
+    private lazy var moreActionsAccessibilityAction = UIAccessibilityCustomAction(name: lang("More actions")) { [weak self] _ in
+        self?.contextMenuInteraction.present()
+        return true
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -53,8 +74,11 @@ final class AgentNewsDigestCardCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         headlineAction = nil
+        headlinesView.prepareForReuse()
         discussionAction = nil
+        contextMenuConfigurationProvider = nil
         onPreferredHeightChanged = nil
+        bubbleView.alpha = 1
     }
 
     override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
@@ -64,90 +88,47 @@ final class AgentNewsDigestCardCell: UICollectionViewCell {
         return super.preferredLayoutAttributesFitting(layoutAttributes)
     }
 
-    func configure(with digest: ApiAgentV2NewsFeedDigest) {
+    func configure(with digest: ApiAgentV2NewsFeedDigest, isInDigestsView: Bool = false) {
         accessibilityIdentifier = "AgentNewsDigest-\(digest.id)"
         let title = lang("$agent_digest_title")
         titleLabel.text = title
-        metaLabel.text = L10n.agentDigestMeta(count: digest.total, time: AgentNewsFeedCardCell.timeText(for: digest.deliveredAt))
-        headerStack.accessibilityLabel = [titleLabel.text, metaLabel.text].compactMap { $0 }.joined(separator: ", ")
-        configureHeadlines(digest.top)
+        metaLabel.text = L10n.agentDigestMeta(count: digest.total)
+        let time = AgentNewsFeedCardCell.timeText(for: digest.deliveredAt)
+        metaView.configure(time: time)
+        headerStack.accessibilityLabel = [titleLabel.text, metaLabel.text, time].compactMap { $0 }.joined(separator: ", ")
         let remainder = digest.total - digest.top.count
-        remainderLabel.text = remainder > 0 ? L10n.agentDigestMore(count: remainder) : nil
-        remainderContainer.isHidden = remainder <= 0
+        // The digests view has no news above the card, so its line only counts the rest
+        let remainderText = isInDigestsView
+            ? L10n.agentDigestMoreCount(count: remainder)
+            : L10n.agentDigestMore(count: remainder)
+        headlinesView.configure(
+            headlines: digest.top,
+            remainder: remainder > 0 ? remainderText : nil,
+            date: AgentV2DateParser.date(digest.deliveredAt)
+        )
+        // The last headline's row already ends with its own room
+        footerContainer.directionalLayoutMargins.top = remainder > 0 ? Metrics.remainderTimeSpacing : 0
         discussionStrip.configure(
             title: lang("$agent_news_discuss"),
             accessibilityLabel: "\(lang("$agent_news_discuss")), \(title)",
             accessibilityIdentifier: "AgentNewsDigestDiscussion-\(digest.id)",
             discussion: nil
         )
-        accessibilityElements = [headerStack] + headlineButtons + (remainder > 0 ? [remainderLabel] : []) + [discussionStrip.button]
+        accessibilityElements = [headerStack] + headlinesView.headlineButtons
+            + (headlinesView.hasRemainder ? [headlinesView.remainderLabel] : []) + [discussionStrip.button]
     }
 
-    /// One row for each headline, with a separator between rows
-    private func configureHeadlines(_ headlines: [ApiAgentV2DigestHeadline]) {
-        headlinesStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        headlineButtons = headlines.enumerated().map { index, headline in
-            if index > 0 { headlinesStack.addArrangedSubview(makeSeparator()) }
-            let button = makeHeadlineButton(headline)
-            headlinesStack.addArrangedSubview(button)
-            return button
+    func makeFlightSnapshot() -> (view: UIView, frame: CGRect)? {
+        guard let window else { return nil }
+        let body = bubbleView.bounds.inset(by: UIEdgeInsets(top: 0, left: 0, bottom: AgentBubbleBackgroundView.tailBottomOverflow, right: 0))
+        guard let snapshot = bubbleView.resizableSnapshotView(from: body, afterScreenUpdates: false, withCapInsets: .zero) else {
+            return nil
         }
+        return (snapshot, bubbleView.convert(body, to: window))
     }
 
-    private func makeHeadlineButton(_ headline: ApiAgentV2DigestHeadline) -> AgentNewsDimmingButton {
-        let bullet = UIView()
-        bullet.backgroundColor = .tintColor
-        bullet.layer.cornerRadius = Metrics.bulletSize / 2
-        bullet.translatesAutoresizingMaskIntoConstraints = false
-        let bulletBox = UIView()
-        bulletBox.addSubview(bullet)
-        let label = UILabel()
-        label.applyTextStyle(.body, scaling: .dynamic)
-        label.textColor = .label
-        label.numberOfLines = 0
-        label.text = headline.headline
-        let arrow = UIImageView(image: AgentNewsDiscussionStrip.arrowImage)
-        arrow.tintColor = .tintColor
-        arrow.setContentHuggingPriority(.required, for: .horizontal)
-        arrow.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let row = UIStackView(arrangedSubviews: [bulletBox, label, arrow])
-        row.axis = .horizontal
-        row.alignment = .center
-        row.spacing = Metrics.bulletSpacing
-        row.setCustomSpacing(0, after: label)
-        row.isUserInteractionEnabled = false
-        row.translatesAutoresizingMaskIntoConstraints = false
-
-        let button = AgentNewsDimmingButton()
-        button.addSubview(row)
-        button.highlightedContentView = row
-        button.isAccessibilityElement = true
-        button.accessibilityTraits = .button
-        button.accessibilityLabel = headline.headline
-        button.accessibilityIdentifier = "AgentNewsDigestHeadline-\(headline.eventId)"
-        button.addAction(UIAction { [weak self] _ in self?.headlineAction?(headline.eventId) }, for: .touchUpInside)
-        NSLayoutConstraint.activate([
-            bulletBox.widthAnchor.constraint(equalToConstant: Metrics.bulletSize),
-            bullet.widthAnchor.constraint(equalToConstant: Metrics.bulletSize),
-            bullet.heightAnchor.constraint(equalToConstant: Metrics.bulletSize),
-            bullet.centerXAnchor.constraint(equalTo: bulletBox.centerXAnchor),
-            // The bullet stands by the headline's first line
-            bullet.centerYAnchor.constraint(equalTo: label.firstBaselineAnchor, constant: -label.font.xHeight / 2),
-            bulletBox.heightAnchor.constraint(equalTo: row.heightAnchor),
-            button.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.headlineMinimumHeight),
-            row.leadingAnchor.constraint(equalTo: button.leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: button.trailingAnchor),
-            row.topAnchor.constraint(equalTo: button.topAnchor, constant: Metrics.headlineVerticalInset),
-            row.bottomAnchor.constraint(equalTo: button.bottomAnchor, constant: -Metrics.headlineVerticalInset),
-        ])
-        return button
-    }
-
-    private func makeSeparator() -> UIView {
-        let separator = UIView()
-        separator.backgroundColor = .air.separator
-        separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
-        return separator
+    func setFlightSourceHidden(_ isHidden: Bool) {
+        bubbleView.alpha = isHidden ? 0 : 1
     }
 
     private func configureViews() {
@@ -157,6 +138,7 @@ final class AgentNewsDigestCardCell: UICollectionViewCell {
         bubbleView.translatesAutoresizingMaskIntoConstraints = false
         bubbleView.configure(direction: .incoming, fillColor: .air.agentBubbleFill, showsTail: true)
         contentView.addSubview(bubbleView)
+        contextMenuInteraction.attach(to: bubbleView)
 
         titleLabel.applyTextStyle(.bodyStrong, scaling: .dynamic)
         titleLabel.textColor = .label
@@ -173,25 +155,32 @@ final class AgentNewsDigestCardCell: UICollectionViewCell {
         headerStack.directionalLayoutMargins = Metrics.headerInsets
         headerStack.isAccessibilityElement = true
         headerStack.accessibilityTraits = .header
+        headerStack.accessibilityCustomActions = [moreActionsAccessibilityAction]
 
-        headlinesStack.axis = .vertical
-        headlinesStack.isLayoutMarginsRelativeArrangement = true
-        headlinesStack.insetsLayoutMarginsFromSafeArea = false
-        headlinesStack.directionalLayoutMargins = NSDirectionalEdgeInsets(
-            top: 0, leading: Metrics.horizontalInset, bottom: 0, trailing: Metrics.horizontalInset
+        headlinesContainer.addArrangedSubview(headlinesView)
+        headlinesContainer.isLayoutMarginsRelativeArrangement = true
+        headlinesContainer.insetsLayoutMarginsFromSafeArea = false
+        headlinesContainer.directionalLayoutMargins = Metrics.headlinesInsets
+
+        let footerRow = UIView()
+        metaView.translatesAutoresizingMaskIntoConstraints = false
+        footerRow.addSubview(metaView)
+        NSLayoutConstraint.activate([
+            metaView.topAnchor.constraint(equalTo: footerRow.topAnchor),
+            metaView.bottomAnchor.constraint(equalTo: footerRow.bottomAnchor),
+            metaView.leadingAnchor.constraint(greaterThanOrEqualTo: footerRow.leadingAnchor),
+            metaView.trailingAnchor.constraint(equalTo: footerRow.trailingAnchor, constant: -AgentNewsMetaView.trailingInset),
+        ])
+        footerContainer.addArrangedSubview(footerRow)
+        footerContainer.isLayoutMarginsRelativeArrangement = true
+        footerContainer.insetsLayoutMarginsFromSafeArea = false
+        footerContainer.directionalLayoutMargins = NSDirectionalEdgeInsets(
+            top: 0, leading: Metrics.horizontalInset, bottom: AgentNewsMetaView.bottomInset, trailing: 0
         )
-
-        remainderLabel.applyTextStyle(.subheadline, scaling: .dynamic)
-        remainderLabel.textColor = .air.secondaryLabel
-        remainderLabel.numberOfLines = 0
-        remainderContainer.addArrangedSubview(remainderLabel)
-        remainderContainer.isLayoutMarginsRelativeArrangement = true
-        remainderContainer.insetsLayoutMarginsFromSafeArea = false
-        remainderContainer.directionalLayoutMargins = Metrics.remainderInsets
 
         discussionStrip.button.addAction(UIAction { [weak self] _ in self?.discussionAction?() }, for: .touchUpInside)
 
-        for view in [headerStack, headlinesStack, remainderContainer, discussionStrip] { stackView.addArrangedSubview(view) }
+        for view in [headerStack, headlinesContainer, footerContainer, discussionStrip] { stackView.addArrangedSubview(view) }
         stackView.axis = .vertical
         stackView.translatesAutoresizingMaskIntoConstraints = false
         bubbleView.contentView.addSubview(stackView)

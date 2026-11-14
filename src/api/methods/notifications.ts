@@ -32,7 +32,9 @@ export async function unsubscribeNotifications(props: ApiUnsubscribeNotification
 export async function setNewsNotifications(
   props: ApiSetNewsNotificationsProps,
 ): Promise<{ ok: true } | ReturnType<typeof handleServerError>> {
-  const { mode, userToken, platform, langCode, digestHour, timeZone } = props;
+  const {
+    mode, userToken, platform, langCode, digestHour, digestMinute, timeZone,
+  } = props;
 
   try {
     switch (mode) {
@@ -46,7 +48,9 @@ export async function setNewsNotifications(
       case 'digest':
         await callBackendPost<{ ok: true }>(
           '/notifications/news-digest/subscribe',
-          { userToken, platform, hour: digestHour, timezone: timeZone, langCode },
+          {
+            userToken, platform, hour: digestHour, minute: digestMinute, timezone: timeZone, langCode,
+          },
           { shouldRetry: true },
         );
         return await callBackendPost<{ ok: true }>(

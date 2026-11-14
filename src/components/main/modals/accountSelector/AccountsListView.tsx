@@ -8,6 +8,7 @@ import type { AccountTab } from './constants';
 
 import buildClassName from '../../../../util/buildClassName';
 import buildStyle from '../../../../util/buildStyle';
+import getTestId from '../../../../util/getTestId';
 import { REM } from '../../../../util/windowEnvironment';
 
 import Transition from '../../../ui/Transition';
@@ -137,6 +138,7 @@ function AccountsListView({
                 visibleChains={addressLineChainsByAccountId?.[accountId]}
                 accountType={type}
                 isSelected={isCurrentAccount}
+                testId={isActive ? getTestId('wallets_cell_list') : undefined}
                 title={title}
                 balanceData={balanceData}
                 cardBackgroundNft={cardBackgroundNft}

@@ -1,6 +1,7 @@
 import type { ApiNetwork, UTXOChain } from '../../types';
 import type { ChainSdk } from '../../types/chains';
 
+import { DIESEL_NOT_AVAILABLE } from '../../common/other';
 import { fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress as normalizeUtxoAddress } from './address';
 import {
@@ -77,6 +78,7 @@ class UTXOChainSdk<T extends UTXOChain> implements ChainSdk<T> {
   buildOnchainSwapTransfer = notSupported;
   submitOnchainSwapTransfer = notSupported;
   resolveSwapNeedsBatch = () => false;
+  estimateSwapDiesel = () => DIESEL_NOT_AVAILABLE;
 
   fetchPrivateKeyString = this.#bindChain(fetchPrivateKeyString);
 

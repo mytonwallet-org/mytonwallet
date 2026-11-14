@@ -494,14 +494,19 @@ class SwapVC(
             sendAmount.setBalanceError(it.tokenToSend.isError)
         }
 
-        collectFlow(swapViewModel.hintFlow) { hint ->
+        collectFlow(swapViewModel.swapScreenHintFlow) { (hint, message) ->
             currentHint = hint
-            if (hint != null) {
-                hintView.configure(hint)
-                animateIn(hintView, 0)
-            } else {
-                animateOut(hintView)
+            when {
+                message != null -> hintView.configure("", message, "")
+
+                hint != null -> hintView.configure(hint)
+
+                else -> {
+                    animateOut(hintView)
+                    return@collectFlow
+                }
             }
+            animateIn(hintView, 0)
         }
 
         collectFlow(swapViewModel.eventsFlow, this::onEvent)

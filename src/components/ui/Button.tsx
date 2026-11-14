@@ -13,6 +13,7 @@ export type OwnProps = {
   ref?: ElementRef<HTMLButtonElement>;
   children: TeactNode;
   id?: string;
+  testId?: string;
   className?: string;
   style?: string;
   ariaLabel?: string;
@@ -43,6 +44,7 @@ function Button({
   ref,
   children,
   id,
+  testId,
   className,
   style,
   ariaLabel,
@@ -90,6 +92,7 @@ function Button({
     <button
       id={id}
       ref={ref}
+      data-testid={testId}
       type={isSubmit || forFormId ? 'submit' : 'button'}
       className={buildClassName(
         styles.button,

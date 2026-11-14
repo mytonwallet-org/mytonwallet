@@ -29,7 +29,6 @@ class FuturesPositionHeaderCell(context: Context) :
     WThemedView {
 
     private var position: MApiPerpsNativePosition? = null
-    private var image: String? = null
 
     private val iconView = WCustomImageView(context)
 
@@ -98,10 +97,9 @@ class FuturesPositionHeaderCell(context: Context) :
 
     fun configure(position: MApiPerpsNativePosition) {
         this.position = position
-        if (image != position.image) {
-            image = position.image
-            position.image?.let { iconView.set(Content.ofUrl(it)) } ?: iconView.clear()
-        }
+        position.image?.let {
+            iconView.set(Content.ofUrl(it, position.asset?.isRwaStock == true))
+        } ?: iconView.clear()
         updateTheme()
     }
 

@@ -50,7 +50,7 @@ private const val CAPSULE_LINE_HEIGHT = 17f
 private const val CAPSULE_HORIZONTAL_PADDING = 8
 private const val CAPSULE_VERTICAL_PADDING = 3
 private const val CAPSULE_RADIUS = 11f
-private const val CAPSULE_MARGIN = 4f
+internal const val AGENT_DAY_CAPSULE_MARGIN = 4f
 
 // Denser than iOS's `AgentDateCapsuleView` (white at 80% by day, black at 20% by night), whose blur material darkens
 // on its own: over the app's plain frosted glass the posts' pictures scrolling under a thinner fill flash through it
@@ -124,13 +124,27 @@ class AgentDateHeaderCell(
             }
         }
         setConstraints {
-            toTop(label, if (isDayCapsule) CAPSULE_MARGIN else 8f)
+            toTop(label, if (isDayCapsule) AGENT_DAY_CAPSULE_MARGIN else 8f)
             // The pinned capsule's glass reaches past the capsule and makes its cell taller, so the capsule hangs from
             // the top alone there and stands as far down from the cell's top as the list's own capsule does
-            if (!isFloating) toBottom(label, if (isDayCapsule) CAPSULE_MARGIN else 4f)
+            if (!isFloating) toBottom(label, if (isDayCapsule) AGENT_DAY_CAPSULE_MARGIN else 4f)
             toStart(label, 40f)
             toEnd(label, 40f)
         }
+    }
+
+    // The glass under the pinned capsule takes the capsule's frame in the capsule's own layout pass, so a day of another
+    // width never shows over the last one's glass
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        val glass = floatingCapsuleGlass ?: return
+        val padding = WGlassView.GLASS_PADDING_DP.dp
+        glass.layout(
+            label.left - padding,
+            label.top - padding,
+            label.right + padding,
+            label.bottom + padding
+        )
     }
 
     private fun createFloatingCapsuleGlass() = WGlassView.attachTo(
@@ -166,7 +180,7 @@ class AgentDateHeaderCell(
 
     /** The height of a day's row in the list: the capsule and the space above and below it */
     val capsuleRowHeight: Int
-        get() = (label.height + 2 * CAPSULE_MARGIN.dp).roundToInt()
+        get() = (label.height + 2 * AGENT_DAY_CAPSULE_MARGIN.dp).roundToInt()
 
     private val capsuleLocation = IntArray(2)
 

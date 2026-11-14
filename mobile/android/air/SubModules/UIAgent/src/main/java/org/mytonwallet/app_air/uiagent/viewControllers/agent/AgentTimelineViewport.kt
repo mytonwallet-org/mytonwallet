@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
 import android.animation.ValueAnimator
+import android.os.Build
 import android.util.DisplayMetrics
 import android.view.View
 import android.view.animation.DecelerateInterpolator
@@ -16,6 +17,7 @@ import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsPostCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 internal class AgentTimelineViewport(private val host: Host) {
@@ -70,6 +72,15 @@ internal class AgentTimelineViewport(private val host: Host) {
         private set
 
     private var pinScrollSpring: SpringAnimation? = null
+
+    // Debug builds pin a question at once while system animations are off, to keep E2E runs fast
+    private val canAnimatePin: Boolean
+        get() = WGlobalStorage.getAreAnimationsActive() &&
+            (!DEBUG_MODE || areSystemAnimatorsEnabled)
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+
     private val latestScroll = AgentRecyclerAnimationScrollHelper(host.recyclerView)
     var pinScrollExtraSpace = 0
         private set
@@ -241,9 +252,20 @@ internal class AgentTimelineViewport(private val host: Host) {
         chatRecyclerView.stopScroll()
     }
 
-    fun activatePendingMessage(messageId: String) {
-        pendingPinMessageId = messageId
-        clearOutgoingPlacement()
+    /**
+     * A question that waited in the chat goes. With [shouldPin] it comes up to the top as a
+     * question just sent does, once its answer's row comes in. Otherwise the pin held for it, as
+     * the latest question queued, drops, and the list stays.
+     */
+    fun placeGoingQuestion(messageId: String, shouldPin: Boolean) {
+        if (shouldPin) {
+            pendingPinMessageId = messageId
+            pendingOutgoingPreviousMessageId = null
+            deferredPinMessageId = messageId
+        } else if (pendingPinMessageId == messageId) {
+            pendingPinMessageId = null
+            clearOutgoingPlacement()
+        }
     }
 
     fun clearOutgoingPlacement() {
@@ -576,6 +598,23 @@ internal class AgentTimelineViewport(private val host: Host) {
         }
     }
 
+    /**
+     * Scrolls the rows above a change back up by [shift] when the list moved them down to fill
+     * the space the change freed at its end. The padding of the question pinned among them takes
+     * that space, so they stay where they were.
+     */
+    fun restoreRowsAboveChange(shift: Int, changeIndex: Int) {
+        if (isDisposed || isUserScrolling || pinScrollSpring?.isRunning == true ||
+            chatRecyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
+        ) {
+            return
+        }
+        val pinnedIndex = pinnedMessageId?.let(::pinAnchorIndex) ?: return
+        if (pinnedIndex !in 0 until changeIndex) return
+        syncPinnedPadding()
+        chatRecyclerView.scrollBy(0, shift)
+    }
+
     private fun preservePinnedMessageAcrossTrailingShrink(pinnedTop: Int) {
         val requiredPadding = maxOf(
             baseChatBottomPadding(appliedBottom),
@@ -646,6 +685,10 @@ internal class AgentTimelineViewport(private val host: Host) {
     }
 
     fun finishLatestScroll() = latestScroll.finish()
+
+    /** Whether the rows slide to the latest one, as [scrollToLatest] moves them */
+    val isScrollingToLatest: Boolean
+        get() = latestScroll.isRunning
 
     fun scrollToBottom() {
         if (isDisposed) return
@@ -938,8 +981,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         messageId: String,
         targetHeight: Int? = null,
         isRetry: Boolean = false,
-        animated: Boolean = WGlobalStorage.getAreAnimationsActive() &&
-            messageId != instantPinMessageId
+        animated: Boolean = canAnimatePin && messageId != instantPinMessageId
     ) {
         if (isDisposed) return
         if (pendingPinMessageId != messageId) return
@@ -1095,10 +1137,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         return true
     }
 
-    private fun startPinScroll(
-        messageId: String,
-        animated: Boolean = WGlobalStorage.getAreAnimationsActive()
-    ) {
+    private fun startPinScroll(messageId: String, animated: Boolean = canAnimatePin) {
         if (isDisposed) return
         if (pinnedMessageId != messageId) return
         val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
@@ -1306,6 +1345,14 @@ internal fun List<AgentTimelineItem>.agentPinPreviousLineReveal(
     val hasMessageAbove = (anchorIndex - 1 downTo 0).any { this[it] is AgentTimelineItem.Message }
     return if (hasMessageAbove) lineReveal else 0
 }
+
+/**
+ * Whether the latest row reaches more than [threshold] below the part of the list that the
+ * composer leaves visible, by [overhang], so the scroll-to-bottom button shows. The chat follows
+ * its end otherwise, and a question that waited comes up to the top as it goes.
+ */
+internal fun isAgentLatestRowOutOfSight(overhang: Int, threshold: Int): Boolean =
+    overhang > threshold
 
 /** A question reaching below [previewTop] moves up so its answer's start shows. */
 internal fun agentPinnedItemOffset(

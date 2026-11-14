@@ -159,8 +159,8 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
             model.update(status = it)
             render()
         }
-        collectFlow(swapViewModel.hintFlow) {
-            model.update(hint = it)
+        collectFlow(swapViewModel.tradeScreenHintFlow) { (hint, message) ->
+            model.update(hint = hint, hintMessage = message)
             render()
         }
         collectFlow(swapViewModel.eventsFlow, ::onEvent)

@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 
 @SuppressLint("ViewConstructor")
@@ -38,30 +39,47 @@ internal class AgentNewsCell(context: Context) :
         updateTheme()
     }
 
-    fun configure(latest: AgentV2NewsFeedItem?, unreadCount: Int, is24HourFormat: Boolean) {
-        val time = latest?.let {
+    /**
+     * Shows the latest news, or [latestDigest] when the Digests view shows it: its first headline with its picture, the
+     * digest's time and the count of the new digests
+     */
+    fun configure(
+        latest: AgentV2NewsFeedItem?,
+        latestDigest: AgentV2NewsFeedDigest?,
+        unreadCount: Int,
+        is24HourFormat: Boolean
+    ) {
+        val headline = latestDigest?.top?.firstOrNull()
+        val deliveredAt = latestDigest?.deliveredAt ?: latest?.deliveredAt
+        val time = deliveredAt?.let {
             AgentThreadDateFormatting.formatRowTimestamp(
-                parseAgentV2Timestamp(it.deliveredAt) ?: Date(0),
+                parseAgentV2Timestamp(it) ?: Date(0),
                 Date(),
                 shouldShowDateWhenNotToday = true,
                 is24HourFormat = is24HourFormat,
                 locale = Locale.forLanguageTag(LocaleController.activeLanguage.langCode)
             )
         }.orEmpty()
+        val preview = if (latestDigest != null) headline?.headline else latest?.headline
+        val imageUrl = if (latestDigest != null) headline?.imageUrl else latest?.imageUrl
         rowView.setTexts(
             title = LocaleController.getString("News"),
-            preview = latest?.headline ?: LocaleController.getString("Crypto Market News"),
+            preview = preview ?: LocaleController.getString("Crypto Market News"),
             time = time,
-            previewImageUrl = latest?.imageUrl?.takeIf { it.isNotBlank() }
+            previewImageUrl = imageUrl?.takeIf { it.isNotBlank() }
         )
         rowView.isUnread = unreadCount > 0
         rowView.unreadCountText = formatAgentNewsUnreadCount(unreadCount)
+        val unreadKey = if (latestDigest != null) {
+            "\$agent_news_unread_digests_count"
+        } else {
+            "\$agent_news_unread_count"
+        }
         rowView.contentDescription = listOfNotNull(
             LocaleController.getString("News"),
             rowView.previewText,
             time.takeIf { it.isNotEmpty() },
-            LocaleController.getPlural(unreadCount, "\$agent_news_unread_count")
-                .takeIf { unreadCount > 0 }
+            LocaleController.getPlural(unreadCount, unreadKey).takeIf { unreadCount > 0 }
         ).joinToString(", ")
         updateTheme()
     }

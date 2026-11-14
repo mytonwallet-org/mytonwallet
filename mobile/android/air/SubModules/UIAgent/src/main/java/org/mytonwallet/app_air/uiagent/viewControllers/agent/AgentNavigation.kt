@@ -7,6 +7,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
 object AgentNavigation {
@@ -14,12 +15,29 @@ object AgentNavigation {
         navigationController.push(AgentVC(context, news = AgentNewsChatRequest(eventId)))
     }
 
+    /** [beforePush] gets the discussion's chat before it slides in */
     fun openDigestChat(
         context: Context,
         navigationController: WNavigationController,
-        digestId: String
+        digestId: String,
+        preview: AgentV2ThreadDigestCard? = null,
+        discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
+        shouldDeferCreation: Boolean = false,
+        onThreadCreated: ((AgentV2ThreadSummary) -> Unit)? = null,
+        onThreadMissing: ((String) -> Unit)? = null,
+        beforePush: (AgentVC) -> Unit = {}
     ) {
-        navigationController.push(AgentVC(context, digestId = digestId))
+        val chat = AgentVC(
+            context,
+            digestId = digestId,
+            digestPreview = preview,
+            discussionNaming = discussionNaming,
+            shouldDeferCreation = shouldDeferCreation,
+            onThreadCreated = onThreadCreated,
+            onThreadMissing = onThreadMissing
+        )
+        beforePush(chat)
+        navigationController.push(chat)
     }
 
     fun openNewsFeed(
@@ -46,6 +64,8 @@ object AgentNavigation {
         publishedAt: String? = null,
         body: String? = null,
         sources: List<AgentV2NewsFeedItem.Source>? = null,
+        discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
+        shouldDeferCreation: Boolean = false,
         beforePush: (AgentVC) -> Unit = {}
     ) {
         val chat = AgentVC(
@@ -60,10 +80,12 @@ object AgentNavigation {
                 imageUrl = imageUrl,
                 publishedAt = publishedAt,
                 body = body,
-                sources = sources
+                sources = sources,
+                discussionNaming = discussionNaming,
+                shouldDeferCreation = shouldDeferCreation
             ),
-            onNewsThreadCreated = onThreadCreated,
-            onNewsThreadMissing = onThreadMissing
+            onThreadCreated = onThreadCreated,
+            onThreadMissing = onThreadMissing
         )
         beforePush(chat)
         navigationController.push(chat)
