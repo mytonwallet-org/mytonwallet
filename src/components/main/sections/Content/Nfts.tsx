@@ -41,6 +41,7 @@ import useScrolledState from '../../../../hooks/useScrolledState';
 import Spinner from '../../../ui/Spinner';
 import EmptyListPlaceholder from './EmptyListPlaceholder';
 import NftList from './NftList';
+import GiftTradingEntry from '../../../giftTrading/GiftTradingEntry';
 
 import styles from './Nft.module.scss';
 
@@ -74,6 +75,7 @@ interface OwnProps {
 }
 
 interface StateProps {
+  accountId?: string;
   orderedAddresses?: string[];
   selectedNfts?: ApiNft[];
   byAddress?: Record<string, ApiNft>;
@@ -91,6 +93,7 @@ interface StateProps {
 }
 
 function Nfts({
+  accountId,
   isActive,
   isWidget,
   isStretched,
@@ -188,29 +191,37 @@ function Nfts({
     [isNftBuyingDisabled, isPortrait, lang],
   );
 
+  const tradingEntry = process.env.GIFT_TRADING_LAB === 'true' && isActive && !isWidget
+    && ['localhost', '127.0.0.1'].includes(location.hostname)
+    && collection?.address === TELEGRAM_GIFTS_SUPER_COLLECTION
+    && isViewAccount && accountId && <GiftTradingEntry key={accountId} />;
+
   if (nftAddresses === undefined || (!isWidget && nftAddresses.length === 0 && isLoading)) {
     return <div className={buildClassName(styles.loading, 'content-centered')}><Spinner /></div>;
   }
 
   if (nftAddresses.length === 0) {
     return (
-      <EmptyListPlaceholder
-        stickerTgsUrl={isWidget ? undefined : ANIMATED_STICKERS_PATHS.happy}
-        stickerPreviewUrl={isWidget ? undefined : ANIMATED_STICKERS_PATHS.happyPreview}
-        stickerSize={isWidget
-          ? undefined
-          : (isPortrait ? ANIMATED_STICKER_SMALL_SIZE_PX : ANIMATED_STICKER_BIG_SIZE_PX)}
-        isStickerActive={isWidget ? undefined : isActive}
-        title={lang('No collectibles yet')}
-        description={isWidget
-          ? (!isNftBuyingDisabled ? lang('$nft_explore_offer') : undefined)
-          : fullDescription}
-        className="content-centered"
-        actionText={!isNftBuyingDisabled && hasAddresses
-          ? lang('Open %nft_marketplace%', { nft_marketplace: nftMarketplace.title })
-          : undefined}
-        onActionClick={!isNftBuyingDisabled ? handleNftMarketplaceClick : undefined}
-      />
+      <>
+        {tradingEntry}
+        <EmptyListPlaceholder
+          stickerTgsUrl={isWidget ? undefined : ANIMATED_STICKERS_PATHS.happy}
+          stickerPreviewUrl={isWidget ? undefined : ANIMATED_STICKERS_PATHS.happyPreview}
+          stickerSize={isWidget
+            ? undefined
+            : (isPortrait ? ANIMATED_STICKER_SMALL_SIZE_PX : ANIMATED_STICKER_BIG_SIZE_PX)}
+          isStickerActive={isWidget ? undefined : isActive}
+          title={lang('No collectibles yet')}
+          description={isWidget
+            ? (!isNftBuyingDisabled ? lang('$nft_explore_offer') : undefined)
+            : fullDescription}
+          className="content-centered"
+          actionText={!isNftBuyingDisabled && hasAddresses
+            ? lang('Open %nft_marketplace%', { nft_marketplace: nftMarketplace.title })
+            : undefined}
+          onActionClick={!isNftBuyingDisabled ? handleNftMarketplaceClick : undefined}
+        />
+      </>
     );
   }
 
@@ -242,6 +253,7 @@ function Nfts({
       )}
       onScroll={isLandscape ? handleContentScroll : undefined}
     >
+      {tradingEntry}
       <NftList
         key={collection ? `${collection.address}_${collection.chain}` : 'nft-list'}
         isActive={realIsActive}
@@ -282,6 +294,7 @@ export default memo(
       const accountId = selectCurrentAccountId(global);
 
       return {
+        accountId,
         orderedAddresses,
         selectedNfts,
         byAddress,

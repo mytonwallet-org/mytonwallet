@@ -52,7 +52,9 @@ import styles from './PasswordForm.module.scss';
 type OperationType = 'transfer' | 'sending' | 'staking' | 'unstaking' | 'swap'
   | 'unfreeze' | 'passcode' | 'unlock' | 'claim' | 'turnOnBiometrics' | 'mintCard';
 
+interface LaboratoryAuth { readonly authorize: (input: string, signal: AbortSignal) => Promise<undefined> }
 interface OwnProps {
+  laboratoryAuth?: LaboratoryAuth;
   isActive: boolean;
   isLoading?: boolean;
   operationType?: OperationType;
@@ -180,6 +182,7 @@ function PasswordForm({
   onClose,
   onAuthorize,
   onError,
+  laboratoryAuth,
 }: OwnProps & StateProps) {
   const {
     setEnclaveSession,
@@ -189,15 +192,17 @@ function PasswordForm({
     releaseEnclaveSession,
   } = getActions();
 
+  if (laboratoryAuth && !(process.env.GIFT_TRADING_LAB === 'true' && ['localhost','127.0.0.1'].includes(location.hostname))) throw Error('Laboratory authorization disabled');
+  const laboratoryAbort = useRef<AbortController>();
   const lang = useLang();
 
-  const isBiometricAuthEnabled = isBiometricAuthEnabledProp && !noBiometrics;
+  const isBiometricAuthEnabled = !laboratoryAuth && isBiometricAuthEnabledProp && !noBiometrics;
 
   const inputRef = useRef<HTMLInputElement>();
   const [inputValue, setInputValue] = useState<string>('');
   const [localError, setLocalError] = useState<string>('');
   const { isSmallHeight, isPortrait } = useDeviceScreen();
-  const withAutoConfirm = useCanAutoConfirm(enclaveSessionValidUntil, noAutoConfirm);
+  const withAutoConfirm = useCanAutoConfirm(enclaveSessionValidUntil, noAutoConfirm || Boolean(laboratoryAuth));
   /**
    * Whether a passcode or biometric entry on this screen opens the auto-confirm window. This is separate from
    * `noAutoConfirm`, which only decides whether the screen may be skipped while the window is open.
@@ -207,15 +212,15 @@ function PasswordForm({
    */
   const isLongSession = isAutoConfirmEnabled && operationType !== 'turnOnBiometrics';
   const isSubmitDisabled = !inputValue.length && !withAutoConfirm;
-  const canUsePinPad = getDoesUsePinPad();
+  const canUsePinPad = !laboratoryAuth && getDoesUsePinPad();
   const [isLogOutModalOpened, openLogOutModal, closeLogOutModal] = useFlag(false);
   // The biometric screen offers its retry only while something failed, and the dialog paths clear the
   // inline error the retry used to be keyed on, which would leave that screen without a single control
   const [hasMigrationFailed, markMigrationFailed, clearMigrationFailure] = useFlag(false);
   // Once the storage is known to have lost the data, no number of attempts gets past it
   const [isAuthDataMissing, markAuthDataMissing, clearAuthDataMissing] = useFlag(false);
-  const shouldSuggestLogout = useMatchCount(!!error || !!localError, WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION)
-    || isAuthDataMissing;
+  const wrongAttempts = useMatchCount(!!error || !!localError, WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION);
+  const shouldSuggestLogout = !laboratoryAuth && (wrongAttempts || isAuthDataMissing);
   const showMigrationFailureDialog = useMigrationFailureDialog(operationType);
   const isAuthorizingRef = useRef(false);
   // Set while the password or biometrics is being checked. The Back and close buttons wait for the check to end:
@@ -287,10 +292,12 @@ function PasswordForm({
 
   useSyncEffect(() => {
     visibilityChangeCountRef.current++;
+    laboratoryAbort.current?.abort();
   }, [isActive]);
 
   useEffectOnce(() => () => {
     visibilityChangeCountRef.current++;
+    laboratoryAbort.current?.abort();
   });
 
   // Starts a password or biometric check. Call the returned function when the check ends. It returns `false` if
@@ -325,6 +332,22 @@ function PasswordForm({
     // Prevent double authorization (e.g., race between PIN input and biometrics)
     if (isAuthorizingRef.current || isLoading) return;
     isAuthorizingRef.current = true;
+
+    if (laboratoryAuth) {
+      // The same form/input, duplicate-check and visibility guards; no Enclave or session.
+      const endCheck = startCheck(), controller = new AbortController();
+      const finish = onAuthorize, selectedAuth = laboratoryAuth;
+      laboratoryAbort.current = controller;
+      try {
+        const result = await selectedAuth.authorize(pin ?? inputValue, controller.signal);
+        controller.signal.throwIfAborted();
+        if (result !== undefined) throw Error('Unexpected laboratory result');
+        if (endCheck()) finish('lab-capture-only');
+      } catch {
+        if (endCheck()) { isAuthorizingRef.current = false; setLocalError('Synthetic authorization rejected'); }
+      } finally { if (laboratoryAbort.current === controller) laboratoryAbort.current = undefined; }
+      return;
+    }
 
     if (withAutoConfirm) {
       handleAuthorized(selectEnclaveToken(getGlobal())!, multichainUpgradeAccountIds);
@@ -391,6 +414,7 @@ function PasswordForm({
   });
 
   const handleBiometrics = useLastCallback(async () => {
+    if (laboratoryAuth) return;
     // Prevent double authorization (e.g., race between PIN input and biometrics)
     if (isAuthorizingRef.current || isLoading) return;
     isAuthorizingRef.current = true;
@@ -455,6 +479,7 @@ function PasswordForm({
 
   // Legacy biometrics while the migration is pending, Enclave biometrics after it
   const handleBiometricsRequest = useLastCallback(() => {
+    if (laboratoryAuth) return;
     if (shouldMigrate && hasLegacyBiometrics) {
       handleLegacyBiometricsMigration();
     } else if (!shouldMigrate) {
@@ -807,3 +832,11 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isAppLocked: global.isAppLockActive,
   };
 })(PasswordForm));
+
+/** No live selectors, migrations, biometrics, session publication or key reads. */
+export function PasswordFormForLaboratory(props: OwnProps & { laboratoryAuth: LaboratoryAuth }) {
+  if (!(process.env.GIFT_TRADING_LAB === 'true' && ['localhost','127.0.0.1'].includes(location.hostname)) || !props.laboratoryAuth) throw Error('Laboratory authorization disabled');
+  return <PasswordForm {...props} operationType="transfer" isAutoConfirmEnabled={false}
+    isBiometricAuthEnabled={false} isPasswordNumeric={false} shouldMigrate={false}
+    hasLegacyBiometrics={false} isAppLocked={false} noBiometrics noAutoConfirm />;
+}

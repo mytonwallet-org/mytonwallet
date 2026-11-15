@@ -164,6 +164,7 @@ const cspFrameAncestors = `${[
 
 // `process.env` keys baked into the bundle and their defaults. A variable set at build time wins.
 const ENV_DEFAULTS = {
+  GIFT_TRADING_LAB: 'false',
   APP_ENV: 'production',
   APP_NAME: '',
   APP_VERSION: getAppVersion(),

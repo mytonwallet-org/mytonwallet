@@ -1,0 +1,79 @@
+Gift buying and selling proposal — local development, 2026-11-13
+
+This is an experimental foundation, NOT a working wallet trading feature.
+No transaction has been signed or broadcast. No contract is deployed. No new PR is published.
+Existing catalog/inventory PRs are separate.
+
+Requested product
+* Buy a listed gift from either wallet, through a supported marketplace or the common wallet market.
+* Accept an existing funded offer or list at a fixed TON price and wait.
+* External marketplace adapter (initially official Getgems REST).
+* Wallet-operated shared on-chain market, independent of Getgems API.
+* A listing is identified by network, NFT and contract, not by the listing wallet brand.
+* Both wallets independently resolve price, owner, code and recipients before confirmation.
+* The price includes no implicit conversion; network fees remain a separate budget.
+* No instant-sale guarantee: a compatible funded buyer must exist.
+
+Implemented locally
+* Buyer coordinator selects a listing, verifies account eligibility and available funds,
+  displays price/INCLUDED marketplace fee and royalty plus maximum debit, and rechecks state
+  before the one-shot local handoff. Both providers retain their own policy and builder boundary.
+* Kotlin/Swift buyer totals and watch-only/unsupported-account eligibility guards.
+* Canonical reference, exact decimal/nanoTON amounts, offer matching/ranking and bounded pagination.
+* Cancel/account/network-switch lifecycle checks and single-use exact-intent handoff.
+* Shared length-prefixed intent fingerprint binds roles, economics, state, expiry and message bytes.
+* Official Getgems offer parsing and request descriptions; no API credentials or private GraphQL.
+* Chain-reader/indexer ports with pinned snapshot, freshness and canonical-block requirements.
+* Contract/NFT code and collection allowlists, escrow ownership and recipient checks.
+* Comparison of provider messages against an independently constructed local plan.
+* Causal v2 settlement classification: NFT storage transition and exact payout receipts must match.
+  A later onward transfer is allowed. Unrelated/aggregate balance receipts cannot prove payment.
+* A new minimal FunC v2 state machine with authenticated funding, delivery acknowledgement,
+  pending payment, proven-bounce refund, cancellation and explicit failed-return recovery state.
+* Listing deployment and NFT deposit are separate confirmed steps, never an assumed atomic batch.
+* Strict v2 unsigned-message builder/BOC validation in the local TON laboratory.
+* Kotlin and Swift reference/amount/lifecycle/immutable-intent components for each native client.
+* Read-only provider HTTP adapter with configured HTTPS origins, no cookies/referrer/redirect,
+  response-size/page/item limits, cancellation and request deadlines.
+
+Important limits
+The indexer and chain reader are interfaces, not a deployed indexing service or verified light client.
+Getgems transaction execution is not integrated: API access/terms and current contract decoding,
+including response signer/recipient and timeout semantics, must be verified before signing is enabled.
+Request descriptions follow the official schema literally: accept-offer's userAddress is the offer
+creator (buyer), not automatically the seller. No real API acceptance request was sent.
+The experimental URI scheme is not registered or adopted by either wallet.
+Native components are not connected to app navigation, API bridge, signing or deep links.
+No production NFT code or Telegram collection allowlist is supplied by this proposal.
+The reference contract tests use a standard NFT fixture, not real Telegram gifts.
+The two simulated account names do NOT constitute an installed Tonkeeper/MyTonWallet interoperability test.
+
+Historical v1 failure and current v2 limitations
+A deliberately incompatible NFT fixture accepts escrow deposit but rejects onward delivery.
+Both v1 prototype contracts paid the seller before a later delivery failure. Their source and
+diagnostic evidence are preserved under evidence/baseline-before-hardening and contract-lab.
+V2 waits for a code-specific NFT acknowledgement. Its local tests require no seller payout on
+delivery bounce and explicit pending states when outgoing actions fail.
+Missing/corrupted acknowledgement can still leave delivery pending indefinitely, even after NFT
+ownership changed. General liveness is not solved; no timeout refund is allowed in this case.
+The v2 receipt adapter covers an uninterrupted laboratory transaction tree. Resumed independent
+DRIVE roots still require production account-state lineage proof. No production NFT is allowlisted.
+Read MARKET-V2-SPEC.txt and capability-profiles.json for trust assumptions and gas-refund economics.
+Do not deploy any laboratory contract or wire these builders into a production signer.
+
+Remaining implementation
+* Supported Telegram gift code/collection verification and independently reviewed settlement/liveness.
+* Real chain reader, trace emulator, directory discovery/indexing and wallet-operated service policy.
+* Getgems provider transaction construction/decoding with authoritative fee and royalty routes.
+* Actual app review/navigation/signing integration for web/desktop/extensions and Android/iOS.
+* Cross-client actual-app demonstration with synthetic/local-chain data.
+* Native/full app builds, independent contract security review and maintainer protocol agreement.
+
+Local patch bundles add foundation source only; they do not enable trading or complete any of the above.
+All required acceptance checks remain recorded, including blocked/failed ones.
+
+Sources
+https://api.getgems.io/public-api/docs
+https://api.getgems.io/public-api/docs.json
+https://github.com/getgems-io/nft-contracts/tree/68cfc0cf14685fdad0e16e42e516ecf96b56e9ae
+https://docs.ton.org/develop/smart-contracts/security/things-to-focus
