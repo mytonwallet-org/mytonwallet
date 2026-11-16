@@ -5,6 +5,7 @@ plugins {
 
 android {
     namespace = "org.mytonwallet.app_air.walletcore"
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 val airSubModulePath = project.property("airSubModulePath")

@@ -57,12 +57,26 @@ const NFT_SYNC_MAX_INDIVIDUAL_UPDATES = 100;
 
 export function createTonNftSync(accountId: string, address: string, onUpdate: OnApiUpdate) {
   const { network } = parseAccountId(accountId);
+  let lastSuperCollections: Record<string, ApiNftSuperCollection> | undefined;
+  let needsFullReclassification = false;
   const sync = createNftSync(accountId, 'ton', network, address, (snapshot, changedAddresses) => {
     validateTonNftSnapshot(snapshot, address, changedAddresses);
   });
 
-  async function parseSnapshot(snapshot: NftSyncSnapshot, addresses?: readonly string[]) {
-    const superCollections = await getNftSuperCollectionsByCollectionAddress();
+  async function getSuperCollections() {
+    try {
+      return await getNftSuperCollectionsByCollectionAddress(true);
+    } catch (err) {
+      needsFullReclassification = true;
+      throw err;
+    }
+  }
+
+  function parseSnapshot(
+    snapshot: NftSyncSnapshot,
+    superCollections: Record<string, ApiNftSuperCollection>,
+    addresses?: readonly string[],
+  ) {
     const metadata = snapshot.metadata as MetadataMap;
     const items = addresses ? compact(addresses.map((rawAddress) => snapshot.items[rawAddress]))
       : Object.values(snapshot.items);
@@ -87,26 +101,36 @@ export function createTonNftSync(accountId: string, address: string, onUpdate: O
     async restore(signal?: AbortSignal) {
       const snapshot = await sync.load();
       if (!snapshot || signal?.aborted) return;
-      const nfts = await parseSnapshot(snapshot);
+      const superCollections = await getSuperCollections();
+      const nfts = parseSnapshot(snapshot, superCollections);
       if (signal?.aborted) return;
       emitFull(nfts);
+      lastSuperCollections = superCollections;
+      needsFullReclassification = false;
     },
     async poll(signal?: AbortSignal, shouldEmitFull = false, onBeforeEmitFull?: NoneToVoidFunction) {
       const result = await sync.sync(signal);
       if (!result || signal?.aborted) return false;
+      const superCollections = await getSuperCollections();
+      if (signal?.aborted) return false;
+      // The registry is replaced on refresh. Reclassify even when the indexer reports no NFT changes.
       const isFull = shouldEmitFull || result.reset
+        || needsFullReclassification
+        || (lastSuperCollections !== undefined && lastSuperCollections !== superCollections)
         || result.changedAddresses.length > NFT_SYNC_MAX_INDIVIDUAL_UPDATES;
       if (!isFull && !result.changedAddresses.length) return true;
       const addresses = isFull ? undefined : result.changedAddresses;
-      const nfts = await parseSnapshot(result.snapshot, addresses);
+      const nfts = parseSnapshot(result.snapshot, superCollections, addresses);
       if (signal?.aborted) return false;
       if (isFull) {
         onBeforeEmitFull?.();
         emitFull(nfts);
+        lastSuperCollections = superCollections;
+        needsFullReclassification = false;
         return true;
       }
 
-      const previousNfts = result.previous ? await parseSnapshot(result.previous, addresses) : [];
+      const previousNfts = result.previous ? parseSnapshot(result.previous, superCollections, addresses) : [];
       if (signal?.aborted) return false;
       const previousByAddress = Object.fromEntries(previousNfts.map((nft) => [nft.address, nft]));
       const byAddress = Object.fromEntries(nfts.map((nft) => [nft.address, nft]));
@@ -125,8 +149,12 @@ export function createTonNftSync(accountId: string, address: string, onUpdate: O
           onUpdate({ type: 'nftChanged', accountId, chain: 'ton', nft });
         } else if (!nft.isHidden) {
           onUpdate({ type: 'nftReceived', accountId, nftAddress: nft.address, nft });
+        } else if (nft.isTelegramGift) {
+          // Hidden gifts still belong in inventory totals, without an incoming-NFT notification.
+          onUpdate({ type: 'updateNfts', accountId, chain: 'ton', nfts: [nft] });
         }
       }
+      lastSuperCollections = superCollections;
       return true;
     },
   };
@@ -169,12 +197,9 @@ export async function getAccountNfts(accountId: string, options?: {
   const nfts = await fetchAllPaginated({
     batchLimit: nftBatchLimit!,
     pauseMs: nftBatchPauseMs!,
-    fetchBatch: (cursor) => fetchNftItems(network, {
-      ownerAddress: address,
-      collectionAddress: options?.collectionAddress,
-      offset: cursor * nftBatchLimit!,
-      limit: nftBatchLimit!,
-    }).then((response) => parseNftItems(network, response, nftSuperCollectionsByCollectionAddress)),
+    fetchBatch: createInventoryPageFetcher(
+      network, address, nftBatchLimit!, nftSuperCollectionsByCollectionAddress, options?.collectionAddress,
+    ),
   });
 
   return compact(nfts);
@@ -186,20 +211,47 @@ export async function streamAllAccountNfts(accountId: string, options: {
 }): Promise<void> {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
-  const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
+  const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress(true);
 
   const { nftBatchLimit, nftBatchPauseMs } = getChainConfig('ton');
   await streamPaginated({
     signal: options.signal,
     batchLimit: nftBatchLimit!,
     pauseMs: nftBatchPauseMs!,
-    fetchBatch: (cursor) => fetchNftItems(network, {
-      ownerAddress: address,
-      offset: cursor * nftBatchLimit!,
-      limit: nftBatchLimit!,
-    }).then((response) => parseNftItems(network, response, nftSuperCollectionsByCollectionAddress)),
+    fetchBatch: createInventoryPageFetcher(network, address, nftBatchLimit!, nftSuperCollectionsByCollectionAddress),
     onBatch: (batch) => options.onBatch(compact(batch)),
   });
+}
+
+function createInventoryPageFetcher(
+  network: ApiNetwork,
+  ownerAddress: string,
+  limit: number,
+  superCollections: Record<string, ApiNftSuperCollection>,
+  collectionAddress?: string,
+) {
+  const seenRawAddresses = new Set<string>();
+  const emittedAddresses = new Set<string>();
+  return async (cursor: number) => {
+    const response = await fetchNftItems(network, {
+      ownerAddress, collectionAddress, offset: cursor * limit, limit,
+    });
+    const previousCount = seenRawAddresses.size;
+    for (const item of response.nft_items) {
+      if (!Address.isRaw(item.address)) throw new Error('Invalid raw TON NFT address');
+      seenRawAddresses.add(Address.parseRaw(item.address).toRawString());
+    }
+    // A short page ends pagination already. Full repeated pages must not keep the loader running forever.
+    if (response.nft_items.length >= limit && seenRawAddresses.size === previousCount) {
+      throw new Error('Non-progressing TON NFT page');
+    }
+    // Preserve raw page length for pagination. A previously unparsed item may acquire metadata on a later page.
+    return parseNftItems(network, response, superCollections).map((nft) => {
+      if (!nft || emittedAddresses.has(nft.address)) return undefined;
+      emittedAddresses.add(nft.address);
+      return nft;
+    });
+  };
 }
 
 export async function checkNftOwnership(accountId: string, nftAddress: string) {

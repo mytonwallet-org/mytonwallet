@@ -116,7 +116,7 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
         )
     }
 
-    public func configureCollectibles(title: String, collectiblesCount: Int, menuProvider: SegmentedControlContextMenuProvider? = nil) {
+    public func configureCollectibles(title: String, collectiblesCount: Int?, menuProvider: SegmentedControlContextMenuProvider? = nil) {
         configure(
             title: title,
             count: collectiblesCount,

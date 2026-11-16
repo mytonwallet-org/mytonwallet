@@ -239,6 +239,14 @@ public class NftsFullScreenVC: WViewController {
         let otherSection: UIMenu
         do {
             var items: [UIMenuElement] = []
+            if case .collection = filter {
+                items += UIAction(title: lang(nftsVC.isListLayout ? "Grid" : "List")) { [weak self] _ in
+                    guard let self else { return }
+                    nftsVC.toggleListLayout()
+                    previousNavItemState = nil
+                    updateNavigationItem()
+                }
+            }
             if collectionItemCount > 1 {
                 items += UIAction(title: lang("Reorder"), image: .airBundle("MenuReorder26")) { [weak self] _ in
                     self?.nftsVCManager.startReordering()

@@ -25,7 +25,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     }
     
     private enum Action: Hashable, Sendable {
-        case showAll(title: String, count: Int)
+        case showAll(title: String, count: Int?)
     }
     
     private enum Row: Hashable, Sendable {
@@ -33,7 +33,15 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         case placeholder
         case loadingPlaceholder(Int)
         case nft(String)
+        case giftCollection(GiftCollectionRow)
         case action(Action)
+    }
+
+    private struct GiftCollectionRow: Hashable, Sendable {
+        var accountId: String
+        var collection: NftCollection?
+        var count: Int?
+        var hiddenCount: Int?
     }
 
     private enum DomainRenewalWarningSessionState {
@@ -64,6 +72,11 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     internal let filter: NftCollectionFilter
     
     private let layoutMode: LayoutMode
+    internal private(set) var isListLayout = false
+    private var showsGiftCatalog: Bool {
+        filter == .telegramGifts && !layoutMode.isCompact && !inSelectionMode &&
+            reorderController?.isReordering != true
+    }
     private let canOpenCollection: Bool
     private weak var manager: NftsVCManager?
     private let animationPlaybackCoordinator = NftAnimationPlaybackCoordinator()
@@ -226,7 +239,8 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 nft: displayNft?.nft,
                 compactMode: compactMode,
                 domainExpirationText: tonDomain?.expirationText,
-                isSelected: selectedIds?.contains(nftId)
+                isSelected: selectedIds?.contains(nftId),
+                isListLayout: isListLayout
             )
             cell.configurationUpdateHandler = { nftCell, state in
                 nftCell.isHighlighted = state.isHighlighted
@@ -283,12 +297,29 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             }
         }
         
+        let giftCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, GiftCollectionRow> { cell, _, row in
+            var content = cell.defaultContentConfiguration()
+            content.text = row.collection?.name ?? lang("Telegram Gifts")
+            if let count = row.count {
+                content.secondaryText = count.formatted()
+                if let hiddenCount = row.hiddenCount, hiddenCount > 0 {
+                    content.secondaryText! += " · \(lang("Hidden NFTs")): \(hiddenCount.formatted())"
+                }
+            } else {
+                content.secondaryText = lang("Gift total unavailable")
+            }
+            cell.contentConfiguration = content
+            cell.accessories = row.collection == nil ? [] : [.disclosureIndicator()]
+        }
+
         let dataSource = UICollectionViewDiffableDataSource<NativeIdentifier<Section>, NativeIdentifier<Row>>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier.value {
             case .renewalWarning(let content):
                 collectionView.dequeueConfiguredReusableCell(using: renewalWarningCellRegistration, for: indexPath, item: content)
             case .nft(let nftId):
                 collectionView.dequeueConfiguredReusableCell(using: nftCellRegistration, for: indexPath, item: nftId)
+            case .giftCollection(let row):
+                collectionView.dequeueConfiguredReusableCell(using: giftCellRegistration, for: indexPath, item: row)
             case .loadingPlaceholder(let index):
                 collectionView.dequeueConfiguredReusableCell(using: loadingNftCellRegistration, for: indexPath, item: index)
             case .action(let actionId):
@@ -353,6 +384,15 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 section.contentInsets = contentInsets
                 return section
             case .main:
+                if showsGiftCatalog || isListLayout {
+                    let size = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(88))
+                    let item = NSCollectionLayoutItem(layoutSize: size)
+                    let group = NSCollectionLayoutGroup.horizontal(layoutSize: size, subitems: [item])
+                    let section = NSCollectionLayoutSection(group: group)
+                    section.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
+                    section.interGroupSpacing = 8
+                    return section
+                }
                 let itemCount = dataSource.snapshot().numberOfItems(inSection: NativeIdentifier(.main))
                 let (cellSize, contentInsets) = layoutGeometry.calcNftItemGeometry(
                     itemCount: itemCount,
@@ -393,6 +433,14 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             
     public override func scrollToTop(animated: Bool) {
         collectionView?.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
+    }
+
+    internal func toggleListLayout() {
+        guard !layoutMode.isCompact else { return }
+        isListLayout.toggle()
+        collectionView.reloadData()
+        collectionView.collectionViewLayout.invalidateLayout()
+        scrollToTop(animated: false)
     }
     
     private func updateTheme() {
@@ -437,9 +485,11 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         if let previous {
             let previousNfts = Dictionary(uniqueKeysWithValues: previous.nfts.map { ($0.id, $0) })
             let displayedRows = Set(dataSource.snapshot().itemIdentifiers)
+            let incomingRows = Set(snapshot.itemIdentifiers)
             let changedRows = presentation.nfts.compactMap { item -> NativeIdentifier<Row>? in
                 let row = NativeIdentifier(Row.nft(item.id))
-                return displayedRows.contains(row) && (previous.accountId != account.id || previousNfts[item.id] != item) ? row : nil
+                return displayedRows.contains(row) && incomingRows.contains(row) &&
+                    (previous.accountId != account.id || previousNfts[item.id] != item) ? row : nil
             }
             snapshot.reconfigureItems(changedRows)
         }
@@ -458,6 +508,21 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     private func makeSections() -> [SectionContent] {
         var sections: [SectionContent] = []
 
+        if showsGiftCatalog {
+            let (catalog, isComplete) = NftStore.getTelegramGiftCatalog(accountId: account.id)
+            let header = GiftCollectionRow(
+                accountId: account.id, collection: nil,
+                count: isComplete ? catalog.count : nil, hiddenCount: isComplete ? catalog.hiddenCount : nil
+            )
+            let rows = [Row.giftCollection(header)] + catalog.visibleCollections.map { item in
+                Row.giftCollection(GiftCollectionRow(
+                    accountId: account.id, collection: item.collection,
+                    count: isComplete ? item.count : nil, hiddenCount: isComplete ? item.hiddenCount : nil
+                ))
+            }
+            return [.init(section: .main, rows: rows)]
+        }
+
         if let domainRenewalWarning {
             sections.append(.init(section: .renewalWarning, rows: [.renewalWarning(domainRenewalWarning)]))
         }
@@ -472,7 +537,19 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 let title = filter == .none
                     ? lang("Show All Collectibles")
                     : L10n.showAllName(name: filter.displayTitle)
-                sections.append(.init(section: .actions, rows: [.action(.showAll(title: title, count: allShownNftsCount))]))
+                let isGiftFilter = filter == .telegramGifts || (filter != .none && displayNfts.values.contains { $0.nft.isTelegramGift == true })
+                var count: Int? = allShownNftsCount
+                if isGiftFilter {
+                    let (catalog, isComplete) = NftStore.getTelegramGiftCatalog(accountId: account.id)
+                    if !isComplete {
+                        count = nil
+                    } else if case .collection(let collection) = filter {
+                        count = catalog.collections.first { $0.collection.id == collection.id }.map { $0.count - $0.hiddenCount } ?? 0
+                    } else {
+                        count = catalog.count - catalog.hiddenCount
+                    }
+                }
+                sections.append(.init(section: .actions, rows: [.action(.showAll(title: title, count: count))]))
             }
         } else if loadingPlaceholderCount > 0 {
             sections.append(.init(section: .main, rows: (0..<loadingPlaceholderCount).map(Row.loadingPlaceholder)))
@@ -571,21 +648,27 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     private func startSelectionInternally(preselected: Set<String>? = nil) {
         guard !inSelectionMode else { return }
         selectedIds = preselected ?? []
+        updateNfts(animated: false)
         collectionView.reloadData()
+        collectionView.collectionViewLayout.invalidateLayout()
         manager?.startSelection(in: self)
     }
 
     internal func startSelection() {
         guard !inSelectionMode else { return }
         selectedIds = []
+        updateNfts(animated: false)
         collectionView.reloadData()
+        collectionView.collectionViewLayout.invalidateLayout()
         notifyStateChange()
     }
 
     internal func stopSelection() {
         guard inSelectionMode else { return }
         selectedIds = nil
+        updateNfts(animated: false)
         collectionView.reloadData()
+        collectionView.collectionViewLayout.invalidateLayout()
         notifyStateChange()
     }
 
@@ -631,12 +714,16 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     internal func startReordering() {
         guard !reorderController.isReordering else { return }
         reorderController.isReordering = true
+        updateNfts(animated: false)
+        collectionView.collectionViewLayout.invalidateLayout()
         notifyStateChange()
     }
     
     internal func stopReordering(isCanceled: Bool) {
         guard isViewLoaded, let reorderController, reorderController.isReordering else { return }
         reorderController.isReordering = false
+        updateNfts(animated: false)
+        collectionView.collectionViewLayout.invalidateLayout()
         notifyStateChange()
     }
     
@@ -647,11 +734,12 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
 
 extension NftsVC: ReorderableCollectionViewControllerDelegate {
     public func reorderController(_ controller: ReorderableCollectionViewController, canStartSystemDragForItemAt indexPath: IndexPath) -> Bool {
-        return canStartDragOrOpenMenu()
+        return !showsGiftCatalog && canStartDragOrOpenMenu()
     }
     
     public func reorderController(_ controller: ReorderableCollectionViewController, canMoveItemAt indexPath: IndexPath) -> Bool {
-        return dataSource?.sectionIdentifier(for: indexPath.section)?.value == .main
+        guard case .nft = dataSource?.itemIdentifier(for: indexPath)?.value else { return false }
+        return true
     }
     
     public func reorderController(_ controller: ReorderableCollectionViewController, moveItemAt sourceIndexPath: IndexPath,
@@ -699,6 +787,12 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         guard let id = dataSource?.itemIdentifier(for: indexPath) else { return }
         
         switch id.value {
+        case .giftCollection(let row):
+            if row.accountId == account.id, let collection = row.collection {
+                navigationController?.pushViewController(
+                    NftsFullScreenVC(accountSource: $account.source, filter: .collection(collection)), animated: true
+                )
+            }
         case .renewalWarning:
             break
         case .loadingPlaceholder:

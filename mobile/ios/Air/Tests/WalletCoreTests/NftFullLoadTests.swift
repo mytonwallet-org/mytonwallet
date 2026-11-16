@@ -8,6 +8,73 @@ import WalletContext
 @Suite("NFT full loads")
 struct NftFullLoadTests {
     @Test
+    func `completion without an applied inventory cannot certify a catalog`() {
+        let store = _NftStore(cacheUrl: temporaryCacheUrl())
+        store.recordFullLoad(.init(accountId: "account", nfts: [], chain: .ton, inventoryStatus: "complete"))
+        #expect(!store.getTelegramGiftCatalog(accountId: "account").isComplete)
+    }
+
+    @Test
+    func `catalog and completeness follow the same applied update`() async throws {
+        let store = _NftStore(cacheUrl: temporaryCacheUrl())
+        let nft = ApiNft(
+            chain: .ton, address: "gift", collectionName: "Collection",
+            collectionAddress: "collection", isOnSale: false, isTelegramGift: true
+        )
+        store.walletCore(event: .updateNfts(.init(
+            accountId: "account", nfts: [nft], chain: .ton, inventoryStatus: "cached"
+        )))
+        try await waitUntil { store.getTelegramGiftCatalog(accountId: "account").catalog.count == 1 }
+        #expect(!store.getTelegramGiftCatalog(accountId: "account").isComplete)
+        store.walletCore(event: .updateNfts(.init(
+            accountId: "account", nfts: [], chain: .ton, inventoryStatus: "complete"
+        )))
+        try await waitUntil { store.getTelegramGiftCatalog(accountId: "account").isComplete }
+        #expect(store.getTelegramGiftCatalog(accountId: "account").catalog.count == 1)
+        store.walletCore(event: .updateNfts(.init(
+            accountId: "account", nfts: [], chain: .ton, inventoryStatus: "error"
+        )))
+        try await waitUntil { !store.getTelegramGiftCatalog(accountId: "account").isComplete }
+        #expect(store.getTelegramGiftCatalog(accountId: "account").catalog.count == 1)
+        #expect(store.getTelegramGiftCatalog(accountId: "other").catalog.count == 0)
+        #expect(!store.getTelegramGiftCatalog(accountId: "other").isComplete)
+    }
+
+    @Test
+    func `explicit inventory freshness overrides legacy stream flags and is scoped`() {
+        let store = _NftStore(cacheUrl: temporaryCacheUrl())
+        store.recordFullLoad(.init(accountId: "other", nfts: [], chain: .ton, inventoryStatus: "complete"))
+        store.recordFullLoad(.init(accountId: "account", nfts: [], chain: .ethereum, inventoryStatus: "complete"))
+        for status in ["loading", "cached", "error", "future-status"] {
+            store.recordFullLoad(.init(accountId: "account", nfts: [], chain: .ton, inventoryStatus: "complete"))
+            #expect(store.getAccountFullyLoadedChains(accountId: "account") == [.ton, .ethereum])
+            store.recordFullLoad(.init(
+                accountId: "account", nfts: [], chain: .ton,
+                isFullLoading: false, streamedAddresses: [], inventoryStatus: status
+            ))
+            #expect(store.getAccountFullyLoadedChains(accountId: "account") == [.ethereum])
+            #expect(store.getAccountFullyLoadedChains(accountId: "other") == [.ton])
+        }
+    }
+
+    @Test
+    func `collection status cannot certify a whole wallet and deltas preserve freshness`() {
+        let store = _NftStore(cacheUrl: temporaryCacheUrl())
+        store.recordFullLoad(.init(
+            accountId: "account", nfts: [], chain: .ton,
+            collectionAddress: "collection", inventoryStatus: "complete"
+        ))
+        #expect(store.getAccountFullyLoadedChains(accountId: "account").isEmpty)
+        store.recordFullLoad(.init(accountId: "account", nfts: [], chain: .ton, inventoryStatus: "complete"))
+        store.recordFullLoad(.init(accountId: "account", nfts: [], chain: .ton))
+        store.recordFullLoad(.init(
+            accountId: "account", nfts: [], chain: .ton,
+            collectionAddress: "collection", isFullLoading: true, inventoryStatus: "loading"
+        ))
+        #expect(store.getAccountFullyLoadedChains(accountId: "account") == [.ton])
+    }
+
+    @Test
     func `a network is read in full from the end of a full load until another one starts`() {
         let store = _NftStore(cacheUrl: URL.temporaryDirectory.appending(path: "\(UUID().uuidString).json"))
         let update = { (isFullLoading: Bool?, streamedAddresses: [String]?) in

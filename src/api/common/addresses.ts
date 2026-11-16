@@ -11,6 +11,7 @@ let scamMarkers: RegExp[] = [];
 let trustedSites = new Set<string>();
 let trustedCollections = new Set<string>();
 let tonNftSuperCollectionsByCollectionAddress: Record<string, ApiNftSuperCollection> = {};
+let hasNftSuperCollections = false;
 const nftSuperCollectionsDeferred = new Deferred();
 
 export async function tryUpdateKnownAddresses(
@@ -55,6 +56,7 @@ export async function tryUpdateKnownAddresses(
     trustedSites = newTrustedSites;
     trustedCollections = newTrustedCollections;
     tonNftSuperCollectionsByCollectionAddress = newTonNftSuperCollectionsByCollectionAddress;
+    hasNftSuperCollections = true;
     nftSuperCollectionsDeferred.resolve();
     if (lastResponse) lastResponse.text = text;
   } catch (err) {
@@ -69,8 +71,12 @@ export function getKnownAddresses() {
   return knownAddresses;
 }
 
-export async function getNftSuperCollectionsByCollectionAddress() {
+export async function getNftSuperCollectionsByCollectionAddress(requireLoaded = false) {
   await nftSuperCollectionsDeferred.promise;
+
+  if (requireLoaded && !hasNftSuperCollections) {
+    throw new Error('NFT collection classification unavailable');
+  }
 
   return tonNftSuperCollectionsByCollectionAddress;
 }

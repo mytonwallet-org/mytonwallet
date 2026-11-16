@@ -42,6 +42,7 @@ interface OwnProps {
   isViewAccount?: boolean;
   withChainIcon?: boolean;
   isWidget?: boolean;
+  isListLayout?: boolean;
   style?: string;
 }
 
@@ -61,6 +62,7 @@ function Nft({
   isViewAccount,
   withChainIcon,
   isWidget,
+  isListLayout,
   style,
 }: OwnProps) {
   const { selectNfts, clearNftSelection, openDomainRenewalModal, openNftAttributesModal } = getActions();
@@ -108,6 +110,7 @@ function Nft({
 
   const fullClassName = buildClassName(
     styles.item,
+    isListLayout && styles.itemRow,
     isWidget && styles.itemCompact,
     !isSelectionEnabled && nft.isOnSale && styles.item_onSale,
     (isCrossChainBlocked || (isSelectionEnabled && nft.isOnSale)) && styles.nonInteractive,

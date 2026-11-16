@@ -83,7 +83,7 @@ describe('updateNfts api update', () => {
   }
 
   function dispatchUpdateNfts(global: GlobalState, nfts: ApiNft[], isFullLoading?: boolean) {
-    getApiUpdateHandler()(global, { checkCardNftOwnership: jest.fn() }, {
+    getApiUpdateHandler()(global, { checkCardNftOwnership: jest.fn(), addCollectionTab: jest.fn() }, {
       type: 'updateNfts', accountId: ACCOUNT_ID, chain: 'ton', nfts, isFullLoading,
     });
     const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
@@ -120,6 +120,21 @@ describe('updateNfts api update', () => {
     });
   });
 
+  it('keeps inventory freshness scoped to its account and chain while preserving cached NFTs', () => {
+    let global = makeGlobal(ACCOUNT_ID);
+    const nft = makeNft();
+    global.byAccountId[ACCOUNT_ID].nfts = { byAddress: { [nft.address]: nft }, orderedAddresses: [nft.address] };
+    for (const inventoryStatus of ['cached', 'loading', 'error', 'complete'] as const) {
+      getApiUpdateHandler()(global, { checkCardNftOwnership: jest.fn() }, {
+        type: 'updateNfts', accountId: ACCOUNT_ID, chain: 'ton', nfts: [], inventoryStatus,
+      });
+      global = (setGlobal as jest.Mock).mock.calls.at(-1)![0] as GlobalState;
+      expect(global.byAccountId[ACCOUNT_ID].nfts?.inventoryStatusByChain).toEqual({ ton: inventoryStatus });
+      expect(global.byAccountId[ACCOUNT_ID].nfts?.byAddress).toEqual({ [nft.address]: nft });
+      expect(global.byAccountId['0-ton-testnet'].nfts).toBeUndefined();
+    }
+  });
+
   it('drops a stale unverified flag when the collection has become trusted', () => {
     const global = makeGlobal(ACCOUNT_ID);
     global.byAccountId[ACCOUNT_ID].nfts = {
@@ -149,6 +164,22 @@ describe('updateNfts api update', () => {
 
     const nft = dispatchUpdateNfts(global, [makeNft({ isOnSale: false, name: 'From batch' })], true);
 
+    expect(nft).toMatchObject({ isOnSale: true, name: 'From socket' });
+  });
+
+  it.each([true, undefined])('refreshes cached gift verdict %s and retains socket metadata', (verdict) => {
+    const global = makeGlobal(ACCOUNT_ID);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT_ADDRESS]: makeNft({
+        isTelegramGift: !verdict, isOnFragment: !verdict, isOnSale: true, name: 'From socket',
+      }) },
+      orderedAddresses: [NFT_ADDRESS],
+    };
+    const nft = dispatchUpdateNfts(global, [makeNft({
+      isTelegramGift: verdict, isOnFragment: verdict, isOnSale: false, name: 'From batch',
+    })], true);
+    expect(nft.isTelegramGift).toBe(verdict);
+    expect(nft.isOnFragment).toBe(verdict);
     expect(nft).toMatchObject({ isOnSale: true, name: 'From socket' });
   });
 

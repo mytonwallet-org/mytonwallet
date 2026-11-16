@@ -79,10 +79,25 @@ public final class _NftStore: Sendable {
         _fullyLoadedChainsByAccount.withLock { $0[accountId] ?? [] }
     }
 
+    public func getTelegramGiftCatalog(accountId: String) -> (catalog: TelegramGiftCatalog, isComplete: Bool) {
+        let snapshot = _nfts.withLock {
+            let nfts = $0[accountId]
+            return (Array((nfts ?? [:]).values), nfts != nil && getAccountFullyLoadedChains(accountId: accountId).contains(.ton))
+        }
+        return (TelegramGiftCatalog(nfts: snapshot.0), snapshot.1)
+    }
+
     /// A network is read in full from the final update of a full load until another one starts
     func recordFullLoad(_ update: ApiUpdate.UpdateNfts) {
-        guard let isFullLoading = update.isFullLoading else { return }
-        let isComplete = !isFullLoading && update.streamedAddresses != nil
+        guard update.collectionAddress == nil else { return }
+        let isComplete: Bool
+        if let status = update.inventoryStatus {
+            isComplete = status == "complete"
+        } else if let isFullLoading = update.isFullLoading {
+            isComplete = !isFullLoading && update.streamedAddresses != nil
+        } else {
+            return
+        }
         _fullyLoadedChainsByAccount.withLock {
             if isComplete {
                 $0[update.accountId, default: []].insert(update.chain)
@@ -190,7 +205,8 @@ public final class _NftStore: Sendable {
         mergeMode: NftsMergeMode = .prepend,
         streamPruneContext: StreamPruneContext? = nil,
         shouldValidateAccountNftAvailability: Bool = false,
-        validationContext: ValidationContext? = nil
+        validationContext: ValidationContext? = nil,
+        inventoryUpdate: ApiUpdate.UpdateNfts? = nil
     ) {
         var nfts = self.nfts[accountId, default: [:]]
         for removedNftId in removedNftIds {
@@ -232,6 +248,7 @@ public final class _NftStore: Sendable {
 
         self._nfts.withLock { [nfts] in
             $0[accountId] = nfts
+            if let inventoryUpdate { recordFullLoad(inventoryUpdate) }
         }
         _moveHiddenToEnd(accountId: accountId)
         _checkNftsOrder(accountId: accountId)
@@ -355,6 +372,7 @@ public final class _NftStore: Sendable {
         }
         _nfts.withLock { [cachedNfts] in
             $0 = cachedNfts
+            _fullyLoadedChainsByAccount.withLock { $0 = [:] }
         }
         for accountId in cachedNfts.keys {
             _moveHiddenToEnd(accountId: accountId)
@@ -940,7 +958,6 @@ extension _NftStore: WalletCoreData.EventsObserver {
             saveToCache()
 
         case .updateNfts(let update):
-            recordFullLoad(update)
             let shouldAppend = update.collectionAddress != nil || update.isFullLoading == true
             let streamPruneContext = update.streamedAddresses.map {
                 StreamPruneContext(chain: update.chain, addresses: Set($0))
@@ -973,7 +990,8 @@ extension _NftStore: WalletCoreData.EventsObserver {
                         authoritativeAddresses: $0.addresses,
                         removedAddress: nil
                     )
-                }
+                },
+                inventoryUpdate: update
             )
             if streamPruneContext != nil {
                 let currentNfts = nfts[update.accountId].map { Array($0.values) } ?? []

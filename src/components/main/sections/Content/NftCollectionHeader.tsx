@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiChain, ApiNft, ApiNftCollection } from '../../../../api/types';
+import type { ApiChain, ApiNft, ApiNftCollection, ApiUpdateNfts } from '../../../../api/types';
 import type { IAnchorPosition } from '../../../../global/types';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
@@ -12,6 +12,8 @@ import {
   RENEWABLE_TON_DNS_COLLECTIONS,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../../config';
+import { getIsNftVisible } from '../../../../global/helpers/nfts';
+import { buildTelegramGiftCatalog } from '../../../../global/helpers/telegramGiftCatalog';
 import { selectCurrentAccountState, selectIsCurrentAccountViewMode } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
@@ -43,6 +45,10 @@ interface OwnProps {
 }
 
 interface StateProps {
+  blacklistedNftAddresses?: string[];
+  whitelistedNftAddresses?: string[];
+  areUnverifiedNftsHidden?: boolean;
+  tonInventoryStatus?: ApiUpdateNfts['inventoryStatus'];
   nfts?: Record<string, ApiNft>;
   isTestnet?: boolean;
   isViewMode?: boolean;
@@ -59,6 +65,10 @@ function NftCollectionHeader({
   collectionTabs,
   dnsExpiration,
   selectedExplorerIds,
+  tonInventoryStatus,
+  blacklistedNftAddresses,
+  whitelistedNftAddresses,
+  areUnverifiedNftsHidden,
 }: OwnProps & StateProps) {
   const {
     closeNftCollection,
@@ -91,6 +101,22 @@ function NftCollectionHeader({
     });
   }, [collection, isTelegramGifts, nfts]);
 
+  const isGiftCollection = collection.chain === 'ton' && collectionNfts.some((nft) => nft.isTelegramGift);
+  const isGiftCountPending = collection.chain === 'ton'
+    && (isTelegramGifts || isGiftCollection)
+    && tonInventoryStatus !== 'complete';
+
+  const giftCollectionName = useMemo(() => {
+    if (isTelegramGifts || !isGiftCollection) return undefined;
+    const blacklisted = new Set(blacklistedNftAddresses);
+    const whitelisted = new Set(whitelistedNftAddresses);
+    const visible = new Set(collectionNfts.filter((nft) => (
+      getIsNftVisible(nft, blacklisted, whitelisted, areUnverifiedNftsHidden)
+    )).map((nft) => nft.address));
+    return buildTelegramGiftCatalog(collectionNfts, visible).collections[0]?.name;
+  }, [isTelegramGifts, isGiftCollection, collectionNfts,
+    blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden]);
+
   const dnsExpireInDays = useMemo(() => {
     if (!RENEWABLE_TON_DNS_COLLECTIONS.has(collection.address)) return undefined;
     const date = getDomainsExpirationDate(collectionNfts, undefined, dnsExpiration);
@@ -100,7 +126,7 @@ function NftCollectionHeader({
 
   const collectionName = isTelegramGifts
     ? lang('Telegram Gifts')
-    : collectionNfts?.[0]?.collectionName || lang('Unnamed Collection');
+    : (isGiftCollection ? giftCollectionName : collectionNfts?.[0]?.collectionName) || lang('Unnamed Collection');
 
   const selectedExplorerId = selectedExplorerIds?.[collection.chain];
 
@@ -296,7 +322,7 @@ function NftCollectionHeader({
       <div className={styles.content}>
         <div className={styles.title}>{collectionName}</div>
         <div className={styles.amount}>
-          {lang('%amount% NFTs', collectionNfts.length, 'i')}
+          {isGiftCountPending ? '…' : lang('%amount% NFTs', collectionNfts.length, 'i')}
         </div>
       </div>
 
@@ -330,10 +356,16 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     byAddress: nfts,
     collectionTabs,
     dnsExpiration,
+    inventoryStatusByChain,
   } = selectCurrentAccountState(global)?.nfts || {};
+  const { blacklistedNftAddresses, whitelistedNftAddresses } = selectCurrentAccountState(global) || {};
 
   return {
+    blacklistedNftAddresses,
+    whitelistedNftAddresses,
+    areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
     nfts,
+    tonInventoryStatus: inventoryStatusByChain?.ton,
     isTestnet: global.settings.isTestnet,
     isViewMode: selectIsCurrentAccountViewMode(global),
     collectionTabs,
