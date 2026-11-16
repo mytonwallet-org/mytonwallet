@@ -65,6 +65,8 @@ private struct DiamondRepresentable: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ view: TelegramDiamondContainerView, coordinator: ()) {
+        view.onPressChange = nil
+        view.onHoverChange = nil
         view.configure(active: false)
     }
 }
@@ -89,8 +91,13 @@ final class TelegramDiamondContainerView: UIView {
         diamond.hoverSpeed = hoverSpeed
         diamond.shouldRotateOnTap = shouldRotateOnTap
         diamond.interactionSize = stoneWidth ?? 64
-        diamond.onPressChange = { [weak self] in self?.onPressChange?($0) }
-        diamond.onHoverChange = { [weak self] in self?.onHoverChange?($0) }
+        // SwiftUI state changes must run outside `updateUIView` and view teardown
+        diamond.onPressChange = { [weak self] isPressed in
+            DispatchQueue.main.async { [weak self] in self?.onPressChange?(isPressed) }
+        }
+        diamond.onHoverChange = { [weak self] isHovered in
+            DispatchQueue.main.async { [weak self] in self?.onHoverChange?(isHovered) }
+        }
         addSubview(diamond)
         diamond.expansionHost = { [weak self] in
             var responder: UIResponder? = self
