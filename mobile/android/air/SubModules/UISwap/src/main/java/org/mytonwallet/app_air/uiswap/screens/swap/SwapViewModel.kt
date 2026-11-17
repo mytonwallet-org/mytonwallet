@@ -1316,8 +1316,8 @@ class SwapViewModel :
                             request.estimateRequestDex
                         )
                     )
-                    val fee = dex.networkFee.toBigInteger(request.nativeTokenToSend.decimals)
-                    val realFee = dex.realNetworkFee?.toBigInteger(
+                    val fee = dex.networkFeeValue.toBigInteger(request.nativeTokenToSend.decimals)
+                    val realFee = dex.realNetworkFeeValue?.toBigInteger(
                         request.nativeTokenToSend.decimals
                     )
                     return SwapEstimateResponse(
@@ -1412,28 +1412,16 @@ class SwapViewModel :
                     ApiMethod.Swap.SwapBuildTransfer(
                         accountId,
                         enclaveToken,
-                        MApiSwapBuildRequest(
-                            dexLabel = dex.dexLabel?.name?.lowercase(),
-                            from = dex.from,
+                        MApiSwapBuildRequest.fromEstimate(
+                            dex = dex,
                             fromAddress = fromAddress,
                             historyAddress = accountTonAddress,
                             toAddress = estimate.request.wallet.addressByChain[
                                 tokenToReceive.mBlockchain?.name
                             ],
-                            fromAmount = dex.fromAmount,
-                            networkFee = dex.realNetworkFee ?: dex.networkFee,
-                            shouldTryDiesel = estimate.explainedFee.isGasless,
                             slippage = estimate.request.slippage,
-                            swapFee = dex.swapFee,
-                            to = dex.to,
-                            toAmount = dex.toAmount,
-                            toMinAmount = dex.toMinAmount,
-                            ourFee = dex.ourFee,
-                            dexRouterLabel = dex.dexRouterLabel,
-                            dieselFee = dex.dieselFee,
+                            shouldTryDiesel = estimate.explainedFee.isGasless,
                             swapVersion = ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION,
-                            routes = dex.routes,
-                            needsBatch = dex.needsBatch,
                             swapMode = if (estimate.request.reverse) {
                                 MApiSwapMode.EXACT_OUT
                             } else {
@@ -1485,7 +1473,7 @@ class SwapViewModel :
                             fromAmount = dex.fromAmount,
                             to = dex.to,
                             toAmount = dex.toAmount,
-                            networkFee = dex.realNetworkFee ?: dex.networkFee,
+                            networkFee = dex.realNetworkFeeValue ?: dex.networkFeeValue,
                             swapFee = dex.swapFee,
                             status = MApiSwapHistoryItemStatus.PENDING,
                             transactionIds = MApiSwapTransactionIds(),

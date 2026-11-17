@@ -188,7 +188,7 @@ class SwapContractTest {
             from = "base", to = "arbitrum", fromAddress = "0xsender",
             toAddress = "0xrecipient", historyAddress = "ton-history",
             fromAmount = BigDecimal("0.00003"), toAmount = BigDecimal("0.000029"),
-            toMinAmount = BigDecimal("0.000028"), networkFee = 0.000001,
+            toMinAmount = BigDecimal("0.000028"), networkFee = "0.000001",
             swapFee = BigDecimal.ZERO, dexLabel = null, slippage = 1f,
             swapVersion = 3, ourFee = null, dieselFee = null,
             shouldTryDiesel = false, routes = null
@@ -200,5 +200,67 @@ class SwapContractTest {
 
         assertEquals("0xrecipient", payload["toAddress"])
         assertEquals("ton-history", payload["historyAddress"])
+    }
+
+    @Test
+    fun layerZeroBuildEchoesConfirmedQuoteStringsByteForByte() {
+        val estimateRequest = MApiSwapEstimateRequest(
+            from = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            to = "0xaf88d065e77c8cc2239327c5edb3a432268e5831", slippage = 0.3f,
+            fromAmount = BigDecimal("100.5"), toAmount = null, fromAddress = "0xsender",
+            toAddress = "0xrecipient", shouldTryDiesel = false, walletVersion = null,
+            isFromAmountMax = false, toncoinBalance = null
+        )
+        val adapter = moshi.adapter(MApiSwapEstimateResponse::class.java)
+        val estimateJson = """
+            {
+              "route": "dex", "chain": "base", "dexRouterLabel": "layerzero",
+              "from": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "to": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+              "fromAmount": "100.5", "toAmount": "100.39", "toMinAmount": "100.293751",
+              "slippage": 0.3, "impact": 0, "dieselStatus": "not-available",
+              "networkFee": "0.00130000", "realNetworkFee": "0.00129000",
+              "swapFee": "0", "swapFeePercent": 0, "ourFee": "0.0804", "ourFeePercent": 0.08
+            }
+        """.trimIndent()
+
+        fun buildPayload(estimate: MApiSwapEstimateResponse): Map<*, *> {
+            val request = MApiSwapBuildRequest.fromEstimate(
+                dex = estimate,
+                fromAddress = "0xsender",
+                historyAddress = "ton-history",
+                toAddress = "0xrecipient",
+                slippage = estimateRequest.slippage!!,
+                shouldTryDiesel = false,
+                swapVersion = 3,
+                swapMode = MApiSwapMode.EXACT_IN
+            )
+            val json = moshi.adapter(MApiSwapBuildRequest::class.java).toJson(request)
+            return requireNotNull(moshi.adapter(Map::class.java).fromJson(json))
+        }
+
+        val estimate = requireNotNull(adapter.fromJson(estimateJson))
+        val payload = buildPayload(estimate)
+        assertEquals("0.00129000", payload["networkFee"])
+        assertEquals("100.5", payload["fromAmount"])
+        assertEquals("100.293751", payload["toMinAmount"])
+        assertEquals("0.0804", payload["ourFee"])
+        assertEquals("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", payload["from"])
+        assertEquals("layerzero", payload["dexRouterLabel"])
+        assertEquals("exact_in", payload["swapMode"])
+        val estimatePayload = requireNotNull(
+            moshi.adapter(Map::class.java).fromJson(
+                moshi.adapter(MApiSwapEstimateRequest::class.java).toJson(estimateRequest)
+            )
+        )
+        assertEquals(estimatePayload["fromAmount"], payload["fromAmount"])
+        assertEquals(0.0013, estimate.networkFeeValue, 0.0)
+        assertEquals(0.00129, estimate.realNetworkFeeValue!!, 0.0)
+
+        val withoutRealFee = requireNotNull(
+            adapter.fromJson(estimateJson.replace(", \"realNetworkFee\": \"0.00129000\"", ""))
+        )
+        assertNull(withoutRealFee.realNetworkFee)
+        assertEquals("0.00130000", buildPayload(withoutRealFee)["networkFee"])
     }
 }

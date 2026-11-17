@@ -186,8 +186,8 @@ class SwapHelpers {
                 swapEstimateResponse.request.tokenToSend.decimals
             )
 
-            val isExact = dex.realNetworkFee?.let {
-                BigDecimal(dex.networkFee).subtract(it.toBigDecimal())
+            val isExact = dex.realNetworkFeeValue?.let {
+                BigDecimal(dex.networkFeeValue).subtract(it.toBigDecimal())
                     .compareTo(BigDecimal.ZERO) == 0
             } ?: false
 
@@ -208,8 +208,8 @@ class SwapHelpers {
                 networkTerms = fullNetworkTerms
             )
 
-            val realFee = dex.realNetworkFee?.let { realNetFee ->
-                val feeCoveredByDiesel = BigDecimal(dex.networkFee) - nativeBalance
+            val realFee = dex.realNetworkFeeValue?.let { realNetFee ->
+                val feeCoveredByDiesel = BigDecimal(dex.networkFeeValue) - nativeBalance
                 val realFeeInDiesel =
                     dieselFeeBigDecimal.divide(feeCoveredByDiesel, 18, RoundingMode.HALF_UP)
                         .multiply(realNetFee.toBigDecimal())
@@ -242,9 +242,9 @@ class SwapHelpers {
 
             return ExplainedSwapFee(
                 isGasless = true,
-                excessFee = dex.realNetworkFee?.let {
+                excessFee = dex.realNetworkFeeValue?.let {
                     CoinUtils.fromDecimal(
-                        (BigDecimal(dex.networkFee) - it.toBigDecimal())
+                        (BigDecimal(dex.networkFeeValue) - it.toBigDecimal())
                             .coerceAtLeast(BigDecimal.ZERO),
                         swapEstimateResponse.request.nativeTokenToSend.decimals
                     )
