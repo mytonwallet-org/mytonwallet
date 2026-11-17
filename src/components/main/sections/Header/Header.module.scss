@@ -2,6 +2,10 @@
 
 @use "../../../../styles/scssVariables" as v;
 
+$landscapeActionsGap: 0.75rem;
+// Matches the width of `.button` in `actionButtons/Buttons.module.scss`
+$landscapeActionsButtonWidth: 1.5rem;
+
 .header {
   z-index: var(--z-header);
 
@@ -77,6 +81,36 @@
     height: auto;
     padding: 0 0.8125rem;
   }
+}
+
+.withActions {
+  justify-content: space-between;
+}
+
+.landscapeActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: $landscapeActionsGap;
+  align-items: center;
+  justify-content: flex-start;
+
+  height: $landscapeActionsButtonWidth;
+}
+
+.landscapeActionsEnd {
+  justify-content: flex-end;
+}
+
+.landscapeActionsButtons1 {
+  width: $landscapeActionsButtonWidth;
+}
+
+.landscapeActionsButtons2 {
+  width: calc($landscapeActionsButtonWidth * 2 + $landscapeActionsGap);
+}
+
+.landscapeActionsButtons3 {
+  width: calc($landscapeActionsButtonWidth * 3 + $landscapeActionsGap * 2);
 }
 
 .portraitActionsRight {

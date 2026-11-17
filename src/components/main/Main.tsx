@@ -66,6 +66,7 @@ import PromoteWallet from './sections/Actions/PromoteWallet';
 import Card from './sections/Card';
 import PortraitContent from './sections/Content/PortraitContent';
 import Header, { HEADER_HEIGHT_REM } from './sections/Header/Header';
+import { IS_HOME_SEARCH_AVAILABLE } from './sections/Header/HomeSearchField';
 import HomeToolbar from './sections/Header/HomeToolbar';
 import HomeBanners from './sections/HomeBanners';
 import LandscapeLayout from './sections/LandscapeLayout';
@@ -288,6 +289,8 @@ function Main({
   }
 
   function renderLandscapeLayout() {
+    const hasLandscapeToolbar = !IS_EXPLORER && IS_HOME_SEARCH_AVAILABLE;
+
     return (
       <div
         ref={landscapeContainerRef}
@@ -297,7 +300,7 @@ function Main({
         <div ref={sidebarRef} className={buildClassName(styles.sidebar, 'custom-scroll')}>
           <TestnetWarning />
 
-          {IS_EXPLORER && (
+          {!hasLandscapeToolbar && (
             <div ref={accountHeaderRef} className={styles.accountRegion} inert={isAccountPending}>
               <Header key={accountId} />
             </div>
@@ -318,10 +321,10 @@ function Main({
           {IS_EXPLORER && <PromoteWallet />}
         </div>
         <div className={styles.main}>
-          {!IS_EXPLORER && <HomeToolbar />}
+          {hasLandscapeToolbar && <HomeToolbar />}
           <div
             ref={accountContentRef}
-            className={buildClassName(styles.mainContent, !IS_EXPLORER && styles.mainContentBelowToolbar)}
+            className={buildClassName(styles.mainContent, hasLandscapeToolbar && styles.mainContentBelowToolbar)}
             inert={isAccountPending}
           >
             <LandscapeLayout onStakedTokenClick={openStaking} />

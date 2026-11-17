@@ -1395,13 +1395,14 @@ jobs:
             METADATA_PATH="${IOS_GRAM_METADATA_PATH:-$METADATA_PATH}"
             if [ -n "$PUBLISH_REPO" ]; then
               export IOS_REVIEW_NOTES_APPENDIX="${GRAM_REVIEW_NOTES:-}"
-              if [ -n "${GRAM_REVIEW_ATTACHMENT_BASE64:-}" ]; then
+              if [ -n "${GRAM_REVIEW_ATTACHMENT_BASE64//[[:space:]]/}" ]; then
                 mkdir -p "$RUNNER_TEMP/app-review"
                 echo -n "$GRAM_REVIEW_ATTACHMENT_BASE64" | base64 --decode -o "$RUNNER_TEMP/app-review/supplementary-3.1.5.pdf"
                 export IOS_REVIEW_ATTACHMENT_PATH="$RUNNER_TEMP/app-review/supplementary-3.1.5.pdf"
               fi
-              if [ -z "$IOS_REVIEW_NOTES_APPENDIX" ] || [ -z "${IOS_REVIEW_ATTACHMENT_PATH:-}" ]; then
-                echo "::warning::Gram App Review notes or attachment secret is missing; the submission goes without them"
+              if [ -z "${IOS_REVIEW_NOTES_APPENDIX//[[:space:]]/}" ] || [ ! -s "${IOS_REVIEW_ATTACHMENT_PATH:-}" ]; then
+                echo "::error::Gram App Review needs both GRAM_REVIEW_NOTES and GRAM_REVIEW_ATTACHMENT_BASE64"
+                exit 1
               fi
             fi
           fi

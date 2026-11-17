@@ -138,3 +138,13 @@
   font-size: 0.8125rem;
   font-weight: 800;
 }
+
+// The toolbar already places the buttons around the title, so the header's own side margins are not needed
+.accountTitle {
+  --icons-amount: 0;
+
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+}
