@@ -107,15 +107,15 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
         guard key != titleKey else { return }
         titleKey = key
         title = token
-        navigationItem.titleView = HostingView {
-            NavigationHeader {
-                HStack(spacing: 4) {
-                    Text(verbatim: token).foregroundStyle(Color.air.primaryLabel)
-                    Text(verbatim: leverage).foregroundStyle(direction == .long ? Color.air.positiveAmount : Color.air.negativeAmount)
-                }
-                .accessibilityElement(children: .combine)
-            }
-        }
+        let titleLabel = NavigationHeader2.makeTitleLabel(token)
+        let badge = BadgeView(style: .large)
+        let color: UIColor = direction == .long ? .air.positiveAmount : .air.negativeAmount
+        badge.configure(text: leverage, foregroundColor: color, backgroundColor: color.withAlphaComponent(0.15), content: .default)
+        let header = NavigationHeader2()
+        header.setStack(of: [titleLabel, badge], spacing: 4)
+        header.accessibilityElementsHidden = false
+        navigationItem.titleView = header
+        navigationItem.accessibilityLabel = key
     }
 
     private func updateActionButtons() {

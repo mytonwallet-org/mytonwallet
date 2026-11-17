@@ -4,7 +4,7 @@ import WalletCore
 /// Which chats hold an answer the user hasn't seen, for the list's unread dot.
 ///
 /// An answer that completes while its chat is off screen marks the chat, and so does a chat whose message count grows
-/// past the completed-message count the chat showed when the user left it. Showing the chat clears both.
+/// past the completed-message count the chat showed when the user left it. Showing its loaded history clears both.
 /// Operator replies stay unread until their history is shown. Message counts alone leave chats this device has never
 /// shown read.
 @MainActor

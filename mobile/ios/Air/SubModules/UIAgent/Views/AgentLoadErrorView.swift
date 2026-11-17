@@ -10,6 +10,7 @@ final class AgentLoadErrorView: UIStackView {
 
     let label = UILabel()
     let retryButton = UIButton(type: .system)
+    private let retryIndicator = UIActivityIndicatorView(style: .medium)
 
     init() {
         super.init(frame: .zero)
@@ -27,6 +28,13 @@ final class AgentLoadErrorView: UIStackView {
         retryButton.accessibilityIdentifier = "agent_load_retry"
         retryButton.addTarget(self, action: #selector(retry), for: .touchUpInside)
         retryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        retryIndicator.translatesAutoresizingMaskIntoConstraints = false
+        retryIndicator.color = .air.secondaryLabel
+        retryButton.addSubview(retryIndicator)
+        NSLayoutConstraint.activate([
+            retryIndicator.trailingAnchor.constraint(equalTo: retryButton.leadingAnchor, constant: -8),
+            retryIndicator.centerYAnchor.constraint(equalTo: retryButton.centerYAnchor),
+        ])
         addArrangedSubview(label)
         addArrangedSubview(retryButton)
         isHidden = true
@@ -49,22 +57,29 @@ final class AgentLoadErrorView: UIStackView {
     }
 
     /// Shows `text` with Retry, or hides the view for nil
-    func show(_ text: String?) {
-        show(text, hasRetry: true)
+    func show(_ text: String?, isRetrying: Bool = false) {
+        show(text, hasRetry: true, isRetrying: isRetrying)
     }
 
     /// Shows `text` without Retry, or hides the view for nil
     func showMessage(_ text: String?) {
-        show(text, hasRetry: false)
+        show(text, hasRetry: false, isRetrying: false)
     }
 
-    private func show(_ text: String?, hasRetry: Bool) {
+    private func show(_ text: String?, hasRetry: Bool, isRetrying: Bool) {
         label.text = text
         retryButton.isHidden = !hasRetry
+        retryButton.isEnabled = !isRetrying
+        if isRetrying {
+            retryIndicator.startAnimating()
+        } else {
+            retryIndicator.stopAnimating()
+        }
         isHidden = text == nil
     }
 
     @objc private func retry() {
+        guard retryButton.isEnabled else { return }
         onRetry?()
     }
 }

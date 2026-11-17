@@ -441,8 +441,6 @@ final class WalletTokenContentView: UIView {
                 } else {
                     badge.configureStakingInactive(yieldType: stakingBadge.yieldType, apy: stakingBadge.yieldValue)
                 }
-            case .chain(let chain):
-                badge.configureChain(chain: chain)
             case .tokenLabel(let text, let style):
                 badge.configureTokenLabel(text: text, style: style)
             }

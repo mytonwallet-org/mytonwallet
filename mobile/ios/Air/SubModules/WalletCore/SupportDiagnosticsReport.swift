@@ -178,6 +178,7 @@ extension SupportDiagnosticsReport {
         let id: String
         let type: String?
         let chains: [String]
+        let isMfaEnabled: Bool?
         let isTemporary: Bool?
         let isCurrent: Bool
         let orderIndex: Int?
@@ -490,6 +491,7 @@ private extension SupportDiagnosticsReport {
                 id: accountId,
                 type: account?.type.rawValue,
                 chains: account?.byChain.keys.sorted() ?? [],
+                isMfaEnabled: account.map { $0.byChain.values.contains { $0.mfa != nil } },
                 isTemporary: account?.isTemporary,
                 isCurrent: currentAccountId == accountId,
                 orderIndex: orderByAccountId[accountId],

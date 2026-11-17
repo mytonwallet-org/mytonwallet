@@ -23,7 +23,7 @@
 
   width: 5.5rem;
   height: 5.5rem;
-  padding: 0.4375rem 0.75rem 0.75rem;
+  padding: 0.4375rem 0.75rem 0.625rem;
   border-radius: 1.25rem;
 
   color: var(--color-accent);
@@ -64,7 +64,7 @@
 .label {
   font-size: 0.875rem;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.125rem;
   color: var(--color-black);
 
   .button_purple > & {

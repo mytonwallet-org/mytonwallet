@@ -1,0 +1,68 @@
+name: Run an App Store Connect lane
+description: Writes the App Store Connect key for APP_VARIANT into mobile/ios/App and runs one fastlane lane there, keeping its log in RUNNER_TEMP.
+
+# A composite action has no secrets context, so the caller hands the key over as inputs.
+inputs:
+  lane:
+    description: The fastlane lane to run
+    required: true
+  auth-key-base64:
+    description: secrets.IOS_AUTH_KEY_BASE64
+    default: ''
+  gram-auth-key-base64:
+    description: secrets.IOS_GRAM_AUTH_KEY_BASE64, preferred for Gram when set
+    default: ''
+  key-id:
+    description: vars.IOS_AUTH_KEY_ID
+    default: ''
+  issuer-id:
+    description: vars.IOS_AUTH_KEY_ISSUER_ID
+    default: ''
+  gram-key-id:
+    description: vars.IOS_GRAM_AUTH_KEY_ID
+    default: ''
+  gram-issuer-id:
+    description: vars.IOS_GRAM_AUTH_KEY_ISSUER_ID
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Run fastlane ${{ inputs.lane }}
+      shell: bash
+      env:
+        ASC_LANE: ${{ inputs.lane }}
+        IOS_AUTH_KEY_BASE64: ${{ inputs.auth-key-base64 }}
+        IOS_GRAM_AUTH_KEY_BASE64: ${{ inputs.gram-auth-key-base64 }}
+        IOS_AUTH_KEY_ID: ${{ inputs.key-id }}
+        IOS_AUTH_KEY_ISSUER_ID: ${{ inputs.issuer-id }}
+        IOS_GRAM_AUTH_KEY_ID: ${{ inputs.gram-key-id }}
+        IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ inputs.gram-issuer-id }}
+      run: |
+        set -euo pipefail
+
+        cd mobile/ios/App
+        AUTH_KEY_BASE64="$IOS_AUTH_KEY_BASE64"
+        ASC_KEY_ID="${IOS_AUTH_KEY_ID:-}"
+        ASC_ISSUER_ID="${IOS_AUTH_KEY_ISSUER_ID:-}"
+
+        if [ "$APP_VARIANT" = "gram" ]; then
+          AUTH_KEY_BASE64="${IOS_GRAM_AUTH_KEY_BASE64:-$IOS_AUTH_KEY_BASE64}"
+          ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
+          ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
+        fi
+
+        if [ -z "$AUTH_KEY_BASE64" ]; then
+          echo "::error::Missing App Store Connect auth key for $APP_VARIANT"
+          exit 1
+        fi
+
+        echo -n "$AUTH_KEY_BASE64" | base64 --decode > ./AuthKey.p8
+        if [ -n "$ASC_KEY_ID" ]; then
+          export APP_STORE_CONNECT_KEY_ID="$ASC_KEY_ID"
+        fi
+        if [ -n "$ASC_ISSUER_ID" ]; then
+          export APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
+        fi
+
+        bundle exec fastlane "$ASC_LANE" | tee "$RUNNER_TEMP/fastlane-$ASC_LANE.log"

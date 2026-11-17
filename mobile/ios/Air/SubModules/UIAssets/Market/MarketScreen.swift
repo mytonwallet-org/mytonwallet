@@ -13,6 +13,8 @@ final class MarketScreenModel: ObservableObject {
 
     @Published private(set) var scrollToTopRequest = 0
     @Published private(set) var sections: [MarketSection] = []
+    @Published private(set) var isLoading = true
+    @Published private(set) var hasLoadFailed = false
 
     private let langCode: String
     private let fetchAssets: FetchAssets
@@ -77,6 +79,8 @@ final class MarketScreenModel: ObservableObject {
             return
         }
 
+        isLoading = true
+        hasLoadFailed = false
         fetchTask = Task { [weak self, fetchAssets, langCode] in
             do {
                 let response = try await fetchAssets(langCode)
@@ -85,23 +89,21 @@ final class MarketScreenModel: ObservableObject {
                 self.marketResponse = response
                 self.rebuildSections()
             } catch {
-                // Keep the cached response, or the initial samples before the first response.
+                self?.isLoading = false
+                self?.hasLoadFailed = true
             }
             self?.fetchTask = nil
         }
     }
 
     private func rebuildSections() {
+        guard let response = marketResponse else { return }
         buildTask?.cancel()
-        let response = marketResponse
         buildTask = Task { [weak self] in
-            let sections = if let response {
-                await MarketSectionBuilder.build(from: response)
-            } else {
-                await MarketSection.samples()
-            }
+            let sections = await MarketSectionBuilder.build(from: response)
             guard !Task.isCancelled, let self else { return }
             self.sections = sections
+            self.isLoading = false
             self.buildTask = nil
         }
     }
@@ -144,6 +146,23 @@ struct MarketScreen: View {
                 .backportScrollClipDisabled()
                 .coordinateSpace(name: scrollCoordinateSpace)
                 .background(WPagingBackground(tint: pagingTint, base: Color.air.groupedBackground))
+                .overlay {
+                    if model.sections.isEmpty {
+                        if model.isLoading {
+                            ProgressView()
+                                .accessibilityLabel(lang("Loading..."))
+                        } else if model.hasLoadFailed {
+                            VStack(spacing: 12) {
+                                Text(lang("Failed to connect"))
+                                    .foregroundStyle(Color.air.secondaryLabel)
+                                Button(lang("Try Again")) { model.refreshIfNeeded() }
+                            }
+                        } else {
+                            Text(lang("No tokens yet"))
+                                .foregroundStyle(Color.air.secondaryLabel)
+                        }
+                    }
+                }
                 .onChange(of: model.scrollToTopRequest) { _ in
                     guard let firstSection = model.sections.first else { return }
                     withAnimation {
@@ -167,6 +186,7 @@ struct MarketSectionView: UIViewRepresentable {
     func makeUIView(context: Context) -> MarketSectionContentView { MarketSectionContentView() }
     func updateUIView(_ view: MarketSectionContentView, context: Context) {
         view.configure(section, columnCount: columnCount, insets: .init(top: 0, leading: contentMargins.leading, bottom: 0, trailing: contentMargins.trailing),
+                       shouldAnimateChanges: AppStorageHelper.animations,
                        onSeeAll: onSeeAll, onSelect: onSelectToken)
     }
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarketSectionContentView, context: Context) -> CGSize? {

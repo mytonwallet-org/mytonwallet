@@ -23,7 +23,6 @@ import {
   selectSwapTokens,
 } from '../../../../global/selectors';
 import { getIsAccountContentTransitionActive } from '../../../../util/accountContentTransition';
-import buildClassName from '../../../../util/buildClassName';
 import buildStyle from '../../../../util/buildStyle';
 import { toDecimal } from '../../../../util/decimals';
 import { buildCollectionByKey } from '../../../../util/iteratees';
@@ -55,8 +54,8 @@ import styles from './Assets.module.scss';
 
 type OwnProps = {
   isActive?: boolean;
-  isSeparatePanel?: boolean;
   isWidget?: boolean;
+  limit?: number;
   onTokenClick: (slug: string) => void;
   onStakedTokenClick: (stakingId?: string) => void;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -93,8 +92,8 @@ function Assets({
   swapTokens,
   vesting,
   isInvestorViewEnabled,
-  isSeparatePanel,
   isWidget,
+  limit,
   currentTokenSlug,
   baseCurrency,
   mycoin,
@@ -160,11 +159,13 @@ function Assets({
     onVestingTokenClick,
   } = useVesting({ vesting, userMycoin });
 
-  const tokenSlugs = useMemo(() => (
-    allTokensWithStaked
+  const tokenSlugs = useMemo(() => {
+    const slugs = allTokensWithStaked
       ?.filter(({ isDisabled }) => !isDisabled)
-      .map(({ slug }) => slug)
-  ), [allTokensWithStaked]);
+      .map(({ slug }) => slug);
+
+    return limit === undefined ? slugs : slugs?.slice(0, limit - (shouldRenderVestingToken ? 1 : 0));
+  }, [allTokensWithStaked, limit, shouldRenderVestingToken]);
   const [viewportSlugs, getMore] = useInfiniteScroll({
     listIds: tokenSlugs,
     isActive,
@@ -398,15 +399,12 @@ function Assets({
   }
 
   const style = buildStyle(
-    Boolean(currentContainerHeight && (!isLandscape || isSeparatePanel)) && `height: ${currentContainerHeight}rem`,
+    Boolean(currentContainerHeight && !isLandscape) && `height: ${currentContainerHeight}rem`,
   );
 
   return (
     <InfiniteScroll
-      className={buildClassName(
-        styles.wrapper,
-        isSeparatePanel && !renderedTokens && styles.wrapperLoading,
-      )}
+      className={styles.wrapper}
       scrollContainerClosest={getScrollContainerClosestSelector(isActive, isPortrait)}
       items={viewportSlugs}
       itemSelector=".token-list-item"
@@ -417,7 +415,7 @@ function Assets({
       onScroll={onScroll}
     >
       {!renderedTokens && (
-        <div key="loading" className={isSeparatePanel ? styles.emptyListSeparate : styles.emptyList}>
+        <div key="loading" className={styles.emptyList}>
           <Spinner />
         </div>
       )}

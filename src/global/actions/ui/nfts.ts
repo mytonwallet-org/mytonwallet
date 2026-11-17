@@ -1,3 +1,5 @@
+import { ContentTab } from '../../types';
+
 import { TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../config';
 import { getIsNftVisible } from '../../helpers/nfts';
 import { addActionHandler, setGlobal } from '../../index';
@@ -7,7 +9,12 @@ import {
   updateAccountState,
   updateCurrentAccountState,
 } from '../../reducers';
-import { selectAccountState, selectCurrentAccountId, selectCurrentAccountState } from '../../selectors';
+import {
+  selectAccountState,
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+  selectIsWalletTabActive,
+} from '../../selectors';
 
 addActionHandler('openNftCollection', (global, actions, { address, chain }) => {
   const accountId = selectCurrentAccountId(global)!;
@@ -40,6 +47,14 @@ addActionHandler('selectNfts', (global, actions, { nfts }) => {
   const accountId = selectCurrentAccountId(global)!;
   global = addToSelectedNfts(global, accountId, nfts);
   setGlobal(global);
+
+  // The selection header and the checkmarks exist only in a list of collectibles. A selection made over another
+  // section leaves the wallet as it is, so that section is not swapped for the wallet.
+  const { activeContentTab, nfts: accountNfts } = selectAccountState(global, accountId)!;
+  if (selectIsWalletTabActive(global) && !accountNfts?.currentCollection && activeContentTab !== ContentTab.Nft) {
+    actions.selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
+    actions.setActiveContentTab({ tab: ContentTab.Nft });
+  }
 });
 
 addActionHandler('selectAllNfts', (global, actions, { collectionAddress }) => {

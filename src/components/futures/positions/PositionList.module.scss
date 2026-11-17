@@ -1,0 +1,17 @@
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.status {
+  display: flex;
+  justify-content: center;
+
+  margin: 0;
+  padding: 1.5rem 1rem;
+
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+  text-align: center;
+}

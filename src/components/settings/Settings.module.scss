@@ -249,6 +249,12 @@ $createSubwalletPaddingBottom: 1rem;
     }
   }
 
+  // The wallet header replaces the title of the screen and sits under the home toolbar
+  &.withWalletHeader,
+  :global(html.is-mobile-telegram-app.is-fullscreen) &.withWalletHeader {
+    padding-top: calc(var(--header-padding-top) + #{v.$homeToolbarPortraitOffset});
+  }
+
   @include mixins.respond-above(xs) {
     padding-inline-start: 0;
 

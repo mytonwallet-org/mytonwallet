@@ -104,6 +104,19 @@
   }
 }
 
+// A stock image can be transparent, as a round coin is, so it goes on black. The opacity paints the image with its
+// black as one group, which the rounded edge of the icon cuts at once. With a rounded edge of its own, the browser
+// would smooth the black and the image apart, and the black would show through as a dark rim.
+.squareImage {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  opacity: 0.999;
+  background-color: #000;
+}
+
 .fallbackIcon {
   display: flex;
   align-items: center;
@@ -117,6 +130,8 @@
   font-weight: 800;
   line-height: 1;
   color: var(--fallback-token-color);
+
+  background-color: var(--fallback-token-background);
 
   &.x-small {
     font-size: 0.75rem;
@@ -143,9 +158,9 @@
 
 .square {
   --fallback-token-color: var(--color-white);
+  --fallback-token-background: #000;
 
   border-radius: 0.75rem;
-  background-color: #000;
 
   &.x-small {
     border-radius: 0.3125rem;

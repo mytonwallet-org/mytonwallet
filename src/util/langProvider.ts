@@ -19,6 +19,12 @@ const defaultLangPack: LangPack = defaultLangPackJson;
 export interface LangFn {
   (key: string): string;
 
+  // A scalar value is substituted into the string; only an object of values renders nodes
+  (key: string, value: string | number, format?: 'i', pluralValue?: number): string;
+
+  // `'i'` formats a single number, so an array of values takes no format
+  (key: string, value: (string | number)[], format?: undefined, pluralValue?: number): string;
+
   (key: string, value: any, format?: 'i', pluralValue?: number): string | TeactNode[];
 
   isRtl?: boolean;
@@ -82,8 +88,7 @@ function createLangFn(
 ) {
   return ((key: string, value?: any, format?: 'i', pluralValue?: number) => {
     if (value !== undefined && (typeof value !== 'object' || Array.isArray(value))) {
-      const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
-      const cached = translationCache.get(`${key}_${cacheValue}_${format}${pluralValue ? `_${pluralValue}` : ''}`);
+      const cached = translationCache.get(buildTranslationCacheKey(key, value, format, pluralValue));
       if (cached) {
         return cached;
       }
@@ -339,14 +344,10 @@ function processTranslation(
     ? getPluralOption(pluralValue ?? value, translationLangCode)
     : 'value';
 
-  const template = typeof langString === 'string'
-    ? langString
-    : preferredPluralOption === 'value'
-      // Support cached older `langString` interface
-      ? (typeof langString === 'object' ? (langString as any).value : langString)
-      : typeof langString === 'object'
-        ? langString?.[preferredPluralOption] || langString.otherValue
-        : undefined;
+  const template = typeof langString === 'object'
+    // Support cached older `langString` interface
+    ? (langString as LangString & { value?: string })[preferredPluralOption] || getGeneralPluralTemplate(langString)
+    : langString;
 
   if (!template || !template.trim() || value === undefined) {
     return template;
@@ -356,12 +357,29 @@ function processTranslation(
   const result = typeof value === 'object' && !Array.isArray(value)
     ? processTemplateJsx(template, formattedValue)
     : processTemplate(template, formattedValue, getParameterNames(defaultLangPack[key]));
-  if (typeof value !== 'object' && typeof result === 'string') {
-    const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
-    translationCache.set(`${key}_${cacheValue}_${format}${pluralValue ? `_${pluralValue}` : ''}`, result);
+  if ((typeof value !== 'object' || Array.isArray(value)) && typeof result === 'string') {
+    translationCache.set(buildTranslationCacheKey(key, value, format, pluralValue), result);
   }
 
   return result;
+}
+
+// `'1'` and `1`, or a count of `0` and no count, can select different plural forms, so each gets its own key
+function buildTranslationCacheKey(
+  key: string, value: string | number | (string | number)[], format?: 'i', pluralValue?: number,
+) {
+  const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
+  return `${key}_${typeof value}_${cacheValue}_${format}_${pluralValue}`;
+}
+
+// A language may omit `otherValue`, so the last form it defines stands in for a missing one
+function getGeneralPluralTemplate(langString: LangString) {
+  for (let i = PLURAL_VALUE_OPTIONS.length - 1; i >= 0; i--) {
+    const template = langString[PLURAL_VALUE_OPTIONS[i]];
+    if (template) return template;
+  }
+
+  return undefined;
 }
 
 /**

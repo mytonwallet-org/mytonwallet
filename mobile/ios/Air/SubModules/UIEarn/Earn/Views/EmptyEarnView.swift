@@ -59,6 +59,7 @@ public class EmptyEarnView: WTouchPassStackView {
     private lazy var whyThisIsSafeButton = {
         let button = WButton(style: .clearBackground)
         button.setTitle(config.explainTitle, for: .normal)
+        button.accessibilityIdentifier = "earn_how_it_works"
         button.addTarget(self, action: #selector(self.whyThisIsSafePressed), for: .touchUpInside)
         return button
     }()

@@ -41,6 +41,7 @@ import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.icons.R as IconsR
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentListBarHost
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadListVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
@@ -54,6 +55,7 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountItemView
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
+import org.mytonwallet.app_air.uicomponents.commonViews.InfoBannerStackView
 import org.mytonwallet.app_air.uicomponents.commonViews.UpdateStatusView
 import org.mytonwallet.app_air.uicomponents.commonViews.toast.ToastHost
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
@@ -126,7 +128,9 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import org.mytonwallet.uihome.home.HomeVC
+import org.mytonwallet.uihome.home.HomeVM
 import org.mytonwallet.uihome.home.actions.HomeActionsSheetVC
+import org.mytonwallet.uihome.home.presentHomeInfoBannerAction
 import org.mytonwallet.uihome.tabs.views.HomeSearchField
 
 class PhoneTabsVC(context: Context) :
@@ -154,6 +158,17 @@ class PhoneTabsVC(context: Context) :
         private const val TOAST_HOST_BOTTOM_MARGIN = 12
 
         private const val BOTTOM_EXTRA_GAP = 7
+
+        // The floating banners' gap to the toolbar, and how far each card behind shows below the one in front
+        private const val PROMOTION_TOOLBAR_GAP = 10
+        private const val PROMOTION_PEEK = 6
+
+        // The floating cards' least distance from the screen's edges, the toolbar's own without side gutters
+        private const val PROMOTION_MIN_MARGIN = 6
+
+        // Room around the floating cards: the glass's rim and shadow, and above them a leaving card's lift
+        private const val PROMOTION_TOP_ROOM = 18
+        private const val PROMOTION_BOTTOM_ROOM = 6
 
         internal const val SEARCH_OVERLAY_ANIMATION = AnimationConstants.VERY_VERY_QUICK_ANIMATION
         internal const val TOP_TABS_HEIGHT = 44
@@ -1140,6 +1155,150 @@ class PhoneTabsVC(context: Context) :
         }
     }
 
+    // Home's banners float above the toolbar on the root tabs while Wallet is not the first tab. A sibling of
+    // [contentView], which their glass blurs, they stay under screens pushed over the tabs.
+    private val promotionStackView by lazy {
+        InfoBannerStackView(context, InfoBannerStackView.Style.FLOATING).apply {
+            glassRoot = contentView
+            bottomSpacing = PROMOTION_PEEK.dp
+            descriptionFormatter = { text ->
+                MarkdownParser.parse(text, WColor.SecondaryText.color, null, detectsUrls = false)
+            }
+            onTransitionFinished = { updatePromotionOverlay() }
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                view.post(::updatePromotionReservation)
+            }
+        }
+    }
+    private val promotionOverlayView by lazy {
+        object : WFrameLayout(context) {
+            // Fading out, the banners no longer take touches
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean =
+                isPromotionOverlayShown && super.dispatchTouchEvent(event)
+        }.apply {
+            id = View.generateViewId()
+            clipChildren = false
+            clipToPadding = false
+            alpha = 0f
+            isInvisible = true
+            // The screen clips its children, so the host keeps room for the glass's rim and shadow, a card
+            // swiped away and one lifting as it leaves
+            val margin = maxOf(ViewConstants.HORIZONTAL_PADDINGS, PROMOTION_MIN_MARGIN).dp
+            setPadding(margin, PROMOTION_TOP_ROOM.dp, margin, PROMOTION_BOTTOM_ROOM.dp)
+            addView(promotionStackView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
+    }
+    private var appliedPromotionPlacement: Boolean? = null
+    private var isPromotionOverlayShown = false
+    private var isPromotionOverlapped = false
+
+    // From the moment a screen pushed over the tabs starts to cover them until they show alone again
+    private var isSettledOnScreen = false
+
+    // The floating banners' height above the toolbar, which the root tabs they cover keep clear
+    private var promotionReservedHeight = 0
+
+    override val floatsHomePromotions: Boolean
+        get() = firstTabId != AppTabsManager.ID_HOME
+
+    override fun rootBottomInsetForTab(id: Int): Int = if (id == AppTabsManager.ID_AGENT ||
+        id in PHONE_PUSHED_TAB_IDS
+    ) {
+        0
+    } else {
+        promotionReservedHeight
+    }
+
+    // NFT selection and sorting replace the toolbar, and the banners leave with it
+    private val isHeaderActionMode: Boolean
+        get() = isTopChromeHidden && !isTopChromeHiddenByOverlap
+
+    private val shouldShowPromotionOverlay: Boolean
+        get() = floatsHomePromotions && promotionStackView.isPresenting &&
+            isSettledOnScreen && navigationController?.viewControllers?.lastOrNull() === this &&
+            isPhoneSearchShown && selectedTabId != AppTabsManager.ID_AGENT &&
+            committedTabId != AppTabsManager.ID_AGENT && agentBarProgress == 0f &&
+            !isHeaderActionMode && editedToolbarItem == null &&
+            (activeNavigationController?.viewControllers?.size ?: 1) <= 1 &&
+            searchOverlayNav?.viewControllers.isNullOrEmpty() && !searchEditText.hasFocus() &&
+            !isKeyboardOpen &&
+            !isPromotionOverlapped
+
+    private fun updatePromotionPlacement() {
+        val isFloating = floatsHomePromotions
+        if (appliedPromotionPlacement == isFloating) return
+        appliedPromotionPlacement = isFloating
+        (navForOrNull(AppTabsManager.ID_HOME)?.viewControllers?.firstOrNull() as? HomeVC)
+            ?.infoBannerPlacementChanged()
+        reloadPromotionOverlay(animated = false)
+    }
+
+    private fun reloadPromotionOverlay(animated: Boolean) {
+        // A wallet pushed for a while is not the one Home shows, so the stack waits for Home's own
+        val accountId = AccountStore.activeAccountId?.takeIf {
+            floatsHomePromotions && !AccountStore.isPushedTemporary
+        }
+        promotionStackView.onAction = { promotion ->
+            val window = window
+            if (window != null && accountId != null && accountId == AccountStore.activeAccountId) {
+                val isGeneralDataAvailable = HomeVM.isGeneralDataAvailable(
+                    WGlobalStorage.getActiveAccountId(),
+                    AccountStore.permanentActiveAccount
+                )
+                presentHomeInfoBannerAction(window, promotion, isGeneralDataAvailable)
+            }
+        }
+        promotionStackView.onDismiss = { promotion ->
+            if (accountId != null && accountId == AccountStore.activeAccountId) {
+                WGlobalStorage.dismissHomeBanner(accountId, promotion.id)
+                promotionStackView.configure(AccountStore.getVisibleHomeBanners(accountId))
+            }
+        }
+        promotionStackView.configure(
+            accountId?.let(AccountStore::getVisibleHomeBanners).orEmpty(),
+            animated
+        )
+        updatePromotionOverlay()
+        view.post(::updatePromotionReservation)
+    }
+
+    private fun updatePromotionReservation() {
+        val stackHeight = promotionStackView.targetHeight
+        val height = if (floatsHomePromotions && stackHeight > 0 && !isHeaderActionMode) {
+            stackHeight + PROMOTION_TOOLBAR_GAP.dp
+        } else {
+            0
+        }
+        if (height == promotionReservedHeight) return
+        promotionReservedHeight = height
+        updateRootBottomInsets()
+        syncToastHostPosition()
+        syncUpdateButtonPosition()
+    }
+
+    private fun updatePromotionOverlay() {
+        val shouldShow = shouldShowPromotionOverlay
+        if (isPromotionOverlayShown == shouldShow) return
+        isPromotionOverlayShown = shouldShow
+        promotionOverlayView.animate().cancel()
+        if (shouldShow) {
+            promotionOverlayView.isVisible = true
+            // A glass shown again draws blank until its root updates
+            searchGlass?.syncRootNow()
+            promotionOverlayView.fadeIn()
+        } else {
+            promotionOverlayView.fadeOut {
+                if (!isPromotionOverlayShown) promotionOverlayView.isInvisible = true
+            }
+        }
+        syncToastHostPosition()
+        syncUpdateButtonPosition()
+    }
+
+    // Toasts and the update button stay above the floating banners
+    private val promotionOverlayLift: Int
+        get() = if (isPromotionOverlayShown) promotionReservedHeight else 0
+
     private val topChromeBlurViews
         get() = listOfNotNull(searchGlass, topTabsGlass, topAvatarGlass) +
             toolbarBackgroundGlasses
@@ -1319,7 +1478,7 @@ class PhoneTabsVC(context: Context) :
         }
         toolbarActionIcons += icon
         return WFrameLayout(context).apply {
-            id = View.generateViewId()
+            id = getToolbarActionButtonId(item)
             visibility = View.GONE
             isClickable = true
             contentDescription = HomeToolbarActions.getTitle(item)
@@ -1336,6 +1495,16 @@ class PhoneTabsVC(context: Context) :
             setOnClickListener { performToolbarAction(item) }
             setOnLongClickListener { startToolbarItemDrag(item) }
         }
+    }
+
+    private fun getToolbarActionButtonId(item: MToolbarItem): Int = when (item) {
+        MToolbarItem.BUY -> UIComponentsR.id.home_toolbar_buy_button
+        MToolbarItem.FUND -> UIComponentsR.id.home_toolbar_fund_button
+        MToolbarItem.TRADE -> UIComponentsR.id.home_toolbar_trade_button
+        MToolbarItem.SELL -> UIComponentsR.id.home_toolbar_sell_button
+        MToolbarItem.SEND -> UIComponentsR.id.home_toolbar_send_button
+        MToolbarItem.EARN -> UIComponentsR.id.home_toolbar_earn_button
+        else -> error("No toolbar button id for $item")
     }
 
     private fun getToolbarIconRes(item: MToolbarItem): Int = when (item) {
@@ -1976,6 +2145,7 @@ class PhoneTabsVC(context: Context) :
             button.isVisible = shouldShow && (isToolbarItemShown(item) || item in toolbarFadingOut)
         }
         agentBarMorph.apply()
+        updatePromotionOverlay()
     }
 
     // The Agent tab: the page paging has committed to, or will land on, while the finger is up
@@ -2057,7 +2227,9 @@ class PhoneTabsVC(context: Context) :
             circleButton = agentCircleButton,
             layoutToolbar = ::layoutToolbar,
             onProgress = { progress ->
+                val wasToolbar = agentBarProgress == 0f
                 agentBarProgress = progress.coerceIn(0f, 1f)
+                if ((agentBarProgress == 0f) != wasToolbar) updatePromotionOverlay()
                 applyStickyGradientAlpha()
                 findAgentList()?.setHostedBarProgress(progress)
             },
@@ -2163,6 +2335,11 @@ class PhoneTabsVC(context: Context) :
         actionsButton.translationY = searchView.translationY
         toolbarActionButtons.forEach { it.translationY = searchView.translationY }
         agentCircleButton.translationY = searchView.translationY
+        promotionOverlayView.translationY =
+            -(
+                searchTopOffset(shownToolbarExtraGap) + PROMOTION_TOOLBAR_GAP.dp -
+                    PROMOTION_BOTTOM_ROOM.dp
+                )
         if (agentBarCoverView.parent != null) {
             // From the circle's halo, swollen mid-morph, down to the screen's bottom edge
             val haloMargin = 2 * WGlassView.GLASS_PADDING_DP.dp
@@ -2191,6 +2368,7 @@ class PhoneTabsVC(context: Context) :
 
         view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(toastHostView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        view.addView(promotionOverlayView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         view.addView(searchView, ConstraintLayout.LayoutParams(SEARCH_HEIGHT.dp, SEARCH_HEIGHT.dp))
         searchView.addView(
             agentCircleIcon,
@@ -2271,6 +2449,9 @@ class PhoneTabsVC(context: Context) :
             toBottom(agentCircleButton)
             toCenterX(toastHostView)
             toBottom(toastHostView)
+            toStart(promotionOverlayView)
+            toEnd(promotionOverlayView)
+            toBottom(promotionOverlayView)
             toTop(agentCoverView)
             toStart(agentCoverView)
             toEnd(agentCoverView)
@@ -2298,6 +2479,7 @@ class PhoneTabsVC(context: Context) :
         if (initialTab != selectedTabId) selectTab(initialTab)
         updateTopAvatar()
         showSearchChrome()
+        updatePromotionPlacement()
         adoptPendingSearchText()
         view.post {
             activeNavigationController?.insetsUpdated()
@@ -2632,6 +2814,7 @@ class PhoneTabsVC(context: Context) :
         updateSearchPosition()
 
         searchView.updateTheme()
+        promotionStackView.updateTheme()
 
         render()
     }
@@ -2646,6 +2829,8 @@ class PhoneTabsVC(context: Context) :
 
     override fun viewDidAppear() {
         super.viewDidAppear()
+        isSettledOnScreen = true
+        updatePromotionOverlay()
         activeNavigationController?.viewDidAppear()
         hasSelectedPageAppeared = true
         pagePreloader?.schedule()
@@ -2699,6 +2884,8 @@ class PhoneTabsVC(context: Context) :
     }
 
     override fun viewWillDisappear() {
+        isSettledOnScreen = false
+        updatePromotionOverlay()
         finishDirectTabTransition()
         dismissTabMenu()
         super.viewWillDisappear()
@@ -2746,6 +2933,7 @@ class PhoneTabsVC(context: Context) :
             searchEditText.clearFocus()
         }
         updateStickyGradientHeight()
+        updatePromotionOverlay()
     }
 
     private val shouldShowStickyBottomGradientView: Boolean
@@ -2791,6 +2979,7 @@ class PhoneTabsVC(context: Context) :
         searchOverlayNav?.bringToFront()
         bottomReversedCornerView?.bringToFront()
         stickyBottomGradientView?.bringToFront()
+        promotionOverlayView.bringToFront()
         searchGlass?.bringToFront()
         searchView.bringToFront()
         toolbarBackgroundsSync.views.forEachIndexed { index, background ->
@@ -2988,7 +3177,8 @@ class PhoneTabsVC(context: Context) :
     }
 
     private fun syncUpdateButtonPosition() {
-        updateFloatingButton?.translationY = -(searchTopOffset() + ViewConstants.GAP.dp)
+        updateFloatingButton?.translationY =
+            -(searchTopOffset() + ViewConstants.GAP.dp + promotionOverlayLift)
     }
 
     private var isShowingUpdateButton = false
@@ -3052,6 +3242,7 @@ class PhoneTabsVC(context: Context) :
                 if (!AccountStore.isPushedTemporary && !walletEvent.isSavingTemporaryAccount) {
                     navigationController?.popToRootUnlessDisplaying(walletEvent.accountId)
                 }
+                reloadPromotionOverlay(animated = false)
             }
 
             is WalletEvent.TemporaryAccountSaved -> {
@@ -3067,6 +3258,7 @@ class PhoneTabsVC(context: Context) :
                     selectTab(AppTabsManager.ID_HOME, isInstant = true)
                 }
                 window?.minimizedBrowser?.dismissAll()
+                reloadPromotionOverlay(animated = false)
             }
 
             is WalletEvent.ConfigReceived -> {
@@ -3086,6 +3278,14 @@ class PhoneTabsVC(context: Context) :
                     selectTab(AppTabsManager.ID_HOME)
                 }
                 reloadTopTabs()
+                updatePromotionPlacement()
+            }
+
+            WalletEvent.AccountConfigReceived,
+            is WalletEvent.AccountRemoved,
+            WalletEvent.AccountsReset -> {
+                reloadPromotionOverlay(animated = walletEvent == WalletEvent.AccountConfigReceived)
+                routeWalletEvent(walletEvent)
             }
 
             else -> {
@@ -3147,6 +3347,7 @@ class PhoneTabsVC(context: Context) :
                 it.updateTheme()
             }
             nav.insetsUpdated()
+            updatePromotionOverlay()
             return nav
         }
 
@@ -3158,12 +3359,14 @@ class PhoneTabsVC(context: Context) :
         topAvatarView.isEnabled = false
         nav.fadeIn(SEARCH_OVERLAY_ANIMATION)
         fadeTopChromeForSearch(visible = false)
+        updatePromotionOverlay()
     }
 
     override fun hideSearchOverlay() {
         finishAgentSearch()
         val nav = searchOverlayNav ?: return
         searchOverlayNav = null
+        updatePromotionOverlay()
         topChromeBlurViews.forEach {
             it.setupWith(contentView)
             it.updateTheme()
@@ -3267,6 +3470,8 @@ class PhoneTabsVC(context: Context) :
         topAvatarView.isEnabled = false
         hideTopChromeView(topTabsControl)
         hideTopChromeView(topAvatarView)
+        updatePromotionReservation()
+        updatePromotionOverlay()
     }
 
     private var isTopChromeHiddenByOverlap = false
@@ -3276,8 +3481,15 @@ class PhoneTabsVC(context: Context) :
         val isScreenChromeHidden = super.hideChromeOverlapping(windowRect)
         val topFrames = listOf(topTabsControl, topAvatarView).mapNotNull { it.frameInWindow() }
         if (!isTopChromeHidden && topFrames.any { Rect.intersects(it, windowRect) }) {
-            hideTabBar()
+            // Set first, so the banners do not take a menu for NFT selection and give up their room
             isTopChromeHiddenByOverlap = true
+            hideTabBar()
+        }
+        if (isPromotionOverlayShown &&
+            promotionStackView.frameInWindow()?.let { Rect.intersects(it, windowRect) } == true
+        ) {
+            isPromotionOverlapped = true
+            updatePromotionOverlay()
         }
         val toolbarViews = MToolbarItem.entries.map(::getToolbarView)
         val bottomViews = toolbarViews + listOfNotNull(stickyBottomGradientView)
@@ -3286,11 +3498,16 @@ class PhoneTabsVC(context: Context) :
             bottomViews.mapNotNull { it.frameInWindow() },
             bottomViews
         )
-        return isScreenChromeHidden || isTopChromeHiddenByOverlap || isBottomChromeHidden
+        return isScreenChromeHidden || isTopChromeHiddenByOverlap || isBottomChromeHidden ||
+            isPromotionOverlapped
     }
 
     override fun showOverlappedChrome() {
         super.showOverlappedChrome()
+        if (isPromotionOverlapped) {
+            isPromotionOverlapped = false
+            updatePromotionOverlay()
+        }
         if (isTopChromeHiddenByOverlap) {
             isTopChromeHiddenByOverlap = false
             showTabBar()
@@ -3314,6 +3531,8 @@ class PhoneTabsVC(context: Context) :
         val shouldShowAvatar = shouldShowTopAvatar(shouldShowTabs)
         showTopChromeView(topTabsControl, shouldShowTabs)
         showTopChromeView(topAvatarView, shouldShowAvatar)
+        updatePromotionReservation()
+        updatePromotionOverlay()
     }
 
     private fun updateToastAvailability(selectedItemId: Int = selectedTabId) {
@@ -3328,7 +3547,10 @@ class PhoneTabsVC(context: Context) :
 
     private fun syncToastHostPosition() {
         toastHostView.translationY =
-            -(searchTopOffset() + ViewConstants.GAP.dp - TOAST_HOST_BOTTOM_MARGIN.dp)
+            -(
+                searchTopOffset() + ViewConstants.GAP.dp - TOAST_HOST_BOTTOM_MARGIN.dp +
+                    promotionOverlayLift
+                )
     }
 
     // Distance from the container bottom to the top edge of the search bar.

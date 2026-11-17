@@ -67,6 +67,7 @@ final class MarketSectionContentView: UIView, UICollectionViewDelegate {
     }
 
     func configure(_ value: MarketSectionDisplayData, columnCount: Int = 4, insets: NSDirectionalEdgeInsets = .init(top: 0, leading: 16, bottom: 0, trailing: 16),
+                   shouldAnimateChanges: Bool = false,
                    onSeeAll: @escaping () -> Void, onSelect: @escaping (MarketItemDisplayData) -> Void) {
         var value = value
         var seen = Set<String>()
@@ -114,7 +115,9 @@ final class MarketSectionContentView: UIView, UICollectionViewDelegate {
         snapshot.appendItems(identifiers)
         let oldIDs = Set(source.snapshot().itemIdentifiers)
         snapshot.reconfigureItems(identifiers.filter { oldIDs.contains($0) })
-        source.apply(snapshot, animatingDifferences: false) { [weak self] in
+        let isAnimated = shouldAnimateChanges && !replacesSection && !changesLayout
+            && window != nil && UIView.areAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled
+        source.apply(snapshot, animatingDifferences: isAnimated) { [weak self] in
             guard let self, configurationVersion == version else { return }
             items = nextItems
         }

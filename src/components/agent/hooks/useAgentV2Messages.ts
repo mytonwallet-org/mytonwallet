@@ -3,6 +3,7 @@ import { getActions, getGlobal } from '../../../global';
 
 import type {
   AgentAnswerFeedbackV2,
+  AgentFollowUpTextV1,
   AgentNewsFeedDiscussionNamingV2,
   AgentNewsFeedLocaleV2,
   AgentPersistedActionV2,
@@ -140,18 +141,20 @@ export type AgentV2ChatTarget =
     digest: { id: string };
     /** The feed's copy of the digest, whose post the discussion shows from its first frame */
     digestPreview?: AgentThreadDigestCardV2;
+    /** The follow-ups of the digest's top news, which the post of a discussion with no thread yet offers */
+    discussionFollowups?: AgentFollowUpTextV1[];
   } & AgentV2DeferredDiscussion)
   | ({
     kind: 'news';
     news: { eventId: number; locale: AgentNewsFeedLocaleV2 };
     /** The feed's copy of the news, which a discussion that holds its post alone shows from its first frame */
     preview?: AgentThreadNewsCardV2;
+    discussionNaming?: AgentNewsFeedDiscussionNamingV2;
   } & AgentV2DeferredDiscussion);
 
 /** A news or digest discussion of the feed that has none yet creates its thread with the first question */
 interface AgentV2DeferredDiscussion {
   shouldDeferCreation?: boolean;
-  discussionNaming?: AgentNewsFeedDiscussionNamingV2;
   threadResolution?: AgentV2DiscussionThreadResolution;
 }
 
@@ -577,9 +580,8 @@ export default function useAgentV2Messages({
   const isDeferredDiscussion = getIsDeferredDiscussion(chatTarget);
   const isUncreatedDiscussion = isDeferredDiscussion && !resolvedThreadIdRef.current;
   const namingFollowups = useMemo(() => (isUncreatedDiscussion && getIsDiscussionTarget(chatTarget)
-    ? chatTarget.discussionNaming?.followups.map((text, index) => ({
-      id: String(index), kind: 'suggested_prompt' as const, text,
-    }))
+    ? (chatTarget.kind === 'digest' ? chatTarget.discussionFollowups : chatTarget.discussionNaming?.followups)
+      ?.map((text, index) => ({ id: String(index), kind: 'suggested_prompt' as const, text }))
     : undefined), [chatTarget, isUncreatedDiscussion]);
   const preview = chatTarget?.kind === 'news' || chatTarget?.kind === 'thread' ? chatTarget.preview : undefined;
   const createdNews = createdNewsRef.current;
@@ -1171,7 +1173,7 @@ export default function useAgentV2Messages({
     if (isDeferredDiscussion && !stateRef.current.hasHydratedHistory) {
       if (stateRef.current.isConsentAccepted !== true || !getCanSendDiscussion()) return;
       pendingFollowupTextRef.current = followup.text;
-      sendMessage(followup.text);
+      if (!sendMessage(followup.text)) pendingFollowupTextRef.current = undefined;
       return;
     }
     const sourceMessageId = messageId === NEWS_POST_MESSAGE_ID
@@ -1527,7 +1529,7 @@ export default function useAgentV2Messages({
   async function requestThreadId(): Promise<AgentV2MutationResult<string> | undefined> {
     const chatTarget = targetRef.current;
     const notifyThreadResolved = onThreadResolvedRef.current;
-    const result = await resolveTargetThread(chatTarget).catch(() => undefined);
+    const result = await resolveTargetThread(chatTarget, pendingFollowupTextRef.current).catch(() => undefined);
     if (!result?.ok) return result;
     const threadId = result.value.thread.id;
     if (deletionState.isRequested) return { ok: true, value: threadId };
@@ -1546,14 +1548,17 @@ export default function useAgentV2Messages({
     return { ok: true, value: threadId };
   }
 
-  function resolveTargetThread(chatTarget?: AgentV2ChatTarget) {
+  // A digest's discussion opened by a follow-up has its post save it, so the opening question goes as that follow-up
+  function resolveTargetThread(chatTarget?: AgentV2ChatTarget, followupText?: string) {
     switch (chatTarget?.kind) {
       case 'new':
         return callApi('createAgentV2Thread');
       case 'news':
         return callApi('createAgentV2Thread', { news: chatTarget.news });
       case 'digest':
-        return callApi('createAgentV2Thread', { digest: chatTarget.digest });
+        return callApi('createAgentV2Thread', {
+          digest: { id: chatTarget.digest.id, ...(followupText !== undefined && { followup: followupText }) },
+        });
       default:
         return callApi('getAgentV2DefaultThread');
     }

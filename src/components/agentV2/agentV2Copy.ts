@@ -9,24 +9,25 @@ import type { LangFn } from '../../util/langProvider';
 
 import { formatAgentTime } from '../agent/helpers/agentDateFormat';
 
-const HINT_KEYS: Record<AgentStarterHintIdV2, [string, string?]> = {
+/** Title on the chip, subtitle, and the question the agent gets when it is longer than the title */
+const HINT_KEYS: Record<AgentStarterHintIdV2, [string, string?, string?]> = {
   'agent.capabilities': ['$agent_hint_capabilities_title'],
   'learn.swap': ['$agent_hint_swap_title', '$agent_hint_swap_prompt'],
   'learn.staking': ['$agent_hint_staking_title', '$agent_hint_staking_prompt'],
-  'learn.security': ['$agent_hint_security_title', '$agent_hint_security_prompt'],
+  'learn.security': ['$agent_hint_security_title', '$agent_hint_security_prompt', '$agent_hint_security_prompt'],
   'receive.tokens': ['$agent_hint_receive_title', '$agent_hint_receive_prompt'],
-  'wallet.assets': ['$agent_hint_assets_title'],
-  'wallet.total': ['$agent_hint_total_title'],
-  'wallet.spending': ['$agent_hint_spending_title'],
-  'wallet.last_transfer': ['$agent_hint_last_transfer_title'],
-  'wallet.fund': ['$agent_hint_fund_title'],
-  'market.today': ['$agent_hint_market_today_title'],
-  'news.today': ['$agent_hint_news_today_title'],
-  'market.bitcoin': ['$agent_hint_bitcoin_title'],
+  'wallet.assets': ['$agent_hint_assets_title', undefined, '$agent_hint_assets_prompt'],
+  'wallet.total': ['$agent_hint_total_title', undefined, '$agent_hint_total_prompt'],
+  'wallet.spending': ['$agent_hint_spending_title', undefined, '$agent_hint_spending_prompt'],
+  'wallet.last_transfer': ['$agent_hint_last_transfer_title', undefined, '$agent_hint_last_transfer_prompt'],
+  'wallet.fund': ['$agent_hint_fund_title', undefined, '$agent_hint_fund_prompt'],
+  'market.today': ['$agent_hint_market_today_title', undefined, '$agent_hint_market_today_prompt'],
+  'news.today': ['$agent_hint_news_today_title', undefined, '$agent_hint_news_today_prompt'],
+  'market.bitcoin': ['$agent_hint_bitcoin_title', undefined, '$agent_hint_bitcoin_prompt'],
   'market.price': ['$agent_hint_price_title'],
-  'staking.yield': ['$agent_hint_staking_yield_title'],
-  'staking.options': ['$agent_hint_staking_options_title'],
-  'learn.multisend': ['$agent_hint_multisend_title'],
+  'staking.yield': ['$agent_hint_staking_yield_title', undefined, '$agent_hint_staking_yield_prompt'],
+  'staking.options': ['$agent_hint_staking_options_title', undefined, '$agent_hint_staking_options_prompt'],
+  'learn.multisend': ['$agent_hint_multisend_title', undefined, '$agent_hint_multisend_prompt'],
   'action.swap': ['$agent_hint_action_swap_title'],
   'action.send': ['$agent_hint_action_send_title'],
   'action.stake': ['$agent_hint_action_stake_title'],
@@ -39,9 +40,9 @@ const NOTICE_KEYS: Record<AgentSemanticContentV1['code'], string> = {
 };
 
 export function getAgentV2HintCopy(id: AgentStarterHintIdV2, lang: LangFn) {
-  const [titleKey, subtitleKey] = HINT_KEYS[id];
+  const [titleKey, subtitleKey, promptKey] = HINT_KEYS[id];
   const title = lang(titleKey);
-  return { title, subtitle: subtitleKey ? lang(subtitleKey) : '', prompt: title };
+  return { title, subtitle: subtitleKey ? lang(subtitleKey) : '', prompt: promptKey ? lang(promptKey) : title };
 }
 
 export function mapAgentV2StarterHints(items: readonly AgentV2StarterHint[], lang: LangFn): AgentHint[] {
@@ -63,7 +64,7 @@ export function getAgentV2ErrorText(code: AgentV2ErrorCode, lang: LangFn, resetA
     case 'user_quota_exhausted': {
       const resetTimestamp = typeof resetAt === 'string' ? Date.parse(resetAt) : resetAt;
       if (resetTimestamp !== undefined && resetTimestamp > Date.now()) {
-        return lang('$agent_daily_limit_resets_at', formatAgentTime(lang.code ?? 'en', resetTimestamp)) as string;
+        return lang('$agent_daily_limit_resets_at', formatAgentTime(lang.code ?? 'en', resetTimestamp));
       }
       return lang('$agent_daily_limit_reached');
     }

@@ -12,6 +12,7 @@ import {
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   IS_EXPLORER,
+  IS_PERPS_SUPPORTED,
   SELF_UNIVERSAL_HOST_URL,
   TONCOIN,
   TRC20_USDT_MAINNET,
@@ -20,6 +21,7 @@ import {
 import { getIsTinyOrScamTransaction } from '../../global/helpers';
 import {
   selectAccountTokenBySlug,
+  selectCanReadPerps,
   selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountNftByAddress,
@@ -80,6 +82,7 @@ export const enum DeeplinkCommand {
   NftCard = 'nft-card',
   Portfolio = 'portfolio',
   Market = 'market',
+  Futures = 'futures',
   Agent = 'agent',
   Settings = 'settings',
 }
@@ -113,6 +116,7 @@ const VIEW_MODE_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Nft,
   DeeplinkCommand.Portfolio,
   DeeplinkCommand.Market,
+  DeeplinkCommand.Futures,
   DeeplinkCommand.Agent,
   DeeplinkCommand.Settings,
 ]);
@@ -1218,6 +1222,24 @@ async function openSelfDeeplink(
 
       case DeeplinkCommand.Market: {
         actions.switchToMarket();
+        return true;
+      }
+
+      case DeeplinkCommand.Futures: {
+        if (!IS_PERPS_SUPPORTED) {
+          actions.switchToWallet();
+          return true;
+        }
+
+        // Format: mtw://futures/{assetId}, where the asset id is URL-encoded. A malformed id throws here, before any
+        // screen changes, so the link stays unhandled.
+        const encodedAssetId = pathname.split('/').filter(Boolean)[1];
+        const assetId = encodedAssetId && decodeURIComponent(encodedAssetId);
+
+        actions.switchToFutures();
+        if (assetId && selectCanReadPerps(global)) {
+          actions.openFuturesMarket({ assetId });
+        }
         return true;
       }
 

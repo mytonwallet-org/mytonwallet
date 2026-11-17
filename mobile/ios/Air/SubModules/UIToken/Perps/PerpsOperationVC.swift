@@ -49,6 +49,16 @@ public final class PerpsOperationVC: WViewController {
         observe { [weak self] in self?.updateContent() }
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if let sheet = navigationController?.sheetPresentationController {
+            sheet.delegate = nil
+            sheet.detents = [.large()]
+            sheet.selectedDetentIdentifier = .large
+            sheet.prefersGrabberVisible = false
+        }
+    }
+
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         isVisible = true

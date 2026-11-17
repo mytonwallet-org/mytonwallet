@@ -80,6 +80,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showExploreSite(siteUrl: String) async -> Bool
     static func showHiddenNfts(accountSource: AccountSource) -> ()
     static func showHome(popToRoot: Bool)
+    static func showRootAfterAccountSwitch()
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
     static func showUnlinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
@@ -252,6 +253,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showExploreSite(siteUrl: String) async -> Bool { false }
     static func showHiddenNfts(accountSource: AccountSource) -> () { }
     static func showHome(popToRoot: Bool) { }
+    static func showRootAfterAccountSwitch() { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
     static func showUnlinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }

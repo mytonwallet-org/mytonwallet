@@ -13,7 +13,6 @@ final class WSegmentedControlLensView: UIView {
     private let normalMask = CAShapeLayer()
     private let selectedMask = CAShapeLayer()
     private let nativeLens: UIView?
-    private let shouldDarkenSelection: Bool
     private weak var liftedContainer: UIView?
     private var displayLink: CADisplayLink?
     private var isApplyingNativeState = false
@@ -44,8 +43,7 @@ final class WSegmentedControlLensView: UIView {
         return view
     }
 
-    init(useNativeLens: Bool = true, shouldDarkenSelection: Bool = false) {
-        self.shouldDarkenSelection = shouldDarkenSelection
+    init(useNativeLens: Bool = true) {
         nativeLens = useNativeLens ? Native.makeLens() : nil
         super.init(frame: .zero)
         addSubview(containerView)
@@ -138,7 +136,7 @@ final class WSegmentedControlLensView: UIView {
             // past the capsule's ends
             restingBackgroundView.layer.cornerRadius = bounds.height / 2
             restingBackgroundView.layer.cornerCurve = .continuous
-            restingBackgroundView.update(isDark: traitCollection.userInterfaceStyle == .dark && !shouldDarkenSelection)
+            restingBackgroundView.update(isDark: traitCollection.userInterfaceStyle == .dark)
             let restingAlpha: CGFloat = self.isLifted ? 0 : 1
             if restingBackgroundView.alpha != restingAlpha {
                 animate(animated) { self.restingBackgroundView.alpha = restingAlpha }
@@ -169,7 +167,7 @@ final class WSegmentedControlLensView: UIView {
         renderedAppearance = style
         guard let nativeLens else { return }
         restingBackgroundView.invalidateAppearance()
-        restingBackgroundView.update(isDark: style == .dark && !shouldDarkenSelection)
+        restingBackgroundView.update(isDark: style == .dark)
         Native.setObject(nativeLens, Native.restingColor, UIColor(white: 0, alpha: 0.1))
         Native.setObject(nativeLens, Native.liftedContent, selectedContentView)
         guard !isApplyingNativeState, let state = appliedNativeState else { return }

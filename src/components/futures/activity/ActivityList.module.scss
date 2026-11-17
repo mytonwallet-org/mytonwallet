@@ -1,0 +1,22 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.5rem;
+
+  margin-top: 1.5rem;
+}
+
+.heading {
+  margin: 0;
+  padding-inline: 0.5rem;
+
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.5rem;
+  color: var(--color-black);
+}
+
+.loader {
+  height: 0.0625rem;
+}

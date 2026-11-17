@@ -122,6 +122,7 @@ export const ANIMATION_END_DELAY = 50;
 
 export const ANIMATED_STICKER_TINY_ICON_PX = 16;
 export const ANIMATED_STICKER_ICON_PX = 30;
+export const ANIMATED_STICKER_ICON_SPEED = 2;
 export const ANIMATED_STICKER_TINY_SIZE_PX = 70;
 export const ANIMATED_STICKER_SMALL_SIZE_PX = 110;
 export const ANIMATED_STICKER_MIDDLE_SIZE_PX = 120;
@@ -282,7 +283,7 @@ export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
 
-export const LANG_CACHE_NAME = 'mtw-lang-399';
+export const LANG_CACHE_NAME = 'mtw-lang-404';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -374,6 +375,7 @@ export const NO_EXTRA_FEATURES = process.env.NO_EXTRA_FEATURES === '1';
 // Perps ships closed on this release train. Closing the SDK capability closes it for every client.
 export const IS_PERPS_ENABLED: boolean = false;
 export const NO_LEDGER = process.env.NO_LEDGER === '1';
+export const IS_PERPS_SUPPORTED = IS_PERPS_ENABLED && !NO_EXTRA_FEATURES && !NO_EVM && !IS_GRAM_WALLET && !IS_EXPLORER;
 export const VALIDATION_PERIOD_MS = 65_536_000; // 18.2 h.
 export const ONE_TON = 1_000_000_000n;
 export const DEFAULT_FEE = 15_000_000n; // 0.015 TON
@@ -929,8 +931,6 @@ export const INDEXED_DB_STORE_NAME = 'keyval';
 
 export const WINDOW_PROVIDER_CHANNEL = 'windowProvider';
 export const WINDOW_PROVIDER_PORT = `${IS_GRAM_WALLET ? 'GramWallet' : 'MyWallet'}_popup_reversed`;
-
-export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 6;
 
 export const DEFAULT_PRICE_CURRENCY = 'USD';
 export const CURRENCIES: Record<

@@ -205,6 +205,7 @@ public class UnlockVC: WViewController {
     private let extraAuthUsages: Int
     private let successCompletionDelay: TimeInterval
     private var didTryBiometricOnPresent = false
+    private var hasShownBiometricRecoveryFallback = false
     private var viewStartedDismissing: Bool = false
     private var cancelOnDisappear = true
     private var didCancel = false
@@ -275,6 +276,10 @@ public class UnlockVC: WViewController {
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         viewStartedDismissing = false
+        if biometricPassAllowed, AuthSupport.isBiometricRecoveryRequired {
+            onBiometricFailure()
+            return
+        }
         tryBiometricOnPresentIfNeeded()
     }
 
@@ -460,6 +465,10 @@ public class UnlockVC: WViewController {
         passcodeScreenView.tryBiometric()
     }
 
+    func presentBiometricRecoveryAlert(_ alert: UIAlertController) {
+        super.present(alert, animated: true)
+    }
+
     public override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) {
         // do not allow this
     }
@@ -478,9 +487,24 @@ extension UnlockVC: PasscodeScreenViewDelegate {
 
     @MainActor
     func onBiometricFailure() {
+        if AuthSupport.isBiometricRecoveryRequired {
+            passcodeScreenView.showPasscodeFallback()
+            guard AuthSupport.shouldOfferBiometricRecovery,
+                  !hasShownBiometricRecoveryFallback,
+                  presentedViewController == nil else { return }
+            hasShownBiometricRecoveryFallback = true
+            let fallback = alert(
+                title: lang("$biometric_recovery_title"),
+                text: lang("$biometric_recovery_passcode"),
+                button: lang("Use Passcode"),
+                buttonStyle: .default
+            )
+            presentBiometricRecoveryAlert(fallback)
+            return
+        }
         let alert = alert(
             title: lang("Error"),
-            text: lang("Biometric confirmation failed"),
+            text: "\(lang("Biometric confirmation failed"))\n\n\(lang("Enter your Wallet Passcode"))",
             button: lang("OK"),
             buttonStyle: .default
         )
@@ -493,11 +517,12 @@ extension UnlockVC: PasscodeScreenViewDelegate {
             guard let self else { return }
             let enclaveToken: EnclaveToken?
             let unexpectedError: (any Error)?
+            let shouldOfferBiometricRecovery = biometricPassAllowed && AuthSupport.shouldOfferBiometricRecovery
             do {
                 enclaveToken = try await AuthSupport.authorizeWithPasscode(
                     passcode,
                     sessionKind: self.authSessionKind,
-                    extraUsages: self.extraAuthUsages
+                    extraUsages: self.extraAuthUsages + (shouldOfferBiometricRecovery ? 1 : 0)
                 )
                 unexpectedError = nil
             } catch let error as AuthCooldownError {
@@ -509,7 +534,11 @@ extension UnlockVC: PasscodeScreenViewDelegate {
                 unexpectedError = error
             }
             if let enclaveToken {
-                completeAuthorization(enclaveToken: enclaveToken)
+                if shouldOfferBiometricRecovery {
+                    offerBiometricRecovery(using: enclaveToken)
+                } else {
+                    completeAuthorization(enclaveToken: enclaveToken)
+                }
             } else {
                 try? await Task.sleep(for: .seconds(0.2))
                 passcodeScreenView.isUserInteractionEnabled = true
@@ -522,6 +551,65 @@ extension UnlockVC: PasscodeScreenViewDelegate {
                 }
             }
         }
+    }
+
+    private func offerBiometricRecovery(using enclaveToken: EnclaveToken) {
+        guard !viewStartedDismissing, view.window != nil else { return }
+        let alert = alert(
+            title: lang("$biometric_recovery_title"),
+            text: lang("$biometric_recovery_offer"),
+            button: lang("$biometric_recovery_enable"),
+            buttonStyle: .default,
+            buttonPressed: { [weak self] in
+                self?.dismissBiometricRecoveryOffer(using: enclaveToken, shouldEnable: true)
+            },
+            secondaryButton: lang("Not Now"),
+            secondaryButtonPressed: { [weak self] in
+                self?.dismissBiometricRecoveryOffer(using: enclaveToken, shouldEnable: false)
+            }
+        )
+        presentBiometricRecoveryAlert(alert)
+    }
+
+    func dismissBiometricRecoveryOffer(using enclaveToken: EnclaveToken, shouldEnable: Bool) {
+        guard let presentedViewController else {
+            Task { await completeBiometricRecovery(using: enclaveToken, shouldEnable: shouldEnable) }
+            return
+        }
+        presentedViewController.dismiss(animated: true) { [weak self] in
+            Task { await self?.completeBiometricRecovery(using: enclaveToken, shouldEnable: shouldEnable) }
+        }
+    }
+
+    func completeBiometricRecovery(using enclaveToken: EnclaveToken, shouldEnable: Bool) async {
+        guard !viewStartedDismissing, view.window != nil else { return }
+        do {
+            try await AuthSupport.recoverBiometrics(using: enclaveToken, shouldEnable: shouldEnable)
+        } catch AuthSupportBiometricsError.canceled {
+            // The recovery attempt consumes only its reserved usage; the passcode still authorizes the original action
+        } catch AuthSupportBiometricsError.passcodeRequired {
+            passcodeScreenView.isUserInteractionEnabled = true
+            passcodeScreenView.passcodeInputView.currentPasscode = ""
+            let fallback = alert(
+                title: lang("$biometric_recovery_title"),
+                text: lang("$biometric_recovery_passcode"),
+                button: lang("Use Passcode"),
+                buttonStyle: .default
+            )
+            presentBiometricRecoveryAlert(fallback)
+            return
+        } catch {
+            let alert = alert(
+                title: lang("Error"),
+                text: lang("$biometric_recovery_failed"),
+                button: lang("Continue"),
+                buttonStyle: .default,
+                buttonPressed: { [weak self] in self?.completeAuthorization(enclaveToken: enclaveToken) }
+            )
+            presentBiometricRecoveryAlert(alert)
+            return
+        }
+        completeAuthorization(enclaveToken: enclaveToken)
     }
 
     func signOutRequested() {

@@ -291,15 +291,16 @@ struct TokenHeaderEquivalentView: View {
     var body: some View {
         ZStack {
             if let change, let percent, expansionProgress > 0 {
+                let formattedChange = formatTokenHeaderChange(change, percent: percent)
                 equivalent
                     .opacity(1 - expansionProgress)
                     .accessibilityHidden(expansionProgress >= 0.5)
                 HStack(spacing: 6) {
                     equivalent
-                    Text("\(change.formatted(.baseCurrencyEquivalent, showPlus: true)) (\(formatPercent(percent, showPlus: false)))")
+                    Text(formattedChange.text)
                         .textStyle(.supporting, content: .technical)
                         .foregroundStyle(percent > 0 ? Color.air.positiveAmount : percent < 0 ? Color.air.negativeAmount : Color.air.secondaryLabel)
-                        .accessibilityLabel(lang("Daily P&L") + ": " + change.formatted(.baseCurrencyEquivalent, showPlus: true) + ", " + formatPercent(percent))
+                        .accessibilityLabel(formattedChange.accessibilityLabel)
                 }
                 .opacity(expansionProgress)
                 .accessibilityHidden(expansionProgress < 0.5)
@@ -315,4 +316,17 @@ struct TokenHeaderEquivalentView: View {
             .textStyle(.body, content: .technical)
             .foregroundStyle(Color.air.secondaryLabel)
     }
+}
+
+func formatTokenHeaderChange(_ change: BaseCurrencyAmount, percent: Double) -> (text: String, accessibilityLabel: String) {
+    let percentText = formatPercent(percent)
+    let accessibilityPrefix = lang("Daily P&L") + ": "
+    guard change.amount != 0 else {
+        return (percentText, accessibilityPrefix + percentText)
+    }
+    let amountText = change.formatted(.baseCurrencyEquivalent, showPlus: true)
+    return (
+        "\(amountText) (\(formatPercent(percent, showPlus: false)))",
+        "\(accessibilityPrefix)\(amountText), \(percentText)"
+    )
 }

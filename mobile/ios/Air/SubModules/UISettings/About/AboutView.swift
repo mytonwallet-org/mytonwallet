@@ -54,11 +54,7 @@ struct AboutView: View {
     @ViewBuilder
     var headerIcon: some View {
         if IS_GRAM_WALLET {
-            WUISpeedingDiamondWithParticles(
-                diamondSize: 96,
-                particleSize: CGSize(width: 386, height: 268),
-                isWelcome: true
-            )
+            GramDiamondWithParticles(diamondSize: 96)
                 .frame(width: 96, height: 96)
         } else {
             Image.mainBundle("IntroLogo")

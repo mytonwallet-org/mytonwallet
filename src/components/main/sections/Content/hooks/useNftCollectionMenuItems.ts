@@ -11,6 +11,8 @@ import { buildNftCollectionIndex, getCollectionKey } from '../../../../../global
 
 import useLang from '../../../../../hooks/useLang';
 
+export type NftCollections = ReturnType<typeof useNftCollectionMenuItems>;
+
 export const HIDDEN_NFTS_VALUE = 'hidden_nfts';
 
 const TELEGRAM_GIFTS_KEY = getCollectionKey('ton', TELEGRAM_GIFTS_SUPER_COLLECTION);

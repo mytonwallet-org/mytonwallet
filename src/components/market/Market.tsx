@@ -1,5 +1,5 @@
 import { onFullyIdle } from '../../lib/teact/heavyAnimation';
-import React, { memo, useEffect, useMemo, useState } from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type {
@@ -15,6 +15,7 @@ import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { buildMarketSections } from './helpers/buildMarketSections';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
+import useHideHomeToolbar from '../../hooks/useHideHomeToolbar';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -41,6 +42,7 @@ interface StateProps {
   areChainBadgesShown?: boolean;
   currentTokenSlug?: string;
   marketTokenSlug?: string;
+  openedSectionId?: string;
   isMarketOpen?: boolean;
 }
 
@@ -60,15 +62,16 @@ function Market({
   areChainBadgesShown,
   currentTokenSlug,
   marketTokenSlug,
+  openedSectionId,
   isMarketOpen,
 }: OwnProps & StateProps) {
   const {
-    loadMarketAssets, openMarketToken, selectToken, closeTokenActivity, switchToWallet,
+    loadMarketAssets, openMarketToken, openMarketSection, closeMarketSection, selectToken, closeTokenActivity,
+    switchToWallet,
   } = getActions();
 
   const lang = useLang();
   const { isPortrait, isLandscape } = useDeviceScreen();
-  const [openedSectionId, setOpenedSectionId] = useState<string>();
   // Only a token opened from the market belongs here, the wallet has its own token screen
   const isMarketTokenOpen = Boolean(currentTokenSlug) && currentTokenSlug === marketTokenSlug;
   // In portrait that screen is a separate app state on top of the market, so only landscape shows it inside
@@ -110,17 +113,19 @@ function Market({
 
   const openedSection = sections?.find(({ id }) => id === openedSectionId);
 
+  useHideHomeToolbar(Boolean(isActive && openedSection));
+
   const handleTokenClick = useLastCallback((slug: string) => {
     // The token screen opens on top of the market, so the wallet tab stays as it is
     openMarketToken({ slug });
   });
 
   const handleShowAllClick = useLastCallback((sectionId: string) => {
-    setOpenedSectionId(sectionId);
+    openMarketSection({ sectionId });
   });
 
   const handleCloseSection = useLastCallback(() => {
-    setOpenedSectionId(undefined);
+    closeMarketSection();
   });
 
   const handleBack = useLastCallback(() => {
@@ -212,6 +217,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     areChainBadgesShown: global.settings.areChainBadgesShown,
     currentTokenSlug: selectCurrentAccountState(global)?.currentTokenSlug,
     marketTokenSlug: global.marketTokenSlug,
+    openedSectionId: global.marketSectionId,
     isMarketOpen: global.isMarketOpen,
   };
 })(Market));

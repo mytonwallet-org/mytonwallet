@@ -33,6 +33,20 @@ final class AgentThreadListUITests: XCTestCase {
                 XCTAssertTrue(cell.accessibilityLabel?.hasPrefix(preview) == true)
             }
         }
+
+        let digest = ApiAgentV2ThreadDigestCard(
+            id: "en:2026-11-11T18:00:00Z", windowEnd: "2026-11-11T18:00:00Z", total: 0, top: []
+        )
+        for title in [nil, "", "My portfolio"] as [String?] {
+            cell.prepareForReuse()
+            cell.configure(with: try makeThreadListItem(title: title, preview: preview, digest: digest))
+
+            let expected = title?.nilIfEmpty ?? AgentV2Model.formatDigestDiscussionTitle(windowEnd: digest.windowEnd)
+            XCTAssertEqual(cell.titleLabel.text, expected)
+            XCTAssertFalse(previewLabel.isHidden)
+            XCTAssertEqual(previewLabel.text, preview)
+            XCTAssertTrue(cell.accessibilityLabel?.hasPrefix("\(expected), \(preview)") == true)
+        }
     }
 
     func testThreadCellLabelsAChatWithSupportBeforeItsPreview() throws {
@@ -74,7 +88,7 @@ final class AgentThreadListUITests: XCTestCase {
             loadConsent: { hasConsent },
             acceptConsent: { hasConsent = true },
             makeThreadChat: { _, _ in UIViewController() },
-            makeNewChat: { _ in UIViewController() },
+            makeNewChat: { _, _ in UIViewController() },
             makeSupportChat: {
                 supportChatCount += 1
                 return UIViewController()
@@ -335,7 +349,7 @@ final class AgentThreadListUITests: XCTestCase {
                 openedSummaryKinds.append(isSummaryCached)
                 return UIViewController()
             },
-            makeNewChat: { _ in UIViewController() },
+            makeNewChat: { _, _ in UIViewController() },
             makeNewsFeed: { _ in UIViewController() },
             loadSuggestions: { [] }
         )
@@ -417,7 +431,7 @@ final class AgentThreadListUITests: XCTestCase {
                 selectedThreadId = thread.id
                 return threadChat
             },
-            makeNewChat: { question in
+            makeNewChat: { question, _ in
                 newQuestion = question
                 return newChat
             },
@@ -674,7 +688,7 @@ final class AgentThreadListUITests: XCTestCase {
                 accepts += 1
                 hasConsent = true
             },
-            makeNewChat: { question in
+            makeNewChat: { question, _ in
                 questions.append(question)
                 return UIViewController()
             },
@@ -776,7 +790,7 @@ final class AgentThreadListUITests: XCTestCase {
                 openedThreadIds.append(thread.id)
                 return UIViewController()
             },
-            makeNewChat: { _ in UIViewController() },
+            makeNewChat: { _, _ in UIViewController() },
             makeSupportChat: {
                 supportChatCount += 1
                 return UIViewController()
@@ -826,7 +840,7 @@ final class AgentThreadListUITests: XCTestCase {
                 openedThreadIds.append(thread.id)
                 return UIViewController()
             },
-            makeNewChat: { _ in UIViewController() },
+            makeNewChat: { _, _ in UIViewController() },
             makeSupportChat: {
                 supportChatCount += 1
                 return UIViewController()
@@ -1456,30 +1470,41 @@ final class AgentThreadListUITests: XCTestCase {
         _ = WalletResourcesBundle.bundle.load()
         let client = try ThreadListUIClient()
         let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
-        let hints = (0..<2).map {
-            AgentHint(id: "hint:\($0)", title: "Suggestion \($0)", subtitle: "Learn", prompt: "Tell me the news \($0)")
+        func makeHints(_ pick: Int) -> [AgentHint] {
+            (0..<2).map {
+                AgentHint(
+                    id: "hint:\(pick):\($0)", title: "Suggestion \(pick) \($0)", subtitle: "Learn",
+                    prompt: "Tell me the news \(pick) \($0)", catalogVersion: "agent-starter-hints-v2"
+                )
+            }
         }
+        var suggestionLoadCount = 0
         let newChat = UIViewController()
         var newQuestion: String?
+        var newEntryPoint: ApiAgentV2EntryPoint?
         let controller = AgentThreadListVC(
             model: model,
             loadConsent: { true },
             acceptConsent: {},
-            makeNewChat: { question in
+            makeNewChat: { question, entryPoint in
                 newQuestion = question
+                newEntryPoint = entryPoint
                 return newChat
             },
-            loadSuggestions: { hints }
+            loadSuggestions: {
+                suggestionLoadCount += 1
+                return makeHints(suggestionLoadCount)
+            }
         )
+        let hints = makeHints(1)
         let navigation = ThreadListTestNavigationController(rootViewController: controller)
         let window = makeKeyWindow(showing: navigation)
         defer { window.isHidden = true }
         let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
         let suggestions = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentHintsSectionView }.first)
-        // Contact Support follows the suggestions
-        try await waitUntil {
-            !model.isLoading && self.descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }.count == hints.count + 1
-        }
+        try await waitUntil { !model.isLoading && !model.items.isEmpty }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(suggestionLoadCount, 0, "Hidden suggestions are picked once they show")
         XCTAssertTrue(suggestions.isHidden)
         XCTAssertEqual(collection.alpha, 1)
         XCTAssertFalse(collection.accessibilityElementsHidden)
@@ -1495,17 +1520,38 @@ final class AgentThreadListUITests: XCTestCase {
         controller.view.layoutIfNeeded()
         let barFrame = controller.bottomBar.convert(controller.bottomBar.bounds, to: controller.view)
         XCTAssertEqual(suggestions.frame.maxY, barFrame.minY - 26, accuracy: 0.5)
-        let buttons = descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }
-        XCTAssertEqual(buttons.map(\.accessibilityLabel), hints.map(\.title) + [lang("$agent_support_contact")])
+        func titles() -> [String?] {
+            descendants(suggestions).compactMap { ($0 as? AgentSuggestionButton)?.accessibilityLabel }
+        }
+        // Contact Support follows the suggestions
+        try await waitUntil { titles() == hints.map(\.title) + [lang("$agent_support_contact")] }
+        XCTAssertEqual(suggestionLoadCount, 1)
 
+        // Typing and a background refresh keep the pick shown
+        controller.bottomBar.composerView.setDraftText("Tell me", focus: false)
+        controller.bottomBar.composerView.clearDraft()
+        await model.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(suggestionLoadCount, 1)
+        XCTAssertEqual(titles(), hints.map(\.title) + [lang("$agent_support_contact")])
+
+        let buttons = descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }
         buttons[1].sendActions(for: .touchUpInside)
         XCTAssertEqual(newQuestion, hints[1].prompt)
+        XCTAssertEqual(newEntryPoint, .emptyState(hintId: hints[1].id, catalogVersion: "agent-starter-hints-v2"))
         XCTAssertTrue(navigation.topViewController === newChat)
 
         controller.bottomBar.onEditingChange?(false)
         XCTAssertFalse(suggestions.isUserInteractionEnabled)
         XCTAssertEqual(collection.alpha, 1)
         XCTAssertFalse(collection.accessibilityElementsHidden)
+
+        // Shown again, the suggestions are a new pick
+        try await waitUntil { navigation.transitionCoordinator == nil }
+        navigation.popToRootViewController(animated: false)
+        controller.bottomBar.onEditingChange?(true)
+        try await waitUntil { titles() == makeHints(2).map(\.title) + [lang("$agent_support_contact")] }
+        XCTAssertEqual(suggestionLoadCount, 2)
     }
 
     func testAnswerBroughtByALoadUnderWayEndsTheRowsStatusAsTheRowMoves() async throws {
@@ -2058,6 +2104,8 @@ final class AgentThreadListUITests: XCTestCase {
         var now = nextDay.addingTimeInterval(-1)
         let (_, _, window, collection) = try await showLoadedList(of: model, rowCount: 30, getCurrentDate: { now })
         defer { window.isHidden = true }
+        // The list loads News beside its chats, so the rows can show before News is asked for
+        try await waitUntil { newsClient.requests.count == 1 }
         collection.contentOffset.y = -collection.adjustedContentInset.top + 600
         collection.layoutIfNeeded()
         let indexPath = IndexPath(item: 0, section: 1)
@@ -2165,7 +2213,8 @@ final class AgentThreadListUITests: XCTestCase {
         title: String?,
         preview: String?,
         isPinned: Bool = false,
-        support: ApiAgentV2ThreadSupport? = nil
+        support: ApiAgentV2ThreadSupport? = nil,
+        digest: ApiAgentV2ThreadDigestCard? = nil
     ) throws -> ApiAgentV2ThreadListItem {
         var thread: [String: Any] = [
             "id": "portfolio-thread",
@@ -2179,6 +2228,9 @@ final class AgentThreadListUITests: XCTestCase {
         ]
         if let support {
             thread["support"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(support))
+        }
+        if let digest {
+            thread["digest"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(digest))
         }
         let data = try JSONSerialization.data(withJSONObject: [
             "thread": thread,

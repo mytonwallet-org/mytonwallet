@@ -1,3 +1,4 @@
+import type { getActions } from '../../index';
 import type { GlobalState } from '../../types';
 import {
   AppState,
@@ -51,6 +52,8 @@ import {
   updateCurrentStaking,
   updateCurrentTransactionInfo,
   updateDappConnectRequest,
+  updatePerpsAssetNavigation,
+  updatePerpsNavigation,
   updateSettings,
 } from '../../reducers';
 import { clearTokenPriceHistory } from '../../reducers/tokens';
@@ -58,16 +61,18 @@ import {
   selectAccountSettings,
   selectCurrentAccount,
   selectCurrentAccountId,
+  selectCurrentAccountPerpsPosition,
   selectCurrentAccountState,
   selectCurrentNetwork,
   selectDefaultOffRampChain,
   selectHasPassword,
+  selectIsContentListOpen,
   selectIsOffRampAllowed,
   selectIsOnRampAllowed,
+  selectIsWalletTabActive,
+  selectPerpsMarketAsset,
 } from '../../selectors';
 import { switchAccount } from '../api/auth';
-
-import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
 import { closeModal } from '../../../components/ui/Modal';
 
@@ -830,10 +835,74 @@ addActionHandler('closeMarket', (global) => {
   return { ...global, isMarketOpen: undefined };
 });
 
+addActionHandler('openMarketSection', (global, actions, { sectionId }) => {
+  return { ...global, marketSectionId: sectionId };
+});
+
+addActionHandler('closeMarketSection', (global) => {
+  return { ...global, marketSectionId: undefined };
+});
+
 addActionHandler('openMarketToken', (global, actions, { slug }) => {
-  setGlobal({ ...global, marketTokenSlug: slug });
+  const { activeContentTab, activityReturnContentTab, currentTokenSlug } = selectCurrentAccountState(global) ?? {};
+  const isWalletTokenOpen = Boolean(currentTokenSlug) && currentTokenSlug !== global.marketTokenSlug;
+
+  global = { ...global, marketTokenSlug: slug };
+
+  // The wallet and Market share the selected token, so the market one closes the wallet one, and the wallet returns
+  // to where its token was opened from
+  if (isWalletTokenOpen && activeContentTab === ContentTab.Activity) {
+    global = updateCurrentAccountState(global, { activeContentTab: activityReturnContentTab ?? ContentTab.Overview });
+  }
+
+  setGlobal(global);
 
   actions.selectToken({ slug });
+});
+
+addActionHandler('openFutures', (global) => {
+  return openSection(global, 'futures');
+});
+
+addActionHandler('closeFutures', (global) => {
+  return { ...global, isFuturesOpen: undefined };
+});
+
+// As on iOS, a market with an open position opens as that position
+addActionHandler('openFuturesMarket', (global, _, { assetId }) => {
+  // A link may name a market the loaded catalogue does not have, and Futures then stays on its home screen
+  if (global.perps.market && !selectPerpsMarketAsset(global, assetId)) return undefined;
+
+  const screen = selectCurrentAccountPerpsPosition(global, assetId) ? 'position' : 'market';
+
+  return updatePerpsAssetNavigation(global, screen, assetId);
+});
+
+addActionHandler('openFuturesPosition', (global, _, { assetId }) => {
+  return updatePerpsAssetNavigation(global, 'position', assetId);
+});
+
+// The Wallet screen also opens a Futures section, so this action opens Futures. A tap on its tab would reset the screen.
+addActionHandler('openFuturesSection', (global, actions, { sectionId }) => {
+  setGlobal(updatePerpsNavigation(global, { screen: 'section', sectionId }));
+  actions.openFutures(undefined, { forceOnHeavyAnimation: true });
+});
+
+addActionHandler('closeFuturesScreen', (global, actions) => {
+  const { navigation } = global.perps;
+  if (navigation.screen === 'home') return undefined;
+
+  // The screen stays while Futures slides away, and `switchToFutures` starts Futures from its home next time
+  if (navigation.isOpenedFromWallet) {
+    actions.switchToWallet();
+    return undefined;
+  }
+
+  if (navigation.screen !== 'section' && navigation.sectionId) {
+    return updatePerpsNavigation(global, { screen: 'section', sectionId: navigation.sectionId });
+  }
+
+  return updatePerpsNavigation(global, { screen: 'home' });
 });
 
 addActionHandler('openPortfolio', (global, actions, payload) => {
@@ -895,25 +964,29 @@ addActionHandler('switchAccountAndOpenUrl', async (global, actions, payload) => 
 });
 
 addActionHandler('switchToWallet', (global: GlobalState, actions) => {
-  const {
-    areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
-  } = global;
-  // Desktop opens the wallet on `Overview`; there `Assets` is a full-list page behind a back button
-  const homeTab = getIsPortrait() ? ContentTab.Assets : ContentTab.Overview;
-  const isHomeTabActive = selectCurrentAccountState(global)?.activeContentTab === homeTab;
-  const isWalletTabActive = !isAgentOpen && !isExploreOpen && !isMarketOpen && !areSettingsOpen && !isPortfolioOpen;
+  const { activeContentTab, nfts } = selectCurrentAccountState(global) ?? {};
+  const isHomeTabActive = activeContentTab === ContentTab.Overview && !selectIsContentListOpen(global);
+  const isWalletTabActive = selectIsWalletTabActive(global);
 
   setGlobal({ ...global, portfolioReturnTo: undefined });
 
   actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
   actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
   actions.closeMarket(undefined, { forceOnHeavyAnimation: true });
+  actions.closeFutures(undefined, { forceOnHeavyAnimation: true });
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
   actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
 
   if (!isHomeTabActive && isWalletTabActive) {
     actions.selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
-    actions.setActiveContentTab({ tab: homeTab }, { forceOnHeavyAnimation: true });
+    actions.setActiveContentTab({ tab: ContentTab.Overview }, { forceOnHeavyAnimation: true });
+
+    if (nfts?.currentCollection) {
+      actions.closeNftCollection(undefined, { forceOnHeavyAnimation: true });
+    }
+    if (nfts?.selectedNfts?.length) {
+      actions.clearNftsSelection(undefined, { forceOnHeavyAnimation: true });
+    }
   }
 });
 
@@ -947,17 +1020,30 @@ addActionHandler('switchToExplore', (global: GlobalState, actions) => {
 });
 
 addActionHandler('switchToMarket', (global: GlobalState, actions) => {
-  const { isMarketOpen } = global;
+  if (global.isMarketOpen) {
+    setGlobal({ ...global, marketSectionId: undefined });
 
-  if (isMarketOpen) return;
+    if (global.marketTokenSlug && selectCurrentAccountState(global)?.currentTokenSlug === global.marketTokenSlug) {
+      actions.closeTokenActivity(undefined, { forceOnHeavyAnimation: true });
+    }
+    return;
+  }
 
-  setGlobal({ ...global, portfolioReturnTo: undefined });
-
-  actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
-  actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
-  actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
-  actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
+  closeOtherSections(global, actions);
   actions.openMarket(undefined, { forceOnHeavyAnimation: true });
+});
+
+addActionHandler('switchToFutures', (global: GlobalState, actions) => {
+  if (global.isFuturesOpen) return updatePerpsNavigation(global, { screen: 'home' });
+
+  // A screen opened from the Wallet screen belongs to it, so Futures does not open on it
+  if (global.perps.navigation.isOpenedFromWallet) {
+    global = updatePerpsNavigation(global, { screen: 'home' });
+  }
+
+  closeOtherSections(global, actions);
+  actions.openFutures(undefined, { forceOnHeavyAnimation: true });
+  return undefined;
 });
 
 addActionHandler('switchToSettings', (global: GlobalState, actions) => {
@@ -1008,3 +1094,12 @@ addActionHandler('setAppLayout', (global, actions, { layout }) => {
     void callApi('setAppLayout', layout);
   }
 });
+
+function closeOtherSections(global: GlobalState, actions: ReturnType<typeof getActions>) {
+  setGlobal({ ...global, portfolioReturnTo: undefined });
+
+  actions.closeAgent(undefined, { forceOnHeavyAnimation: true });
+  actions.closeExplore(undefined, { forceOnHeavyAnimation: true });
+  actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
+  actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
+}

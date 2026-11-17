@@ -6,6 +6,7 @@ public enum EnclaveError: LocalizedError {
     case passcodeRequired
     case passcodeNotConfigured
     case biometricNotConfigured
+    case biometricKeyInvalidated
     case biometricNotAvailable
     case biometricPermissionDenied
     case biometricAuthenticationCanceled
@@ -30,6 +31,8 @@ public enum EnclaveError: LocalizedError {
             return "Passcode not configured"
         case .biometricNotConfigured:
             return "Biometric auth not configured"
+        case .biometricKeyInvalidated:
+            return "Biometric key is no longer available"
         case .biometricNotAvailable:
             return "Biometric authentication is not available"
         case .biometricPermissionDenied:

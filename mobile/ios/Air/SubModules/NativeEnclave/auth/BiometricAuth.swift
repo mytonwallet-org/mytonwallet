@@ -3,7 +3,6 @@ import LocalAuthentication
 
 final class BiometricAuth: EnclaveAuth {
     private let storage: EnclaveStorage
-    private let setupReason = "Use biometrics to protect your wallet"
     private let authReason = "Use biometrics to authorize this action"
 
     init(storage: EnclaveStorage) {
@@ -13,11 +12,21 @@ final class BiometricAuth: EnclaveAuth {
     func setup(masterKey: Data, passcode: String?) async throws {
         _ = passcode
 
-        try HardwareKeyManager.ensureBiometricKey()
-        let context = try await BiometricAuthenticator.authenticate(reason: setupReason)
-        let biometricKey = try HardwareKeyManager.loadBiometricKey(context: context)
-        let encrypted = try AesGcm.encrypt(masterKey, keyData: biometricKey)
-        try storage.storeBiometricMasterKey(encrypted)
+        let context = try await Self.authenticateForSetup()
+        try setup(masterKey: masterKey, context: context)
+    }
+
+    @MainActor
+    static func authenticateForSetup() async throws -> sending LAContext {
+        try await BiometricAuthenticator.authenticate(reason: "Use biometrics to protect your wallet")
+    }
+
+    func setup(masterKey: Data, context: LAContext) throws {
+        try Self.setup(
+            masterKey: masterKey,
+            loadBiometricKey: { try HardwareKeyManager.loadBiometricKeyForSetup(context: context) },
+            storeBiometricMasterKey: storage.storeBiometricMasterKey
+        )
     }
 
     func authorize(passcode: String?) async throws -> Data {
@@ -27,17 +36,38 @@ final class BiometricAuth: EnclaveAuth {
             throw EnclaveError.biometricNotConfigured
         }
         let context = try await BiometricAuthenticator.authenticate(reason: authReason)
-        let biometricKey = try HardwareKeyManager.loadBiometricKey(context: context)
-        return try AesGcm.decrypt(encrypted, keyData: biometricKey)
+        return try Self.authorize(
+            encrypted: encrypted,
+            loadBiometricKey: { try HardwareKeyManager.loadBiometricKey(context: context) }
+        )
     }
 
     func destroy() async {
         HardwareKeyManager.deleteBiometricKey()
         storage.removeBiometricMasterKey()
     }
+
+    static func setup(
+        masterKey: Data,
+        loadBiometricKey: () throws -> Data,
+        storeBiometricMasterKey: (String) throws -> Void
+    ) throws {
+        let biometricKey = try loadBiometricKey()
+        let encrypted = try AesGcm.encrypt(masterKey, keyData: biometricKey)
+        try storeBiometricMasterKey(encrypted)
+    }
+
+    static func authorize(encrypted: String, loadBiometricKey: () throws -> Data) throws -> Data {
+        let biometricKey = try loadBiometricKey()
+        do {
+            return try AesGcm.decrypt(encrypted, keyData: biometricKey)
+        } catch {
+            throw EnclaveError.biometricKeyInvalidated
+        }
+    }
 }
 
-private enum BiometricAuthenticator {
+enum BiometricAuthenticator {
     @MainActor
     static func authenticate(reason: String) async throws(EnclaveError) -> sending LAContext {
         let context = LAContext()
@@ -57,16 +87,21 @@ private enum BiometricAuthenticator {
             }
             return context
         } catch let error as LAError {
-            switch error.code {
-            case .userCancel, .systemCancel, .appCancel:
-                throw EnclaveError.biometricAuthenticationCanceled
-            case .biometryNotAvailable:
-                throw EnclaveError.biometricPermissionDenied
-            default:
-                throw EnclaveError.biometricAuthenticationFailed(error.localizedDescription)
-            }
+            throw mapAuthenticationError(error)
         } catch {
             throw EnclaveError.biometricAuthenticationFailed(error.localizedDescription)
+        }
+    }
+
+    static func mapAuthenticationError(_ error: LAError) -> EnclaveError {
+        switch error.code {
+        // "Enter Password" in the system prompt chooses the wallet passcode the caller already offers
+        case .userCancel, .systemCancel, .appCancel, .userFallback:
+            .biometricAuthenticationCanceled
+        case .biometryNotAvailable:
+            .biometricPermissionDenied
+        default:
+            .biometricAuthenticationFailed(error.localizedDescription)
         }
     }
 }

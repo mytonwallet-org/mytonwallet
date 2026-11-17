@@ -118,6 +118,8 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     let model: AgentModel
+    /// The screen has gone since it last showed its chat: it shows the chat anew, unlike after a canceled back swipe
+    private var hasLeftScreen = true
     private lazy var chatActions = AgentChatActions(
         model: model, viewController: self,
         cancelDictation: { [weak self] in self?.dictationController.cancel() },
@@ -428,22 +430,16 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         isNavigationTitleVisible = true
         updateAccessibilityStatus()
         backSwipe.install(for: self)
-        if let threadId = (model as? AgentV2Model)?.threadId, shownThreadId == nil {
-            shownThreadId = threadId
-            AgentThreadReadState.shared.chatDidAppear(threadId: threadId)
-        }
+        markLoadedHistorySeenIfVisible()
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         disappearanceCount += 1
         hintsSectionView.isActive = false
-        // Everything the chat showed counts as seen, including the thread a new chat created while on screen
-        if let threadId = shownThreadId ?? (model as? AgentV2Model)?.threadId {
-            AgentThreadReadState.shared.chatDidDisappear(
-                threadId: threadId,
-                seenMessageCount: (model as? AgentV2Model)?.seenMessageCount
-            )
+        if let model = model as? AgentV2Model, let seenMessageCount = model.seenMessageCount,
+           let threadId = shownThreadId ?? model.threadId {
+            AgentThreadReadState.shared.chatDidDisappear(threadId: threadId, seenMessageCount: seenMessageCount)
         }
         shownThreadId = nil
         backSwipe.restore()
@@ -457,8 +453,17 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     public override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        hasLeftScreen = true
         // Rows that were dissolving as the chat went are gone when it shows again
         removeMessageDissolveView()
+    }
+
+    func markLoadedHistorySeenIfVisible() {
+        guard isNavigationTitleVisible, shownThreadId == nil,
+              let model = model as? AgentV2Model, model.seenMessageCount != nil,
+              let threadId = model.threadId else { return }
+        shownThreadId = threadId
+        AgentThreadReadState.shared.chatDidAppear(threadId: threadId)
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -1106,10 +1111,11 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         let newsPostRegistration = UICollectionView.CellRegistration<AgentNewsPostCell, AgentItemID> { [weak self] cell, _, itemID in
             guard let self,
                   case .message(let message)? = self.model.item(for: itemID),
-                  let post = (self.model as? AgentV2Model)?.newsPostContent(for: message) else { return }
+                  let model = self.model as? AgentV2Model,
+                  let post = model.newsPostContent(for: message) else { return }
             self.newsPostArrival?.hidePost(in: cell)
             cell.configure(with: post)
-            cell.configureFollowups(message.controls, isLoading: model.itemIDs.last == message.id && !message.isStreaming)
+            cell.configureFollowups(message.controls, isLoading: model.isLoadingPostFollowups(for: message))
             cell.onFollowupTap = self.makeControlTapHandler(for: message) { [weak cell] in
                 cell?.getFollowupButton(controlID: $0)
             }
@@ -1673,7 +1679,8 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     private func setModelActive(_ isActive: Bool) {
         if let model = model as? AgentV2Model {
-            model.setPresentationActive(isActive, owner: ObjectIdentifier(self))
+            model.setPresentationActive(isActive, owner: ObjectIdentifier(self), isShownAnew: isActive && hasLeftScreen)
+            if isActive { hasLeftScreen = false }
         } else {
             model.isActive = isActive
         }

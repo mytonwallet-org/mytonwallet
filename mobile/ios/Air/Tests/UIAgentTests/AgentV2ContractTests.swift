@@ -3,6 +3,7 @@ import Dependencies
 import XCTest
 import UIKit
 @testable import UIAgent
+import UIComponents
 import WalletContext
 @testable import WalletCore
 import WalletResources
@@ -700,6 +701,7 @@ final class AgentV2ContractTests: XCTestCase {
         let model = AgentV2Model(client: client, digestRequest: .init(id: digestId)) { _ in }
         defer { model.stop() }
         await model.waitForInitialLoad()
+        XCTAssertEqual(model.chatTitleText, AgentV2Model.formatDigestDiscussionTitle(windowEnd: thread.digest!.windowEnd))
         let postID = try XCTUnwrap(model.newsPostItemID)
         XCTAssertEqual(model.itemIDs.filter { model.message(for: $0)?.newsPost == true }, [postID])
         XCTAssertFalse(model.itemIDs.contains { model.message(for: $0)?.text == "Daily digest" })
@@ -1502,8 +1504,10 @@ final class AgentV2ContractTests: XCTestCase {
             model: AgentThreadListModel(client: client, newsClient: ThreadListNewsClient()),
             loadConsent: { true },
             acceptConsent: {},
-            makeNewChat: { query in
-                let controller = AgentEntryPoint.makeNewChatViewController(query: query, preloader: preloader)
+            makeNewChat: { query, entryPoint in
+                let controller = AgentEntryPoint.makeNewChatViewController(
+                    query: query, entryPoint: entryPoint, preloader: preloader
+                )
                 chat = controller as? AgentVC
                 return controller
             },
@@ -2197,7 +2201,10 @@ final class AgentV2ContractTests: XCTestCase {
                 XCTAssertEqual(model.chatTitleText, "Feed headline")
                 XCTAssertEqual(model.news?.body, "News body")
             case .digest:
-                XCTAssertEqual(model.chatTitleText, lang("$agent_digest_title"))
+                XCTAssertEqual(
+                    model.chatTitleText, AgentV2Model.formatDigestDiscussionTitle(windowEnd: makeFeedDigest().deliveredAt)
+                )
+                XCTAssertEqual(model.chatIcon, "🗓")
                 XCTAssertEqual(model.newsPostContent?.digestHeadlines.map(\.headline), ["Feed headline"])
             }
             let postID = try XCTUnwrap(model.newsPostItemID)
@@ -2212,6 +2219,9 @@ final class AgentV2ContractTests: XCTestCase {
             XCTAssertEqual(model.message(for: inputID)?.text, "First question")
             await waitForRequest("createThread", client: client)
             XCTAssertEqual(discussionThreadRequestCount(kind, in: client), 1)
+            if kind == .digest {
+                XCTAssertEqual(client.digestThreadRequests, [.init(id: Self.deferredDigestId)])
+            }
             XCTAssertEqual(client.hydrationRequestCount, 0)
             XCTAssertTrue(client.startedCommands.isEmpty)
             client.resumeThreadCreation()
@@ -2720,8 +2730,16 @@ final class AgentV2ContractTests: XCTestCase {
                 await model.waitForInitialLoad()
                 let postID = try XCTUnwrap(model.newsPostItemID)
                 let controls = try XCTUnwrap(model.message(for: postID)).controls
-                XCTAssertEqual(model.chatTitleText, "Market discussion")
-                XCTAssertEqual(model.chatIcon, "📰")
+                switch kind {
+                case .news:
+                    XCTAssertEqual(model.chatTitleText, "Market discussion")
+                    XCTAssertEqual(model.chatIcon, "📰")
+                case .digest:
+                    XCTAssertEqual(
+                        model.chatTitleText, AgentV2Model.formatDigestDiscussionTitle(windowEnd: makeFeedDigest().deliveredAt)
+                    )
+                    XCTAssertEqual(model.chatIcon, "🗓")
+                }
                 XCTAssertEqual(controls.map(\.title), [question, "What happens next?"])
                 XCTAssertTrue(controls.allSatisfy { $0.kind == .followup && $0.isEnabled })
                 XCTAssertEqual(discussionThreadRequestCount(kind, in: client), 0)
@@ -2731,6 +2749,9 @@ final class AgentV2ContractTests: XCTestCase {
                 XCTAssertEqual(model.itemIDs.compactMap { model.message(for: $0) }.filter { $0.role == .user }.map(\.text), [question])
                 await waitForHydrationRequest(client, count: 1)
                 XCTAssertEqual(discussionThreadRequestCount(kind, in: client), 1)
+                if kind == .digest {
+                    XCTAssertEqual(client.digestThreadRequests, [.init(id: Self.deferredDigestId, followup: question)])
+                }
                 XCTAssertTrue(client.startedCommands.isEmpty)
                 client.resumeBlockedHydration()
                 try await waitForDiscussionUI { client.startedCommands.count == 1 }
@@ -3639,6 +3660,295 @@ final class AgentV2ContractTests: XCTestCase {
             XCTAssertEqual(client.problemReportAvailabilityRequestCount, 0)
             XCTAssertTrue(client.startedCommands.isEmpty)
         }
+    }
+
+    @MainActor
+    func testFeedRefreshBringsAnOpenDeferredNewsDiscussionTheSuggestionsItsCardLacked() async throws {
+        let naming = ApiAgentV2NewsFeedItem.DiscussionNaming(
+            title: "Discuss the update", icon: "📈", followups: ["What changed?", "Who is affected?", "What comes next?"]
+        )
+        let newerNews = ApiAgentV2NewsFeedItem(
+            eventId: 308, deliveredAt: "2026-10-20T11:00:00Z", headline: "Newer headline", body: "Newer body"
+        )
+        // The server names the news before the refresh the opening asks for, or after it and before the next one
+        for isNamedLater in [false, true] {
+            let preloader = AgentPreloader(client: FakeAgentV2Client())
+            defer { preloader.setWalletReady(false) }
+            let defaultsName = "AgentV2ContractTests.LateNaming.\(UUID().uuidString)"
+            let readState = AgentNewsReadState(userDefaults: UserDefaults(suiteName: defaultsName)!)
+            addTeardownBlock { UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName) }
+            let newsClient = ThreadListNewsClient(items: [makeFeedNewsItem()])
+            let feedModel = makeDiscussionFeedModel(threadId: nil, newsClient: newsClient, readState: readState)
+            let feed = AgentNewsFeedVC(model: feedModel, preloader: preloader)
+            let appearance = DiscussionNavigationObserver()
+            let (window, navigation) = presentDiscussionFeed(feed, navigationDelegate: appearance)
+            defer {
+                window.isHidden = true
+                navigation.setViewControllers([], animated: false)
+            }
+            let open = try await discussionAction(in: feed, window: window)
+            try await waitForDiscussionUI { appearance.shownController === feed }
+            XCTAssertEqual(newsClient.requests.count, 1)
+            newsClient.items = [makeFeedNewsItem(naming: isNamedLater ? nil : naming), newerNews]
+
+            open()
+
+            let chat = try XCTUnwrap(navigation.topViewController as? AgentVC)
+            let model = try chatModel(in: chat)
+            let postID = try XCTUnwrap(model.newsPostItemID)
+            try await waitForDiscussionUI {
+                newsClient.requests.count == 2
+                    && presentedMessage(postID, in: model).map { !model.isLoadingPostFollowups(for: $0) } == true
+            }
+            // The news the hidden feed hasn't shown wait for its own refresh, which marks them read
+            XCTAssertEqual(feedModel.items.map(\.eventId), [307], "isNamedLater: \(isNamedLater)")
+            XCTAssertEqual(readState.unreadCount(items: [newerNews]), 1, "isNamedLater: \(isNamedLater)")
+            if isNamedLater {
+                XCTAssertEqual(presentedMessage(postID, in: model)?.controls.count, 0)
+                newsClient.items = [makeFeedNewsItem(naming: naming)]
+                await feedModel.refresh()
+            }
+            try await waitForDiscussionUI { presentedMessage(postID, in: model)?.controls.count == 3 }
+            XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), naming.followups)
+            XCTAssertEqual(model.chatTitleText, naming.title)
+            XCTAssertEqual(model.chatIcon, naming.icon)
+            let collection = try XCTUnwrap(chat.view.subviews.compactMap { $0 as? UICollectionView }.first)
+            var cell: AgentNewsPostCell?
+            try await waitForDiscussionUI {
+                window.layoutIfNeeded()
+                cell = collection.visibleCells.compactMap { $0 as? AgentNewsPostCell }.first
+                return (0..<3).allSatisfy { cell?.getFollowupButton(controlID: "discussion-followup:\($0)") != nil }
+            }
+            XCTAssertEqual(cell?.showsFollowupPlaceholders, false, "isNamedLater: \(isNamedLater)")
+            XCTAssertEqual(newsClient.requests.map(\.cursor), isNamedLater ? [nil, nil, nil] : [nil, nil])
+        }
+    }
+
+    @MainActor
+    func testNewsDiscussionKeepsItsSuggestionsWhenItsCardComesWithoutThem() async throws {
+        let naming = ApiAgentV2NewsFeedItem.DiscussionNaming(
+            title: "Discuss the update", followups: ["What changed?", "Who is affected?", "What comes next?"]
+        )
+        let preloader = AgentPreloader(client: FakeAgentV2Client())
+        defer { preloader.setWalletReady(false) }
+        let newsClient = ThreadListNewsClient(items: [makeFeedNewsItem(naming: naming)])
+        let feedModel = makeDiscussionFeedModel(threadId: nil, newsClient: newsClient)
+        let feed = AgentNewsFeedVC(model: feedModel, preloader: preloader)
+        let appearance = DiscussionNavigationObserver()
+        let (window, navigation) = presentDiscussionFeed(feed, navigationDelegate: appearance)
+        defer {
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+        }
+        let open = try await discussionAction(in: feed, window: window)
+        try await waitForDiscussionUI { appearance.shownController === feed }
+        open()
+        let model = try chatModel(in: try XCTUnwrap(navigation.topViewController as? AgentVC))
+        let postID = try XCTUnwrap(model.newsPostItemID)
+        XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), naming.followups)
+        newsClient.items = [makeFeedNewsItem()]
+
+        await feedModel.refresh()
+        XCTAssertTrue(preloader.acquireNewsModel(item: makeFeedNewsItem(), locale: "en") { _ in } === model)
+
+        XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), naming.followups)
+        XCTAssertEqual(model.chatTitleText, naming.title)
+        XCTAssertEqual(newsClient.requests.count, 2, "A discussion that has its suggestions asks the feed for nothing")
+    }
+
+    @MainActor
+    func testFeedRefreshLeavesTheServerSuggestionsOfADiscussionWithMessages() async throws {
+        let thread = try decodeNewsThread(id: "news-thread", eventId: 307, headline: "Feed headline", messageCount: 1)
+        let followup = ["id": "adadadad-adad-4dad-8dad-adadadadadad", "kind": "suggested_prompt", "text": "Server suggestion"]
+        let history = try decodeHydration(threadId: thread.id, messages: [
+            newsPostMessage(id: "saved-post", text: "Feed headline", role: "assistant", newsPost: true, followups: [followup])
+        ], thread: thread)
+        let preloader = AgentPreloader(client: FakeAgentV2Client(hydrationResult: history))
+        defer { preloader.setWalletReady(false) }
+        // The card's suggestions are those of a discussion waiting for its thread, which this one isn't
+        let newsClient = ThreadListNewsClient(items: [makeFeedNewsItem(
+            naming: .init(title: "Discuss the update", followups: ["Card suggestion"]), threadId: thread.id
+        )])
+        let feedModel = makeDiscussionFeedModel(threadId: thread.id, newsClient: newsClient, findThread: { $0 == thread.id ? thread : nil })
+        let feed = AgentNewsFeedVC(model: feedModel, preloader: preloader)
+        let appearance = DiscussionNavigationObserver()
+        let (window, navigation) = presentDiscussionFeed(feed, navigationDelegate: appearance)
+        defer {
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+        }
+        let open = try await discussionAction(in: feed, window: window)
+        try await waitForDiscussionUI { appearance.shownController === feed }
+        open()
+        let model = try chatModel(in: try XCTUnwrap(navigation.topViewController as? AgentVC))
+        await model.waitForInitialLoad()
+        let postID = try XCTUnwrap(model.newsPostItemID)
+        XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), ["Server suggestion"])
+        newsClient.items = [makeFeedNewsItem(
+            naming: .init(title: "Discuss the update", followups: ["Feed suggestion"]), threadId: thread.id
+        )]
+
+        await feedModel.refresh()
+
+        XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), ["Server suggestion"])
+        XCTAssertEqual(newsClient.requests.count, 2)
+    }
+
+    @MainActor
+    func testDeferredNewsDiscussionOpenedFromADigestHeadlineTakesTheSuggestionsOfTheLatestNews() async throws {
+        let naming = ApiAgentV2NewsFeedItem.DiscussionNaming(
+            title: "Discuss the update", followups: ["What changed?", "Who is affected?", "What comes next?"]
+        )
+        let preloader = AgentPreloader(client: FakeAgentV2Client())
+        defer { preloader.setWalletReady(false) }
+        let defaultsName = "AgentV2ContractTests.DigestsView.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: defaultsName)!
+        addTeardownBlock { UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName) }
+        let settings = AgentNewsNotificationSettings(userDefaults: defaults)
+        settings.setNewsFeedView(.digests)
+        let newsClient = ThreadListNewsClient(items: [makeFeedNewsItem()])
+        newsClient.digests = [makeFeedDigest()]
+        // The Digests view has the news of an All page loaded before, without the naming
+        let feedModel = AgentNewsFeedModel(
+            client: newsClient, readState: AgentNewsReadState(userDefaults: defaults), language: { "en" },
+            cachedPage: AgentNewsCachedPage(
+                page: .init(locale: "en", items: [makeFeedNewsItem()]), language: "en",
+                schedule: .init(hour: settings.digestHour, minute: settings.digestMinute, timeZone: TimeZone.current.identifier)
+            ),
+            digestSettings: settings
+        )
+        let feed = AgentNewsFeedVC(model: feedModel, preloader: preloader)
+        let appearance = DiscussionNavigationObserver()
+        let (window, navigation) = presentDiscussionFeed(feed, navigationDelegate: appearance)
+        defer {
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+        }
+        func descendants(of view: UIView) -> [UIView] { view.subviews.flatMap { [$0] + descendants(of: $0) } }
+        let collection = try XCTUnwrap(feed.view.subviews.compactMap { $0 as? UICollectionView }.first)
+        var headline: UIButton?
+        try await waitForDiscussionUI {
+            window.layoutIfNeeded()
+            headline = collection.visibleCells.compactMap { $0 as? AgentNewsDigestCardCell }
+                .flatMap { descendants(of: $0) }.compactMap { $0 as? UIButton }
+                .first { $0.accessibilityIdentifier == "AgentNewsDigestHeadline-307" }
+            return headline != nil && !feedModel.isLoading
+        }
+        try await waitForDiscussionUI { appearance.shownController === feed }
+        let shownRequestCount = newsClient.requests.count
+        newsClient.items = [makeFeedNewsItem(naming: naming)]
+
+        try XCTUnwrap(headline).sendActions(for: .touchUpInside)
+
+        let model = try chatModel(in: try XCTUnwrap(navigation.topViewController as? AgentVC))
+        XCTAssertNil(model.threadId)
+        let postID = try XCTUnwrap(model.newsPostItemID)
+        try await waitForDiscussionUI { presentedMessage(postID, in: model)?.controls.count == 3 }
+        XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), naming.followups)
+        let requests = newsClient.requests.dropFirst(shownRequestCount)
+        XCTAssertEqual(requests.map(\.view), [.all])
+        XCTAssertEqual(requests.map(\.cursor), [nil])
+        // The feed stays in its view with its digests
+        XCTAssertEqual(feedModel.view, .digests)
+        XCTAssertEqual(feedModel.digests.map(\.id), [makeFeedDigest().id])
+    }
+
+    @MainActor
+    func testDeferredNewsDiscussionWaitsForSuggestionsOnlyWhileTheFeedRefreshItAskedForRuns() async throws {
+        for fails in [false, true] {
+            let client = FakeAgentV2Client()
+            let preloader = AgentPreloader(client: client)
+            defer { preloader.setWalletReady(false) }
+            let newsClient = ThreadListNewsClient(items: [makeFeedNewsItem()])
+            let feed = AgentNewsFeedVC(model: makeDiscussionFeedModel(threadId: nil, newsClient: newsClient), preloader: preloader)
+            let appearance = DiscussionNavigationObserver()
+            let (window, navigation) = presentDiscussionFeed(feed, navigationDelegate: appearance)
+            defer {
+                newsClient.releaseFirstPages()
+                window.isHidden = true
+                navigation.setViewControllers([], animated: false)
+            }
+            let open = try await discussionAction(in: feed, window: window)
+            try await waitForDiscussionUI { appearance.shownController === feed }
+            newsClient.holdsFirstPages = true
+            newsClient.shouldFail = fails
+
+            open()
+
+            let chat = try XCTUnwrap(navigation.topViewController as? AgentVC)
+            let model = try chatModel(in: chat)
+            await model.waitForInitialLoad()
+            try await waitForDiscussionUI { newsClient.heldFirstPageCount == 1 }
+            let postID = try XCTUnwrap(model.newsPostItemID)
+            XCTAssertTrue(model.isLoadingPostFollowups(for: try XCTUnwrap(presentedMessage(postID, in: model))))
+            // The placeholders come once the suggestions have taken a second
+            let collection = try XCTUnwrap(chat.view.subviews.compactMap { $0 as? UICollectionView }.first)
+            var cell: AgentNewsPostCell?
+            for _ in 0..<300 where cell?.showsFollowupPlaceholders != true {
+                try await Task.sleep(for: .milliseconds(10))
+                window.layoutIfNeeded()
+                cell = collection.visibleCells.compactMap { $0 as? AgentNewsPostCell }.first
+            }
+            XCTAssertEqual(cell?.showsFollowupPlaceholders, true, "fails: \(fails)")
+            let items = model.itemIDs.map { presentedMessage($0, in: model)?.text }
+
+            newsClient.releaseFirstPages()
+
+            try await waitForDiscussionUI {
+                window.layoutIfNeeded()
+                return cell?.showsFollowupPlaceholders == false
+            }
+            XCTAssertFalse(model.isLoadingPostFollowups(for: try XCTUnwrap(presentedMessage(postID, in: model))))
+            XCTAssertEqual(cell?.newsView.hasTail, true)
+            XCTAssertEqual(newsClient.requests.map(\.cursor), [nil, nil], "fails: \(fails)")
+            // The feed's failure stays the feed's: the chat keeps what it showed and takes a question
+            XCTAssertEqual(model.itemIDs.map { presentedMessage($0, in: model)?.text }, items, "fails: \(fails)")
+            XCTAssertFalse(model.itemIDs.contains { presentedMessage($0, in: model)?.isFailureCaption == true })
+            XCTAssertNil(model.initialLoadFailure)
+            XCTAssertTrue(model.canSendMessage(draftText: "First question"), "fails: \(fails)")
+        }
+    }
+
+    @MainActor
+    func testFeedRefreshADeferredNewsDiscussionAskedForGivesWayToANewerFirstPage() async throws {
+        let stale = ApiAgentV2NewsFeedItem.DiscussionNaming(title: "Stale", followups: ["Stale suggestion"])
+        let latest = ApiAgentV2NewsFeedItem.DiscussionNaming(
+            title: "Discuss the update", followups: ["What changed?", "Who is affected?", "What comes next?"]
+        )
+        let preloader = AgentPreloader(client: FakeAgentV2Client())
+        defer { preloader.setWalletReady(false) }
+        let newsClient = ThreadListNewsClient(items: [makeFeedNewsItem()])
+        let feedModel = makeDiscussionFeedModel(threadId: nil, newsClient: newsClient)
+        let feed = AgentNewsFeedVC(model: feedModel, preloader: preloader)
+        let appearance = DiscussionNavigationObserver()
+        let (window, navigation) = presentDiscussionFeed(feed, navigationDelegate: appearance)
+        defer {
+            newsClient.releaseFirstPages()
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+        }
+        let open = try await discussionAction(in: feed, window: window)
+        try await waitForDiscussionUI { appearance.shownController === feed }
+        newsClient.holdsFirstPages = true
+        open()
+        let model = try chatModel(in: try XCTUnwrap(navigation.topViewController as? AgentVC))
+        let postID = try XCTUnwrap(model.newsPostItemID)
+        try await waitForDiscussionUI { newsClient.heldFirstPageCount == 1 }
+        newsClient.holdsFirstPages = false
+        newsClient.items = [makeFeedNewsItem(naming: latest)]
+        await feedModel.refresh()
+        XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), latest.followups)
+        newsClient.items = [makeFeedNewsItem(naming: stale)]
+
+        newsClient.releaseFirstPages()
+
+        try await waitForDiscussionUI {
+            presentedMessage(postID, in: model).map { !model.isLoadingPostFollowups(for: $0) } == true
+        }
+        XCTAssertEqual(newsClient.requests.count, 3)
+        XCTAssertEqual(feedModel.items.map(\.discussionNaming), [latest])
+        XCTAssertEqual(presentedMessage(postID, in: model)?.controls.map(\.title), latest.followups)
+        XCTAssertEqual(model.chatTitleText, latest.title)
     }
 
     @MainActor
@@ -4665,6 +4975,167 @@ final class AgentV2ContractTests: XCTestCase {
     }
 
     @MainActor
+    func testSuggestionTappedUnderTheListAsksItsTitleFromTheEmptyState() async throws {
+        let client = FakeAgentV2Client(
+            hydrationResult: try decodeHydration(threadId: "list-suggestion", messages: []), shouldCompleteRun: true
+        )
+        client.hintsResult = try decodeStarterHints(#"[{"id":"action.send","group":"action"}]"#)
+        let preloader = AgentPreloader(client: client)
+        let list = AgentThreadListVC(
+            model: AgentThreadListModel(client: client, newsClient: ThreadListNewsClient()),
+            preloader: preloader,
+            loadConsent: { true },
+            acceptConsent: {}
+        )
+        let navigation = ListQuestionTestNavigationController(rootViewController: list)
+        let window = makeKeyWindow(showing: navigation)
+        defer {
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+            preloader.setWalletReady(false)
+        }
+        window.layoutIfNeeded()
+        func findButtons(in view: UIView) -> [AgentSuggestionButton] {
+            view.subviews.flatMap { ($0 as? AgentSuggestionButton).map { [$0] } ?? findButtons(in: $0) }
+        }
+        // The field's focus shows the suggestions once the consent has loaded
+        try await waitForDiscussionUI {
+            list.bottomBar.onEditingChange?(true)
+            return findButtons(in: list.view).contains { $0.accessibilityIdentifier == "agent_suggestion" }
+        }
+        let button = try XCTUnwrap(findButtons(in: list.view).first { $0.accessibilityIdentifier == "agent_suggestion" })
+        button.sendActions(for: .touchUpInside)
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: lang("$agent_hint_action_send_title"))])
+        XCTAssertEqual(
+            client.startedCommands.map(\.entryPoint),
+            [.emptyState(hintId: "action.send", catalogVersion: "agent-starter-hints-v2")]
+        )
+    }
+
+    @MainActor
+    func testEmptyChatPicksItsHintsOncePerScreenAndKeepsThemWhileTheScreenShows() async throws {
+        try await withAccountStores {
+            let history = try decodeHydration(threadId: "empty", messages: [])
+            let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true)
+            client.hintsResult = try initialHints()
+            let model = AgentV2Model(
+                client: client, thread: history.thread, activeAccount: { Self.makeWalletAccount(id: "wallet") }
+            )
+            defer { model.stop() }
+            await model.waitForInitialLoad()
+            let first = AgentVC(model: model)
+            first.loadViewIfNeeded()
+            first.viewIsAppearing(false)
+            XCTAssertEqual(client.hintsRequestCount, 1)
+            XCTAssertEqual(client.hintsWalletStates, [nil], "Balances that have not loaded give no wallet state")
+            XCTAssertEqual(client.hintsHosts.map { $0?.activeAccountId }, ["wallet"], "The hints read the active account's actions")
+            XCTAssertEqual(model.visibleHints.map(\.id), ["learn.swap", AgentHint.supportRequest.id])
+
+            // The chat loading its history again, typing and a canceled back swipe keep the pick
+            client.hintsResult = try decodeStarterHints(#"[{"id":"agent.capabilities","group":"learn"}]"#)
+            model.retryLoad()
+            await waitForHydrationRequest(client, count: 2)
+            first.composerView.setDraftText("What can", focus: false)
+            first.viewWillDisappear(false)
+            first.viewIsAppearing(false)
+            for _ in 0..<20 { await Task.yield() }
+            XCTAssertEqual(client.hintsRequestCount, 1)
+            XCTAssertEqual(model.visibleHints.map(\.id), ["learn.swap", AgentHint.supportRequest.id])
+
+            // The next screen asks for a new pick
+            first.viewWillDisappear(false)
+            let second = AgentVC(model: model)
+            second.loadViewIfNeeded()
+            second.viewIsAppearing(false)
+            try await waitForDiscussionUI { model.visibleHints.first?.id == "agent.capabilities" }
+            XCTAssertEqual(client.hintsRequestCount, 2)
+
+            // The same screen shown again once it was gone asks for a new pick
+            client.hintsResult = try decodeStarterHints(#"[{"id":"market.today","group":"market"}]"#)
+            second.viewWillDisappear(false)
+            second.viewDidDisappear(false)
+            second.viewIsAppearing(false)
+            try await waitForDiscussionUI { model.visibleHints.first?.id == "market.today" }
+            XCTAssertEqual(client.hintsRequestCount, 3)
+
+            // So does the chat cleared after a question
+            client.hintsResult = try decodeStarterHints(#"[{"id":"news.today","group":"market"}]"#)
+            model.send(text: "First question")
+            try await waitForDiscussionUI { client.startedCommands.count == 1 && model.canClearChat }
+            model.clearChat(animated: false)
+            try await waitForDiscussionUI { model.visibleHints.first?.id == "news.today" }
+            XCTAssertEqual(client.hintsRequestCount, 4)
+
+            // A failed pick shows no hints, and Contact Support stays
+            second.viewWillDisappear(false)
+            client.hintsResult = nil
+            let third = AgentVC(model: model)
+            third.loadViewIfNeeded()
+            third.viewIsAppearing(false)
+            try await waitForDiscussionUI { client.hintsRequestCount == 5 }
+            try await waitForDiscussionUI { model.visibleHints.map(\.id) == [AgentHint.supportRequest.id] }
+        }
+    }
+
+    @MainActor
+    func testListAndSearchHintsGoWithTheActiveAccountsContextWithoutPublishingIt() async throws {
+        try await withAccountStores {
+            let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "unused", messages: []))
+            client.hintsResult = try decodeStarterHints(#"[{"id":"action.swap","group":"action"}]"#)
+            let suggestions = try await AgentSearchProvider.shared.loadSuggestions(
+                client: client, activeAccount: Self.makeWalletAccount(id: "wallet")
+            )
+            XCTAssertEqual(suggestions.map(\.id), ["action.swap"])
+            XCTAssertEqual(suggestions.map(\.catalogVersion), ["agent-starter-hints-v2"])
+            XCTAssertEqual(client.hintsWalletStates, [nil])
+            XCTAssertEqual(client.hintsHosts.map { $0?.activeAccountId }, ["wallet"])
+            XCTAssertEqual(client.hostContextUpdateCount, 0, "Publishing the context stays with the chat")
+
+            // An unknown wallet state goes as `null`, which keeps the context the second argument
+            let host = try XCTUnwrap(client.hintsHosts.first ?? nil)
+            let arguments = try JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(asAnyEncodables(nil as ApiAgentV2HintWalletState?, host))
+            ) as? [Any]
+            XCTAssertEqual(arguments?.count, 2)
+            XCTAssertTrue(arguments?.first is NSNull)
+            XCTAssertEqual((arguments?.last as? [String: Any])?["activeAccountId"] as? String, "wallet")
+
+            // A known balance goes as its state
+            client.hintWalletStateResult = .funded
+            _ = try await AgentSearchProvider.shared.loadSuggestions(
+                client: client, activeAccount: Self.makeWalletAccount(id: "wallet")
+            )
+            XCTAssertEqual(client.hintsWalletStates, [nil, .funded])
+        }
+    }
+
+    @MainActor
+    func testStarterHintTappedInAnEmptyChatAsksItsTitleFromTheEmptyState() async throws {
+        let history = try decodeHydration(threadId: "empty", messages: [])
+        let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true)
+        client.hintsResult = try decodeStarterHints(#"[{"id":"wallet.assets","group":"wallet"}]"#)
+        let model = AgentV2Model(client: client, thread: history.thread)
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        let chat = AgentVC(model: model)
+        let window = makeKeyWindow(showing: UINavigationController(rootViewController: chat))
+        defer { window.isHidden = true }
+        func findButtons(in view: UIView) -> [AgentSuggestionButton] {
+            view.subviews.flatMap { ($0 as? AgentSuggestionButton).map { [$0] } ?? findButtons(in: $0) }
+        }
+        try await waitForDiscussionUI { findButtons(in: chat.view).contains { $0.accessibilityIdentifier == "agent_suggestion" } }
+        let button = try XCTUnwrap(findButtons(in: chat.view).first { $0.accessibilityIdentifier == "agent_suggestion" })
+        button.sendActions(for: .touchUpInside)
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: lang("$agent_hint_assets_prompt"))])
+        XCTAssertEqual(
+            client.startedCommands.map(\.entryPoint),
+            [.emptyState(hintId: "wallet.assets", catalogVersion: "agent-starter-hints-v2")]
+        )
+    }
+
+    @MainActor
     func testEmptyChatWaitsForInitialSuggestions() async throws {
         let client = FakeAgentV2Client(
             hydrationResult: try decodeHydration(threadId: "thread-a", messages: []), blockedHydrationAttempt: 1
@@ -4811,9 +5282,24 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertTrue(model.itemIDs.contains { if case .typingIndicator? = model.item(for: $0) { return true }; return false })
     }
 
-    private func initialHints() throws -> ApiAgentV2HintsResponse {
-        try JSONDecoder().decode(ApiAgentV2HintsResponse.self, from: Data(
-            #"{"protocolVersion":2,"catalogVersion":"initial","items":[{"id":"learn.swap"}]}"#.utf8
+    /// The host context reads the active account and its saved addresses from their stores
+    @MainActor
+    private func withAccountStores(_ operation: () async throws -> Void) async throws {
+        try await withDependencies {
+            $0.accountStore = .makePreview(accounts: [Self.makeWalletAccount(id: "wallet")], selectedAccountId: "wallet")
+            $0[SavedAddressesStore.self] = .liveValue
+        } operation: {
+            try await operation()
+        }
+    }
+
+    private func initialHints() throws -> ApiAgentV2StarterHints {
+        try decodeStarterHints(#"[{"id":"learn.swap","group":"learn"}]"#)
+    }
+
+    private func decodeStarterHints(_ items: String) throws -> ApiAgentV2StarterHints {
+        try JSONDecoder().decode(ApiAgentV2StarterHints.self, from: Data(
+            #"{"catalogVersion":"agent-starter-hints-v2","items":\#(items)}"#.utf8
         ))
     }
 
@@ -4821,6 +5307,8 @@ final class AgentV2ContractTests: XCTestCase {
     private func makeDiscussionFeedModel(
         threadId: String?,
         digests: [ApiAgentV2NewsFeedDigest]? = nil,
+        newsClient: ThreadListNewsClient? = nil,
+        readState: AgentNewsReadState? = nil,
         findThread: @escaping (String) -> ApiAgentV2ThreadSummary? = { _ in nil }
     ) -> AgentNewsFeedModel {
         let defaultsName = "AgentV2ContractTests.Discussion.\(UUID().uuidString)"
@@ -4830,9 +5318,11 @@ final class AgentV2ContractTests: XCTestCase {
             eventId: 307, deliveredAt: "2026-10-20T10:00:00Z", headline: "Feed headline", body: "News body",
             discussion: threadId.map { .init(threadId: $0) }
         )
-        let client = ThreadListNewsClient(items: [item])
+        let client = newsClient ?? ThreadListNewsClient(items: [item])
         client.digests = digests
-        return AgentNewsFeedModel(client: client, readState: AgentNewsReadState(userDefaults: defaults), findThread: findThread)
+        return AgentNewsFeedModel(
+            client: client, readState: readState ?? AgentNewsReadState(userDefaults: defaults), findThread: findThread
+        )
     }
 
     @MainActor
@@ -4912,13 +5402,13 @@ final class AgentV2ContractTests: XCTestCase {
     }
 
     private func makeFeedDigest(
-        naming: ApiAgentV2NewsFeedItem.DiscussionNaming? = nil,
+        followups: [String]? = nil,
         threadId: String? = nil
     ) -> ApiAgentV2NewsFeedDigest {
         ApiAgentV2NewsFeedDigest(
             id: Self.deferredDigestId, deliveredAt: "2026-10-20T10:00:00Z",
             top: [.init(eventId: 307, headline: "Feed headline", imageUrl: nil)], total: 1,
-            discussion: threadId.map { .init(threadId: $0) }, discussionNaming: naming
+            discussion: threadId.map { .init(threadId: $0) }, discussionFollowups: followups
         )
     }
 
@@ -4936,7 +5426,9 @@ final class AgentV2ContractTests: XCTestCase {
                 client: client, news: makeFeedNewsItem(naming: naming, threadId: threadId), locale: "en", activeAccount: activeAccount
             ) { _ in }
         case .digest:
-            AgentV2Model(client: client, digest: makeFeedDigest(naming: naming, threadId: threadId), activeAccount: activeAccount) { _ in }
+            AgentV2Model(
+                client: client, digest: makeFeedDigest(followups: naming?.followups, threadId: threadId), activeAccount: activeAccount
+            ) { _ in }
         }
     }
 
@@ -4949,7 +5441,7 @@ final class AgentV2ContractTests: XCTestCase {
     ) -> AgentV2Model {
         switch kind {
         case .news: preloader.acquireNewsModel(item: makeFeedNewsItem(naming: naming), locale: "en", onThreadCreated: onThreadCreated)
-        case .digest: preloader.acquireDigestModel(digest: makeFeedDigest(naming: naming), onThreadCreated: onThreadCreated)
+        case .digest: preloader.acquireDigestModel(digest: makeFeedDigest(followups: naming?.followups), onThreadCreated: onThreadCreated)
         }
     }
 
@@ -4981,7 +5473,7 @@ final class AgentV2ContractTests: XCTestCase {
     ) {
         switch kind {
         case .news: model.updateNewsPreview(makeFeedNewsItem(naming: naming))
-        case .digest: model.updateDigestPreview(makeFeedDigest(naming: naming))
+        case .digest: model.updateDigestPreview(makeFeedDigest(followups: naming?.followups))
         }
     }
 
@@ -6470,7 +6962,7 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(messages.map(\.role), [.user, .assistant, .user, .assistant])
         XCTAssertEqual(messages.map(\.isFailureCaption), [false, false, false, true])
         let failure = try XCTUnwrap(messages.last)
-        XCTAssertEqual(failure.text, lang("$agent_connection_lost"))
+        XCTAssertEqual(failure.text, lang("No internet connection. Please check your connection and try again."))
         XCTAssertTrue(failure.controls.isEmpty)
 
         let collection = try XCTUnwrap(findDescendants(of: controller.view).compactMap { $0 as? UICollectionView }.first)
@@ -6482,7 +6974,7 @@ final class AgentV2ContractTests: XCTestCase {
         let caption = try XCTUnwrap(collection.cellForItem(at: failureIndexPath) as? AgentSystemMessageCell)
         let captionText = try XCTUnwrap(findDescendants(of: caption).first { $0.accessibilityIdentifier == "agent_message_failure" })
         XCTAssertFalse(captionText.isHidden)
-        XCTAssertEqual(captionText.accessibilityLabel, lang("$agent_connection_lost"))
+        XCTAssertEqual(captionText.accessibilityLabel, lang("No internet connection. Please check your connection and try again."))
         let bubbles = collection.visibleCells.compactMap { $0 as? AgentMessageCell }
         XCTAssertEqual(bubbles.count, 3)
     }
@@ -8111,8 +8603,11 @@ private enum FakeAgentV2ClientError: Error {
 @MainActor
 final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
     var defaultThreadError: ApiAgentV2MutationError?
-    var hintsResult: ApiAgentV2HintsResponse?
+    var hintsResult: ApiAgentV2StarterHints?
     private(set) var hintsRequestCount = 0
+    private(set) var hintsWalletStates: [ApiAgentV2HintWalletState?] = []
+    private(set) var hintsHosts: [ApiAgentV2HostContext?] = []
+    var hintWalletStateResult: ApiAgentV2HintWalletState?
     var blocksHints = false
     private var hintsContinuations: [CheckedContinuation<Void, Never>] = []
     private let defaultThreadId: String
@@ -8257,13 +8752,21 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
     func setHydrationResult(_ hydrationResult: ApiAgentV2ThreadHydration) {
         self.hydrationResult = hydrationResult
     }
-    func hints() async throws -> ApiAgentV2HintsResponse {
+    func starterHints(
+        walletState: ApiAgentV2HintWalletState?,
+        host: ApiAgentV2HostContext?
+    ) async throws -> ApiAgentV2StarterHints {
         hintsRequestCount += 1
+        hintsWalletStates.append(walletState)
+        hintsHosts.append(host)
         if blocksHints {
             await withCheckedContinuation { hintsContinuations.append($0) }
         }
         guard let hintsResult else { throw FakeAgentV2ClientError.unavailable }
         return hintsResult
+    }
+    func hintWalletState(of account: MAccount) -> ApiAgentV2HintWalletState? {
+        hintWalletStateResult
     }
     func resumeHints() {
         blocksHints = false

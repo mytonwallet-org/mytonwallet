@@ -21,6 +21,7 @@ struct ActivityDetailsNavigationHeader: View {
                             Image.airBundle("ScamBadge")
                         }
                         Text(viewModel.activity.displayTitleResolved)
+                            .accessibilityIdentifier("transaction_title")
                         ActivityDetailsStatusBadge(status: status)
                     }
                 } subtitle: {
@@ -32,6 +33,7 @@ struct ActivityDetailsNavigationHeader: View {
                 NavigationHeader {
                     if let title = viewModel.context.displayTitle {
                         Text(title)
+                            .accessibilityIdentifier("transaction_title")
                     }
                 }
             }

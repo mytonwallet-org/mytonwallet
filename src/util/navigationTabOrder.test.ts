@@ -9,11 +9,17 @@ import {
   resolveNavigationTabOrder,
 } from './navigationTabOrder';
 
+jest.mock('../config', () => ({
+  __esModule: true,
+  ...jest.requireActual('../config'),
+  IS_PERPS_SUPPORTED: true,
+}));
+
 describe('resolveNavigationTabOrder', () => {
   it('keeps the stored order, drops unknown and repeated tabs and appends the missing ones', () => {
     const stored = ['agent', 'portfolio', 'wallet', 'agent'] as NavigationTab[];
 
-    expect(resolveNavigationTabOrder(stored)).toEqual(['agent', 'wallet', 'market', 'explore', 'settings']);
+    expect(resolveNavigationTabOrder(stored)).toEqual(['agent', 'wallet', 'market', 'futures', 'explore', 'settings']);
   });
 
   it('falls back to the default order', () => {
@@ -23,7 +29,7 @@ describe('resolveNavigationTabOrder', () => {
 
 describe('moveNavigationTab', () => {
   it('moves a tab in both directions without changing the source', () => {
-    const order = DEFAULT_NAVIGATION_TAB_ORDER;
+    const order: NavigationTab[] = ['wallet', 'market', 'agent', 'explore', 'settings'];
 
     expect(moveNavigationTab(order, 0, 3)).toEqual(['market', 'agent', 'explore', 'wallet', 'settings']);
     expect(moveNavigationTab(order, 4, 1)).toEqual(['wallet', 'settings', 'market', 'agent', 'explore']);

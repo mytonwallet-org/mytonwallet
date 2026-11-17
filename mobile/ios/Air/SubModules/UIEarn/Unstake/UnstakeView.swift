@@ -58,7 +58,10 @@ fileprivate struct AmountSection: View {
                 explainedFee: nil,
                 isFocused: $model.isAmountFieldFocused,
                 onTokenSelect: nil,
-                onUseAll: { model.onUseAll() }
+                onUseAll: { model.onUseAll() },
+                amountIdentifier: "stake_amount_input",
+                tokenPickerIdentifier: "stake_token",
+                useAllIdentifier: "stake_max_button"
             )
         }
     }

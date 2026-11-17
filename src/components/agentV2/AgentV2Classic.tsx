@@ -24,6 +24,7 @@ import type { AgentThreadUnreadStart } from './agentThreadReadState';
 
 import { getIsAgentV2SupportActive } from '../../global/agentV2/uiCapabilities';
 import { getIsAgentV2ThreadStarted } from '../../api/agentV2/threadStarted';
+import { formatAgentDigestDiscussionTitle } from '../agent/helpers/agentDateFormat';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
 import { getChatTargetNewsLocale } from './agentNewsFeedItems';
 import { findAgentThreadFirstUnreadMessage, getAgentThreadUnreadStart } from './agentThreadReadState';
@@ -104,6 +105,8 @@ const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingReque
 const STOPPED_ACTIVITY_DURATION_MS = 1600;
 const WRITING_ACTIVITY_LANG_KEY = '$agent_activity_writing';
 const NO_MESSAGES: AgentMessage[] = [];
+// The icon the server gives a digest's thread
+const DIGEST_DISCUSSION_ICON = '🗓';
 const NEWS_POST_PLACEHOLDER_LAYOUT = { messageCount: 1, isNews: true };
 // The limits whose status a request's failure stands for
 const STATUS_KIND_BY_ERROR_CODE: Partial<Record<AgentV2ErrorCode, AgentV2ComposerStatus['kind']>> = {
@@ -566,10 +569,14 @@ export function AgentV2Classic({
   }), [activity, activityHandoff, chatStatus, isActivityAfterQuestion, stoppedActivity]);
   // The server keeps a thread nameless until it holds a message; the question shows until then, as on mobile
   const isNamedThread = Boolean(thread?.messageCount);
-  const discussionNaming = deferredDiscussion?.discussionNaming;
-  // A digest's discussion that has no thread yet goes by the title of the digest's post, as a news one by its headline
+  const discussionNaming = deferredDiscussion?.kind === 'news' ? deferredDiscussion.discussionNaming : undefined;
+  // A digest's discussion goes by the digest's day until the user names it, or by the title of its post until the day
+  // is known
+  const digestWindowEnd = (thread?.digest ?? loadedDigest)?.windowEnd;
+  const digestTitle = digestWindowEnd ? formatAgentDigestDiscussionTitle(lang, digestWindowEnd) : undefined;
+  const isUncreatedDigest = deferredDiscussion?.kind === 'digest' && !thread;
   const firstQuestion = firstOutgoingMessage?.text ?? initialMessage ?? news?.headline
-    ?? (deferredDiscussion?.kind === 'digest' ? lang('$agent_digest_title') : undefined);
+    ?? (target?.kind === 'digest' ? lang('$agent_digest_title') : undefined);
   const hasMessages = messages.length > 0;
   // A chat whose thread is known or on its way has the menu
   const hasMenu = Boolean(target || thread) || hasMessages || isOpeningNews;
@@ -577,16 +584,18 @@ export function AgentV2Classic({
   const header = useMemo<AgentConversationHeader | undefined>(() => (target ? {
     // A known thread whose history has not loaded yet has a name that is not known yet either.
     // An empty name is no name, so the header keeps the question rather than going blank.
-    title: ((isNamedThread ? thread?.title : undefined) || discussionNaming?.title || firstQuestion)
+    title: ((isNamedThread ? thread?.title : undefined) || digestTitle || discussionNaming?.title || firstQuestion)
       ?? (target.kind === 'thread' && !thread ? '' : lang('New Chat')),
-    icon: isNamedThread ? thread?.icon : discussionNaming?.icon,
+    icon: isNamedThread || thread?.digest
+      ? thread?.icon
+      : (isUncreatedDigest ? DIGEST_DISCUSSION_ICON : discussionNaming?.icon),
     subtitle: isWithSupport ? getSupportSubtitle(lang, support!.state, supportOperator?.name) : undefined,
     hasBackButton: Boolean(onBack),
     hasMenu,
     canRequestSupport,
   } : undefined), [
-    canRequestSupport, discussionNaming, firstQuestion, hasMenu, isNamedThread, isWithSupport, lang, onBack, support,
-    supportOperator, target, thread,
+    canRequestSupport, digestTitle, discussionNaming, firstQuestion, hasMenu, isNamedThread, isUncreatedDigest,
+    isWithSupport, lang, onBack, support, supportOperator, target, thread,
   ]);
   const handleDelete = useLastCallback(() => {
     onDelete!(thread, cancelPendingRequests);

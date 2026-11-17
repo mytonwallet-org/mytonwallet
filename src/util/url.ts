@@ -15,6 +15,7 @@ import {
 import { base64ToHex } from './base64toHex';
 import {
   getAvailableExplorers,
+  getChainConfig,
   getEvmChains,
   getExplorer,
   getMarketplace,
@@ -140,6 +141,13 @@ export function getExplorerTransactionUrl(
     .replace('{base}', parsedBaseUrl)
     .replace('{hash}', explorer.doConvertHashFromBase64 ? base64ToHex(transactionHash) : transactionHash)
     + parsedUrlParam;
+}
+
+export function getPerpsExplorerTransactionUrl(chain: ApiChain, hash: string) {
+  const explorer = getChainConfig(chain).perpsExplorer;
+  if (!explorer) return undefined;
+
+  return explorer.transaction.replace('{base}', explorer.baseUrl).replace('{hash}', hash);
 }
 
 function getMessageHashExplorer(chain: ApiChain, explorerId?: string) {

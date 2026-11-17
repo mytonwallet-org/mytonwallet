@@ -18,10 +18,7 @@ import type {
 import type { Account, LoadMoreDirection, SavedAddress, Theme } from '../../../../global/types';
 import { ContentTab } from '../../../../global/types';
 
-import {
-  ANIMATED_STICKER_BIG_SIZE_PX,
-  PORTRAIT_MIN_ASSETS_TAB_VIEW,
-} from '../../../../config';
+import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../../../config';
 import { forceMeasure } from '../../../../lib/fasterdom/stricterdom';
 import { getIsTinyOrScamTransaction } from '../../../../global/helpers';
 import {
@@ -49,7 +46,7 @@ import {
 } from '../../helpers/scrollableContainer';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
-import { getIsPortrait, useDeviceScreen } from '../../../../hooks/useDeviceScreen';
+import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useInfiniteScroll from '../../../../hooks/useInfiniteScroll';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -72,9 +69,9 @@ import styles from './Activities.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  totalTokensAmount?: number;
   scrollContainerSelector?: string;
   isWidget?: boolean;
+  limit?: number;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
@@ -132,6 +129,7 @@ const TOP_SPACE = 1;
 function Activities({
   isActive,
   scrollContainerSelector,
+  limit,
   currentAccountId,
   accountChains = EMPTY_DICTIONARY,
   slug,
@@ -157,7 +155,7 @@ function Activities({
   whitelistedNftAddresses,
   accounts,
   onScroll,
-}: Omit<OwnProps, 'totalTokensAmount'> & StateProps) {
+}: OwnProps & StateProps) {
   const { fetchPastActivities, showActivityInfo } = getActions();
 
   const lang = useLang();
@@ -191,10 +189,10 @@ function Activities({
       return undefined;
     }
 
-    return addDatesToActivityIds(activityIds, byId);
+    return addDatesToActivityIds(activityIds.slice(0, limit), byId);
   }, [
     areTinyTransfersHidden, byId, alwaysShownSlugs, allActivityIds, slug, tokensBySlug, isHistoryEndReached,
-    blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden,
+    blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden, limit,
   ]);
 
   const firstListItemId = listItemIds?.[0];
@@ -268,9 +266,17 @@ function Activities({
   // on an interval while every loaded activity is hidden, since each page can turn out to be
   // entirely hidden. A failed request stops the interval: the list says so and offers a retry,
   // and requesting the same failing history every ten seconds would both cost the user traffic
-  // and flip the message back to the spinner on every attempt.
+  // and flip the message back to the spinner on every attempt. A list with `limit` has no infinite
+  // scroll, so it keeps requesting the history the same way until it has `limit` activities.
   useEffect(() => {
-    if (hasLoadError || listItemIds?.length || isHistoryEndReached) {
+    if (hasLoadError || isHistoryEndReached) {
+      return undefined;
+    }
+
+    if (
+      listItemIds
+      && (limit === undefined || listItemIds.filter((id) => !id.startsWith(DATE_ID_PREFIX)).length >= limit)
+    ) {
       return undefined;
     }
 
@@ -278,7 +284,7 @@ function Activities({
     const intervalId = window.setInterval(loadMore, LOAD_RETRY_INTERVAL);
 
     return () => window.clearInterval(intervalId);
-  }, [slug, allActivityIds, listItemIds, isHistoryEndReached, hasLoadError, loadMore]);
+  }, [slug, allActivityIds, listItemIds, isHistoryEndReached, hasLoadError, limit, loadMore]);
 
   // Reset scroll and scroll tracking when the tab becomes inactive
   useEffect(() => {
@@ -465,7 +471,7 @@ function Activities({
       preloadBackwards={FURTHER_SLICE}
       withAbsolutePositioning
       maxHeight={`${currentContainerHeight}rem`}
-      onLoadMore={handleLoadMore}
+      onLoadMore={limit === undefined ? handleLoadMore : undefined}
       onScroll={handleScroll}
     >
       {renderHistory()}
@@ -516,18 +522,14 @@ export default memo(
         accounts,
       };
     },
-    (global, { totalTokensAmount, isWidget }, stickToFirst) => {
+    (global, { isWidget }, stickToFirst) => {
       const accountState = selectCurrentAccountState(global);
-      const shouldShowSeparateAssetsPanel = getIsPortrait()
-        && totalTokensAmount !== undefined
-        && totalTokensAmount <= PORTRAIT_MIN_ASSETS_TAB_VIEW;
 
       return stickToFirst((
         isWidget
         // The token screen shows activities no matter which wallet tab is open
         || Boolean(accountState?.currentTokenSlug)
         || accountState?.activeContentTab === ContentTab.Activity
-        || (accountState?.activeContentTab === ContentTab.Assets && shouldShowSeparateAssetsPanel)
       ) && selectCurrentAccountId(global));
     },
   )(Activities),

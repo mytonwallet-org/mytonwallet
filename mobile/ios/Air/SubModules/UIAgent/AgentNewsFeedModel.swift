@@ -5,10 +5,21 @@ import WalletCore
 @MainActor
 protocol AgentNewsFeedClient: AnyObject {
     func getNewsFeed(lang: String, cursor: String?, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView) async throws -> ApiAgentV2NewsFeedPage
+    func getCachedNewsFeed(lang: String, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView) async -> ApiAgentV2NewsFeedPage?
+}
+
+extension AgentNewsFeedClient {
+    func getCachedNewsFeed(lang: String, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView) async -> ApiAgentV2NewsFeedPage? { nil }
 }
 
 @MainActor
 final class LiveAgentNewsFeedClient: AgentNewsFeedClient {
+    func getCachedNewsFeed(lang: String, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView) async -> ApiAgentV2NewsFeedPage? {
+        await Api.getAgentV2CachedNewsFeed(
+            lang: lang, digestHour: schedule.hour, digestMinute: schedule.minute, timeZone: schedule.timeZone, view: view
+        )
+    }
+
     func getNewsFeed(lang: String, cursor: String?, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView = .all) async throws -> ApiAgentV2NewsFeedPage {
         try await Api.getAgentV2NewsFeed(
             lang: lang, cursor: cursor, digestHour: schedule.hour, digestMinute: schedule.minute, timeZone: schedule.timeZone, view: view
@@ -128,6 +139,7 @@ final class AgentNewsFeedModel {
         var isLoadingMore = false
         var error: Error?
         var hasLoaded = false
+        var isShowingPersistentCache = false
         var locale: String?
         var language: String?
         var schedule: AgentNewsDigestSchedule?
@@ -151,6 +163,7 @@ final class AgentNewsFeedModel {
     var unreadDigestId: String? { view == .digests ? digestUnreadId : nil }
 
     private var allDigests: [ApiAgentV2NewsFeedDigest] = []
+    private var isShowingPersistentCache = false
     private(set) var reachedDigestId: String?
     let requestedDigestId: String?
     private(set) var isSeekingRequestedDigest: Bool
@@ -198,6 +211,8 @@ final class AgentNewsFeedModel {
     /// cards and the pinned bar don't blink out and back while it loads
     private var isDigestResetPending = false
     private var generation = 0
+    /// The first pages of the All view applied, which `setView` leaves as they are, unlike `generation`
+    private var appliedFirstPageCount = 0
     private var hasOpened = false
     private var feedLanguage: String?
     private var unreadCutoff: Date?
@@ -288,7 +303,6 @@ final class AgentNewsFeedModel {
         }
         let requestGeneration = generation
         isAllLoading = true
-        allError = nil
         let schedule = currentDigestSchedule
         resetDigestsIfNeeded(for: schedule)
         onChange?()
@@ -300,10 +314,27 @@ final class AgentNewsFeedModel {
         }
         do {
             let requestLanguage = language()
+            if !hasAllLoaded {
+                let cached = await client.getCachedNewsFeed(lang: requestLanguage, schedule: schedule, view: .all)
+                guard requestGeneration == generation, !Task.isCancelled else { return }
+                if let cached {
+                    applyFirstPage(cached, requestLanguage: requestLanguage)
+                    isShowingPersistentCache = true
+                    onChange?()
+                }
+            }
             let page = try await client.getNewsFeed(
                 lang: requestLanguage, cursor: nil, schedule: schedule, view: .all
             )
             guard requestGeneration == generation, !Task.isCancelled else { return }
+            if isShowingPersistentCache {
+                items = []
+                allDigests = []
+                prefetchEventIds = []
+                prefetchDigestIds = []
+                isShowingPersistentCache = false
+            }
+            allError = nil
             dropDigestsOfAnotherSchedule()
             applyFirstPage(page, requestLanguage: requestLanguage)
             startPrefetch()
@@ -313,6 +344,21 @@ final class AgentNewsFeedModel {
             dropDigestsOfAnotherSchedule()
             self.allError = error
         }
+    }
+
+    /// The first page's copies of the news the feed has, for a discussion of one of them opened over the feed. The news
+    /// the feed hasn't shown wait for its own refresh, which marks them read, and the feed's pages, digests, read state
+    /// and prefetch stay as they are. A first page the feed applies meanwhile is newer than the response.
+    func refreshNews() async {
+        let requestFirstPageCount = appliedFirstPageCount
+        guard let page = try? await client.getNewsFeed(
+            lang: feedLanguage ?? language(), cursor: nil, schedule: currentDigestSchedule, view: .all
+        ), !Task.isCancelled, requestFirstPageCount == appliedFirstPageCount, page.locale == allLocale else { return }
+        let pageItems = Dictionary(page.items.map { ($0.eventId, $0) }, uniquingKeysWith: { $1 })
+        let updated = applyingLocalDiscussions(to: items.map { pageItems[$0.eventId] ?? $0 })
+        guard updated != items else { return }
+        items = updated
+        onChange?()
     }
 
     func loadMore() async {
@@ -339,7 +385,6 @@ final class AgentNewsFeedModel {
         let requestLanguage = language()
         digestView.isLoading = true
         digestView.isLoadingMore = false
-        digestView.error = nil
         onChange?()
         defer {
             if requestGeneration == digestGeneration {
@@ -348,10 +393,25 @@ final class AgentNewsFeedModel {
             }
         }
         do {
+            if !digestView.hasLoaded {
+                let cached = await client.getCachedNewsFeed(lang: requestLanguage, schedule: schedule, view: .digests)
+                guard requestGeneration == digestGeneration, !Task.isCancelled else { return }
+                if let cached {
+                    applyFirstDigestsPage(cached, schedule: schedule, requestLanguage: requestLanguage)
+                    digestView.isShowingPersistentCache = true
+                    markDigestsShown()
+                    onChange?()
+                }
+            }
             let page = try await client.getNewsFeed(
                 lang: requestLanguage, cursor: nil, schedule: schedule, view: .digests
             )
             guard requestGeneration == digestGeneration, !Task.isCancelled else { return }
+            if digestView.isShowingPersistentCache {
+                digestView.digests = []
+                digestView.isShowingPersistentCache = false
+            }
+            digestView.error = nil
             applyFirstDigestsPage(page, schedule: schedule, requestLanguage: requestLanguage)
             markDigestsShown()
             startPrefetch()
@@ -562,7 +622,7 @@ final class AgentNewsFeedModel {
             guard digest.discussion?.threadId == threadId else { return digest }
             return ApiAgentV2NewsFeedDigest(
                 id: digest.id, deliveredAt: digest.deliveredAt, top: digest.top, total: digest.total,
-                discussionNaming: digest.discussionNaming
+                discussionFollowups: digest.discussionFollowups
             )
         }
     }
@@ -588,6 +648,7 @@ final class AgentNewsFeedModel {
     }
 
     private func applyFirstPage(_ page: ApiAgentV2NewsFeedPage, requestLanguage: String) {
+        appliedFirstPageCount += 1
         if allLocale != nil, allLocale != page.locale {
             items = []
             allDigests = []
@@ -668,7 +729,7 @@ final class AgentNewsFeedModel {
             guard let discussion = localDigestDiscussions[digest.id] else { return digest }
             return ApiAgentV2NewsFeedDigest(
                 id: digest.id, deliveredAt: digest.deliveredAt, top: digest.top, total: digest.total,
-                discussion: discussion, discussionNaming: digest.discussionNaming
+                discussion: discussion, discussionFollowups: digest.discussionFollowups
             )
         }
     }

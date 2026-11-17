@@ -66,7 +66,6 @@ export const IS_VIEW_TRANSITION_SUPPORTED = typeof document.startViewTransition 
 export const IS_CLIPBOARDS_SUPPORTED = !(IS_TELEGRAM_APP || IS_FIREFOX_EXTENSION) && getIsClipboardReadTextSupported();
 
 export const REM = parseInt(getComputedStyle(document.documentElement).fontSize, 10);
-export const STICKY_CARD_INTERSECTION_THRESHOLD = -3 * REM;
 
 export function setScrollbarWidthProperty() {
   const el = document.createElement('div');

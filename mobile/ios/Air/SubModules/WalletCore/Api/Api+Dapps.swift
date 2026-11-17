@@ -28,26 +28,37 @@ extension Api {
         try await bridge.callApiVoid("deleteAllDapps", accountId)
     }
     
+    @MainActor public static func getCachedExploreSites(isLandscape: Bool = false, langCode: String) -> ApiExploreSitesResult? {
+        ExploreSitesCache.shared.getCached(isLandscape: isLandscape, langCode: langCode)
+    }
+
     public static func loadExploreSites(isLandscape: Bool = false, langCode: String, forceRefresh: Bool = false) async throws -> ApiExploreSitesResult {
         try await ExploreSitesCache.shared.load(isLandscape: isLandscape, langCode: langCode, forceRefresh: forceRefresh)
     }
 }
 
 @MainActor final class ExploreSitesCache {
-    static let shared = ExploreSitesCache()
+    static let shared = ExploreSitesCache(defaults: .standard)
 
-    private struct Key: Hashable, Encodable {
+    private struct Key: Hashable, Codable {
         let isLandscape: Bool
         let langCode: String
     }
 
-    private struct Entry {
+    private struct Entry: Codable {
         let result: ApiExploreSitesResult
         let fetchedAt: Date
     }
 
+    private struct Snapshot: Codable {
+        let language: String
+        let entries: [Key: Entry]
+    }
+
+    private static let storageKey = "cache.exploreSites.v1"
     private static let validity: TimeInterval = 15 * 60
     private static let minimumRefreshInterval: TimeInterval = 60
+    private let defaults: UserDefaults?
     private let fetch: (Bool, String) async throws -> ApiExploreSitesResult
     private let now: () -> Date
     private let currentLanguage: () -> String
@@ -65,21 +76,23 @@ extension Api {
             )
         },
         now: @escaping () -> Date = Date.init,
-        currentLanguage: @escaping () -> String = { LocalizationSupport.shared.langCode }
+        currentLanguage: @escaping () -> String = { LocalizationSupport.shared.langCode },
+        defaults: UserDefaults? = nil
     ) {
         self.fetch = fetch
         self.now = now
         self.currentLanguage = currentLanguage
+        self.defaults = defaults
+        if let data = defaults?.data(forKey: Self.storageKey),
+           let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data),
+           snapshot.language == currentLanguage() {
+            language = snapshot.language
+            entries = snapshot.entries
+        }
     }
 
     func load(isLandscape: Bool = false, langCode: String, forceRefresh: Bool = false) async throws -> ApiExploreSitesResult {
-        let currentLanguage = currentLanguage()
-        if language != currentLanguage {
-            language = currentLanguage
-            generation += 1
-            entries.removeAll()
-            inFlight.removeAll()
-        }
+        invalidateChangedLanguage()
 
         let key = Key(isLandscape: isLandscape, langCode: langCode)
         if let task = inFlight[key] {
@@ -100,11 +113,29 @@ extension Api {
             let result = try await fetch(isLandscape, langCode)
             if self.generation == generation {
                 entries[key] = Entry(result: result, fetchedAt: now())
+                if let language, let data = try? JSONEncoder().encode(Snapshot(language: language, entries: entries)) {
+                    defaults?.set(data, forKey: Self.storageKey)
+                }
             }
             return result
         }
         inFlight[key] = task
         return try await task.value
+    }
+
+    func getCached(isLandscape: Bool = false, langCode: String) -> ApiExploreSitesResult? {
+        invalidateChangedLanguage()
+        return entries[Key(isLandscape: isLandscape, langCode: langCode)]?.result
+    }
+
+    private func invalidateChangedLanguage() {
+        let currentLanguage = currentLanguage()
+        guard language != currentLanguage else { return }
+        language = currentLanguage
+        generation += 1
+        entries.removeAll()
+        inFlight.removeAll()
+        defaults?.removeObject(forKey: Self.storageKey)
     }
 }
 

@@ -1,6 +1,6 @@
 import type { ZerionTransaction } from './types';
 
-import { ARBITRUM_USDC_MAINNET, IS_PERPS_ENABLED } from '../../../config';
+import { ARBITRUM_USDC_MAINNET, IS_PERPS_ENABLED, IS_PERPS_SUPPORTED } from '../../../config';
 import {
   PERPS_CCTP_EXTENSION_ADDRESS,
   PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS,
@@ -67,6 +67,7 @@ function buildUsdcTx(
 describe('Perps stays out of the activity history on this release train', () => {
   it('keeps the feature closed', () => {
     expect(IS_PERPS_ENABLED).toBe(false);
+    expect(IS_PERPS_SUPPORTED).toBe(false);
   });
 
   it('labels an Arbitrum USDC mint from the HyperCore relayer as a plain mint', () => {

@@ -82,9 +82,23 @@ abstract class BaseTabsVC(context: Context) :
 
     protected open fun rootTopInsetForTab(id: Int): Int = 0
 
+    protected open fun rootBottomInsetForTab(id: Int): Int = 0
+
+    // Whether Home's banners float above this container's toolbar instead of showing in the Wallet list
+    internal open val floatsHomePromotions: Boolean
+        get() = false
+
     private fun configureNavigationStack(id: Int, nav: WNavigationController) {
         nav.tabBarController = this
         nav.additionalRootTopInset = rootTopInsetForTab(id)
+        nav.additionalRootBottomInset = rootBottomInsetForTab(id)
+    }
+
+    // Every mounted stack, not only the shown one, so a page paged to is already clear of what floats
+    protected fun updateRootBottomInsets() {
+        stackNavigationControllers.forEach { (id, nav) ->
+            nav.additionalRootBottomInset = rootBottomInsetForTab(id)
+        }
     }
 
     /** Detach the live stacks from this container's view tree (called before a transfer). */

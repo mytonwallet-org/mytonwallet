@@ -6,6 +6,74 @@ import Testing
 @Suite("Explore Sites Cache")
 struct ExploreSitesCacheTests {
     @Test
+    func `catalog survives restart and remains available after a failed stale refresh`() async throws {
+        let suiteName = "ExploreSitesCacheTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let startedAt = Date(timeIntervalSince1970: 1_000_000)
+        let first = ExploreSitesCache(
+            fetch: { isLandscape, language in catalog("\(language) \(isLandscape)") },
+            now: { startedAt },
+            currentLanguage: { "en" },
+            defaults: defaults
+        )
+        _ = try await first.load(langCode: "en")
+        _ = try await first.load(isLandscape: true, langCode: "en")
+
+        var requests = 0
+        let restarted = ExploreSitesCache(
+            fetch: { _, _ in
+                requests += 1
+                throw CatalogRequestError()
+            },
+            now: { startedAt.addingTimeInterval(16 * 60) },
+            currentLanguage: { "en" },
+            defaults: defaults
+        )
+        #expect(restarted.getCached(langCode: "en")?.featuredTitle == "en false")
+        #expect(restarted.getCached(isLandscape: true, langCode: "en")?.featuredTitle == "en true")
+        #expect(restarted.getCached(langCode: "ru") == nil)
+        await #expect(throws: CatalogRequestError.self) { try await restarted.load(langCode: "en") }
+        #expect(requests == 1)
+        #expect(restarted.getCached(langCode: "en")?.featuredTitle == "en false")
+        let offlineRestart = ExploreSitesCache(currentLanguage: { "en" }, defaults: defaults)
+        #expect(offlineRestart.getCached(langCode: "en")?.featuredTitle == "en false")
+    }
+
+    @Test
+    func `persisted catalog is discarded after language changes`() async throws {
+        let suiteName = "ExploreSitesCacheTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        var language = "en"
+        let cache = ExploreSitesCache(
+            fetch: { _, language in catalog(language) },
+            currentLanguage: { language },
+            defaults: defaults
+        )
+        _ = try await cache.load(langCode: "en")
+        language = "ru"
+        #expect(cache.getCached(langCode: "en") == nil)
+        let restarted = ExploreSitesCache(currentLanguage: { "en" }, defaults: defaults)
+        #expect(restarted.getCached(langCode: "en") == nil)
+    }
+
+    @Test
+    func `corrupt persisted catalog falls back to a fresh request`() async throws {
+        let suiteName = "ExploreSitesCacheTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(Data("invalid".utf8), forKey: "cache.exploreSites.v1")
+        let cache = ExploreSitesCache(
+            fetch: { _, _ in catalog("Recovered") },
+            currentLanguage: { "en" },
+            defaults: defaults
+        )
+        #expect(cache.getCached(langCode: "en") == nil)
+        #expect(try await cache.load(langCode: "en").featuredTitle == "Recovered")
+    }
+
+    @Test
     func `startup and minutely loads share the catalog until fifteen minutes`() async throws {
         let startedAt = Date(timeIntervalSince1970: 1_000_000)
         var now = startedAt

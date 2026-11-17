@@ -61,6 +61,9 @@ struct RememberedAuthorizationTests {
 }
 
 private enum TestAuth: AuthSupportProtocol {
+    static let isBiometricRecoveryRequired = false
+    static let shouldOfferBiometricRecovery = false
+    static func recoverBiometrics(using authorizationToken: EnclaveToken, shouldEnable: Bool) async throws { throw UnexpectedCall.error }
     struct State {
         var rememberedToken: EnclaveToken?
         var rememberedCalls = 0

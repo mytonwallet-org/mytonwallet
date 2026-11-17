@@ -10,6 +10,8 @@ android {
 val airSubModulePath = project.property("airSubModulePath")
 
 dependencies {
+    testImplementation(libs.moshi.core)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

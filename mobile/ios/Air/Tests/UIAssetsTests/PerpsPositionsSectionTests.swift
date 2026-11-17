@@ -1,5 +1,6 @@
 import Testing
 import UIKit
+import WalletContext
 import WalletCore
 @testable import UIAssets
 
@@ -61,25 +62,31 @@ struct PerpsPositionsSectionTests {
         #expect(!collection.showsVerticalScrollIndicator)
     }
 
-    @Test func pnlIncludesSignedFiatAndUnsignedPercentage() {
-        let gain = PerpsFormatting.profitLoss("30", returnOnEquity: "0.3")
-        #expect(gain.text == "+$30 (30.0%)")
-        #expect(gain.tone == .positive)
-        let loss = PerpsFormatting.profitLoss("-80", returnOnEquity: "-0.8")
-        #expect(loss.text.contains("80 (80.0%)"))
-        #expect(loss.tone == .negative)
-        #expect(PerpsFormatting.profitLoss("-110", returnOnEquity: "-0.367", summary: true)
-            .text.contains(" · 36.7%"))
-        #expect(PerpsFormatting.profitLoss("0", returnOnEquity: "0").tone == .neutral)
-        #expect(!PerpsFormatting.profitLoss("1", returnOnEquity: nil).text.contains("%"))
-        #expect(PerpsFormatting.profitLoss(nil, returnOnEquity: nil).text == "—")
+    @Test(arguments: [
+        ("220.65", "0.4487", "+\(signSpace)$220.65 • 44.87%", PerpsValue.Tone.positive),
+        ("-18.23", "-0.0376", "-\(signSpace)$18.23 • 3.76%", .negative),
+        ("0", "0", "$0 • 0.0%", .neutral),
+        ("123456.78", "12.3456", "+\(signSpace)$123 456.78 • 1234.56%", .positive),
+    ])
+    func formatPositionProfitLoss(amount: String, ratio: String, expected: String, tone: PerpsValue.Tone) {
+        let value = PerpsFormatting.profitLoss(amount, returnOnEquity: ratio, isPositionRow: true)
+        #expect(value.text == expected)
+        #expect(value.tone == tone)
+    }
+
+    @Test func preserveUnknownReturnAndOtherProfitLossPresentations() {
+        #expect(PerpsFormatting.profitLoss("1", isPositionRow: true).text == "+\(signSpace)$1")
+        #expect(PerpsFormatting.profitLoss(nil, returnOnEquity: "0.3", isPositionRow: true).text == "—")
+        #expect(PerpsFormatting.profitLoss("30").text == "+$30")
+        #expect(PerpsFormatting.profitLoss("30", returnOnEquity: "0.3").text == "+$30 · 30.0%")
+        #expect(PerpsFormatting.profitLoss("-110", returnOnEquity: "-0.367").text.contains(" · 36.7%"))
     }
 
     @Test(arguments: [("0.12345", "12.35%"), ("-0.12345", "12.35%"), ("0.3", "30.0%"), ("0", "0.0%")])
     func rowAndSummaryPercentagesUseTheSameDecimalPointAndPrecision(ratio: String, expected: String) {
-        let row = PerpsFormatting.profitLoss("1", returnOnEquity: ratio)
-        let summary = PerpsFormatting.profitLoss("1", returnOnEquity: ratio, summary: true)
-        #expect(row.text.hasSuffix("(" + expected + ")"))
+        let row = PerpsFormatting.profitLoss("1", returnOnEquity: ratio, isPositionRow: true)
+        let summary = PerpsFormatting.profitLoss("1", returnOnEquity: ratio)
+        #expect(row.text.hasSuffix(" • " + expected))
         #expect(summary.text.hasSuffix(" · " + expected))
     }
 

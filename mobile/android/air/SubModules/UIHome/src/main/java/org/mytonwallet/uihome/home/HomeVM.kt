@@ -53,9 +53,7 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
     internal var calledReady = false
 
     fun loadInfoBanners(accountId: String) {
-        val dismissedIds = WGlobalStorage.getDismissedHomeBannerIds(accountId)
-        val promotions = AccountStore.getHomeBanners(accountId).filter { it.id !in dismissedIds }
-        delegate.get()?.infoBannersUpdated(accountId, promotions)
+        delegate.get()?.infoBannersUpdated(accountId, AccountStore.getVisibleHomeBanners(accountId))
     }
 
     fun dismissInfoBanner(accountId: String, id: String) {
@@ -77,16 +75,7 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
 
     // Tokens, Balance and Staking data are loaded or not
     val isGeneralDataAvailable: Boolean
-        get() {
-            return TokenStore.swapAssetsLoaded &&
-                TokenStore.loadedAllTokens &&
-                !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                (
-                    showingAccount?.isMainnet != true ||
-                        StakingStore.getStakingState(showingAccountId ?: "") != null ||
-                        WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null
-                    )
-        }
+        get() = isGeneralDataAvailable(showingAccountId, showingAccount)
 
     // Called on bridge ready to setup the observer
     fun setupObservers() {
@@ -368,5 +357,18 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
 
             else -> {}
         }
+    }
+
+    companion object {
+        // Tokens, Balance and Staking data of the account are loaded or not
+        fun isGeneralDataAvailable(accountId: String?, account: MAccount?): Boolean =
+            TokenStore.swapAssetsLoaded &&
+                TokenStore.loadedAllTokens &&
+                !BalanceStore.getBalances(accountId).isNullOrEmpty() &&
+                (
+                    account?.isMainnet != true ||
+                        StakingStore.getStakingState(accountId ?: "") != null ||
+                        WGlobalStorage.getAccountTonAddress(accountId ?: "") == null
+                    )
     }
 }

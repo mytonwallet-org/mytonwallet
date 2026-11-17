@@ -1,0 +1,197 @@
+@use "../../styles/mixins";
+
+.root {
+  @include mixins.defaultAccent();
+
+  @include mixins.respond-above(xs) {
+    overflow: hidden;
+    border-radius: var(--border-radius-default);
+  }
+}
+
+// Each screen paints its own background, so the screen sliding in covers the one it replaces
+.screen {
+  --header-height: calc(3rem + var(--safe-area-top));
+  // Reused market components paint their surfaces with it
+  --background-color: var(--color-app-background);
+
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+
+  height: 100%;
+
+  background-color: var(--background-color);
+}
+
+.body {
+  scrollbar-gutter: stable;
+
+  // The scrolling content stays below the header, which paints over it once scrolled
+  position: relative;
+  z-index: 0;
+
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: 1rem;
+
+  min-height: 0;
+  padding: var(--header-height) 0.75rem calc(var(--bottombar-height) + var(--body-end-gap, 1rem));
+
+  @include mixins.respond-above(xs) {
+    padding-inline-start: 1rem;
+
+    @include mixins.adapt-padding-to-scrollbar(1rem);
+  }
+}
+
+.card {
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-default);
+  background-color: var(--color-background-first);
+}
+
+.tiles {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  flex-shrink: 0;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.panel {
+  min-width: 0;
+}
+
+// The element that `.stale` can dim keeps this class all the time, so the dimming fades both in and out
+.dimmable {
+  @include mixins.transition(opacity 300ms);
+}
+
+// Data older than its refresh interval stays on screen dimmed until fresh data arrives
+.stale {
+  opacity: 0.5;
+}
+
+.loading {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+}
+
+.loadError {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  align-items: center;
+
+  padding: 1.5rem 1rem;
+}
+
+.loadErrorTitle {
+  margin: 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
+}
+
+.loadErrorButton,
+.tradeBlockNotice {
+  flex-shrink: 0;
+}
+
+.operationBanner {
+  display: flex;
+  align-items: flex-start;
+}
+
+.operationBannerText {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+
+  min-width: 0;
+  padding: 0.75rem 0 0.75rem 1rem;
+  border: none;
+
+  text-align: start;
+
+  background: none;
+}
+
+.operationBannerTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+}
+
+.operationBannerMessage {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--color-gray-2);
+}
+
+.operationBannerHide {
+  cursor: var(--custom-cursor, pointer);
+
+  flex-shrink: 0;
+
+  padding: 0.75rem;
+  border: none;
+
+  font-size: 1rem;
+  color: var(--color-gray-3);
+
+  background: none;
+}
+
+.description {
+  white-space: pre-line;
+}
+
+.descriptionCollapsed {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.descriptionToggle {
+  cursor: var(--custom-cursor, pointer);
+
+  align-self: flex-start;
+
+  margin-top: 0.25rem;
+  padding: 0;
+  border: none;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-accent);
+
+  background: none;
+}

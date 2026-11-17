@@ -4,9 +4,29 @@ import SwiftUI
 import WalletContext
 import WalletCore
 
+/// Where Home's promotion banners show in the top-tabs layout. With Wallet as the first tab, or with the toolbar on
+/// a side, they stay in its list; otherwise they float above the bottom toolbar on the root tabs, with the same
+/// content, actions and dismissal.
+@MainActor @Perceptible
+public final class HomePromotionPlacement {
+    public static let shared = HomePromotionPlacement()
+
+    public var isOverlay = false
+
+    private init() {}
+}
+
+public enum HomePromotionStackStyle: Equatable, Sendable {
+    /// Cards in a grouped list
+    case inline
+    /// Cards floating over content: Liquid Glass in front, frosted behind
+    case overlay
+}
+
 /// The caller owns ordering, dismissal, and navigation. Only the first banner is interactive.
 public struct HomePromotionStack: View {
     public var promotions: [ApiPromotion]
+    public var style: HomePromotionStackStyle
     public var animation: Animation?
     public var transition: AnyTransition
     public var loadingActionId: String?
@@ -30,8 +50,18 @@ public struct HomePromotionStack: View {
         )
     }
 
+    /// The default transition blurs a departing card inside a compositing group, where glass and blur views lose
+    /// their effect, so floating cards fade and lift without it
+    public static var overlayTransition: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.94, anchor: .bottom)),
+            removal: .opacity.combined(with: .offset(y: -12))
+        )
+    }
+
     public init(
         promotions: [ApiPromotion],
+        style: HomePromotionStackStyle = .inline,
         animation: Animation? = .spring(response: 0.4, dampingFraction: 0.85),
         transition: AnyTransition = HomePromotionStack.defaultTransition,
         loadingActionId: String? = nil,
@@ -40,6 +70,7 @@ public struct HomePromotionStack: View {
     ) {
         self.loadingActionId = loadingActionId
         self.promotions = promotions
+        self.style = style
         self.animation = animation
         self.transition = transition
         self.onAction = onAction
@@ -76,6 +107,8 @@ public struct HomePromotionStack: View {
                                     isSensitiveDataHidden: isSensitiveDataHidden,
                                     showsContent: index == 0,
                                     isLoading: promotion.id == loadingActionId,
+                                    style: style,
+                                    depth: index,
                                     onAction: { onAction(promotion) },
                                     onDismiss: { onDismiss(promotion) }
                                 )
@@ -140,6 +173,9 @@ private struct HomePromotionBanner: View {
     let isSensitiveDataHidden: Bool
     var showsContent = true
     var isLoading = false
+    var style = HomePromotionStackStyle.inline
+    /// The place in the stack, 0 for the front card
+    var depth = 0
     let onAction: () -> Void
     let onDismiss: () -> Void
 
@@ -197,18 +233,7 @@ private struct HomePromotionBanner: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .opacity(showsContent ? 1 : 0)
         .background {
-            RoundedRectangle(cornerRadius: 26).fill(Color.air.groupedItem)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26).fill(Color.air.primaryLabel.opacity(isHovering && !isActionHovering ? 0.04 : 0))
-                }
-                .overlay(alignment: .bottom) {
-                    Image.airBundle("PromotionBackplate")
-                        .resizable()
-                        .colorMultiply(Color.air.groupedItem)
-                        .frame(height: 32)
-                        .opacity(showsContent ? 0 : 1)
-                }
-                .clipShape(.rect(cornerRadius: 26))
+            cardBackground
                 .contentShape(.rect(cornerRadius: 26))
                 .onTap(isPressedBinding: $isPressed) { onAction() }
                 .disabled(isLoading)
@@ -233,6 +258,34 @@ private struct HomePromotionBanner: View {
         }
         .highlightScale(isPressed, scale: 0.98, isEnabled: !reduceMotion)
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder private var cardBackground: some View {
+        let highlight = RoundedRectangle(cornerRadius: 26)
+            .fill(Color.air.primaryLabel.opacity(isHovering && !isActionHovering ? 0.04 : 0))
+        switch style {
+        case .inline:
+            RoundedRectangle(cornerRadius: 26).fill(Color.air.groupedItem)
+                .overlay { highlight }
+                .overlay(alignment: .bottom) {
+                    Image.airBundle("PromotionBackplate")
+                        .resizable()
+                        .colorMultiply(Color.air.groupedItem)
+                        .frame(height: 32)
+                        .opacity(showsContent ? 0 : 1)
+                }
+                .clipShape(.rect(cornerRadius: 26))
+        case .overlay:
+            // Not clipped: a clip or mask would turn the glass and the blur into plain translucency
+            ZStack {
+                if showsContent {
+                    PromotionFloatingGlass(cornerRadius: 26)
+                } else {
+                    PromotionFrostedBackplate(cornerRadius: 26, depth: depth)
+                }
+                highlight
+            }
+        }
     }
 
     private var descriptionView: some View {

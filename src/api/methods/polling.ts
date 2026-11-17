@@ -797,6 +797,15 @@ function setupForeignStakingPolling(
   };
 }
 
+function buildAccountConfigBody(account: ApiAccountAny) {
+  const byChain: Record<string, { address: string }> = {};
+  for (const [chain, wallet] of Object.entries(account.byChain)) {
+    if (wallet) byChain[chain] = { address: wallet.address };
+  }
+
+  return { type: account.type, byChain };
+}
+
 function setupAccountConfigPolling(
   accountId: string,
   account: ApiAccountAny,
@@ -804,13 +813,9 @@ function setupAccountConfigPolling(
 ) {
   let lastResult: ApiUpdateAccountConfig['accountConfig'] | undefined;
 
-  // The endpoint reads the account type and the chain addresses only, while `authToken` is a bearer credential for
-  // our own API - it has no business riding a polling loop's request body once a swap has put it on the wallet.
-  const { byChain } = account;
-  const partialAccount = {
-    ...account,
-    ...(byChain.ton && { byChain: { ...byChain, ton: omit(byChain.ton, ['authToken']) } }),
-  };
+  // Built field by field: the stored record also carries secrets (the legacy encrypted mnemonic, `authToken`),
+  // and the endpoint reads only the account type and the chain addresses.
+  const accountConfigBody = buildAccountConfigBody(account);
 
   return pollingLoop({
     period: ACCOUNT_CONFIG_INTERVAL,
@@ -818,7 +823,7 @@ function setupAccountConfigPolling(
       try {
         const langCode = await storage.getItem('langCode');
         const response = await callBackendPost<ApiAccountConfig>('/account-config', {
-          ...partialAccount,
+          ...accountConfigBody,
           langCode,
         });
         const { infoBanners, ...accountConfig } = response;

@@ -354,6 +354,7 @@ class ChartStackSection: UIView, ChartThemeContainer {
         }
         
         self.chartView.renderers = controller.mainChartRenderers
+        self.chartView.accessibilityProvider = controller as? ChartAccessibilityProvider
         self.chartView.userDidSelectCoordinateClosure = { [unowned self] point in
             self.controller?.chartInteractionDidBegin(point: point)
         }

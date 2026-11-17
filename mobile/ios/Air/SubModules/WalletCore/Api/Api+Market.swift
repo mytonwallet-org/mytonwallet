@@ -81,7 +81,7 @@ actor MarketAssetsCache {
     }
 
     func load(langCode: String) -> ApiMarketAssetsResponse? {
-        guard FileManager.default.fileExists(atPath: cacheURL.path()) else { return nil }
+        guard FileManager.default.fileExists(atPath: cacheURL.path(percentEncoded: false)) else { return nil }
 
         do {
             let entry = try JSONDecoder().decode(Entry.self, from: Data(contentsOf: cacheURL))

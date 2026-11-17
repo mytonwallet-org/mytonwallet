@@ -21,7 +21,7 @@ object AgentNavigation {
         navigationController: WNavigationController,
         digestId: String,
         preview: AgentV2ThreadDigestCard? = null,
-        discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
+        discussionFollowups: List<String>? = null,
         shouldDeferCreation: Boolean = false,
         onThreadCreated: ((AgentV2ThreadSummary) -> Unit)? = null,
         onThreadMissing: ((String) -> Unit)? = null,
@@ -31,7 +31,7 @@ object AgentNavigation {
             context,
             digestId = digestId,
             digestPreview = preview,
-            discussionNaming = discussionNaming,
+            discussionFollowups = discussionFollowups,
             shouldDeferCreation = shouldDeferCreation,
             onThreadCreated = onThreadCreated,
             onThreadMissing = onThreadMissing

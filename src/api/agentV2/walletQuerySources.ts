@@ -146,14 +146,22 @@ export async function scanTransactionAccount(
       break;
     }
     hasMore = slice.hasMore;
-    if (!hasMore) break;
     // A row at exactly `periodStart` does not prove its equal-timestamp peers were read
     if (periodStart !== undefined && oldestTimestamp < periodStart) {
       hasPassedPeriodStart = true;
       break;
     }
-    if (requestLimit >= MAX_ACTIVITY_SCAN_PER_ACCOUNT) break;
-    if (requestLimit > MAX_ACTIVITY_BATCH && activities.length === previousCount) break;
+    // An empty history has no page that could have lost a row
+    if (!hasMore && !activities.length) break;
+    // The source reports the end of the history from its parsed row count, so a full page with a record that
+    // gives no row ends it early. Its answer is taken once a larger read brings no new rows.
+    const hasNewRows = activities.length > previousCount;
+    if (requestLimit >= MAX_ACTIVITY_SCAN_PER_ACCOUNT) {
+      // No larger read can confirm the end at the scan limit, so new rows leave it unknown
+      hasMore ||= hasNewRows;
+      break;
+    }
+    if (requestLimit > MAX_ACTIVITY_BATCH && !hasNewRows) break;
     requestLimit = Math.min(MAX_ACTIVITY_SCAN_PER_ACCOUNT, requestLimit * 2);
   }
   return { account, activities, attempts, failed, hasMore, hasPassedPeriodStart };

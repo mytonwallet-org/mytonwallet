@@ -1,4 +1,4 @@
-import type { StateInit } from '@ton/core';
+import type { MessageRelaxed, StateInit } from '@ton/core';
 import { beginCell, type Cell, contractAddress, internal, SendMode, storeMessageRelaxed } from '@ton/core';
 import { sign } from '@ton/crypto';
 import type { SignDataPayload } from '@tonconnect/protocol';
@@ -26,8 +26,41 @@ import * as encryption from './encryption';
 
 type ErrorResult = { error: ApiAnyDisplayError };
 
-export type SignedMfaRequest = { transaction: Cell; payload: Cell; signature: Buffer };
+export type SignedMfaRequest = { transaction: Cell; payload: Cell; signature: Buffer; mfaRefillAmount?: bigint };
 export type SignedMfaRemoveRequest = { payload: Cell; signature: Buffer };
+
+/**
+ * Wallet V5R1 stores basic actions through `storeOutListExtendedV5R1`, which reverses the array before writing it to
+ * `storeOutList`. Reverse once here so callers can keep the natural execution order (user action first, MFA extension
+ * refill second). The refill marker validator relies on that refill action being the final executed action.
+ */
+export function createMfaWalletActions(messages: MessageRelaxed[], sendMode: SendMode) {
+  return [...messages].reverse().map((message) => ({
+    type: 'sendMsg' as const,
+    outMsg: message,
+    mode: sendMode,
+  }));
+}
+
+/** Builds the extension's forwarded W5 request without producing an MFA signature. */
+export function createMfaForwardMessage(
+  transaction: PreparedTransactionToSign,
+  wallet: WalletContractV5R1,
+  value: bigint,
+  mfaExtensionSeqno = transaction.seqno,
+) {
+  const message = internal({
+    to: wallet.address,
+    value,
+    body: wallet.createRequest({
+      authType: 'extension',
+      seqno: transaction.seqno,
+      actions: createMfaWalletActions(transaction.messages, transaction.sendMode),
+    }),
+  });
+
+  return { message, payload: getBodyFromRequest(mfaExtensionSeqno, message) };
+}
 
 /**
  * Signs, encrypts and decrypts TON stuff.
@@ -426,26 +459,7 @@ function signMfaTransactionsWithPrivateKey(transactions: PreparedTransactionToSi
   return transactions.map((transaction, index) => {
     if (!(wallet instanceof WalletContractV5R1)) throw new Error('Unsupported');
 
-    const message = internal(
-      {
-        to: wallet.address,
-        value: fees[index],
-        body: wallet.createRequest({
-          authType: 'extension',
-          seqno: transaction.seqno,
-          actions: transaction.messages.map((message) => ({
-            type: 'sendMsg',
-            outMsg: message,
-            mode: transaction.sendMode,
-          })),
-        }),
-      },
-    );
-
-    const payload = getBodyFromRequest(
-      mfaExtensionSeqno + index,
-      message,
-    );
+    const { message, payload } = createMfaForwardMessage(transaction, wallet, fees[index], mfaExtensionSeqno + index);
 
     const signature = sign(payload.hash(), secretKey);
 

@@ -251,7 +251,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             isStaking: token.isStaking
         )
         let badgeContent = getBadgeContent(
-            accountContext: _account,
             slug: token.tokenSlug,
             stakingBadge: stakingPresentation?.badge
         )
@@ -372,7 +371,6 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                     isStaking: walletToken.isStaking
                 )
                 let badgeContent = getBadgeContent(
-                    accountContext: _account,
                     slug: walletToken.tokenSlug,
                     stakingBadge: stakingPresentation?.badge
                 )

@@ -69,6 +69,8 @@ function TokenInfo({ isActive, token }: OwnProps & StateProps) {
       <Header
         token={renderedToken}
         isScrolled={isScrolled}
+        // The portrait slide stays mounted between openings, so only the visible screen handles history and Esc
+        isHidden={!isActive}
         className={styles.header}
         onBackClick={closeTokenActivity}
       />

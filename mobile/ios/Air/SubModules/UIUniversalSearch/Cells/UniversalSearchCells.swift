@@ -259,12 +259,12 @@ final class UniversalSearchTokenCell: UniversalSearchBaseCell {
         amountLabel.isHidden = result.amount == nil
         balanceValueLabel.isHidden = result.balanceValue == nil
         if let badge = result.badge {
-            badgeView.configureTokenLabel(text: badge, style: .stock)
+            badgeView.configureTokenLabel(text: badge, style: result.badgeStyle)
         } else {
             badgeView.configureHidden()
         }
 
-        let values = [result.title, result.price, result.amount, result.balanceValue]
+        let values = [result.title, result.badge, result.price, result.amount, result.balanceValue]
             .compactMap { $0 }
             .joined(separator: ", ")
         accessibilityLabel = values

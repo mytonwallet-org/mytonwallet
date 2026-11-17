@@ -272,7 +272,7 @@ function TransferConfirm({
               ) : renderText(
                 (lang('$multi_burn_nft_warning'))
                   .replace('%amount%', String(nfts.length))
-                  .replace('%duration%', getBurningDurationText(nfts.length) as string),
+                  .replace('%duration%', getBurningDurationText(nfts.length)),
               )
             )}
           </div>

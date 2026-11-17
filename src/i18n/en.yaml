@@ -1427,22 +1427,33 @@ $agent_hint_swap_title: How do swaps work?
 $agent_hint_swap_prompt: Explain how token swaps work.
 $agent_hint_staking_title: What is staking?
 $agent_hint_staking_prompt: Explain staking from scratch, as if I have never used crypto before.
-$agent_hint_security_title: How do I protect my wallet?
-$agent_hint_security_prompt: Show me how to keep my wallet safe.
+$agent_hint_security_title: Wallet security
+$agent_hint_security_prompt: How do I protect my wallet?
 $agent_hint_receive_title: Receive tokens
 $agent_hint_receive_prompt: Help me receive tokens.
-$agent_hint_assets_title: Show my assets
-$agent_hint_total_title: What's my total balance?
-$agent_hint_spending_title: What did I spend this week?
-$agent_hint_last_transfer_title: Show my last transfer
-$agent_hint_fund_title: How do I top up my wallet?
-$agent_hint_market_today_title: What's the market doing today?
-$agent_hint_news_today_title: Top news of the day
-$agent_hint_bitcoin_title: What's going on with Bitcoin?
+$agent_hint_assets_title: My assets
+$agent_hint_assets_prompt: Show my assets
+$agent_hint_total_title: Total balance
+$agent_hint_total_prompt: What's my total balance?
+$agent_hint_spending_title: Weekly spending
+$agent_hint_spending_prompt: What did I spend this week?
+$agent_hint_last_transfer_title: Last transfer
+$agent_hint_last_transfer_prompt: Show my last transfer
+$agent_hint_fund_title: Top up wallet
+$agent_hint_fund_prompt: How do I top up my wallet?
+$agent_hint_market_today_title: Market today
+$agent_hint_market_today_prompt: What's the market doing today?
+$agent_hint_news_today_title: Today's news
+$agent_hint_news_today_prompt: Top news of the day
+$agent_hint_bitcoin_title: Bitcoin today
+$agent_hint_bitcoin_prompt: What's going on with Bitcoin?
 $agent_hint_price_title: How much is 0.5 ETH?
-$agent_hint_staking_yield_title: Where is the yield higher?
-$agent_hint_staking_options_title: What staking options are there?
-$agent_hint_multisend_title: How do I send to several people?
+$agent_hint_staking_yield_title: Staking yields
+$agent_hint_staking_yield_prompt: Where is the yield higher?
+$agent_hint_staking_options_title: Staking options
+$agent_hint_staking_options_prompt: What staking options are there?
+$agent_hint_multisend_title: Send to several people
+$agent_hint_multisend_prompt: How do I send to several people?
 $agent_hint_action_swap_title: Swap tokens
 $agent_hint_action_send_title: Send crypto
 $agent_hint_action_stake_title: Start staking
@@ -1654,6 +1665,7 @@ Wallet Name: Wallet Name
 App Icon: App Icon
 Rounded Toolbars: Rounded Toolbars
 Toolbar: Toolbar
+Toolbars: Toolbars
 Shared Background: Shared Background
 Side Gutters: Side Gutters
 Gradient Navigation Bar: Gradient Navigation Bar
@@ -2170,7 +2182,6 @@ $agent_news_unread_digests_count:
 Explorer mode: Explorer mode
 Open a link to a wallet, transfer, token or collectible to see its details here.: Open a link to a wallet, transfer, token or collectible to see its details here.
 
-# Perps
 Long: Long
 Short: Short
 Funding Rate: Funding Rate
@@ -2182,7 +2193,6 @@ $perps_max_leverage_hint: "The highest leverage available for this market."
 $perps_volume_24h_hint: "The total value of trades in this futures market over the past 24 hours. This includes both opening and closing trades."
 $perps_open_interest_hint: "The total value of contracts that are currently open in this futures market. Unlike 24h Volume, it does not include positions that have already been closed."
 
-# Perps order entry
 "Leverage": "Leverage"
 "Position Size": "Position Size"
 "Liquidation Price": "Liquidation Price"
@@ -2203,18 +2213,15 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "$perps_liquidation_price_hint": "The estimated price at which your position may be automatically closed because there are not enough funds to keep it open."
 "$perps_leverage_disclaimer": "Higher leverage increases potential profits and losses. Even a small price change against your position can cause it to be closed automatically."
 
-# Perps order review
 "Open Position": "Open Position"
 "$perps_asset_price": "%asset% Price"
 "$perps_leverage_direction": "%leverage%x %direction%"
 "$perps_liquidation_acknowledgment": "By confirming, I understand this position can be liquidated, and I could lose the money I put in."
 
-# Perps position receipt
 "Position Opened": "Position Opened"
 "Fees": "Fees"
 "Transfer ID": "Transfer ID"
 
-# Perps active position
 "Equity": "Equity"
 "Profit and Loss": "Profit and Loss"
 "Invested": "Invested"
@@ -2227,7 +2234,6 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "$perps_entry_price_hint": "The average price at which this position was opened."
 "$perps_funding_payments_hint": "Periodic payments between traders with long and short positions. Depending on the funding rate, you may pay or receive funding while your position is open."
 
-# Perps edit position
 "$perps_edit_long": "Edit %asset% Long"
 "$perps_edit_short": "Edit %asset% Short"
 "Current:": "Current:"
@@ -2238,7 +2244,6 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "$perps_network_fee_hint": "The fee for processing this transaction on the blockchain."
 "$perps_edit_liquidation_hint": "Liquidation – Price where your position is automatically closed."
 
-# Perps position lifecycle
 "Increase Position": "Increase Position"
 "Reduce Position": "Reduce Position"
 "Current Value": "Current Value"
@@ -2260,7 +2265,6 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "$perps_liquidated_title": "The position was closed automatically."
 "$perps_liquidated_message": "The market price reached the liquidation price, resulting in a loss."
 
-# Perps home
 "Open Positions": "Open Positions"
 "Show All Positions": "Show All Positions"
 "Futures": "Futures"
@@ -2274,14 +2278,13 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "$perps_explore_futures": "Open short and long positions"
 "$perps_explore_apps": "Explore decentralized internet"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "Prices or your position changed. Go back to review the order again."
 "PerpsReviewChanged": "The order changed. Go back to review it again."
 "PerpsInsufficientUsdc": "Not enough USDC on Arbitrum, including the bridge fee."
 "EvmUserOperationMismatch": "The gas payment does not match this transaction."
 "PerpsInsufficientBalance": "Not enough USDC on your Hyperliquid balance, including trading fees."
 "PerpsMarketNeedsUnifiedAccount": "This market can't be funded from your wallet on your current Hyperliquid account type."
-"PerpsRequiresMultichainWallet": "Futures require a multichain wallet. Switch to one or create a new one to start trading."
+"PerpsRequiresMultichainWallet": "Switch to a multichain wallet or create a new one to start trading."
 "PerpsSwitchesToUnifiedAccount": "This order also switches your Hyperliquid account to Unified, so one USDC balance covers every market."
 "PerpsInsufficientGas": "Not enough ETH on Arbitrum to cover the network fee. USDC for the position is separate from this fee."
 "PerpsFundingMissingTitle": "No USDC or ETH on Arbitrum"
@@ -2445,9 +2448,13 @@ Unlink Wallet: Unlink Wallet
 Confirm Unlinking: Confirm Unlinking
 Domain Unlinked: Domain Unlinked
 Drag here to add to the toolbar: Drag here to add to the toolbar
+$toolbar_settings_hint: Hold a button and drag it to rearrange the toolbars. A button dragged off the toolbar is removed; the account button moves to the top bar instead.
+$toolbar_full_title: Toolbar is full
+$toolbar_full_hint: Remove a button to add another
 $send_only_chain_and_token: Send only %symbol%, %tokenSymbol%, or other %chain%-based assets to this address. Sending other tokens will result in loss.
 $agent_digest_unavailable: "This digest is no longer available"
 $agent_digest_title: "Top news of the day"
+$agent_digest_discussion_title: "News for %date%"
 $agent_digest_meta:
   oneValue: "%count% news item"
   otherValue: "%count% news items"
@@ -2487,3 +2494,11 @@ $agent_digest_minutes: "Minutes"
 $swap_one_to_one: Better rate (1:1) is available starting from %value%.
 $swap_better_rate_minimum: "Better rate is available starting from %value%."
 $agent_daily_limit_resets_at: "Daily agent limit reached. Resets at %time%."
+$biometric_recovery_title: "Set Up Biometrics Again"
+$biometric_recovery_passcode: "Your biometric settings may have changed. Enter your wallet passcode to continue."
+$biometric_recovery_offer: "Your passcode is confirmed. Would you like to set up biometrics again?"
+$biometric_recovery_enable: "Enable Biometrics"
+$biometric_recovery_failed: "Biometrics could not be set up. You can try again in Settings > Security."
+"$perps_leverage_value": "Leverage %value%"
+"$perps_edit_action": "Edit"
+"PerpsRequiresOwnWallet": "Switch to your wallet or create a new one to start trading."

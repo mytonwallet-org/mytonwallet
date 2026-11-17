@@ -296,7 +296,7 @@ TON Connect: Pair over the SSE bridge as well as the injected one
 
 A bug fix starts its description with `Fix`, followed by the problem as a user or developer sees it. How the code now avoids the problem belongs in the PR description. A title is change history, so the rule against history framing in docs and comments does not apply to it.
 
-The word `Fix` opening the description is the only fix marker: no `fix/`, `fix:` or `Fixed`. The `fix/` and `feat/` prefixes belong to branch names only.
+The word `Fix` opening the description is the only fix marker: no `fix/`, `fix:` or `Fixed`.
 
 ```
 [Android] Token / Chart: Fix squashed price chart on tablet

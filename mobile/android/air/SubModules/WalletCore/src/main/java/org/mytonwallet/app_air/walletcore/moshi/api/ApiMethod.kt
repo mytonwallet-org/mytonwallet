@@ -1722,10 +1722,19 @@ sealed class ApiMethod<T> {
             override val arguments = ArgumentsBuilder().boolean(isActive).build()
         }
 
-        class GetHints(langCode: String?) : ApiMethod<AgentV2HintsResponse>() {
-            override val name = "getAgentV2Hints"
+        class GetStarterHints(
+            walletState: String?,
+            host: JSONObject? = null,
+            moshi: Moshi? = null
+        ) : ApiMethod<AgentV2HintsResponse>() {
+            override val name = "getAgentV2StarterHints"
             override val type: Type = AgentV2HintsResponse::class.java
-            override val arguments = ArgumentsBuilder().string(langCode).build()
+            override val arguments = ArgumentsBuilder(moshi)
+                .apply {
+                    if (walletState != null || host != null) string(walletState)
+                    host?.let { jsonObject(it) }
+                }
+                .build()
         }
 
         class GetProblemReportAvailability : ApiMethod<Boolean>() {

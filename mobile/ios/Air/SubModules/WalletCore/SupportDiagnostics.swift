@@ -84,6 +84,9 @@ public enum SupportDiagnostics {
         log.info("orderedAccountIds = #\(report.accounts.orderedAccountIds.count) \(report.accounts.orderedAccountIds, .public)")
         log.info("databaseAccountIds = #\(report.accounts.databaseAccountIds.count) \(report.accounts.databaseAccountIds, .public)")
         log.info("keychainAccountIds = \(report.accounts.keychainAccountIds as Any, .public)")
+        for account in report.accounts.items {
+            log.info("accountId=\(account.id, .public) isMfaEnabled=\(account.isMfaEnabled as Any, .public)")
+        }
         if report.accounts.health.issues.isEmpty {
             log.info("account health = \(report.accounts.health.status, .public)")
         } else {

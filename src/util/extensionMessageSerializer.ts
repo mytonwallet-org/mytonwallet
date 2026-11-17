@@ -1,8 +1,11 @@
 import type { OriginMessageData, WorkerMessageData, WorkerMessageError } from './PostMessageConnector';
 
 import { BIGINT_PREFIX } from './bigint';
+import { PERPS_ERROR_FIELD_KEYS } from './perpsErrorFields';
 
 export const UNDEFINED_PREFIX = 'undefined:';
+
+const ERROR_FIELD_TYPES = new Set(['string', 'number', 'boolean']);
 
 function extensionMessageReplacer(this: any, key: string, value: any) {
   if (value === undefined) {
@@ -49,6 +52,7 @@ export function encodeError(error: Error): WorkerMessageError {
       message: error.message,
       stack: error.stack,
       code: typeof code === 'string' ? code : undefined,
+      fields: pickErrorFields(error),
     };
   }
 
@@ -59,8 +63,11 @@ export function encodeError(error: Error): WorkerMessageError {
   };
 }
 
-export function decodeError({ name, message, stack, code }: WorkerMessageError): Error {
+export function decodeError({ name, message, stack, code, fields }: WorkerMessageError): Error {
   const error = new Error(message);
+  if (fields) {
+    Object.assign(error, pickErrorFields(fields));
+  }
   error.name = name;
   if (stack) {
     error.stack = stack;
@@ -69,4 +76,14 @@ export function decodeError({ name, message, stack, code }: WorkerMessageError):
     (error as Error & { code?: string }).code = code;
   }
   return error;
+}
+
+// Only the fields the Perps screens read cross the boundary, and only as primitives, which survive both the structured
+// clone of a worker and the JSON of an extension port. The decoding side filters them again, since a JSON message
+// turns `NaN` into `null` and a prefixed string into a bigint.
+function pickErrorFields(source: object): WorkerMessageError['fields'] {
+  const entries = Object.entries(source)
+    .filter(([key, value]) => PERPS_ERROR_FIELD_KEYS.has(key) && ERROR_FIELD_TYPES.has(typeof value));
+
+  return entries.length ? Object.fromEntries(entries) : undefined;
 }

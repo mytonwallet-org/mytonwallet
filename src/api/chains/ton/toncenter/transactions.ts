@@ -58,6 +58,19 @@ export function parseRawTransactions(network: ApiNetwork, rawTxs: Transaction[],
   return rawTxs.map((rawTx) => parseRawTransaction(network, rawTx, addressBook)).flat();
 }
 
+export function calculateTransactionMessageFee(
+  totalFees: string,
+  messagesCount: number,
+  fwdFee?: string | null,
+) {
+  return BigInt(totalFees) / BigInt(messagesCount) + BigInt(fwdFee ?? 0);
+}
+
+export function calculateOutgoingTransactionFee(rawTx: Pick<Transaction, 'total_fees' | 'out_msgs'>) {
+  return BigInt(rawTx.total_fees)
+    + rawTx.out_msgs.reduce((total, { fwd_fee: fwdFee }) => total + BigInt(fwdFee ?? 0), 0n);
+}
+
 export function parseRawTransaction(
   network: ApiNetwork,
   rawTx: Transaction,
@@ -81,11 +94,9 @@ export function parseRawTransaction(
 
   if (!msgs.length) return [];
 
-  const oneMsgFee = BigInt(totalFees) / BigInt(msgs.length);
-
   const transactions: ApiTransactionExtended[] = [];
 
-  msgs.forEach((msg, i) => {
+  msgs.forEach((msg) => {
     const {
       source,
       destination,
@@ -104,7 +115,7 @@ export function parseRawTransaction(
     const fromAddress = addressBook[source!].user_friendly;
     const toAddress = addressBook[destination].user_friendly;
     const normalizedAddress = toBase64Address(isIncoming ? source! : destination, true, network);
-    const fee = oneMsgFee + BigInt(fwdFee ?? 0);
+    const fee = calculateTransactionMessageFee(totalFees, msgs.length, fwdFee);
     const body = getRawBody(msg);
 
     const tx: ApiTransactionExtended = omitUndefined({

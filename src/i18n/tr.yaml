@@ -1387,22 +1387,33 @@ $agent_hint_swap_title: Takaslar nasıl çalışır?
 $agent_hint_swap_prompt: Token takaslarının nasıl çalıştığını açıkla.
 $agent_hint_staking_title: Staking nedir?
 $agent_hint_staking_prompt: Daha önce hiç kripto kullanmamışım gibi staking işlemini en baştan açıkla.
-$agent_hint_security_title: Cüzdanımı nasıl korurum?
-$agent_hint_security_prompt: Cüzdanımı nasıl güvende tutacağımı bana gösterin.
+$agent_hint_security_title: Cüzdan güvenliği
+$agent_hint_security_prompt: Cüzdanımı nasıl korurum?
 $agent_hint_receive_title: Token alma
 $agent_hint_receive_prompt: Token almama yardım et.
-$agent_hint_assets_title: Varlıklarımı göster
-$agent_hint_total_title: Toplam bakiyem ne kadar?
-$agent_hint_spending_title: Bu hafta neye harcadım?
-$agent_hint_last_transfer_title: Son transferimi göster
-$agent_hint_fund_title: Cüzdanıma nasıl para yüklerim?
-$agent_hint_market_today_title: Bugün piyasada neler oluyor?
-$agent_hint_news_today_title: Günün öne çıkan haberleri
-$agent_hint_bitcoin_title: Bitcoin'de neler oluyor?
+$agent_hint_assets_title: Varlıklarım
+$agent_hint_assets_prompt: Varlıklarımı göster
+$agent_hint_total_title: Toplam bakiye
+$agent_hint_total_prompt: Toplam bakiyem ne kadar?
+$agent_hint_spending_title: Haftalık harcamalar
+$agent_hint_spending_prompt: Bu hafta neye harcadım?
+$agent_hint_last_transfer_title: Son transfer
+$agent_hint_last_transfer_prompt: Son transferimi göster
+$agent_hint_fund_title: Cüzdana yükle
+$agent_hint_fund_prompt: Cüzdanıma nasıl para yüklerim?
+$agent_hint_market_today_title: Bugün piyasa
+$agent_hint_market_today_prompt: Bugün piyasada neler oluyor?
+$agent_hint_news_today_title: Günün haberleri
+$agent_hint_news_today_prompt: Günün öne çıkan haberleri
+$agent_hint_bitcoin_title: Bugün Bitcoin
+$agent_hint_bitcoin_prompt: Bitcoin'de neler oluyor?
 $agent_hint_price_title: 0,5 ETH ne kadar?
-$agent_hint_staking_yield_title: Getiri nerede daha yüksek?
-$agent_hint_staking_options_title: Hangi staking seçenekleri var?
-$agent_hint_multisend_title: Birden fazla kişiye nasıl gönderirim?
+$agent_hint_staking_yield_title: Staking getirisi
+$agent_hint_staking_yield_prompt: Getiri nerede daha yüksek?
+$agent_hint_staking_options_title: Staking seçenekleri
+$agent_hint_staking_options_prompt: Hangi staking seçenekleri var?
+$agent_hint_multisend_title: Birden fazla kişiye gönder
+$agent_hint_multisend_prompt: Birden fazla kişiye nasıl gönderirim?
 $agent_hint_action_swap_title: Token takas et
 $agent_hint_action_send_title: Kripto gönder
 $agent_hint_action_stake_title: Staking'e başla
@@ -1613,6 +1624,7 @@ Wallet Name: Cüzdan adı
 App Icon: Uygulama simgesi
 Rounded Toolbars: Yuvarlatılmış araç çubukları
 Toolbar: Araç çubuğu
+Toolbars: Araç Çubukları
 Shared Background: Ortak arka plan
 Side Gutters: Yan boşluklar
 Gradient Navigation Bar: Gradyan gezinme çubuğu
@@ -2167,7 +2179,6 @@ $agent_news_unread_digests_count:
 Explorer mode: Kaşif modu
 Open a link to a wallet, transfer, token or collectible to see its details here.: Detaylarını burada görmek için bir cüzdan, transfer, token veya koleksiyon öğesi bağlantısını açın.
 
-# Perps
 Long: "Uzun"
 Short: "Kısa"
 Funding Rate: "Fonlama oranı"
@@ -2179,7 +2190,6 @@ $perps_max_leverage_hint: "Bu piyasada kullanılabilecek en yüksek kaldıraç."
 $perps_volume_24h_hint: "Bu vadeli işlem piyasasında son 24 saatte yapılan işlemlerin toplam değeri. Hem açılış hem de kapanış işlemlerini içerir."
 $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan sözleşmelerin toplam değeri. 24 saatlik hacmin aksine, daha önce kapatılmış pozisyonları içermez."
 
-# Perps order entry
 "Leverage": "Kaldıraç"
 "Position Size": "Pozisyon büyüklüğü"
 "Liquidation Price": "Likidasyon fiyatı"
@@ -2200,18 +2210,15 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "$perps_liquidation_price_hint": "Pozisyonunuzu açık tutmaya yetecek fon bulunmadığı için otomatik olarak kapatılabileceği tahmini fiyat."
 "$perps_leverage_disclaimer": "Daha yüksek kaldıraç, olası kâr ve zararları artırır. Pozisyonunuzun aleyhine küçük bir fiyat değişikliği bile pozisyonun otomatik olarak kapanmasına neden olabilir."
 
-# Perps order review
 "Open Position": "Pozisyon aç"
 "$perps_asset_price": "%asset% fiyatı"
 "$perps_leverage_direction": "%leverage%x %direction%"
 "$perps_liquidation_acknowledgment": "Onaylayarak bu pozisyonun likide edilebileceğini ve yatırdığım parayı kaybedebileceğimi anlıyorum."
 
-# Perps position receipt
 "Position Opened": "Pozisyon açıldı"
 "Fees": "Ücretler"
 "Transfer ID": "Transfer kimliği"
 
-# Perps active position
 "Equity": "Pozisyon değeri"
 "Profit and Loss": "Kâr ve zarar"
 "Invested": "Yatırılan"
@@ -2224,7 +2231,6 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "$perps_entry_price_hint": "Bu pozisyonun açıldığı ortalama fiyat."
 "$perps_funding_payments_hint": "Uzun ve kısa pozisyon sahipleri arasındaki dönemsel ödemeler. Fonlama oranına bağlı olarak pozisyonunuz açıkken fonlama ödeyebilir veya alabilirsiniz."
 
-# Perps edit position
 "$perps_edit_long": "%asset% uzun pozisyonunu düzenle"
 "$perps_edit_short": "%asset% kısa pozisyonunu düzenle"
 "Current:": "Mevcut:"
@@ -2235,7 +2241,6 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "$perps_network_fee_hint": "Bu işlemin blokzincirde gerçekleştirilmesi için alınan ücret."
 "$perps_edit_liquidation_hint": "Likidasyon — pozisyonunuzun otomatik olarak kapatıldığı fiyat."
 
-# Perps position lifecycle
 "Increase Position": "Pozisyonu artır"
 "Reduce Position": "Pozisyonu azalt"
 "Current Value": "Mevcut değer"
@@ -2257,7 +2262,6 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "$perps_liquidated_title": "Pozisyon otomatik olarak kapatıldı."
 "$perps_liquidated_message": "Piyasa fiyatı likidasyon fiyatına ulaştı ve zarara yol açtı."
 
-# Perps home
 "Open Positions": "Açık pozisyonlar"
 "Show All Positions": "Tüm pozisyonları göster"
 "Futures": "Vadeli işlemler"
@@ -2271,14 +2275,13 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "$perps_explore_futures": "Kısa ve uzun pozisyonlar açın"
 "$perps_explore_apps": "Merkeziyetsiz interneti keşfedin"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "Fiyatlar veya pozisyonunuz değişti. Geri dönüp emri tekrar inceleyin."
 "PerpsReviewChanged": "Emir değişti. Geri dönüp tekrar inceleyin."
 "PerpsInsufficientUsdc": "Köprü ücreti dahil, Arbitrum üzerinde yeterli USDC yok."
 "EvmUserOperationMismatch": "Gas ödemesi bu işlemle eşleşmiyor."
 "PerpsInsufficientBalance": "İşlem ücretleri dahil, Hyperliquid bakiyenizde yeterli USDC yok."
 "PerpsMarketNeedsUnifiedAccount": "Bu piyasa, mevcut Hyperliquid hesap türünüzle cüzdanınızdan fonlanamaz."
-"PerpsRequiresMultichainWallet": "Vadeli işlemler için çok zincirli (multichain) bir cüzdan gerekir. İşleme başlamak için birine geçin veya yeni bir tane oluşturun."
+"PerpsRequiresMultichainWallet": "İşleme başlamak için çok zincirli (multichain) bir cüzdana geçin veya yeni bir tane oluşturun."
 "PerpsSwitchesToUnifiedAccount": "Bu emir Hyperliquid hesabınızı da Unified moduna geçirir; böylece tek bir USDC bakiyesi tüm piyasaları karşılar."
 "PerpsAmountTooSmall": "Bu tutar piyasanın alt sınırının altında."
 "$perps_minimum_amount": "Minimum tutar: %amount% USDC."
@@ -2323,7 +2326,6 @@ Could not save the image. Please try again.: Görsel kaydedilemedi. Lütfen tekr
 "$perps_activity_closed": "%asset% kapatıldı"
 "$perps_activity_liquidated": "%asset% likide edildi"
 
-# Perps
 "PerpsInsufficientGas": "Ağ ücretini karşılamak için Arbitrum üzerinde yeterli ETH yok. Pozisyon için ayrılan USDC bu ücretten ayrıdır."
 "PerpsFundingMissingTitle": "Arbitrum’da USDC veya ETH yok"
 "$perps_funding_missing": "En az %minUSDC% USDC ve ücretler için %feeETH% ETH alın."
@@ -2439,9 +2441,13 @@ Unlink Wallet: Cüzdanın bağlantısını kaldır
 Confirm Unlinking: Bağlantıyı Kaldırmayı Onayla
 Domain Unlinked: Alan adının bağlantısı kaldırıldı
 Drag here to add to the toolbar: Araç çubuğuna eklemek için buraya sürükleyin
+$toolbar_settings_hint: Çubukları yeniden düzenlemek için bir düğmeyi basılı tutup sürükleyin. Araç çubuğunun dışına sürüklenen düğme kaldırılır; hesap düğmesi ise üst çubuğa taşınır.
+$toolbar_full_title: Araç çubuğu dolu
+$toolbar_full_hint: Yenisini eklemek için bir düğmeyi kaldırın
 $send_only_chain_and_token: Bu adrese yalnızca %symbol%, %tokenSymbol% veya diğer %chain% tabanlı varlıkları gönderin. Diğer tokenlar kaybolur.
 $agent_digest_unavailable: "Bu özet artık kullanılamıyor"
 $agent_digest_title: "Günün öne çıkanları"
+$agent_digest_discussion_title: "%date% haberleri"
 $agent_digest_meta:
   oneValue: "%count% haber"
   otherValue: "%count% haber"
@@ -2481,3 +2487,11 @@ $agent_digest_minutes: "Dakika"
 $swap_one_to_one: Daha iyi kur (1:1), %value% ve üzeri tutarlarda geçerlidir.
 $swap_better_rate_minimum: "%value% ve üzeri için daha iyi bir kur mevcut."
 $agent_daily_limit_resets_at: "Günlük asistan sınırına ulaşıldı. %time% itibarıyla sıfırlanır."
+$biometric_recovery_title: "Biyometriyi Yeniden Ayarla"
+$biometric_recovery_passcode: "Biyometri ayarlarınız değişmiş olabilir. Devam etmek için cüzdan parolanızı girin."
+$biometric_recovery_offer: "Parolanız doğrulandı. Biyometriyi yeniden ayarlamak ister misiniz?"
+$biometric_recovery_enable: "Biyometriyi Etkinleştir"
+$biometric_recovery_failed: "Biyometri ayarlanamadı. Ayarlar > Güvenlik bölümünden tekrar deneyebilirsiniz."
+"$perps_leverage_value": "Kaldıraç %value%"
+"$perps_edit_action": "Düzenle"
+"PerpsRequiresOwnWallet": "İşleme başlamak için kendi cüzdanınıza geçin veya yeni bir tane oluşturun."

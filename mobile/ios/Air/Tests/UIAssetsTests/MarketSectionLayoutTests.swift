@@ -232,6 +232,38 @@ struct MarketSectionLayoutTests {
         #expect(selected == "$9")
     }
 
+    @Test func animatedMembershipChangesPreserveRetainedCellsAndLatestSelection() async throws {
+        let controller = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        var data = section(.largeHorizontal, count: 6, title: "")
+        let view = makeView(data)
+        controller.view.addSubview(view)
+        window.layoutIfNeeded()
+        view.collection.contentOffset.x = 150
+        view.collection.layoutIfNeeded()
+        let retainedCell = try #require(view.collection.cellForItem(at: .init(item: 1, section: 0)))
+        var selected: String?
+        for iteration in 0..<3 {
+            data.tokens = [data.tokens[0], data.tokens[1]] + (2..<6).map {
+                .init(id: "replacement-\(iteration)-\($0)", token: .TONCOIN, price: "$10", change: "1%", isPositive: true)
+            }
+            data.tokens[1].priceText = "$\(iteration)"
+            view.configure(data, shouldAnimateChanges: true, onSeeAll: {}, onSelect: { selected = $0.priceText })
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        try await Task.sleep(for: .milliseconds(500))
+        view.collection.layoutIfNeeded()
+        #expect(view.collection.numberOfItems(inSection: 0) == 6)
+        #expect(view.collection.cellForItem(at: .init(item: 1, section: 0)) === retainedCell)
+        #expect(retainedCell.accessibilityLabel?.contains("$2") == true)
+        #expect(view.collection.contentOffset.x == 150)
+        view.collectionView(view.collection, didSelectItemAt: .init(item: 1, section: 0))
+        #expect(selected == "$2")
+    }
+
     private func makeView(_ data: MarketSectionDisplayData, width: CGFloat = 402) -> MarketSectionContentView {
         let view = MarketSectionContentView(frame: CGRect(x: 0, y: 0, width: width, height: MarketSectionContentView.height(for: data)))
         view.configure(data, onSeeAll: {}, onSelect: { _ in })

@@ -1,8 +1,11 @@
 import type { NavigationTab } from '../global/types';
 
+import { IS_PERPS_SUPPORTED } from '../config';
 import { clamp } from './math';
 
-export const DEFAULT_NAVIGATION_TAB_ORDER: NavigationTab[] = ['wallet', 'market', 'agent', 'explore', 'settings'];
+export const DEFAULT_NAVIGATION_TAB_ORDER: NavigationTab[] = (
+  ['wallet', 'market', 'futures', 'agent', 'explore', 'settings'] as const
+).filter((tab) => tab !== 'futures' || IS_PERPS_SUPPORTED);
 
 /** Drops unknown and repeated tabs from a stored order and adds the missing ones in the default order */
 export function resolveNavigationTabOrder(order?: NavigationTab[]): NavigationTab[] {

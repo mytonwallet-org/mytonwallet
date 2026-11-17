@@ -8,6 +8,7 @@ import WalletCore
 
 extension ExploreVC {
     @MainActor struct ViewOutput {
+        let retryDidTap = PassthroughSubject<Void, Never>()
         let connectedDappDidTap = PassthroughSubject<String, Never>()
         let connectedDappSettingsDidTap = PassthroughSubject<Void, Never>()
 
@@ -26,6 +27,7 @@ extension ExploreVC {
         var id: Identity { identity }
 
         enum Identity: Hashable {
+            case loadingStatus
             case lockdownModeWarning
             case connectedDapps
             case trending
@@ -34,6 +36,7 @@ extension ExploreVC {
     }
 
     enum ContentItem: Equatable, Identifiable {
+        case loadingStatus(ExploreVM.LoadingState)
         case lockdownModeWarning
         case sectionHeader(title: String, isFirstHeader: Bool)
         case connectedDapps(dapps: [ApiDapp], layoutVariant: LayoutSizeVariant)
@@ -42,6 +45,7 @@ extension ExploreVC {
 
         var id: String {
             switch self {
+            case .loadingStatus: "loadingStatus"
             case .lockdownModeWarning: "lockdownModeWarning_UniqueSingleGroup"
             case let .sectionHeader(title, _): title
             case .connectedDapps: "connectedDapps_UniqueSingleGroup"
@@ -74,14 +78,7 @@ extension ExploreVC {
         func setActive(_ active: Bool) { isActive = active }
 
         func updateBrowsing(sections: [SectionItem], animated: Bool) {
-            let hasContent: Bool
-            if case .browsing(let previousSections) = content {
-                hasContent = !previousSections.isEmpty
-            } else {
-                hasContent = false
-            }
-            let animated = animated && hasContent
-            var transaction = Transaction(animation: animated ? .default : nil)
+            var transaction = Transaction(animation: animated ? .easeInOut(duration: 0.25) : nil)
             transaction.disablesAnimations = !animated
             withTransaction(transaction) {
                 self.shouldShowWhiteBackground = false
@@ -112,7 +109,8 @@ extension ExploreVC {
                                      exploreSites: [ApiSite],
                                      siteCategories: [ApiSiteCategory],
                                      shouldRestrictSites: Bool,
-                                     isLockdownModeEnabled: Bool) -> [SectionItem] {
+                                     isLockdownModeEnabled: Bool,
+                                     loadingState: ExploreVM.LoadingState = .loaded) -> [SectionItem] {
         let exploreSites = shouldRestrictSites ? exploreSites.filter { !$0.canBeRestricted } : exploreSites
         var sections: [SectionItem] = []
 
@@ -124,6 +122,9 @@ extension ExploreVC {
                            featuredTitle: featuredTitle,
                            exploreSites: exploreSites,
                            siteCategories: siteCategories)
+        if !sections.contains(where: { $0.identity == .trending || $0.identity == .popularDapps }) {
+            sections.append(SectionItem(identity: .loadingStatus, items: [.loadingStatus(loadingState)]))
+        }
         return sections
     }
 
@@ -384,6 +385,7 @@ extension ExploreVC {
                     case .browsing(let sections):
                         ForEach(sections) { sectionItem in
                             viewForSection(sectionItem, screenGeometryProxy: screenGeometry)
+                                .transition(.opacity)
                         }
                     case .search(let result):
                         searchContent(result)
@@ -422,6 +424,9 @@ extension ExploreVC {
 
         @ViewBuilder private func viewForItem(_ contentItem: ContentItem, screenGeometryProxy: GeometryProxy) -> some View {
             switch contentItem {
+            case let .loadingStatus(state):
+                loadingStatusView(state)
+
             case .lockdownModeWarning:
                 lockdownModeWarningView()
 
@@ -464,6 +469,35 @@ extension ExploreVC {
                 }
             }
             .id(section.id)
+        }
+
+        private func loadingStatusView(_ state: ExploreVM.LoadingState) -> some View {
+            VStack(spacing: 16) {
+                switch state {
+                case .loading:
+                    ProgressView()
+                    Text(lang("Loading..."))
+                case .failed, .offline:
+                    Image(systemName: "exclamationmark.arrow.triangle.2.circlepath")
+                        .font(.system(size: 32))
+                    Text(state == .offline
+                         ? lang("No internet connection. Please check your connection and try again.")
+                         : lang("Something went wrong."))
+                    Button(lang("Try Again")) { viewOutput.retryDidTap.send(()) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .foregroundStyle(Color.air.tint)
+                        .tint(Color.air.tint)
+                case .loaded:
+                    Text(lang("No Dapps Found!"))
+                }
+            }
+            .font(.system(size: 16))
+            .foregroundStyle(Color.air.secondaryLabel)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 64)
+            .accessibilityIdentifier("explore_loading_status")
         }
 
         private func lockdownModeWarningView() -> some View {

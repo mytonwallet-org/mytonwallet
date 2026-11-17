@@ -42,6 +42,7 @@ public struct UniversalSearchTokenResult {
     public let icon: UniversalSearchIcon
     public let title: String
     public let badge: String?
+    public let badgeStyle: BadgeView.TokenLabelStyle
     public let price: String
     public let amount: String?
     public let balanceValue: String?
@@ -50,6 +51,7 @@ public struct UniversalSearchTokenResult {
         icon: UniversalSearchIconConfiguration,
         title: String,
         badge: String? = nil,
+        badgeStyle: BadgeView.TokenLabelStyle = .stock,
         price: String,
         amount: String? = nil,
         balanceValue: String? = nil
@@ -57,6 +59,7 @@ public struct UniversalSearchTokenResult {
         self.icon = UniversalSearchIcon(icon)
         self.title = title
         self.badge = badge
+        self.badgeStyle = badgeStyle
         self.price = price
         self.amount = amount
         self.balanceValue = balanceValue
@@ -66,6 +69,7 @@ public struct UniversalSearchTokenResult {
         icon: UniversalSearchIcon,
         title: String,
         badge: String? = nil,
+        badgeStyle: BadgeView.TokenLabelStyle = .stock,
         price: String,
         amount: String? = nil,
         balanceValue: String? = nil
@@ -73,6 +77,7 @@ public struct UniversalSearchTokenResult {
         self.icon = icon
         self.title = title
         self.badge = badge
+        self.badgeStyle = badgeStyle
         self.price = price
         self.amount = amount
         self.balanceValue = balanceValue

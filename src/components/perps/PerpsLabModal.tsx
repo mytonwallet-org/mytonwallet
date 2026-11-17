@@ -14,7 +14,7 @@ import type {
 } from '../../api/types';
 import type { GlobalPerpsAssets, PerpsBalanceDepositProgress } from '../../global/types';
 
-import { getPerpsOperationAfterSubmissionError, persistPerpsSubmission } from '../../global/helpers/perps';
+import { getPerpsOperationAfterSubmissionError, persistPerpsSubmission } from '../../global/helpers/perpsSubmission';
 import buildClassName from '../../util/buildClassName';
 import { callApi, callApiWithThrow } from '../../api';
 import {

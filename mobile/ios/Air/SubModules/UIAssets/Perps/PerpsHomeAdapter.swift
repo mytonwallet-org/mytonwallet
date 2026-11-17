@@ -13,12 +13,12 @@ import WalletContext
             return .init(id: position.id, token: PerpsFormatting.token(asset),
                          directionAndLeverage: "\(lang(position.side == .long ? "Long" : "Short")) \(position.raw.leverage.value)x",
                          value: PerpsFormatting.money(position.equity),
-                         profitLoss: PerpsFormatting.profitLoss(position.raw.unrealizedPnl, returnOnEquity: position.returnOnEquity),
+                         profitLoss: PerpsFormatting.profitLoss(position.raw.unrealizedPnl, returnOnEquity: position.returnOnEquity, isPositionRow: true),
                          isAtRisk: position.isNearLiquidation == true)
         } ?? []
         return .init(accountID: accountId, totalValue: PerpsFormatting.usd(hasCompleteTotals ? snapshot?.totalEquity : nil),
                      profitLoss: PerpsFormatting.profitLoss(hasCompleteTotals ? snapshot?.totalPnl : nil,
-                         returnOnEquity: hasCompleteTotals ? snapshot?.totalReturnOnEquity : nil, summary: true), positions: rows,
+                         returnOnEquity: hasCompleteTotals ? snapshot?.totalReturnOnEquity : nil), positions: rows,
                      status: snapshot != nil ? .ready : error.map { .unavailable(lang($0)) } ?? .loading,
                      isStale: snapshot != nil && store.isSnapshotStale(accountId: accountId),
                      hasUnresolvedPositions: (snapshot?.positions.count ?? 0) > rows.count)

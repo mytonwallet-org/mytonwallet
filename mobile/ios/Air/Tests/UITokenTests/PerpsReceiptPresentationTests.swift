@@ -30,6 +30,31 @@ struct PerpsReceiptPresentationTests {
         #expect(compact.resolvedValue(in: DetentContext(maximumDetentValue: 200)) == 200)
     }
 
+    @Test func configurePushedReceiptWithPreparedSheetSize() throws {
+        guard #available(iOS 17.0, *) else { return }
+        for width in [UIUserInterfaceSizeClass.compact, .regular] {
+            let (receipt, navigation) = makeReceipt()
+            navigation.setViewControllers([UIViewController()], animated: false)
+            navigation.preferredContentSize = CGSize(width: 640, height: 700)
+            receipt.prepareForPresentation(from: ReceiptTraitPresenter(width: width, height: .regular))
+            navigation.pushViewController(receipt, animated: false)
+            receipt.loadViewIfNeeded()
+            receipt.beginAppearanceTransition(true, animated: false)
+            receipt.endAppearanceTransition()
+            let sheet = try #require(navigation.sheetPresentationController)
+            let isFloating = width == .regular
+            if isFloating {
+                #expect(navigation.preferredContentSize.width == 580)
+                #expect(navigation.preferredContentSize.height >= 720)
+            } else {
+                #expect(navigation.preferredContentSize == .zero)
+            }
+            #expect(sheet.selectedDetentIdentifier == (isFloating ? .large : .init("perpsReceipt")))
+            #expect(sheet.prefersGrabberVisible == !isFloating)
+            #expect(sheet.delegate === receipt)
+        }
+    }
+
     @Test func adaptingRestoresCompactSizeWithoutCollapsingExpandedDetailsOnRepeatedSetup() throws {
         guard #available(iOS 17.0, *) else { return }
         let (receipt, navigation) = makeReceipt()

@@ -42,7 +42,11 @@ final class ContextMenuPageView: UIView {
     private let feedbackGenerator = UISelectionFeedbackGenerator()
     private var reorderHold: (rowIndex: Int, contentPoint: CGPoint, timer: Timer)?
     private var reorderTouchContentPoint: CGPoint?
-    private var liftedRow: (view: UIView, touchOffsetY: CGFloat)?
+    /// `touchOffset` is the finger's offset from the row's center
+    private var liftedRow: (view: UIView, touchOffset: CGPoint)?
+    /// A host took the lifted row with the touch that carried it, which this page sees out without acting on it
+    private var isLiftHandedOff = false
+    private var suspendedPanRecognizers: [UIPanGestureRecognizer] = []
     /// In a menu that scrolls the rows take their own touches, so a long press lifts a row there: a touch resting
     /// still on a row for the long-press time lifts it, and a touch that scrolls the menu first fails it
     private lazy var scrollingReorderRecognizer: UILongPressGestureRecognizer = {
@@ -159,7 +163,9 @@ final class ContextMenuPageView: UIView {
         )
 
         if let liftedRow {
-            self.selectionView.center = liftedRow.view.center
+            if !self.isGrid {
+                self.selectionView.center = liftedRow.view.center
+            }
         } else if let highlightedRowIndex {
             self.updateHighlight(index: highlightedRowIndex, animated: false, emitFeedback: false)
         } else {
@@ -796,6 +802,9 @@ final class ContextMenuPageView: UIView {
         }
 
         let contentPoint = self.contentView.convert(point, from: self.selectionTouchView)
+        if self.isLiftHandedOff {
+            return
+        }
         if self.liftedRow != nil {
             self.moveLiftedRow(to: contentPoint)
             return
@@ -829,6 +838,10 @@ final class ContextMenuPageView: UIView {
         }
 
         self.cancelReorderHold()
+        if self.isLiftHandedOff {
+            self.isLiftHandedOff = false
+            return
+        }
         if self.liftedRow != nil {
             self.dropLiftedRow()
             return
@@ -933,16 +946,35 @@ final class ContextMenuPageView: UIView {
     private static let reorderHoldSlop: CGFloat = 10.0
     private static let liftedRowScale: CGFloat = 1.04
 
+    private static let liftedGridRowScale: CGFloat = 1.08
+
+    private var isGrid: Bool {
+        if case .grid = self.page.layout {
+            return true
+        }
+        return false
+    }
+
+    /// Every element is then a selectable row, so a row's index is its element's
     private var supportsReorder: Bool {
-        guard self.page.onReorder != nil, case .list = self.page.layout else {
+        guard self.page.onReorder != nil else {
             return false
         }
+        let isGrid = self.isGrid
         return self.page.items.allSatisfy { item in
-            if case .action = item {
+            switch item {
+            case .action:
                 return true
+            case let .custom(row):
+                return isGrid && row.interaction.isSelectable && row.interaction.submenuPage == nil
+            case .back, .submenu, .separator:
+                return false
             }
-            return false
         }
+    }
+
+    private func reorderFrames() -> [CGRect] {
+        self.layoutResult(width: self.contentView.bounds.width).frames
     }
 
     /// Arms the lift for the row under the finger, and re-arms it whenever the finger
@@ -1010,13 +1042,20 @@ final class ContextMenuPageView: UIView {
             return
         }
         let rowView = self.elements[index].view
-        self.liftedRow = (rowView, contentPoint.y - rowView.frame.minY)
+        self.liftedRow = (rowView, CGPoint(x: contentPoint.x - rowView.center.x, y: contentPoint.y - rowView.center.y))
         self.stopAutoScroll()
         ContextMenuHaptics.playRowLift()
 
         self.contentView.bringSubviewToFront(rowView)
-        self.contentView.insertSubview(self.selectionView, belowSubview: rowView)
-        self.updateHighlight(index: index, animated: true, emitFeedback: false)
+        let isGrid = self.isGrid
+        if isGrid {
+            // A lifted tile carries its own shape; the highlight stays behind and fades
+            self.updateHighlight(index: nil, animated: true, emitFeedback: false)
+        } else {
+            self.contentView.insertSubview(self.selectionView, belowSubview: rowView)
+            self.updateHighlight(index: index, animated: true, emitFeedback: false)
+        }
+        let scale = isGrid ? Self.liftedGridRowScale : Self.liftedRowScale
         UIView.animate(
             withDuration: 0.3,
             delay: 0.0,
@@ -1024,8 +1063,78 @@ final class ContextMenuPageView: UIView {
             initialSpringVelocity: 0.0,
             options: [.beginFromCurrentState, .allowUserInteraction]
         ) {
-            rowView.transform = CGAffineTransform(scaleX: Self.liftedRowScale, y: Self.liftedRowScale)
-            self.selectionView.transform = CGAffineTransform(scaleX: Self.liftedRowScale, y: Self.liftedRowScale)
+            rowView.transform = CGAffineTransform(scaleX: scale, y: scale)
+            if !isGrid {
+                self.selectionView.transform = CGAffineTransform(scaleX: scale, y: scale)
+            }
+        }
+        if isGrid {
+            self.setEnclosingPansSuspended(true)
+            self.page.rowDrag?.onLift?(self.makeRowLift(index: index, rowView: rowView, contentPoint: contentPoint))
+        }
+    }
+
+    /// A tile leaves through the page's top, where the pan of a sheet that holds the menu would take the finger from it
+    private func setEnclosingPansSuspended(_ isSuspended: Bool) {
+        guard isSuspended else {
+            self.suspendedPanRecognizers.forEach { $0.isEnabled = true }
+            self.suspendedPanRecognizers = []
+            return
+        }
+        var ancestor = self.superview
+        while let view = ancestor {
+            for case let recognizer as UIPanGestureRecognizer in view.gestureRecognizers ?? [] where recognizer.isEnabled {
+                recognizer.isEnabled = false
+                self.suspendedPanRecognizers.append(recognizer)
+            }
+            ancestor = view.superview
+        }
+    }
+
+    private func makeRowLift(index: Int, rowView: UIView, contentPoint: CGPoint) -> ContextMenuRowLift {
+        ContextMenuRowLift(
+            index: index,
+            rowView: rowView,
+            locationInWindow: self.contentView.convert(contentPoint, to: nil),
+            pageFrameInWindow: self.convert(self.bounds, to: nil)
+        )
+    }
+
+    /// A tile follows the finger anywhere and takes the place of the tile it is over
+    private func moveLiftedGridRow(to contentPoint: CGPoint, index: Int, liftedRow: (view: UIView, touchOffset: CGPoint)) {
+        let center = CGPoint(x: contentPoint.x - liftedRow.touchOffset.x, y: contentPoint.y - liftedRow.touchOffset.y)
+        liftedRow.view.center = center
+
+        if let onExit = self.page.rowDrag?.onExit, self.convert(contentPoint, from: self.contentView).y < self.bounds.minY,
+           onExit(self.makeRowLift(index: index, rowView: liftedRow.view, contentPoint: contentPoint)) {
+            self.liftedRow = nil
+            self.reorderTouchContentPoint = nil
+            self.isLiftHandedOff = true
+            self.setEnclosingPansSuspended(false)
+            return
+        }
+
+        guard let destinationIndex = self.reorderFrames().firstIndex(where: { $0.contains(center) }),
+              destinationIndex != index
+        else {
+            return
+        }
+        let element = self.elements.remove(at: index)
+        self.elements.insert(element, at: destinationIndex)
+        self.feedbackGenerator.selectionChanged()
+        self.page.onReorder?(index, destinationIndex)
+
+        let newFrames = self.reorderFrames()
+        UIView.animate(
+            withDuration: 0.4,
+            delay: 0.0,
+            usingSpringWithDamping: 0.8,
+            initialSpringVelocity: 0.0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            for (element, frame) in zip(self.elements, newFrames) where element.view !== liftedRow.view {
+                element.view.frame = frame
+            }
         }
     }
 
@@ -1035,12 +1144,16 @@ final class ContextMenuPageView: UIView {
         else {
             return
         }
+        if self.isGrid {
+            self.moveLiftedGridRow(to: contentPoint, index: index, liftedRow: liftedRow)
+            return
+        }
         let width = self.contentView.bounds.width
         let frames = self.listLayoutResult(width: width).frames
         let rowFrame = frames[index]
         let minY = frames.first!.minY
         let maxY = frames.last!.maxY - rowFrame.height
-        let originY = min(max(contentPoint.y - liftedRow.touchOffsetY, minY), maxY)
+        let originY = min(max(contentPoint.y - liftedRow.touchOffset.y - rowFrame.height * 0.5, minY), maxY)
         let center = CGPoint(x: rowFrame.midX, y: originY + rowFrame.height * 0.5)
         liftedRow.view.center = center
         self.selectionView.center = center
@@ -1091,13 +1204,15 @@ final class ContextMenuPageView: UIView {
         }
         self.liftedRow = nil
         self.reorderTouchContentPoint = nil
+        self.setEnclosingPansSuspended(false)
         guard let index = self.elements.firstIndex(where: { $0.view === liftedRow.view }) else {
             liftedRow.view.transform = .identity
             self.selectionView.transform = .identity
             return
         }
-        let frame = self.listLayoutResult(width: self.contentView.bounds.width).frames[index]
+        let frame = self.reorderFrames()[index]
         let center = CGPoint(x: frame.midX, y: frame.midY)
+        let isGrid = self.isGrid
         UIView.animate(
             withDuration: 0.35,
             delay: 0.0,
@@ -1107,10 +1222,15 @@ final class ContextMenuPageView: UIView {
         ) {
             liftedRow.view.transform = .identity
             liftedRow.view.center = center
-            self.selectionView.transform = .identity
-            self.selectionView.center = center
+            if !isGrid {
+                self.selectionView.transform = .identity
+                self.selectionView.center = center
+            }
         }
         self.updateHighlight(index: nil, animated: true, emitFeedback: false)
+        if isGrid {
+            self.page.rowDrag?.onDrop?()
+        }
     }
 }
 

@@ -9,6 +9,7 @@ import {
   createAgentV2Thread,
   destroyAgentV2,
   getAgentV2CachedMessages,
+  getAgentV2CachedNewsFeed,
   getAgentV2CachedThreads,
   getAgentV2DefaultThread,
   getAgentV2NewsFeed,
@@ -20,7 +21,7 @@ import {
 type MockRuntime = jest.Mocked<Pick<
   import('./runtime').AgentV2Runtime,
     'createThread' | 'getDefaultThread' | 'getNewsFeed' | 'destroy' | 'getConsent' | 'getRunLifecycleGeneration'
-    | 'setToolExecutor' | 'updateHostContext' | 'getCachedThreads' | 'getCachedMessages'
+    | 'setToolExecutor' | 'updateHostContext' | 'getCachedThreads' | 'getCachedMessages' | 'getCachedNewsFeed'
 >> & {
   dependencies: AgentV2RuntimeDependencies;
 };
@@ -38,6 +39,7 @@ jest.mock('./runtime', () => ({
       getNewsFeed: jest.fn(),
       getCachedThreads: jest.fn(),
       getCachedMessages: jest.fn(),
+      getCachedNewsFeed: jest.fn(),
       destroy: jest.fn(() => Promise.resolve()),
       getConsent: jest.fn(() => Promise.resolve(true)),
       getRunLifecycleGeneration: jest.fn(() => 0),
@@ -84,6 +86,7 @@ describe('Agent V2 service lifecycle', () => {
   });
 
   it('returns missing cache without an active runtime and forwards cache reads to the active runtime', async () => {
+    await expect(getAgentV2CachedNewsFeed({ lang: 'en' })).resolves.toBeUndefined();
     await expect(getAgentV2CachedThreads()).resolves.toBeUndefined();
     await expect(getAgentV2CachedMessages('thread-id')).resolves.toBeUndefined();
     await initAgentV2(jest.fn());
@@ -94,6 +97,8 @@ describe('Agent V2 service lifecycle', () => {
     await expect(getAgentV2CachedMessages('thread-id')).resolves.toBeUndefined();
     expect(mockRuntimeInstances[0].getCachedThreads).toHaveBeenCalledWith();
     expect(mockRuntimeInstances[0].getCachedMessages).toHaveBeenCalledWith('thread-id');
+    await getAgentV2CachedNewsFeed({ lang: 'en' });
+    expect(mockRuntimeInstances[0].getCachedNewsFeed).toHaveBeenCalledWith({ lang: 'en' });
   });
 
   it.each([

@@ -42,8 +42,8 @@ export type ApiPerpsFundingRequirements = {
   /** Arbitrum wallet USDC, or the book's spendable HyperCore USDC for a balance draft. */
   usdcBalance: string;
   /**
-   * Maximum opening collateral: wallet USDC after the shared deposit bridge fee, or for a balance draft the book's
-   * spendable USDC after trading-fee headroom at the draft's leverage.
+   * Maximum opening collateral: wallet USDC after the shared deposit bridge fee and any gasless paymaster reserve, or
+   * for a balance draft the book's spendable USDC after trading-fee headroom at the draft's leverage.
    */
   availableCollateral?: string;
   /** Arbitrum wallet ETH; `"0"` for a balance draft. */
@@ -262,6 +262,8 @@ export type ApiPerpsFill = {
   receiptFees?: ApiPerpsFees;
   coin: string;
   oid?: number;
+  /** Hyperliquid transaction of the trade, which the explorer opens. A TWAP trade has none. */
+  txHash?: string;
   time: number;
   px?: string;
   sz?: string;

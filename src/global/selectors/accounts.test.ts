@@ -1,6 +1,7 @@
 import type { Account, GlobalState } from '../types';
+import { ContentTab } from '../types';
 
-import { selectHasAuth, selectHasPassword, selectShouldMigrate } from './accounts';
+import { selectHasAuth, selectHasPassword, selectIsContentListOpen, selectShouldMigrate } from './accounts';
 
 const MNEMONIC_ACCOUNT = { title: 'Wallet', type: 'mnemonic', byChain: {} } as unknown as Account;
 const HARDWARE_ACCOUNT = { title: 'Ledger', type: 'hardware', byChain: {} } as unknown as Account;
@@ -46,5 +47,36 @@ describe('auth-state selectors', () => {
 
     expect(selectHasPassword(global)).toBe(false);
     expect(selectShouldMigrate(global)).toBe(false);
+  });
+});
+
+describe('selectIsContentListOpen', () => {
+  function getIsOpen(accountState: AnyLiteral) {
+    const global = { currentAccountId: 'id', byAccountId: { id: accountState } } as unknown as GlobalState;
+
+    return selectIsContentListOpen(global);
+  }
+
+  it('keeps the list under a token opened from it', () => {
+    expect(getIsOpen({
+      activeContentTab: ContentTab.Activity,
+      activityReturnContentTab: ContentTab.Assets,
+      currentTokenSlug: 'toncoin',
+    })).toBe(true);
+  });
+
+  it('keeps the home screen under a token opened from it', () => {
+    expect(getIsOpen({
+      activeContentTab: ContentTab.Activity,
+      activityReturnContentTab: ContentTab.Overview,
+      currentTokenSlug: 'toncoin',
+    })).toBe(false);
+  });
+
+  it('opens for a collection on the home tab', () => {
+    expect(getIsOpen({
+      activeContentTab: ContentTab.Overview,
+      nfts: { currentCollection: { chain: 'ton', address: 'address' } },
+    })).toBe(true);
   });
 });

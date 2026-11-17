@@ -80,7 +80,7 @@ private struct ActionMenuGlyph: View {
     }
 }
 
-private extension SplitHomeActionItem {
+extension SplitHomeActionItem {
     var actionMenuAccessibilityIdentifier: String {
         switch self {
         case .buy: "home_sheet_action_buy"

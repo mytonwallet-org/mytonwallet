@@ -16,15 +16,6 @@ private let rootBottomGradientHeight: CGFloat = 84
 private let rootActionMenuWidth: CGFloat = 386
 private let rootActionMenuMaximumCompactWidth: CGFloat = 424
 private let rootActionMenuItemHeight: CGFloat = 124
-private let rootActionMenuItemOrder: [SplitHomeActionItem] = [
-    .buy,
-    .deposit,
-    .swap,
-    .sell,
-    .send,
-    .earn,
-    .scan,
-]
 private let rootSearchAnimationDuration: TimeInterval = 0.28
 
 @MainActor
@@ -33,6 +24,11 @@ protocol RootSearchToolbarHost: AnyObject {
     var searchRootContentControllers: [UIViewController] { get }
     var searchEditingNavigator: NftsEditingNavigator? { get }
     var showsRootSearchToolbar: Bool { get }
+    /// Whether Home's banners float above the root tabs' toolbar while Wallet is not the first tab, rather than stay
+    /// where the layout keeps them, such as in a sidebar
+    var canFloatPromotions: Bool { get }
+    /// The loaded root screens the floating banners cover, which keep their content clear of them
+    var promotionOverlayContentControllers: [UIViewController] { get }
     var searchToolbarVerticalEdge: UIRectEdge? { get }
     func searchToolbarWillDetach()
     func searchToolbarGeometryDidChange()
@@ -51,6 +47,8 @@ extension RootSearchToolbarHost {
         default: return nil
         }
     }
+    var canFloatPromotions: Bool { false }
+    var promotionOverlayContentControllers: [UIViewController] { [] }
     func searchToolbarWillDetach() {}
     func searchToolbarGeometryDidChange() {}
     func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?) {}
@@ -84,6 +82,16 @@ final class RootSearchToolbarController: NSObject {
     private var toolbarSettingsObservation: NSObjectProtocol?
     private var accountObservation: ObserveToken?
     private var accountsMenuInteraction: ContextMenuInteraction?
+    private(set) lazy var toolbarEditor = HomeToolbarEditor(toolbar: searchToolbar, host: self)
+    private let actionDragTracker = HomeToolbarTouchTracker()
+    private weak var actionDragHint: HomeToolbarDragHintView?
+    /// The account button's place on a side of the top bar, in window coordinates, for the screen whose top bar has it
+    var topAccountFrameProvider: ((_ isAtStart: Bool) -> CGRect?)?
+    var onTopAccountHeldChange: ((Bool) -> Void)?
+    /// The account button is being dragged, so the top bar keeps room for it at both ends
+    var onTopAccountDragActiveChange: ((Bool) -> Void)?
+    /// A hold on an account button that opened its menu is turning into a drag
+    var onWillLiftAccounts: (() -> Void)?
     private var traitCollection: UITraitCollection { searchToolbarHostView.traitCollection }
 
     override init() {
@@ -95,17 +103,18 @@ final class RootSearchToolbarController: NSObject {
             self.updateSearchToolbarGeometry(for: self.searchToolbar.presentation)
             self.searchToolbarHostView.layoutIfNeeded()
         }
-        searchToolbar.setHomeConfiguration(ToolbarSettings.configuration(), animated: false)
         toolbarSettingsObservation = NotificationCenter.default.addObserver(
             forName: ToolbarSettings.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.searchToolbar.setHomeConfiguration(ToolbarSettings.configuration(), animated: true)
+                self?.applyToolbarConfiguration(animated: true)
             }
         }
         accountObservation = observe { [weak self] in
             let accountID = AccountStore.currentAccountId
             self?.searchToolbar.accountsButton.configure(account: AccountStore.accountsById[accountID])
+            // The actions an account can use come and go with it
+            self?.applyToolbarConfiguration(animated: false)
         }
         if #available(iOS 27.1, *) {
             searchToolbarViewportView.registerForTraitChanges(
@@ -124,10 +133,34 @@ final class RootSearchToolbarController: NSObject {
             // Minimizing the browser resizes the viewport but may only move the fixed-height toolbar.
             self?.searchToolbarContainerView.setNeedsLayout()
         }
+        AppTabManager.shared.addObserver(self) { [weak self] _ in
+            self?.updatePromotionPlacement()
+        }
     }
 
     deinit {
         if let toolbarSettingsObservation { NotificationCenter.default.removeObserver(toolbarSettingsObservation) }
+        MainActor.assumeIsolated {
+            AppTabManager.shared.removeObserver(self)
+        }
+    }
+
+    /// Home's banners float above the toolbar while Wallet is not the first tab, on a layout that floats them and
+    /// keeps the toolbar at the bottom
+    private func updatePromotionPlacement() {
+        let isOverlay = host?.canFloatPromotions == true && sideBarEdge == nil
+            && AppTabManager.shared.toolbarTabIds.first != .wallet
+        if HomePromotionPlacement.shared.isOverlay != isOverlay {
+            HomePromotionPlacement.shared.isOverlay = isOverlay
+        }
+    }
+
+    private func applyToolbarConfiguration(animated: Bool) {
+        guard !toolbarEditor.isDragging else { return }
+        searchToolbar.setHomeConfiguration(
+            getToolbarEditorDisplayedConfiguration(ToolbarSettings.configuration()),
+            animated: animated
+        )
     }
 
     func attach(to host: any RootSearchToolbarHost) {
@@ -143,6 +176,7 @@ final class RootSearchToolbarController: NSObject {
         } else {
             self.host = host
         }
+        updatePromotionPlacement()
         host.searchRootContentControllers.forEach(applyChromeInsets)
         navigation.viewControllers.forEach(applyChromeInsets)
         updatePresentation()
@@ -223,8 +257,21 @@ final class RootSearchToolbarController: NSObject {
     private var bottomBarBottomConstraint: NSLayoutConstraint?
     private var searchToolbarKeyboardConstraint: NSLayoutConstraint?
     private var searchToolbarKeyboardAnimationID: UUID?
+    /// Home's banners floating above this toolbar, which moves them along with it between root layouts
+    let promotionOverlay = RootPromotionOverlayController()
     /// Whether a docked keyboard lifts the toolbar for its own field or the Agent list's question field
     private var isToolbarKeyboardShown = false
+    /// How far the toolbar has turned into the Agent tab's question field, which only its own tab shows
+    private var agentMorphProgress: CGFloat = 0
+    /// The screen under the toolbar is dimmed while the toolbar is rearranged
+    private var isToolbarEditorDimmed = false
+    /// The Wallet's NFT selection toolbar stands in for the toolbar, and Home's banners leave with it
+    private var isNftSelectionToolbarShown = false {
+        didSet {
+            guard isNftSelectionToolbarShown != oldValue else { return }
+            host?.searchRootContentControllers.forEach(applyChromeInsets)
+        }
+    }
     private var actionsMenuInteraction: ContextMenuInteraction?
     private(set) var universalSearchViewController: RootSearchViewController?
     private var searchSheetObservation: MinimizableSheetObservation?
@@ -352,6 +399,7 @@ final class RootSearchToolbarController: NSObject {
             ? .search
             : sharedBottomToolbarPresentation(isShowingRoot: isShowingRoot, provider: provider)
         searchToolbar.isHidden = false
+        isNftSelectionToolbarShown = false
         updateSharedBottomToolbar(
             provider: provider,
             targetPresentation: targetPresentation,
@@ -538,6 +586,7 @@ final class RootSearchToolbarController: NSObject {
             ? .search
             : sharedBottomToolbarPresentation(isShowingRoot: isShowingRoot, provider: provider)
         searchToolbar.isHidden = false
+        isNftSelectionToolbarShown = false
         if let provider {
             bindSharedBottomToolbarProvider(provider)
             searchToolbar.setCompactActions(provider.sharedBottomToolbarActions)
@@ -556,6 +605,7 @@ final class RootSearchToolbarController: NSObject {
         let edge = host?.searchToolbarVerticalEdge
         guard edge != sideBarEdge else { return }
         sideBarEdge = edge
+        updatePromotionPlacement()
         updateViewportConstraints()
         host?.searchRootContentControllers.forEach(applyChromeInsets)
         sharedMainNavigationController?.viewControllers.forEach(applyChromeInsets)
@@ -673,6 +723,8 @@ final class RootSearchToolbarController: NSObject {
         bottomGradientView.isHidden = false
         searchToolbar.isHidden = true
         navigator.installToolbar(into: navigationController.view)
+        isNftSelectionToolbarShown = true
+        updatePromotionOverlayVisibility(at: searchToolbar.presentation)
         return true
     }
 
@@ -740,6 +792,8 @@ final class RootSearchToolbarController: NSObject {
         searchToolbar.isHidden = false
         bottomGradientView.isHidden = false
         bottomGradientView.alpha = showsBottomGradient(for: searchToolbar.presentation) ? 1 : 0
+        // Home's banners come back once the transition settles, so a cancelled one leaves them where they were
+        promotionOverlay.setVisible(false)
     }
 
     private func finishBottomChromeVisibility(
@@ -749,6 +803,22 @@ final class RootSearchToolbarController: NSObject {
         searchToolbar.isHidden = false
         bottomGradientView.alpha = isVisible ? 1 : 0
         bottomGradientView.isHidden = !isVisible
+        updatePromotionOverlayVisibility(at: presentation)
+    }
+
+    /// Home's banners float only over the root tabs' full toolbar, and not on the Agent tab, whose question field and
+    /// suggestions take that place, nor over the Wallet's NFT selection or while the toolbar is rearranged
+    private func updatePromotionOverlayVisibility(at presentation: UniversalSearchFieldPresentation) {
+        promotionOverlay.setVisible(
+            presentation == .homeToolbar && agentMorphProgress == 0 && !isNftSelectionToolbarShown
+                && !isToolbarEditorDimmed
+        )
+    }
+
+    /// A navigation transition hides the banners until it settles, and its settling decides on them instead
+    private func refreshPromotionOverlayVisibility() {
+        guard sharedMainNavigationController?.transitionCoordinator == nil else { return }
+        updatePromotionOverlayVisibility(at: searchToolbar.presentation)
     }
 
     private func showsBottomGradient(for presentation: UniversalSearchFieldPresentation) -> Bool {
@@ -760,7 +830,10 @@ final class RootSearchToolbarController: NSObject {
         let previous = contentInsets[identifier].flatMap { $0.controller === controller ? $0.bottom : nil } ?? 0
         let isRoot = host?.searchRootContentControllers.contains { $0 === controller } == true
         let usesToolbar = (controller as? any SharedBottomToolbarContentProviding)?.isSharedBottomToolbarEnabled == true
-        let bottom: CGFloat = sideBarEdge == nil && (isRoot || usesToolbar) ? rootBottomChromeHeight : 0
+        let isUnderPromotions = !isNftSelectionToolbarShown
+            && host?.promotionOverlayContentControllers.contains { $0 === controller } == true
+        let promotionsHeight = isUnderPromotions ? promotionOverlay.reservedHeight : 0
+        let bottom: CGFloat = sideBarEdge == nil && (isRoot || usesToolbar) ? rootBottomChromeHeight + promotionsHeight : 0
         if bottom != previous {
             controller.additionalSafeAreaInsets.bottom += bottom - previous
         }
@@ -804,11 +877,18 @@ final class RootSearchToolbarController: NSObject {
         searchToolbar.onAccountsTap = {
             AppActions.showSettings(section: nil)
         }
-        searchToolbar.onScanTap = { [weak self] in
-            AppActions.scanAndHandleQR(accountContext: AccountContext(source: .current), sourceViewProvider: { [weak self] in
-                self?.searchToolbar.scanButtonPresentationSourceView
-            })
+        searchToolbar.onHomeItemTap = { [weak self] item in
+            guard let action = SplitHomeActionItem(toolbarItem: item) else { return }
+            let accountContext = AccountContext(source: .current)
+            if action == .scan {
+                AppActions.scanAndHandleQR(accountContext: accountContext, sourceViewProvider: { [weak self] in
+                    self?.searchToolbar.getHomeItemZoomSourceView(for: .scan)
+                })
+            } else {
+                action.perform(accountContext: accountContext)
+            }
         }
+        searchToolbar.addGestureRecognizer(toolbarEditor.holdRecognizer)
         let accountsInteraction = ContextMenuInteraction(triggers: [.longPress]) { sourceView in
             SwitchAccountMenu.makeConfiguration(sourceView: sourceView)
         }
@@ -824,6 +904,13 @@ final class RootSearchToolbarController: NSObject {
             ),
             activationViewProvider: { [weak searchToolbar] _ in
                 searchToolbar?.trailingButtonPresentationSourceView
+            },
+            onWillPresent: { [weak self] in
+                self?.installActionDragTracker()
+            },
+            onDidDismiss: { [weak self] in
+                self?.hideActionDragHint()
+                self?.removeActionDragTrackerIfIdle()
             }
         ) { [weak self] _ in
             self?.makeActionsMenuConfiguration()
@@ -970,23 +1057,38 @@ final class RootSearchToolbarController: NSObject {
             ? rootActionMenuMaximumCompactWidth
             : rootActionMenuWidth
         let availableItems = Set(SplitHomeActionItem.availableItems(for: account))
-        let items: [ContextMenuItem] = rootActionMenuItemOrder.compactMap { item in
-            guard availableItems.contains(item) else {
-                return nil
-            }
-            return actionMenuItem(item, accountContext: accountContext)
+        var actions = ToolbarSettings.configuration().actionsOrder
+            .compactMap(SplitHomeActionItem.init(toolbarItem:))
+            .filter(availableItems.contains)
+        var page = ContextMenuPage(
+            items: actions.map { actionMenuItem($0, accountContext: accountContext) },
+            layout: .grid(ContextMenuGridLayout(
+                columns: 3,
+                contentInsets: UIEdgeInsets(top: 48, left: 20, bottom: 20, right: 20),
+                highlightInsets: UIEdgeInsets(top: -7, left: 4, bottom: 15, right: 4),
+                highlightCornerRadius: 24
+            ))
+        )
+        // A held action lifts: it takes another's place in the menu, or leaves through the menu's top for the toolbar
+        page.onReorder = { [weak self] sourceIndex, destinationIndex in
+            actions.insert(actions.remove(at: sourceIndex), at: destinationIndex)
+            self?.storeActionsOrder(actions)
         }
+        page.rowDrag = ContextMenuRowDrag(
+            onLift: { [weak self] lift in
+                self?.showActionDragHint(above: lift.pageFrameInWindow)
+            },
+            onDrop: { [weak self] in
+                self?.hideActionDragHint()
+            },
+            onExit: { [weak self] lift in
+                guard let self, actions.indices.contains(lift.index) else { return false }
+                return beginActionDrag(actions[lift.index], lift: lift)
+            }
+        )
 
         return ContextMenuConfiguration(
-            rootPage: ContextMenuPage(
-                items: items,
-                layout: .grid(ContextMenuGridLayout(
-                    columns: 3,
-                    contentInsets: UIEdgeInsets(top: 48, left: 20, bottom: 20, right: 20),
-                    highlightInsets: UIEdgeInsets(top: -7, left: 4, bottom: 15, right: 4),
-                    highlightCornerRadius: 24
-                ))
-            ),
+            rootPage: page,
             backdrop: .none,
             style: ContextMenuStyle(
                 minWidth: rootActionMenuWidth,
@@ -1030,6 +1132,74 @@ final class RootSearchToolbarController: NSObject {
                 ActionMenuItem(item: item)
             }
         )
+    }
+
+    // MARK: - Dragging an action to the toolbar
+
+    private func installActionDragTracker() {
+        guard actionDragTracker.view == nil, let window = searchToolbar.window else { return }
+        window.addGestureRecognizer(actionDragTracker)
+    }
+
+    private func removeActionDragTrackerIfIdle() {
+        guard !toolbarEditor.isDragging else { return }
+        actionDragTracker.onMove = nil
+        actionDragTracker.onEnd = nil
+        actionDragTracker.view?.removeGestureRecognizer(actionDragTracker)
+    }
+
+    private func showActionDragHint(above frame: CGRect) {
+        guard actionDragHint == nil, canEditToolbar, let window = searchToolbar.window else { return }
+        let hint = HomeToolbarDragHintView(text: lang("Drag here to add to the toolbar"))
+        hint.show(in: window, above: frame)
+        actionDragHint = hint
+    }
+
+    private func hideActionDragHint() {
+        actionDragHint?.hide()
+        actionDragHint = nil
+    }
+
+    /// The finger carried `action` out of the actions menu: the menu closes and the toolbar's editor takes the drag
+    private func beginActionDrag(_ action: SplitHomeActionItem, lift: ContextMenuRowLift) -> Bool {
+        guard canEditToolbar, actionDragTracker.trackedTouch != nil else { return false }
+        let rowView = lift.rowView
+        let tileSize = ActionMenuTileView.size
+        let tileFrame = rowView.convert(
+            CGRect(x: rowView.bounds.midX - tileSize / 2, y: (72 - tileSize) / 2, width: tileSize, height: tileSize),
+            to: nil
+        )
+        guard toolbarEditor.beginExternalDrag(
+            item: action.toolbarItem,
+            standIn: ActionMenuTileView(item: action),
+            frame: tileFrame,
+            touch: lift.locationInWindow
+        ) else { return false }
+        rowView.isHidden = true
+        hideActionDragHint()
+        actionDragTracker.onMove = { [weak self] point in
+            self?.toolbarEditor.moveDrag(to: point)
+        }
+        actionDragTracker.onEnd = { [weak self] point, isCancelled in
+            guard let self else { return }
+            if isCancelled {
+                toolbarEditor.cancel()
+            } else {
+                toolbarEditor.endDrag(at: point)
+            }
+            removeActionDragTrackerIfIdle()
+        }
+        actionsMenuInteraction?.dismiss()
+        return true
+    }
+
+    /// Stores the menu's order of the actions it shows; the actions the account cannot use keep their places
+    private func storeActionsOrder(_ actions: [SplitHomeActionItem]) {
+        var configuration = ToolbarSettings.configuration()
+        var shown = actions.map(\.toolbarItem)[...]
+        let shownItems = Set(shown)
+        configuration.actionsOrder = configuration.actionsOrder.map { shownItems.contains($0) ? shown.removeFirst() : $0 }
+        ToolbarSettings.setConfiguration(configuration)
     }
 
     func showSearch(query: String) {
@@ -1413,8 +1583,66 @@ final class RootSearchToolbarController: NSObject {
             bottomGradientView.bottomAnchor.constraint(equalTo: toolbarHostView.bottomAnchor),
             bottomGradientView.heightAnchor.constraint(equalToConstant: rootBottomGradientHeight),
         ]
+        promotionOverlay.onReservedHeightChange = { [weak self] in
+            guard let self else { return }
+            host?.searchRootContentControllers.forEach(applyChromeInsets)
+        }
+        hostConstraints += promotionOverlay.install(
+            in: searchToolbarViewportView,
+            below: searchToolbarContainerView,
+            above: searchToolbar
+        )
         NSLayoutConstraint.activate(hostConstraints)
         updateViewportConstraints()
+    }
+}
+
+extension RootSearchToolbarController: HomeToolbarEditorHost {
+    var toolbarEditorConfiguration: HomeToolbarConfiguration { ToolbarSettings.configuration() }
+
+    func getToolbarEditorDisplayedConfiguration(_ configuration: HomeToolbarConfiguration) -> HomeToolbarConfiguration {
+        guard let account = AccountStore.account else { return configuration }
+        let availableItems = Set(SplitHomeActionItem.availableItems(for: account).map(\.toolbarItem))
+        return configuration.hiding(Set(HomeToolbarItem.actionItems).subtracting(availableItems))
+    }
+
+    func commitToolbarEditorConfiguration(_ configuration: HomeToolbarConfiguration) {
+        ToolbarSettings.setConfiguration(configuration)
+    }
+
+    var canEditToolbar: Bool {
+        searchToolbar.presentation == .homeToolbar && sideBarEdge == nil && !isSearchVisible && !isToolbarEditing
+            && searchToolbar.window != nil && sharedMainNavigationController?.transitionCoordinator == nil
+    }
+
+    var toolbarEditorDimmingAnchor: (container: UIView, sibling: UIView)? {
+        guard let container = bottomGradientView.superview else { return nil }
+        return (container, bottomGradientView)
+    }
+
+    func setToolbarEditorDimmed(_ isDimmed: Bool) {
+        isToolbarEditorDimmed = isDimmed
+        refreshPromotionOverlayVisibility()
+    }
+
+    func getTopAccountFrame(isAtStart: Bool) -> CGRect? {
+        topAccountFrameProvider?(isAtStart)
+    }
+
+    func setTopAccountHeld(_ isHeld: Bool) {
+        onTopAccountHeldChange?(isHeld)
+    }
+
+    func setTopAccountDragActive(_ isActive: Bool) {
+        onTopAccountDragActiveChange?(isActive)
+    }
+
+    var opensMenuOnAccountsHold: Bool { true }
+
+    func toolbarEditorWillLiftAccounts() {
+        accountsMenuInteraction?.cancelActivationGesture()
+        accountsMenuInteraction?.dismiss()
+        onWillLiftAccounts?()
     }
 }
 
@@ -1426,6 +1654,8 @@ extension RootSearchToolbarController: RootAgentBarHost {
 
     func agentBarMorphProgressDidChange(_ progress: CGFloat) {
         bottomGradientView.agentProgress = progress
+        agentMorphProgress = progress
+        refreshPromotionOverlayVisibility()
     }
 
     func agentBarEditingDidChange(_ isEditing: Bool) {

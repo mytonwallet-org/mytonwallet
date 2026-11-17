@@ -156,8 +156,9 @@ public final class TradePaymentControl: TradePressButton {
         if let amountText { amount.setText(amountText, animated: animated) }
         amountPresence.setContentVisible(showsAmount, animated: animated)
         shine.setActive(isStale && showsAmount, animated: animated)
-        showsBadge = currency == nil && token.map { $0.chain.usdtSlug.values.contains($0.slug) } == true
-        badgeLabel.text = token?.chain.usdtBadgeText
+        let label = currency == nil ? token?.badgeLabel : nil
+        showsBadge = label != nil
+        if let label { badgeLabel.text = label }
         badge.setContentVisible(showsBadge, animated: animated)
         accessibilityLabel = [methodTitleLabel.text, amountText, symbolText, showsBadge ? badgeLabel.text : nil].compactMap { $0 }.joined(separator: ", ")
         setNeedsLayout()

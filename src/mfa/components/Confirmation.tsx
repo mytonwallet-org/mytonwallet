@@ -193,6 +193,7 @@ function Confirmation({
           transaction.payload,
           extensionAddress,
           transaction.address,
+          transaction.mfaRefill,
         );
 
         if (!isCanceled) {

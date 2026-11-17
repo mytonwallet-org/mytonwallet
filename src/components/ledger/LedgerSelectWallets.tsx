@@ -191,7 +191,7 @@ function LedgerSelectWallets({
   }
 
   const title = selectedAccountIndices.length
-    ? lang('%count% Selected', selectedAccountIndices.length) as string
+    ? lang('%count% Selected', selectedAccountIndices.length)
     : lang('Select Ledger Wallets');
 
   return (

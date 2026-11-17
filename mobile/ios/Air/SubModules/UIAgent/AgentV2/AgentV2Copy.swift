@@ -5,17 +5,37 @@ import WalletCore
 enum AgentV2Copy {
     struct Prompt {
         let title: String
-        var prompt: String { title }
+        /// The question the agent gets; the chip shows the shorter title
+        let prompt: String
+
+        init(title: String, prompt: String? = nil) {
+            self.title = title
+            self.prompt = prompt ?? title
+        }
     }
 
     static func hint(_ id: ApiAgentV2StarterHint.ID) -> Prompt {
         switch id {
         case .agentCapabilities: Prompt(title: lang("$agent_hint_capabilities_title"))
-        case .portfolioPerformance: Prompt(title: lang("$agent_hint_portfolio_title"))
         case .learnSwap: Prompt(title: lang("$agent_hint_swap_title"))
         case .learnStaking: Prompt(title: lang("$agent_hint_staking_title"))
-        case .learnSecurity: Prompt(title: lang("$agent_hint_security_title"))
+        case .learnSecurity: Prompt(title: lang("$agent_hint_security_title"), prompt: lang("$agent_hint_security_prompt"))
         case .receiveTokens: Prompt(title: lang("$agent_hint_receive_title"))
+        case .walletAssets: Prompt(title: lang("$agent_hint_assets_title"), prompt: lang("$agent_hint_assets_prompt"))
+        case .walletTotal: Prompt(title: lang("$agent_hint_total_title"), prompt: lang("$agent_hint_total_prompt"))
+        case .walletSpending: Prompt(title: lang("$agent_hint_spending_title"), prompt: lang("$agent_hint_spending_prompt"))
+        case .walletLastTransfer: Prompt(title: lang("$agent_hint_last_transfer_title"), prompt: lang("$agent_hint_last_transfer_prompt"))
+        case .walletFund: Prompt(title: lang("$agent_hint_fund_title"), prompt: lang("$agent_hint_fund_prompt"))
+        case .marketToday: Prompt(title: lang("$agent_hint_market_today_title"), prompt: lang("$agent_hint_market_today_prompt"))
+        case .newsToday: Prompt(title: lang("$agent_hint_news_today_title"), prompt: lang("$agent_hint_news_today_prompt"))
+        case .marketBitcoin: Prompt(title: lang("$agent_hint_bitcoin_title"), prompt: lang("$agent_hint_bitcoin_prompt"))
+        case .marketPrice: Prompt(title: lang("$agent_hint_price_title"))
+        case .stakingYield: Prompt(title: lang("$agent_hint_staking_yield_title"), prompt: lang("$agent_hint_staking_yield_prompt"))
+        case .stakingOptions: Prompt(title: lang("$agent_hint_staking_options_title"), prompt: lang("$agent_hint_staking_options_prompt"))
+        case .learnMultisend: Prompt(title: lang("$agent_hint_multisend_title"), prompt: lang("$agent_hint_multisend_prompt"))
+        case .actionSwap: Prompt(title: lang("$agent_hint_action_swap_title"))
+        case .actionSend: Prompt(title: lang("$agent_hint_action_send_title"))
+        case .actionStake: Prompt(title: lang("$agent_hint_action_stake_title"))
         }
     }
 
@@ -66,7 +86,20 @@ enum AgentV2Copy {
             guard error.code != .runInterrupted else { return nil }
             return DisplayError(text: self.error(error.code))
         }
+        if isConnectionError(error) { return DisplayError(text: self.error(.networkError)) }
         return DisplayError(text: lang("$agent_error_generic"))
+    }
+
+    static func isConnectionError(_ error: Error) -> Bool {
+        if (error as? ApiAgentV2MutationError)?.code == .networkError { return true }
+        guard let error = error as? URLError else { return false }
+        switch error.code {
+        case .notConnectedToInternet, .networkConnectionLost, .cannotFindHost, .cannotConnectToHost,
+             .dnsLookupFailed, .timedOut, .internationalRoamingOff, .dataNotAllowed:
+            return true
+        default:
+            return false
+        }
     }
 
     @MainActor
@@ -101,7 +134,7 @@ enum AgentV2Copy {
         case .newsUnavailable:
             lang("$agent_news_unavailable")
         case .networkError:
-            lang("$agent_connection_lost")
+            lang("No internet connection. Please check your connection and try again.")
         case .providerTimeout, .providerUnavailable:
             lang("$agent_capacity_limit_unknown")
         case .invalidEvent:

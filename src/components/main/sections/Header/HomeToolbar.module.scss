@@ -1,0 +1,140 @@
+@use "../../../../styles/mixins";
+
+@use "../../../../styles/scssVariables" as v;
+
+.root {
+  flex-shrink: 0;
+}
+
+.portrait {
+  --home-toolbar-background: var(--color-background-second);
+
+  position: fixed;
+  z-index: var(--z-header);
+  top: 0;
+  right: 0;
+  left: 0;
+
+  padding: calc(#{v.$homeToolbarPortraitPadding} + var(--safe-area-top)) v.$homeToolbarPortraitPadding v.$homeToolbarPortraitPadding;
+
+  background-color: var(--home-toolbar-background);
+  backdrop-filter: var(--filter-blur-bar);
+
+  @supports (background-color: color-mix(in srgb, red 80%, transparent)) {
+    background-color: color-mix(in srgb, var(--home-toolbar-background) 80%, transparent);
+  }
+
+  @include mixins.transition('transform 200ms, visibility 200ms, background-color 200ms');
+
+  :global(html.is-electron) & {
+    top: var(--electron-header-height);
+  }
+
+  :global(html.is-windows.is-opera.is-extension) & {
+    padding-top: v.$operaExtensionDeadZone;
+  }
+}
+
+.hidden {
+  transform: translateY(-100%);
+  visibility: hidden;
+}
+
+// The Agent and Explore screens have the first background color, so in the light theme the toolbar takes it too
+.onFirstBackground {
+  :global(html:not(.theme-dark)) & {
+    --home-toolbar-background: var(--color-background-first);
+    --home-toolbar-capsule: var(--color-background-second);
+  }
+}
+
+// The header of the screen reaches up under the toolbar and paints one background for both
+.overScreenHeader {
+  background-color: transparent;
+  backdrop-filter: none;
+}
+
+.landscape {
+  width: 100%;
+  max-width: v.$landscapeMainContentMaxWidth;
+  padding-top: var(--app-padding-top);
+  padding-bottom: 1.25rem;
+  padding-inline-end: 1rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  height: v.$homeToolbarHeight;
+}
+
+.rowPortrait {
+  max-width: v.$portraitContentMaxWidth;
+  margin: 0 auto;
+}
+
+.pill {
+  display: flex;
+  flex-shrink: 0;
+  gap: 1rem;
+  align-items: center;
+
+  padding: 0.625rem;
+
+  @include mixins.homeToolbarCapsule();
+}
+
+.pillStart {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.lock {
+  display: flex;
+
+  @include mixins.transition('transform 200ms, opacity 200ms');
+
+  &:global(.not-open) {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  // The layout takes its final state at once, and the icon fades out over the place where the neighbour lands
+  &:global(.closing) {
+    position: absolute;
+    top: 0.625rem;
+    inset-inline-end: 0.625rem;
+  }
+}
+
+.avatarButton {
+  cursor: var(--custom-cursor, pointer);
+
+  flex-shrink: 0;
+
+  width: v.$homeToolbarHeight;
+  height: v.$homeToolbarHeight;
+  padding: 0.25rem;
+  border: none;
+  border-radius: 50%;
+
+  background-color: var(--home-toolbar-capsule, var(--color-background-first));
+
+  @include mixins.transition('opacity 150ms, background-color 200ms');
+
+  &:focus-visible,
+  &:hover {
+    opacity: 0.65;
+  }
+
+  @include mixins.active-transition-optimization();
+}
+
+.avatar {
+  --wallet-avatar-size: 2.25rem;
+
+  font-size: 0.8125rem;
+  font-weight: 800;
+}

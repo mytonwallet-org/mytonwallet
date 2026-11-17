@@ -91,7 +91,7 @@ function SwapActivityModal({
     fetchActivityDetails,
     startSwap,
     closeActivityInfo,
-    selectToken,
+    showTokenActivity,
     openTransactionInfo,
   } = getActions();
 
@@ -237,7 +237,7 @@ function SwapActivityModal({
 
   const handleTokenClick = useLastCallback((tokenSlug: string) => {
     closeActivityInfo({ id: id! });
-    selectToken({ slug: tokenSlug });
+    showTokenActivity({ slug: tokenSlug });
   });
 
   const swapTransactionInfo = renderedActivity ? getSwapTransactionIdRows(renderedActivity)[0] : undefined;

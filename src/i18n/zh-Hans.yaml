@@ -1381,22 +1381,33 @@ $agent_hint_swap_title: 代币兑换如何运作？
 $agent_hint_swap_prompt: 解释代币兑换的运作方式。
 $agent_hint_staking_title: 什么是质押？
 $agent_hint_staking_prompt: 从零开始解释质押，就好像我以前从未接触过加密货币一样。
-$agent_hint_security_title: 如何保护我的钱包？
-$agent_hint_security_prompt: 请教我如何保护我的钱包安全。
+$agent_hint_security_title: 钱包安全
+$agent_hint_security_prompt: 如何保护我的钱包？
 $agent_hint_receive_title: 接收代币
 $agent_hint_receive_prompt: 请帮我接收代币。
-$agent_hint_assets_title: 显示我的资产
-$agent_hint_total_title: 我总共有多少？
-$agent_hint_spending_title: 我这周花在了哪些地方？
-$agent_hint_last_transfer_title: 显示我最近一笔转账
-$agent_hint_fund_title: 如何为钱包充值？
-$agent_hint_market_today_title: 今天市场怎么样？
+$agent_hint_assets_title: 我的资产
+$agent_hint_assets_prompt: 显示我的资产
+$agent_hint_total_title: 总余额
+$agent_hint_total_prompt: 我总共有多少？
+$agent_hint_spending_title: 本周支出
+$agent_hint_spending_prompt: 我这周花在了哪些地方？
+$agent_hint_last_transfer_title: 最近一笔转账
+$agent_hint_last_transfer_prompt: 显示我最近一笔转账
+$agent_hint_fund_title: 钱包充值
+$agent_hint_fund_prompt: 如何为钱包充值？
+$agent_hint_market_today_title: 今日行情
+$agent_hint_market_today_prompt: 今天市场怎么样？
 $agent_hint_news_today_title: 今日要闻
-$agent_hint_bitcoin_title: 比特币怎么了？
+$agent_hint_news_today_prompt: 今日要闻
+$agent_hint_bitcoin_title: 比特币行情
+$agent_hint_bitcoin_prompt: 比特币怎么了？
 $agent_hint_price_title: 0.5 ETH 值多少钱？
-$agent_hint_staking_yield_title: 哪里收益更高？
-$agent_hint_staking_options_title: 有哪些质押选项？
-$agent_hint_multisend_title: 如何向多人发送？
+$agent_hint_staking_yield_title: 质押收益
+$agent_hint_staking_yield_prompt: 哪里收益更高？
+$agent_hint_staking_options_title: 质押选项
+$agent_hint_staking_options_prompt: 有哪些质押选项？
+$agent_hint_multisend_title: 向多人发送
+$agent_hint_multisend_prompt: 如何向多人发送？
 $agent_hint_action_swap_title: 兑换代币
 $agent_hint_action_send_title: 发送加密货币
 $agent_hint_action_stake_title: 开始质押
@@ -1606,6 +1617,7 @@ Wallet Name: 钱包名称
 App Icon: 应用图标
 Rounded Toolbars: 圆角工具栏
 Toolbar: 工具栏
+Toolbars: 工具栏
 Shared Background: 共用背景
 Side Gutters: 侧边间距
 Gradient Navigation Bar: 渐变导航栏
@@ -2160,7 +2172,6 @@ $agent_news_unread_digests_count:
 Explorer mode: 浏览器模式
 Open a link to a wallet, transfer, token or collectible to see its details here.: 打开钱包、转账、代币或收藏品的链接，即可在此查看详情。
 
-# Perps
 Long: "做多"
 Short: "做空"
 Funding Rate: "资金费率"
@@ -2172,7 +2183,6 @@ $perps_max_leverage_hint: "此市场可用的最高杠杆。"
 $perps_volume_24h_hint: "过去 24 小时内此期货市场的交易总额，包括开仓和平仓交易。"
 $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。与 24 小时交易量不同，它不包括已平仓的仓位。"
 
-# Perps order entry
 "Leverage": "杠杆"
 "Position Size": "仓位规模"
 "Liquidation Price": "强平价"
@@ -2193,18 +2203,15 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "$perps_liquidation_price_hint": "由于资金不足以维持仓位，您的仓位可能被自动平仓的估计价格。"
 "$perps_leverage_disclaimer": "更高的杠杆会放大潜在收益和亏损。即使价格出现轻微的不利变动，也可能导致您的仓位被自动平仓。"
 
-# Perps order review
 "Open Position": "开仓"
 "$perps_asset_price": "%asset% 价格"
 "$perps_leverage_direction": "%leverage%倍 %direction%"
 "$perps_liquidation_acknowledgment": "确认即表示我理解，此仓位可能被强制平仓，且我可能损失投入的资金。"
 
-# Perps position receipt
 "Position Opened": "已开仓"
 "Fees": "费用"
 "Transfer ID": "转账ID"
 
-# Perps active position
 "Equity": "权益"
 "Profit and Loss": "盈亏"
 "Invested": "已投入"
@@ -2217,7 +2224,6 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "$perps_entry_price_hint": "此仓位的平均开仓价。"
 "$perps_funding_payments_hint": "多头和空头交易者之间的定期付款。根据资金费率，在仓位开放期间，您可能需要支付或收到资金费用。"
 
-# Perps edit position
 "$perps_edit_long": "调整 %asset% 多仓"
 "$perps_edit_short": "调整 %asset% 空仓"
 "Current:": "当前："
@@ -2228,7 +2234,6 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "$perps_network_fee_hint": "在区块链上处理此交易的费用。"
 "$perps_edit_liquidation_hint": "强平 — 仓位被自动平仓的价格。"
 
-# Perps position lifecycle
 "Increase Position": "加仓"
 "Reduce Position": "减仓"
 "Current Value": "当前价值"
@@ -2250,7 +2255,6 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "$perps_liquidated_title": "仓位已自动平仓。"
 "$perps_liquidated_message": "市场价格触及强平价，造成了亏损。"
 
-# Perps home
 "Open Positions": "当前持仓"
 "Show All Positions": "查看所有仓位"
 "Futures": "期货"
@@ -2264,14 +2268,13 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "$perps_explore_futures": "开立空头和多头仓位"
 "$perps_explore_apps": "探索去中心化互联网"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "价格或仓位已变化。请返回并重新确认订单。"
 "PerpsReviewChanged": "订单已变化。请返回并重新确认。"
 "PerpsInsufficientUsdc": "Arbitrum上的USDC不足以支付所需金额及跨链桥费用。"
 "EvmUserOperationMismatch": "燃料费支付与此交易不符。"
 "PerpsInsufficientBalance": "Hyperliquid余额中的USDC不足以支付所需金额及交易手续费。"
 "PerpsMarketNeedsUnifiedAccount": "使用您当前的 Hyperliquid 账户类型，无法从钱包为此市场注资。"
-"PerpsRequiresMultichainWallet": "期货需要多链钱包。请切换到多链钱包或新建一个以开始交易。"
+"PerpsRequiresMultichainWallet": "请切换到多链钱包或新建一个以开始交易。"
 "PerpsSwitchesToUnifiedAccount": "此订单还会将您的 Hyperliquid 账户切换为 Unified，一个 USDC 余额即可用于所有市场。"
 "PerpsAmountTooSmall": "此金额低于市场最低要求。"
 "$perps_minimum_amount": "最低金额：%amount% USDC。"
@@ -2316,7 +2319,6 @@ Could not save the image. Please try again.: 无法存储图片。请重试。
 "$perps_activity_closed": "平仓 %asset%"
 "$perps_activity_liquidated": "强平 %asset%"
 
-# Perps
 "PerpsInsufficientGas": "Arbitrum上的ETH不足以支付网络费用。仓位所用的USDC与此费用分开计算。"
 "PerpsFundingMissingTitle": "Arbitrum 上没有 USDC 或 ETH"
 "$perps_funding_missing": "请接收至少 %minUSDC% USDC，以及用于支付费用的 %feeETH% ETH。"
@@ -2432,9 +2434,13 @@ Unlink Wallet: 取消链接钱包
 Confirm Unlinking: 确认取消链接
 Domain Unlinked: 域名已取消链接
 Drag here to add to the toolbar: 拖到此处以添加到工具栏
+$toolbar_settings_hint: 按住按钮并拖动即可重新排列工具栏。拖离工具栏的按钮会被移除，账户按钮则会移到顶部栏。
+$toolbar_full_title: 工具栏已满
+$toolbar_full_hint: 请先移除一个按钮再添加
 $send_only_chain_and_token: 仅向此地址发送 %symbol%、%tokenSymbol% 或其他 %chain% 网络资产。发送其他代币会导致丢失。
 $agent_digest_unavailable: "此摘要已不可用"
 $agent_digest_title: "今日要闻"
+$agent_digest_discussion_title: "%date%新闻"
 $agent_digest_meta:
   otherValue: "%count% 条新闻"
 $agent_digest_more:
@@ -2471,3 +2477,11 @@ $agent_digest_minutes: "分钟"
 $swap_one_to_one: 金额达到 %value% 即可享受更优汇率（1:1）。
 $swap_better_rate_minimum: "从 %value% 起可享受更优汇率。"
 $agent_daily_limit_resets_at: "已达到助手每日使用上限。将于 %time% 重置。"
+$biometric_recovery_title: "重新设置生物识别"
+$biometric_recovery_passcode: "您的生物识别设置可能已更改。请输入钱包密码以继续。"
+$biometric_recovery_offer: "密码已确认。要重新设置生物识别吗？"
+$biometric_recovery_enable: "启用生物识别"
+$biometric_recovery_failed: "无法设置生物识别。您可以在“设置 > 安全”中重试。"
+"$perps_leverage_value": "杠杆 %value%"
+"$perps_edit_action": "编辑"
+"PerpsRequiresOwnWallet": "请切换到你自己的钱包或新建一个以开始交易。"

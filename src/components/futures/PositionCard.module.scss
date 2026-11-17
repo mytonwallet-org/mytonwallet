@@ -1,0 +1,72 @@
+@use "../../styles/mixins";
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  align-items: center;
+
+  padding-top: 0.75rem;
+}
+
+.icon {
+  margin-bottom: 0.75rem;
+}
+
+// The size of the `xx-large` token icon
+.iconSkeleton {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+}
+
+.amount {
+  unicode-bidi: plaintext;
+
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1875;
+  color: var(--color-black);
+  white-space: nowrap;
+}
+
+.amountCurrency {
+  font-size: 1.75rem;
+  color: var(--color-gray-2);
+}
+
+.amountFraction {
+  font-size: 1.5rem;
+  color: var(--color-gray-2);
+}
+
+.change {
+  unicode-bidi: plaintext;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+// Doubled to outweigh `.root` of `DetailRow`. The card has no padding of its own, so each row pads itself
+// and its separator runs to the end edge of the card.
+.detailsRow.detailsRow {
+  gap: 1rem;
+  padding: 0.6875rem 1rem;
+
+  @include mixins.separatorList(1rem);
+}
+
+.detailsLabel {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+// Doubled to outweigh the black of `.value` in `DetailRow`
+.positive.positive {
+  color: var(--color-activity-green-text);
+}
+
+.negative.negative {
+  color: var(--color-activity-red-text);
+}

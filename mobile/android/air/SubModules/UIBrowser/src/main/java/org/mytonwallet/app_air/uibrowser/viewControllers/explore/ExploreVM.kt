@@ -10,6 +10,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -97,6 +98,7 @@ class ExploreVM(delegate: Delegate) :
     private var waitingForNetwork = false
 
     private var lastSuggestedChats: List<AgentHint> = emptyList()
+    private var suggestedChatsRequest: Deferred<List<AgentHint>>? = null
     internal var connectedSites: Array<ApiDapp>? =
         DappsStore.dApps[AccountStore.activeAccountId]?.toTypedArray()
     var allSites: List<MExploreSite>? = null
@@ -274,7 +276,11 @@ class ExploreVM(delegate: Delegate) :
             is AgentV2Update.RuntimeReady -> {
                 searchScope.launch {
                     val request = activeSearchRequest
-                    cancelSearch()
+                    if (lastSuggestedChats.isEmpty()) {
+                        suggestedChatsRequest?.cancel()
+                        suggestedChatsRequest = null
+                    }
+                    cancelSearchRequest()
                     if (request != null) search(request.keyword, request.onResult)
                 }
             }
@@ -440,6 +446,12 @@ class ExploreVM(delegate: Delegate) :
         walletInfoSearchRequest = null
         if (currentSearchKeyword != keyword) completedWalletInfoLookup = null
         currentSearchKeyword = keyword
+        val suggestedChatsRequest = this.suggestedChatsRequest ?: searchScope.async {
+            AgentSearchSuggestions.suggested().also {
+                currentCoroutineContext().ensureActive()
+                lastSuggestedChats = it
+            }
+        }.also { this.suggestedChatsRequest = it }
         val request = ActiveSearchRequest(
             keyword,
             onResult,
@@ -488,11 +500,10 @@ class ExploreVM(delegate: Delegate) :
             }
             request.publishLocalResult(result)
 
-            val suggestedChatsJob = if (keyword.isEmpty() && refreshChats) {
+            val suggestedChatsJob = if (keyword.isEmpty()) {
                 launch suggestions@{
-                    val suggestedChats = AgentSearchSuggestions.suggested()
+                    val suggestedChats = suggestedChatsRequest.await()
                     if (searchJob !== currentJob) return@suggestions
-                    lastSuggestedChats = suggestedChats
                     val currentResult = request.result ?: return@suggestions
                     if (suggestedChats != currentResult.suggestedChats) {
                         val updated = currentResult.copy(suggestedChats = suggestedChats)
@@ -527,6 +538,13 @@ class ExploreVM(delegate: Delegate) :
     }
 
     fun cancelSearch() {
+        cancelSearchRequest()
+        suggestedChatsRequest?.cancel()
+        suggestedChatsRequest = null
+        lastSuggestedChats = emptyList()
+    }
+
+    private fun cancelSearchRequest() {
         searchRefreshJob?.cancel()
         searchRefreshJob = null
         refreshChatsOnNextSearch = false

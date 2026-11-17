@@ -253,7 +253,7 @@ public func formatBigIntText(_ value: BigInt,
 
     if value < 0, negativeSign {
         result.insert(contentsOf: "-\(signSpace)", at: result.startIndex)
-    } else if value >= 0, positiveSign {
+    } else if value > 0, positiveSign {
         result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
     }
     return result

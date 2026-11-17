@@ -12,7 +12,9 @@ import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
 import { stopEvent } from '../../util/domEvents';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
-import { formatAgentListTime, formatAgentTime } from '../agent/helpers/agentDateFormat';
+import {
+  formatAgentDigestDiscussionTitle, formatAgentListTime, formatAgentTime,
+} from '../agent/helpers/agentDateFormat';
 import { getAgentPointerMenuLayout } from '../agent/helpers/bubbleMenuLayout';
 import { getAvatarGradientColors } from '../ui/helpers/getAvatarGradientColor';
 import useAgentThreadSwipe, { closeAgentThreadSwipe } from './useAgentThreadSwipe';
@@ -94,9 +96,11 @@ function AgentThreadListItem({
 }: OwnProps) {
   const lang = useLang();
   const { thread, preview } = item;
-  // Without a title the preview names the chat and is not repeated under it
-  const title = thread.title || preview || lang('New Chat');
-  const previewText = thread.title ? preview : undefined;
+  // A digest's discussion goes by the digest's day until the user names it. Without a title the preview names the chat
+  // and is not repeated under it.
+  const ownTitle = thread.title || (thread.digest && formatAgentDigestDiscussionTitle(lang, thread.digest.windowEnd));
+  const title = ownTitle || preview || lang('New Chat');
+  const previewText = ownTitle ? preview : undefined;
   // The row shows the picture of its latest message, as Telegram's chat list does. Only a news post has one, and it is
   // a discussion's latest message while it is the thread's only one.
   const previewImageUrl = previewText && thread.messageCount <= 1 ? thread.news?.imageUrl : undefined;

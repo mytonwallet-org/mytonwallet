@@ -12,6 +12,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
+import org.json.JSONObject
+import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -19,15 +21,21 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Test
+import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextSnapshot
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_SUPPORT_HINT_ID
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentCachedHistories
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportLabelStyle
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentSupportLabelStyle
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2CachedMessages
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2StarterHint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
@@ -37,6 +45,8 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSupport
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadUpdate
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 
 class AgentThreadListModelTest {
     @Test
@@ -51,6 +61,128 @@ class AgentThreadListModelTest {
         )
         assertNull(getAgentSupportLabelStyle(AgentV2ThreadSupport("closed")))
         assertNull(getAgentSupportLabelStyle(null))
+    }
+
+    @Test
+    fun starterHintsStayForOneVisibleStateAndKeepTheirTapAttribution() = runBlocking {
+        val response = CompletableDeferred<AgentV2HintsResponse>()
+        val client = FakeClient().apply { onStarterHints = { _, _ -> response.await() } }
+        val model = makeModel(client)
+        model.onChange = { model.updateStarterHintsVisibility(true) }
+
+        model.updateStarterHintsVisibility(true)
+        model.updateStarterHintsVisibility(true)
+        model.refresh()
+        assertEquals(1, client.starterHintsCalls.size)
+        assertTrue(model.shownStarterHints.isEmpty())
+
+        response.complete(
+            AgentV2HintsResponse(
+                "agent-starter-hints-v2",
+                listOf(AgentV2StarterHint("agent.capabilities", "learn"))
+            )
+        )
+        val hints = model.starterHints
+        val hint = hints.single().copy(prompt = "A different prompt")
+        val request = model.makeHintChatRequest(hint)
+        assertEquals("A different prompt", request.prompt)
+        assertEquals("emptyState", request.entryPoint.kind)
+        assertEquals("agentTab", request.entryPoint.surface)
+        assertEquals("agent.capabilities", request.entryPoint.hintId)
+        assertEquals("agent-starter-hints-v2", request.entryPoint.catalogVersion)
+        assertEquals(
+            listOf("agent.capabilities", AGENT_SUPPORT_HINT_ID),
+            model.shownStarterHints.map { it.id }
+        )
+
+        // Appearance, input changes and background rows pass through the same visible state
+        model.updateStarterHintsVisibility(true)
+        model.updateStarterHintsVisibility(true)
+        model.refresh()
+        assertSame(hints, model.starterHints)
+        assertEquals(1, client.starterHintsCalls.size)
+
+        model.updateStarterHintsVisibility(false)
+        client.onStarterHints = { _, _ ->
+            AgentV2HintsResponse(
+                "agent-starter-hints-v2",
+                listOf(AgentV2StarterHint("action.send", "actions"))
+            )
+        }
+        model.updateStarterHintsVisibility(true)
+
+        assertEquals(2, client.starterHintsCalls.size)
+        assertEquals(listOf("action.send"), model.starterHints.map { it.id })
+    }
+
+    @Test
+    fun unknownStarterHintsAndFailedLoadsKeepContactSupport() = runBlocking {
+        val client = FakeClient().apply {
+            onStarterHints = { _, _ ->
+                AgentV2HintsResponse(
+                    "agent-starter-hints-v2",
+                    listOf(AgentV2StarterHint("unknown", "learn"))
+                )
+            }
+        }
+        val model = makeModel(client)
+
+        model.updateStarterHintsVisibility(true)
+
+        assertTrue(model.starterHints.isEmpty())
+        assertEquals(listOf(AGENT_SUPPORT_HINT_ID), model.shownStarterHints.map { it.id })
+        model.updateStarterHintsVisibility(false)
+        client.onStarterHints = { _, _ -> error("Offline") }
+        model.updateStarterHintsVisibility(true)
+        model.updateStarterHintsVisibility(true)
+
+        assertTrue(model.starterHints.isEmpty())
+        assertEquals(listOf(AGENT_SUPPORT_HINT_ID), model.shownStarterHints.map { it.id })
+        assertEquals(2, client.starterHintsCalls.size)
+    }
+
+    @Test
+    fun starterHintsUseFreshHostContextAndTheActiveAccountsKnownTotalBalance() = runBlocking {
+        @Suppress("UNCHECKED_CAST")
+        val totals = BalanceStore::class.java.getDeclaredField("totalBalanceInBaseCurrency").run {
+            isAccessible = true
+            get(null) as MutableMap<String, Double>
+        }
+        val accountId = "starter-hints-list-account"
+        val nextAccountId = "$accountId-next"
+        val previousAccountId = AccountStore.activeAccountId
+        val previousTotals = listOf(accountId, nextAccountId).associateWith(totals::get)
+        val firstHost = JSONObject()
+        val nextHost = JSONObject()
+        val hosts = mapOf(accountId to firstHost, nextAccountId to nextHost)
+        val client = FakeClient()
+        val model = makeModel(client, makeSnapshot = {
+            val activeAccountId = AccountStore.activeAccountId
+            AgentHostContextSnapshot(activeAccountId, hosts.getValue(activeAccountId!!))
+        })
+        AccountStore.updateActiveAccount(accountId)
+        try {
+            for (balance in listOf(null, 0.0, 1.0)) {
+                if (balance == null) totals.remove(accountId) else totals[accountId] = balance
+                model.updateStarterHintsVisibility(true)
+                model.updateStarterHintsVisibility(false)
+            }
+            AccountStore.updateActiveAccount(nextAccountId)
+            totals.remove(nextAccountId)
+            model.updateStarterHintsVisibility(true)
+            assertEquals(listOf(null, "empty", "funded", null), client.starterHintsCalls)
+            assertEquals(4, client.starterHintsHosts.size)
+            assertSame(firstHost, client.starterHintsHosts[0])
+            assertSame(firstHost, client.starterHintsHosts[1])
+            assertSame(firstHost, client.starterHintsHosts[2])
+            assertSame(nextHost, client.starterHintsHosts[3])
+        } finally {
+            model.updateStarterHintsVisibility(false)
+            previousTotals.forEach { (id, total) ->
+                if (total == null) totals.remove(id) else totals[id] = total
+            }
+            AccountStore.updateActiveAccount(previousAccountId)
+        }
     }
 
     @Test
@@ -1007,7 +1139,11 @@ class AgentThreadListModelTest {
     private fun CoroutineScope.makeModel(
         client: FakeClient,
         readState: AgentThreadReadState = AgentThreadReadState(read = { null }, write = {}),
-        cachedHistories: AgentCachedHistories = AgentCachedHistories(this) { null }
+        cachedHistories: AgentCachedHistories = AgentCachedHistories(this) { null },
+        makeSnapshot: suspend () -> AgentHostContextSnapshot = {
+            val accountId = AccountStore.activeAccountId
+            AgentHostContextSnapshot(accountId, JSONObject())
+        }
     ) = AgentThreadListModel(
         CoroutineScope(coroutineContext + Dispatchers.Unconfined),
         client,
@@ -1018,11 +1154,17 @@ class AgentThreadListModelTest {
             stepText = { it.code }
         ),
         cachedHistories = cachedHistories,
-        activityHoldMillis = Long.MAX_VALUE
+        activityHoldMillis = Long.MAX_VALUE,
+        makeSnapshot = makeSnapshot
     )
 
     private class FakeClient : AgentThreadListClient {
         val listCalls = mutableListOf<String?>()
+        val starterHintsCalls = mutableListOf<String?>()
+        val starterHintsHosts = mutableListOf<JSONObject?>()
+        var onStarterHints: suspend (String?, JSONObject?) -> AgentV2HintsResponse = { _, _ ->
+            AgentV2HintsResponse("agent-starter-hints-v2", emptyList())
+        }
         var cachedCalls = 0
         var onCached: suspend () -> List<AgentV2ThreadListItem>? = { null }
         var deleteCalls = 0
@@ -1034,6 +1176,15 @@ class AgentThreadListModelTest {
         }
         var onDelete: suspend (String) -> AgentV2ThreadDeleteResponse = {
             AgentV2ThreadDeleteResponse(it, false)
+        }
+
+        override suspend fun getStarterHints(
+            walletState: String?,
+            host: JSONObject?
+        ): AgentV2HintsResponse {
+            starterHintsCalls.add(walletState)
+            starterHintsHosts.add(host)
+            return onStarterHints(walletState, host)
         }
 
         override suspend fun list(cursor: String?): AgentV2ThreadListResponse {
@@ -1055,10 +1206,17 @@ class AgentThreadListModelTest {
     }
 
     companion object {
+        private var previousLanguage: WLanguage? = null
+
         // The chats' cached histories observe wallet events through `WalletCore`, which reads the wallet storage
         @JvmStatic
         @BeforeClass
         fun initializeEmptyWalletStorage() {
+            LocaleController::class.java.getDeclaredField("_activeLanguage").apply {
+                isAccessible = true
+                previousLanguage = get(null) as WLanguage?
+                set(null, WLanguage.ENGLISH)
+            }
             val storage = Proxy.newProxyInstance(
                 IGlobalStorageProvider::class.java.classLoader,
                 arrayOf(IGlobalStorageProvider::class.java)
@@ -1076,6 +1234,15 @@ class AgentThreadListModelTest {
                 }
             } as IGlobalStorageProvider
             WGlobalStorage.init(storage)
+        }
+
+        @JvmStatic
+        @AfterClass
+        fun restoreLanguage() {
+            LocaleController::class.java.getDeclaredField("_activeLanguage").apply {
+                isAccessible = true
+                set(null, previousLanguage)
+            }
         }
     }
 }

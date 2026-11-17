@@ -1,10 +1,10 @@
 import React, { memo, useMemo, useRef, useState } from '../../lib/teact/teact';
 
-import type { BuildOptions } from './helpers/buildMarketSections';
+import type { BuildOptions, MarketToken } from './helpers/buildMarketSections';
 
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
-import { searchTokens } from './helpers/searchTokens';
+import { searchMarketTokens, searchTokens } from './helpers/searchTokens';
 
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import useFlag from '../../hooks/useFlag';
@@ -19,14 +19,20 @@ import TokenChange from './TokenChange';
 
 import styles from './Market.module.scss';
 
-interface OwnProps {
+// Without `tokens`, the search covers the whole token catalogue from `buildOptions`
+type OwnProps = ({
   buildOptions: BuildOptions;
+  tokens?: never;
+} | {
+  buildOptions?: never;
+  tokens: MarketToken[];
+}) & {
   onTokenClick: (slug: string) => void;
-}
+};
 
 const SEARCH_DEBOUNCE_MS = 200;
 
-function Search({ buildOptions, onTokenClick }: OwnProps) {
+function Search({ buildOptions, tokens, onTokenClick }: OwnProps) {
   const lang = useLang();
   const inputRef = useRef<HTMLInputElement>();
   const [searchValue, setSearchValue] = useState('');
@@ -35,8 +41,10 @@ function Search({ buildOptions, onTokenClick }: OwnProps) {
   const debouncedSearchValue = useDebouncedValue(searchValue, SEARCH_DEBOUNCE_MS);
 
   const results = useMemo(
-    () => searchTokens(lang, debouncedSearchValue, buildOptions),
-    [buildOptions, debouncedSearchValue, lang],
+    () => (tokens
+      ? searchMarketTokens(debouncedSearchValue, tokens)
+      : searchTokens(lang, debouncedSearchValue, buildOptions)),
+    [buildOptions, debouncedSearchValue, lang, tokens],
   );
 
   const isMenuOpen = isFocused && results.length > 0;

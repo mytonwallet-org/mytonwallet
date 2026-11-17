@@ -17,7 +17,8 @@ let package = Package(
         .target(
             name: "GraphKit",
             path: "Sources/GraphKit"
-        )
+        ),
+        .testTarget(name: "GraphKitTests", dependencies: ["GraphKit"])
     ],
     swiftLanguageModes: [
         .v5

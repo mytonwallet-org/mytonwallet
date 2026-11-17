@@ -1387,22 +1387,33 @@ $agent_hint_swap_title: سواپ‌ها چگونه کار می‌کنند؟
 $agent_hint_swap_prompt: توضیح دهید که سواپ توکن‌ها چگونه کار می‌کند.
 $agent_hint_staking_title: استیکینگ چیست؟
 $agent_hint_staking_prompt: استیکینگ را از پایه توضیح دهید، انگار که من هرگز از رمز ارز استفاده نکرده‌ام.
-$agent_hint_security_title: چطور از کیف پولم محافظت کنم؟
-$agent_hint_security_prompt: نشان دهید چگونه کیف پولم را امن نگه دارم.
+$agent_hint_security_title: امنیت کیف پول
+$agent_hint_security_prompt: چطور از کیف پولم محافظت کنم؟
 $agent_hint_receive_title: دریافت توکن‌ها
 $agent_hint_receive_prompt: به من کمک کنید تا توکن‌ها را دریافت کنم.
-$agent_hint_assets_title: دارایی‌هایم را نشان بده
-$agent_hint_total_title: موجودی کل من چقدر است؟
-$agent_hint_spending_title: این هفته برای چه چیزهایی خرج کردم؟
-$agent_hint_last_transfer_title: آخرین انتقالم را نشان بده
-$agent_hint_fund_title: چطور کیف پولم را شارژ کنم؟
-$agent_hint_market_today_title: امروز بازار چه خبر است؟
-$agent_hint_news_today_title: مهم‌ترین خبرهای امروز
-$agent_hint_bitcoin_title: با بیت‌کوین چه خبر است؟
+$agent_hint_assets_title: دارایی‌های من
+$agent_hint_assets_prompt: دارایی‌هایم را نشان بده
+$agent_hint_total_title: موجودی کل
+$agent_hint_total_prompt: موجودی کل من چقدر است؟
+$agent_hint_spending_title: خرج‌های هفته
+$agent_hint_spending_prompt: این هفته برای چه چیزهایی خرج کردم؟
+$agent_hint_last_transfer_title: آخرین انتقال
+$agent_hint_last_transfer_prompt: آخرین انتقالم را نشان بده
+$agent_hint_fund_title: شارژ کیف پول
+$agent_hint_fund_prompt: چطور کیف پولم را شارژ کنم؟
+$agent_hint_market_today_title: بازار امروز
+$agent_hint_market_today_prompt: امروز بازار چه خبر است؟
+$agent_hint_news_today_title: خبرهای امروز
+$agent_hint_news_today_prompt: مهم‌ترین خبرهای امروز
+$agent_hint_bitcoin_title: بیت‌کوین امروز
+$agent_hint_bitcoin_prompt: با بیت‌کوین چه خبر است؟
 $agent_hint_price_title: ۰٫۵ ETH چقدر می‌ارزد؟
-$agent_hint_staking_yield_title: بازده کجا بیشتر است؟
-$agent_hint_staking_options_title: چه گزینه‌های استیکینگی وجود دارد؟
-$agent_hint_multisend_title: چطور به چند نفر ارسال کنم؟
+$agent_hint_staking_yield_title: بازده استیکینگ
+$agent_hint_staking_yield_prompt: بازده کجا بیشتر است؟
+$agent_hint_staking_options_title: گزینه‌های استیکینگ
+$agent_hint_staking_options_prompt: چه گزینه‌های استیکینگی وجود دارد؟
+$agent_hint_multisend_title: ارسال به چند نفر
+$agent_hint_multisend_prompt: چطور به چند نفر ارسال کنم؟
 $agent_hint_action_swap_title: سواپ توکن‌ها
 $agent_hint_action_send_title: ارسال رمز ارز
 $agent_hint_action_stake_title: شروع استیکینگ
@@ -1605,6 +1616,7 @@ Wallet Name: نام کیف پول
 App Icon: آیکون اپلیکیشن
 Rounded Toolbars: نوارابزارهای گرد
 Toolbar: نوار ابزار
+Toolbars: نوارها
 Shared Background: پس‌زمینه مشترک
 Side Gutters: حاشیه‌های کناری
 Gradient Navigation Bar: نوار پیمایش گرادیانی
@@ -2159,7 +2171,6 @@ $agent_news_unread_digests_count:
 Explorer mode: حالت اکسپلورر
 Open a link to a wallet, transfer, token or collectible to see its details here.: یک لینک به کیف پول، انتقال، توکن یا کالکتیبل را باز کنید تا جزئیات آن را اینجا ببینید.
 
-# Perps
 Long: "لانگ"
 Short: "شورت"
 Funding Rate: "نرخ تأمین مالی"
@@ -2171,7 +2182,6 @@ $perps_max_leverage_hint: "بالاترین اهرم در دسترس برای ا
 $perps_volume_24h_hint: "ارزش کل معاملات این بازار آتی در 24 ساعت گذشته. این مقدار شامل معاملات باز کردن و بستن موقعیت‌ها می‌شود."
 $perps_open_interest_hint: "ارزش کل قراردادهایی که در حال حاضر در این بازار آتی باز هستند. برخلاف حجم 24 ساعته، شامل موقعیت‌هایی که قبلاً بسته شده‌اند نمی‌شود."
 
-# Perps order entry
 "Leverage": "اهرم"
 "Position Size": "اندازه موقعیت"
 "Liquidation Price": "قیمت لیکویید شدن"
@@ -2192,18 +2202,15 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "$perps_liquidation_price_hint": "قیمت تخمینی که در آن ممکن است موقعیت شما به دلیل نبود موجودی کافی برای باز نگه داشتن آن، به‌طور خودکار بسته شود."
 "$perps_leverage_disclaimer": "اهرم بالاتر سود و زیان احتمالی را افزایش می‌دهد. حتی تغییر کوچکی در قیمت برخلاف جهت موقعیت شما می‌تواند باعث بسته شدن خودکار آن شود."
 
-# Perps order review
 "Open Position": "باز کردن موقعیت"
 "$perps_asset_price": "قیمت %asset%"
 "$perps_leverage_direction": "%direction% با اهرم %leverage%×"
 "$perps_liquidation_acknowledgment": "با تأیید، می‌پذیرم که این موقعیت ممکن است لیکویید شود و ممکن است پولی را که سرمایه‌گذاری کرده‌ام از دست بدهم."
 
-# Perps position receipt
 "Position Opened": "موقعیت باز شد"
 "Fees": "کارمزدها"
 "Transfer ID": "شناسه انتقال"
 
-# Perps active position
 "Equity": "ارزش موقعیت"
 "Profit and Loss": "سود و زیان"
 "Invested": "سرمایه‌گذاری‌شده"
@@ -2216,7 +2223,6 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "$perps_entry_price_hint": "میانگین قیمتی که این موقعیت در آن باز شده است."
 "$perps_funding_payments_hint": "پرداخت‌های دوره‌ای بین معامله‌گران دارای موقعیت‌های لانگ و شورت. بسته به نرخ تأمین مالی، تا زمانی که موقعیت شما باز است ممکن است مبلغ تأمین مالی را پرداخت یا دریافت کنید."
 
-# Perps edit position
 "$perps_edit_long": "ویرایش لانگ %asset%"
 "$perps_edit_short": "ویرایش شورت %asset%"
 "Current:": "فعلی:"
@@ -2227,7 +2233,6 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "$perps_network_fee_hint": "کارمزد پردازش این تراکنش در بلاکچین."
 "$perps_edit_liquidation_hint": "لیکویید شدن — قیمتی که در آن موقعیت شما خودکار بسته می‌شود."
 
-# Perps position lifecycle
 "Increase Position": "افزایش موقعیت"
 "Reduce Position": "کاهش موقعیت"
 "Current Value": "ارزش فعلی"
@@ -2249,7 +2254,6 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "$perps_liquidated_title": "موقعیت به‌صورت خودکار بسته شد."
 "$perps_liquidated_message": "قیمت بازار به قیمت لیکویید شدن رسید و باعث زیان شد."
 
-# Perps home
 "Open Positions": "موقعیت‌های باز"
 "Show All Positions": "نمایش همه موقعیت‌ها"
 "Futures": "فیوچرز"
@@ -2263,14 +2267,13 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "$perps_explore_futures": "موقعیت‌های شورت و لانگ باز کنید"
 "$perps_explore_apps": "اینترنت غیرمتمرکز را کاوش کنید"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "قیمت‌ها یا موقعیت شما تغییر کرده‌اند. برگردید و سفارش را دوباره بررسی کنید."
 "PerpsReviewChanged": "سفارش تغییر کرده است. برگردید و دوباره آن را بررسی کنید."
 "PerpsInsufficientUsdc": "موجودی USDC در Arbitrum با احتساب کارمزد پل کافی نیست."
 "EvmUserOperationMismatch": "پرداخت کارمزد گاز با این تراکنش مطابقت ندارد."
 "PerpsInsufficientBalance": "موجودی USDC شما در Hyperliquid با احتساب کارمزد معامله کافی نیست."
 "PerpsMarketNeedsUnifiedAccount": "این بازار را نمی‌توان با نوع حساب فعلی Hyperliquid شما از کیف پول تأمین کرد."
-"PerpsRequiresMultichainWallet": "فیوچرز به کیف پول چندزنجیره‌ای نیاز دارد. برای شروع معامله به یکی از آن‌ها بروید یا کیف پول جدیدی بسازید."
+"PerpsRequiresMultichainWallet": "برای شروع معامله به یک کیف پول چندزنجیره‌ای بروید یا کیف پول جدیدی بسازید."
 "PerpsSwitchesToUnifiedAccount": "این سفارش حساب Hyperliquid شما را نیز به Unified تغییر می‌دهد تا یک موجودی USDC همهٔ بازارها را پوشش دهد."
 "PerpsAmountTooSmall": "این مبلغ کمتر از حداقل مجاز بازار است."
 "$perps_minimum_amount": "حداقل مبلغ: %amount% USDC."
@@ -2315,7 +2318,6 @@ Could not save the image. Please try again.: ذخیرهٔ تصویر ممکن ن
 "$perps_activity_closed": "بستن %asset%"
 "$perps_activity_liquidated": "لیکویید شدن %asset%"
 
-# Perps
 "PerpsInsufficientGas": "موجودی ETH در Arbitrum برای کارمزد شبکه کافی نیست. USDC مربوط به موقعیت جدا از این کارمزد است."
 "PerpsFundingMissingTitle": "USDC یا ETH در Arbitrum ندارید"
 "$perps_funding_missing": "حداقل %minUSDC% USDC و %feeETH% ETH برای کارمزدها دریافت کنید."
@@ -2431,9 +2433,13 @@ Unlink Wallet: قطع اتصال کیف پول
 Confirm Unlinking: تأیید قطع اتصال
 Domain Unlinked: اتصال دامنه قطع شد
 Drag here to add to the toolbar: برای افزودن به نوار ابزار به اینجا بکشید
+$toolbar_settings_hint: یک دکمه را نگه دارید و بکشید تا نوارها را مرتب کنید. دکمه‌ای که از نوار ابزار بیرون کشیده شود حذف می‌شود؛ دکمهٔ حساب به نوار بالا می‌رود.
+$toolbar_full_title: نوار ابزار پر است
+$toolbar_full_hint: برای افزودن دکمهٔ دیگر، یکی را حذف کنید
 $send_only_chain_and_token: تنها %symbol%، %tokenSymbol% یا سایر دارایی‌های مبتنی بر %chain% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
 $agent_digest_unavailable: "این خلاصه دیگر در دسترس نیست"
 $agent_digest_title: "مهم‌ترین خبرهای روز"
+$agent_digest_discussion_title: "اخبار %date%"
 $agent_digest_meta:
   oneValue: "%count% خبر"
   otherValue: "%count% خبر"
@@ -2473,3 +2479,11 @@ $agent_digest_minutes: "دقیقه"
 $swap_one_to_one: نرخ بهتر (۱:۱) از %value% در دسترس است.
 $swap_better_rate_minimum: "نرخ بهتر از %value% در دسترس است."
 $agent_daily_limit_resets_at: "سقف روزانهٔ عامل پر شده است. در ساعت %time% بازنشانی می‌شود."
+$biometric_recovery_title: "راه‌اندازی دوبارهٔ احراز هویت زیستی"
+$biometric_recovery_passcode: "ممکن است تنظیمات احراز هویت زیستی شما تغییر کرده باشد. برای ادامه، رمز عبور کیف پول را وارد کنید."
+$biometric_recovery_offer: "رمز عبور شما تأیید شد. آیا می‌خواهید احراز هویت زیستی را دوباره راه‌اندازی کنید؟"
+$biometric_recovery_enable: "فعال‌سازی احراز هویت زیستی"
+$biometric_recovery_failed: "راه‌اندازی احراز هویت زیستی انجام نشد. می‌توانید از بخش تنظیمات > امنیت دوباره تلاش کنید."
+"$perps_leverage_value": "اهرم %value%"
+"$perps_edit_action": "ویرایش"
+"PerpsRequiresOwnWallet": "برای شروع معامله به کیف پول خودتان بروید یا کیف پول جدیدی بسازید."

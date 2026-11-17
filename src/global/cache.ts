@@ -150,10 +150,14 @@ export function loadCache(initialState: GlobalState): GlobalState {
 }
 
 function migrateCache(cached: GlobalState, initialState: GlobalState) {
-  // Pre-fill settings with defaults
+  // Pre-fill settings and Perps state with defaults
   cached.settings = {
     ...initialState.settings,
     ...cached.settings,
+  };
+  cached.perps = {
+    ...initialState.perps,
+    ...cached.perps,
   };
 
   // Rates are cached verbatim from the backend, so an unusable one outlives the response that
@@ -750,6 +754,13 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 66;
   }
+  if (cached.stateVersion === 66) {
+    // A stored content tab must not replace the overview on launch
+    for (const state of Object.values(cached.byAccountId ?? {})) {
+      delete state.activeContentTab;
+    }
+    cached.stateVersion = 67;
+  }
   // When adding migration here, increase `STATE_VERSION`
 }
 
@@ -859,6 +870,7 @@ function updateCache(force?: boolean) {
       byAccountId: pick(global.settings.byAccountId, accountIds),
     },
     portfolio: global.portfolio?.activeRange ? reducePortfolio(global.portfolio, accountIds) : undefined,
+    perps: reducePerps(global),
   };
 
   const usedTokenSlugs = getUsedTokenSlugs(reducedGlobal);
@@ -956,7 +968,6 @@ function reduceByAccountId(global: GlobalState) {
       'currentTokenPeriod',
       'savedAddresses',
       'staking',
-      'activeContentTab',
       'browserHistory',
       'blacklistedNftAddresses',
       'whitelistedNftAddresses',
@@ -965,7 +976,12 @@ function reduceByAccountId(global: GlobalState) {
       'tradeCounterTokenSlugs',
       'lastSwapPairsBySlug',
       'perpsOperations',
+      'perpsReceipts',
     ]);
+
+    if (state.perps?.snapshot || state.perps?.hasActivityHistory !== undefined) {
+      acc[accountId].perps = pick(state.perps, ['snapshot', 'hasActivityHistory']);
+    }
 
     if (state.nfts?.collectionTabs || state.nfts?.ownedMwCardAddresses) {
       acc[accountId].nfts = {
@@ -985,6 +1001,17 @@ function reduceByAccountId(global: GlobalState) {
 
     return acc;
   }, {} as GlobalState['byAccountId']);
+}
+
+// Hidden banners stay hidden after a restart, and the operations the accounts no longer keep are forgotten
+function reducePerps(global: GlobalState): GlobalState['perps'] {
+  const { hiddenOperationStates } = global.perps;
+  if (!hiddenOperationStates) return INITIAL_STATE.perps;
+
+  const keptIds = Object.values(global.byAccountId)
+    .flatMap(({ perpsOperations }) => Object.keys(perpsOperations ?? {}));
+
+  return { ...INITIAL_STATE.perps, hiddenOperationStates: pickTruthy(hiddenOperationStates, keptIds) };
 }
 
 function reducePortfolio(portfolio: PortfolioState, accountIds: string[]): PortfolioState {

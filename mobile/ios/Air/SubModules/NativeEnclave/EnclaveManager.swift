@@ -145,6 +145,27 @@ public actor EnclaveManager {
         await sessionManager.invalidateLongSessions()
     }
 
+    public func recoverBiometrics(currentToken: EnclaveToken, shouldEnable: Bool) async throws {
+        try requireCurrentStorageVersion()
+        try await sessionManager.consumeBiometricRecoveryUsage(token: currentToken)
+        guard shouldEnable else { return }
+        do {
+            let context = try await BiometricAuth.authenticateForSetup()
+            let masterKey = try await sessionManager.validateSessionAndGetMasterKey(
+                token: currentToken,
+                invalidateShortSession: false
+            )
+            try BiometricAuth(storage: storage).setup(masterKey: masterKey, context: context)
+            await sessionManager.invalidateLongSessions(except: currentToken)
+        } catch {
+            _ = try await sessionManager.validateSessionAndGetMasterKey(
+                token: currentToken,
+                invalidateShortSession: false
+            )
+            throw error
+        }
+    }
+
     public func rememberedSession() async -> SessionResult? {
         await sessionManager.rememberedSession()
     }

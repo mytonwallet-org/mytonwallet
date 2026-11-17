@@ -18,6 +18,9 @@ jobs:
           ruby-version: '3.2'
       - run: ruby mobile/ios/App/fastlane/tests/preview_distribution_test.rb
       - run: ruby mobile/ios/App/fastlane/tests/build_upload_test.rb
+      - run: ruby mobile/ios/App/fastlane/tests/review_materials_test.rb
+      - run: python3 -m unittest deploy/ios_sign/test_merge_entitlements.py deploy/ios_sign/test_sign_ipa.py
+      - run: shellcheck deploy/ios_sign/sign_ipa.sh
 
   # Decides which costly jobs below the change can affect: the Mac localization check runs only when
   # its own inputs move, and the web jobs only when a pull request touches what they read.
@@ -30,7 +33,6 @@ jobs:
     outputs:
       swift-catalogs: ${{ steps.filter.outputs.swift-catalogs }}
       web: ${{ steps.filter.outputs.web }}
-      agent-v2-e2e: ${{ steps.filter.outputs.agent-v2-e2e }}
       web-funnel-storage: ${{ steps.filter.outputs.web-funnel-storage }}
     steps:
       - name: Checkout
@@ -70,16 +72,6 @@ jobs:
           fi
           echo "web=$WEB" >> "$GITHUB_OUTPUT"
           echo "web=$WEB"
-
-          # Agent E2E runs for changes to its source and build inputs; a push runs it regardless of the diff.
-          AGENT_V2_E2E="true"
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            if [ "$WEB" = "false" ] || bash dev/agentV2/e2e-untouched.sh "$BASE" HEAD; then
-              AGENT_V2_E2E="false"
-            fi
-          fi
-          echo "agent-v2-e2e=$AGENT_V2_E2E" >> "$GITHUB_OUTPUT"
-          echo "agent-v2-e2e=$AGENT_V2_E2E"
 
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             echo "No usable base revision ($EVENT_NAME, ${BASE:-empty}) - running the remaining checks"
@@ -285,12 +277,12 @@ jobs:
       - name: Build the standalone SDK bundle
         run: npm run sdk:build:slim
 
-  chromium-e2e:
-    name: Agent V2 / Chromium E2E
+  web-funnel-storage:
+    name: Web funnel storage
     permissions:
       contents: read
     needs: detect-changes
-    if: ${{ !cancelled() && (needs.detect-changes.outputs.agent-v2-e2e != 'false' || needs.detect-changes.outputs.web-funnel-storage != 'false') }}
+    if: ${{ !cancelled() && needs.detect-changes.outputs.web-funnel-storage != 'false' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
@@ -304,34 +296,13 @@ jobs:
         with:
           node-version: ${{ vars.NODE_VERSION }}
 
-      - name: Prepare default translations
-        if: ${{ needs.detect-changes.outputs.agent-v2-e2e != 'false' }}
-        run: npm run i18n:build:default
-
       - name: Install Chromium
-        if: ${{ needs.detect-changes.outputs.agent-v2-e2e != 'false' || needs.detect-changes.outputs.web-funnel-storage != 'false' }}
         # The runner image ships every shared library Chromium needs, so the step stays off `apt`
         timeout-minutes: 3
         run: npx --no-install playwright install chromium
 
       - name: Test Web funnel IndexedDB concurrency
-        if: ${{ needs.detect-changes.outputs.web-funnel-storage != 'false' }}
         run: npm run test:web-funnel-storage
-
-      - name: Run Agent V2 Chromium E2E
-        if: ${{ needs.detect-changes.outputs.agent-v2-e2e != 'false' }}
-        run: npm run test:agent:v2:e2e
-
-      - name: Upload Playwright diagnostics
-        if: ${{ failure() && needs.detect-changes.outputs.agent-v2-e2e != 'false' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-v2-playwright-diagnostics
-          path: |
-            playwright-report
-            test-results
-          if-no-files-found: ignore
-          retention-days: 7
 
   # Gram Web and Chrome ship only through ton-blockchain/ton-wallet, which rejects an artifact its own
   # validators fail. This job builds both the way the receiver does; the next one runs those validators.

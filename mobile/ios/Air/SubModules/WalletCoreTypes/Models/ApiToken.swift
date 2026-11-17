@@ -257,6 +257,11 @@ extension ApiToken {
     public var isNative: Bool {
         slug == nativeTokenSlug
     }
+
+    /// The tag token rows show beside the name, as the web app does: the label the token data supplies
+    public var badgeLabel: String? {
+        label?.nilIfEmpty
+    }
     
     public var nativeTokenSlug: String {
         chain.nativeToken.slug

@@ -4,13 +4,15 @@ import buildClassName from '../../../util/buildClassName';
 import { formatSignedPercent } from '../../../util/formatNumber';
 
 import IconWithTooltip from '../../ui/IconWithTooltip';
+import Skeleton from '../../ui/Skeleton';
 
 import styles from './InfoMetric.module.scss';
 
 interface OwnProps {
   label: string;
   hint?: string;
-  value: string;
+  /** Absent while it loads, and a skeleton keeps its place */
+  value?: string;
   changePercent?: number;
 }
 
@@ -26,19 +28,21 @@ function InfoMetric({ label, hint, value, changePercent }: OwnProps) {
           </>
         )}
       </span>
-      <span className={styles.value}>
-        {value}
-        {changePercent !== undefined && (
-          <span
-            className={buildClassName(
-              styles.change,
-              changePercent >= 0 ? styles.changePositive : styles.changeNegative,
-            )}
-          >
-            {formatSignedPercent(changePercent)}
-          </span>
-        )}
-      </span>
+      {value === undefined ? <Skeleton className={styles.valueSkeleton} /> : (
+        <span className={styles.value}>
+          {value}
+          {changePercent !== undefined && (
+            <span
+              className={buildClassName(
+                styles.change,
+                changePercent >= 0 ? styles.changePositive : styles.changeNegative,
+              )}
+            >
+              {formatSignedPercent(changePercent)}
+            </span>
+          )}
+        </span>
+      )}
     </div>
   );
 }

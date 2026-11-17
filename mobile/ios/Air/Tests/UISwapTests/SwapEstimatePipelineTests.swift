@@ -459,6 +459,164 @@ struct SwapEstimatePipelineTests {
         #expect(maxAmount == 104_140_099)
     }
 
+    @Test(arguments: [true, false])
+    func `native max reserves a returned MFA fee and reports an unpriced balance failure`(hasFee: Bool) async throws {
+        let sellingToken = ApiChain.ton.nativeToken
+        let buyingToken = ApiChain.tron.nativeToken
+        let account = SwapAccountSnapshot(
+            account: MAccount(
+                id: "test-mainnet",
+                title: nil,
+                type: .mnemonic,
+                byChain: [.ton: AccountChain(address: "ton-address", mfa: AccountMfa(address: "extension-address"))]
+            ),
+            balances: [sellingToken.slug: 1_001_464_057]
+        )
+        let input = SwapEstimateInput(
+            accountId: account.id,
+            selling: TokenAmount(1_001_464_057, sellingToken),
+            buying: TokenAmount(0, buyingToken),
+            inputSource: .selling,
+            isMaxAmount: true,
+            maxAmount: nil,
+            slippage: 5
+        )
+        var requestedAmounts: [MDouble?] = []
+        let engine = CrosschainSwapEstimateEngine(
+            fetchEstimate: { _, request in
+                requestedAmounts.append(request.fromAmount)
+                return .cex(makeCexEstimate(fromAmount: request.fromAmount!.value, toAmount: 2))
+            },
+            fetchTransactionDraft: { _, options in
+                #expect(options.amount == 1_001_464_057)
+                let response = hasFee ? """
+                {
+                  "error": "InsufficientBalance",
+                  "explainedFee": {
+                    "isGasless": false,
+                    "canTransferFullBalance": false,
+                    "fullFee": {
+                      "precision": "exact",
+                      "terms": {"native": "103000422"},
+                      "nativeSum": "103000422"
+                    }
+                  }
+                }
+                """ : """
+                {"error": "InsufficientBalance"}
+                """
+                return try JSONDecoder().decode(ApiCheckTransactionDraftResult.self, from: Data(response.utf8))
+            }
+        )
+
+        let result = try await engine.estimate(input, changedFrom: .selling, swapType: .crosschainInsideWallet, account: account)
+
+        if hasFee {
+            #expect(requestedAmounts == [MDouble("0.898463635")])
+            #expect(result.cexEstimate?.isEnoughNative == true)
+            #expect(result.estimateIssue == nil)
+        } else {
+            #expect(requestedAmounts.isEmpty)
+            #expect(result.cexEstimate == nil)
+            #expect(result.estimateIssue == .insufficientFee)
+        }
+    }
+
+    @Test(arguments: [0, 999_999_999, 1_000_000_000])
+    func `an unpriced native draft keeps the quote only when the amount exceeds the balance`(balance: Int) async throws {
+        let sellingToken = ApiChain.ton.nativeToken
+        let buyingToken = ApiChain.tron.nativeToken
+        let account = SwapAccountSnapshot(
+            account: MAccount(
+                id: "test-mainnet",
+                title: nil,
+                type: .mnemonic,
+                byChain: [.ton: AccountChain(address: "ton-address")]
+            ),
+            balances: balance == 0 ? [:] : [sellingToken.slug: BigInt(balance)]
+        )
+        let input = SwapEstimateInput(
+            accountId: account.id,
+            selling: TokenAmount(1_000_000_000, sellingToken),
+            buying: TokenAmount(0, buyingToken),
+            inputSource: .selling,
+            isMaxAmount: false,
+            maxAmount: nil,
+            slippage: 5
+        )
+        let engine = CrosschainSwapEstimateEngine(
+            fetchEstimate: { _, request in
+                .cex(makeCexEstimate(fromAmount: request.fromAmount!.value, toAmount: 2))
+            },
+            fetchTransactionDraft: { _, options in
+                #expect(options.amount == 1_000_000_000)
+                return try JSONDecoder().decode(
+                    ApiCheckTransactionDraftResult.self,
+                    from: Data(#"{"error": "InsufficientBalance"}"#.utf8)
+                )
+            }
+        )
+
+        let result = try await engine.estimate(input, changedFrom: .selling, swapType: .crosschainInsideWallet, account: account)
+
+        guard balance < 1_000_000_000 else {
+            #expect(result.cexEstimate == nil)
+            #expect(result.estimateIssue == .insufficientFee)
+            return
+        }
+        #expect(result.estimateIssue == nil)
+        #expect(result.cexEstimate?.toAmount == MDouble("2"))
+        #expect(result.cexEstimate?.isEnoughNative == nil)
+        let issue = CrosschainSwapValidator().validationIssue(
+            input: SwapValidationInput(
+                sellingToken: sellingToken,
+                buyingToken: buyingToken,
+                sellingAmount: 1_000_000_000,
+                maxAmount: nil,
+                swapType: .crosschainInsideWallet
+            ),
+            swapEstimate: result.cexEstimate,
+            account: account
+        )
+        #expect(issue == .insufficientBalance)
+    }
+
+    @Test
+    func `another unpriced draft error above the balance still blocks the quote`() async throws {
+        let sellingToken = ApiChain.ton.nativeToken
+        let account = SwapAccountSnapshot(
+            account: MAccount(
+                id: "test-mainnet",
+                title: nil,
+                type: .mnemonic,
+                byChain: [.ton: AccountChain(address: "ton-address")]
+            ),
+            balances: [:]
+        )
+        let input = SwapEstimateInput(
+            accountId: account.id,
+            selling: TokenAmount(1_000_000_000, sellingToken),
+            buying: TokenAmount(0, ApiChain.tron.nativeToken),
+            inputSource: .selling,
+            isMaxAmount: false,
+            maxAmount: nil,
+            slippage: 5
+        )
+        let engine = CrosschainSwapEstimateEngine(
+            fetchEstimate: { _, request in
+                .cex(makeCexEstimate(fromAmount: request.fromAmount!.value, toAmount: 2))
+            },
+            fetchTransactionDraft: { _, _ in
+                try JSONDecoder().decode(ApiCheckTransactionDraftResult.self, from: Data(#"{"error": "ServerError"}"#.utf8))
+            }
+        )
+
+        let result = try await engine.estimate(input, changedFrom: .selling, swapType: .crosschainInsideWallet, account: account)
+
+        #expect(result.cexEstimate == nil)
+        #expect(result.estimateIssue == .quoteUnavailable)
+    }
+
     @Test
     func `internal cross chain native max uses a fee reserved CEX quote`() async throws {
         let trx = token(slug: TRX_SLUG, symbol: "TRX", chain: .tron, decimals: 6)

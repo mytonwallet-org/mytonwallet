@@ -1,17 +1,12 @@
-import type { TeactNode } from '../../lib/teact/teact';
-import React, { memo, useRef, useState } from '../../lib/teact/teact';
-
-import type { IAnchorPosition } from '../../global/types';
+import React, { memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 import getTestId from '../../util/getTestId';
 
 import useLang from '../../hooks/useLang';
-import useLastCallback from '../../hooks/useLastCallback';
 
-import Button from '../ui/Button';
-import IconWithTooltip from '../ui/IconWithTooltip';
-import Menu from '../ui/Menu';
+import TradeHeaderMenu from './TradeHeaderMenu';
+import TradeMenuRow from './TradeMenuRow';
 
 import styles from './TokenTrade.module.scss';
 
@@ -43,71 +38,70 @@ function TokenTradeMenu({
 }: OwnProps) {
   const lang = useLang();
 
-  const buttonRef = useRef<HTMLButtonElement>();
-  const menuRef = useRef<HTMLDivElement>();
-  const [anchor, setAnchor] = useState<IAnchorPosition | undefined>();
-  const isOpen = Boolean(anchor);
-
-  const getTriggerElement = useLastCallback(() => buttonRef.current);
-  const getRootElement = useLastCallback(() => document.body);
-  const getMenuElement = useLastCallback(() => menuRef.current);
-  const getLayout = useLastCallback(() => ({ withPortal: true }));
-  const closeMenu = useLastCallback(() => setAnchor(undefined));
-
-  const handleButtonClick = useLastCallback(() => {
-    if (isOpen) {
+  function renderContent(closeMenu: NoneToVoidFunction) {
+    function handleSlippageClick() {
       closeMenu();
-      return;
+      onSlippageClick();
     }
 
-    const { left, right, y, height } = buttonRef.current!.getBoundingClientRect();
-    // RTL: mirror the anchor edge
-    setAnchor({ x: lang.isRtl ? left : right, y: y + height });
-  });
+    function handleProviderInfoClick() {
+      closeMenu();
+      onProviderInfoClick();
+    }
 
-  const handleSlippageClick = useLastCallback(() => {
-    closeMenu();
-    onSlippageClick();
-  });
+    const noDataText = lang('No Data');
 
-  const handleProviderInfoClick = useLastCallback(() => {
-    closeMenu();
-    onProviderInfoClick();
-  });
-
-  function renderTooltip(messages: string[]) {
     return (
-      <IconWithTooltip
-        message={messages.map((message) => <span>{message}</span>)}
-        size="small"
-        iconClassName={styles.menuTooltipIcon}
-        tooltipClassName={styles.menuTooltip}
-      />
+      <>
+        <TradeMenuRow title={lang('Exchange Rate')} value={exchangeRate} emptyValue={noDataText} />
+        {mode === 'cex' && (
+          <TradeMenuRow
+            title={lang('Cross-chain Provider')}
+            value={providerName}
+            emptyValue={noDataText}
+            titleAddon={renderProviderHelp(handleProviderInfoClick)}
+          />
+        )}
+        {mode === 'dex' && (
+          <>
+            <TradeMenuRow
+              title={lang('Price Impact')}
+              value={priceImpact !== undefined ? `${priceImpact}%` : undefined}
+              emptyValue={noDataText}
+              hint={renderHint([lang('$swap_price_impact_tooltip1'), lang('$swap_price_impact_tooltip2')])}
+              isError={isPriceImpactError}
+            />
+            <TradeMenuRow
+              title={lang('Minimum Received')}
+              value={minimumReceived}
+              emptyValue={noDataText}
+              hint={renderHint([lang('$swap_minimum_received_tooltip1'), lang('$swap_minimum_received_tooltip2')])}
+            />
+            <TradeMenuRow
+              title={lang('Slippage')}
+              value={`${slippage}%`}
+              emptyValue={noDataText}
+              hint={renderHint([lang('$swap_slippage_tooltip1'), lang('$swap_slippage_tooltip2')])}
+              onClick={handleSlippageClick}
+            />
+          </>
+        )}
+      </>
     );
   }
 
-  function renderRow(title: string, value: TeactNode | undefined, help?: TeactNode, isError?: boolean) {
-    return (
-      <div className={styles.menuRow}>
-        <span className={buildClassName(styles.menuRowTitle, isError && styles.menuRowError)}>
-          {title}
-          {help}
-        </span>
-        <span className={buildClassName(styles.menuRowValue, isError && styles.menuRowError)}>
-          {value ?? lang('No Data')}
-        </span>
-      </div>
-    );
+  function renderHint(messages: string[]) {
+    return messages.map((message) => <span>{message}</span>);
   }
 
-  function renderProviderHelp() {
+  function renderProviderHelp(onClick: NoneToVoidFunction) {
     return (
       <button
         type="button"
         className={styles.menuProviderHelp}
         aria-label={lang('Cross-chain Provider')}
         disabled={!providerName}
-        onClick={handleProviderInfoClick}
+        onClick={onClick}
       >
         <i className={buildClassName(styles.menuTooltipIcon, 'icon-question')} aria-hidden />
       </button>
@@ -115,64 +109,13 @@ function TokenTradeMenu({
   }
 
   return (
-    <>
-      <Button
-        ref={buttonRef}
-        isRound
-        className={styles.headerButton}
-        ariaLabel={lang('Swap Details')}
-        testId={getTestId('token_trade_settings')}
-        onClick={handleButtonClick}
-      >
-        <i
-          className={buildClassName(styles.headerIcon, mode === 'card' ? 'icon-info' : 'icon-menu-params')}
-          aria-hidden
-        />
-      </Button>
-      <Menu
-        menuRef={menuRef}
-        isOpen={isOpen}
-        type="dropdown"
-        withPortal
-        bubbleClassName={styles.menuBubble}
-        anchor={anchor}
-        getTriggerElement={getTriggerElement}
-        getRootElement={getRootElement}
-        getMenuElement={getMenuElement}
-        getLayout={getLayout}
-        onClose={closeMenu}
-      >
-        {renderRow(lang('Exchange Rate'), exchangeRate)}
-        {mode === 'cex' && renderRow(lang('Cross-chain Provider'), providerName, renderProviderHelp())}
-        {mode === 'dex' && (
-          <>
-            {renderRow(
-              lang('Price Impact'),
-              priceImpact !== undefined ? `${priceImpact}%` : undefined,
-              renderTooltip([lang('$swap_price_impact_tooltip1'), lang('$swap_price_impact_tooltip2')]),
-              isPriceImpactError,
-            )}
-            {renderRow(
-              lang('Minimum Received'),
-              minimumReceived,
-              renderTooltip([lang('$swap_minimum_received_tooltip1'), lang('$swap_minimum_received_tooltip2')]),
-            )}
-            <button
-              type="button"
-              className={buildClassName(styles.menuRow, styles.menuRowButton)}
-              onClick={handleSlippageClick}
-            >
-              <span className={styles.menuRowTitle}>
-                {lang('Slippage')}
-                {renderTooltip([lang('$swap_slippage_tooltip1'), lang('$swap_slippage_tooltip2')])}
-              </span>
-              <span className={styles.menuRowValue}>{slippage}%</span>
-              <i className={buildClassName(styles.menuRowChevron, 'icon-chevron-right')} aria-hidden />
-            </button>
-          </>
-        )}
-      </Menu>
-    </>
+    <TradeHeaderMenu
+      ariaLabel={lang('Swap Details')}
+      icon={mode === 'card' ? 'icon-info' : 'icon-menu-params'}
+      testId={getTestId('token_trade_settings')}
+    >
+      {renderContent}
+    </TradeHeaderMenu>
   );
 }
 

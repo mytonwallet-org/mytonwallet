@@ -87,19 +87,90 @@ describe('wallet snapshot synchronization', () => {
     });
   });
 
-  it('leaves runs independent of a slow upload and uses only its exact acknowledged reference', async () => {
+  it('waits for a slow upload and uses only its exact acknowledged reference', async () => {
     const { sync, sends } = fixture();
     expect(sends).toHaveLength(0);
     sync.setActive(true);
+    let hasSettled = false;
+    const upload = sync.waitForUpload()!.then(() => {
+      hasSettled = true;
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(hasSettled).toBe(false);
     expect(sync.forRun()).toEqual({});
     acknowledge(sends[0]);
-    await flush();
+    await upload;
     expect(sync.forRun()).toEqual({ walletSnapshotRef: {
       instanceId: INSTANCE, sessionId: sends[0].value.sessionId,
       revision: sends[0].value.revision, snapshotRevision: 1,
     } });
     expect(sends).toHaveLength(1);
+    expect(sync.waitForUpload()).toBeUndefined();
+    expect(jest.getTimerCount()).toBe(1);
   });
+
+  it.each(['before wait', 'during wait'] as const)(
+    'waits for an update queued %s and bounds the wait when more changes keep arriving', async (timing) => {
+      const { sync, session, sends } = fixture();
+      sync.setActive(true);
+      const updated = host();
+      updated.accounts[0].savedAddresses![0].name = 'Mother';
+      if (timing === 'before wait') {
+        session.update(updated);
+        sync.refresh();
+      }
+      let hasSettled = false;
+      const upload = sync.waitForUpload()!.then(() => {
+        hasSettled = true;
+      });
+      if (timing === 'during wait') {
+        session.update(updated);
+        sync.refresh();
+      }
+      acknowledge(sends[0]);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(sends).toHaveLength(2);
+      expect(hasSettled).toBe(false);
+
+      updated.accounts[0].savedAddresses![0].name = 'Mummy';
+      session.update(updated);
+      sync.refresh();
+      acknowledge(sends[1]);
+      await upload;
+      expect(sends).toHaveLength(3);
+      expect(sync.forRun()).toEqual({});
+      sync.setActive(false);
+    },
+  );
+
+  it.each(['inactive', 'no snapshot'] as const)('does not wait with %s', (state) => {
+    const { sync, session, sends } = fixture();
+    if (state === 'no snapshot') {
+      session.update();
+      sync.setActive(true);
+    }
+    expect(sync.waitForUpload()).toBeUndefined();
+    expect(sync.forRun()).toEqual({});
+    expect(sends).toHaveLength(0);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it.each(['close', 'reset', 'no snapshot'] as const)(
+    'ends the wait promptly on %s even if the sender ignores abort', async (change) => {
+      const { sync, session, sends } = fixture();
+      sync.setActive(true);
+      const upload = sync.waitForUpload();
+      if (change === 'close') sync.setActive(false);
+      if (change === 'reset') sync.reset();
+      if (change === 'no snapshot') {
+        session.update();
+        sync.refresh();
+      }
+      await upload;
+      expect(sends[0].signal.aborted).toBe(true);
+      expect(sync.forRun()).toEqual({});
+    },
+  );
 
   it.each(CHAIN_CASES)('uploads every $name chain and binds runs to the acknowledged snapshot', async ({ chains }) => {
     const { session, sync, sends } = fixture();
@@ -205,6 +276,7 @@ describe('wallet snapshot synchronization', () => {
     await flush();
     advance(31 * 60_000);
 
+    void sync.waitForUpload();
     const result = sync.forRun();
     expect(result.walletSnapshotRef).toBeUndefined();
     expect(sends[1].value.snapshotRevision).toBeGreaterThan(sends[0].value.snapshotRevision);
@@ -310,19 +382,33 @@ describe('wallet snapshot synchronization', () => {
     expect(sync.forRun().walletSnapshotRef?.snapshotRevision).toBe(sends[1].value.snapshotRevision);
   });
 
-  it('retries a transient upload without duplicating it during a run', async () => {
+  it('releases runs after the first failed attempt and keeps background retries for the next run', async () => {
     const { sync, sends } = fixture();
     sync.setActive(true);
+    const upload = sync.waitForUpload();
     expect(sync.forRun()).toEqual({});
     sends[0].reject(new TypeError('offline'));
-    await flush();
-    await jest.advanceTimersByTimeAsync(250);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(sync.waitForUpload()).toBeUndefined();
+    await upload;
+    expect(sync.forRun()).toEqual({});
+    await jest.advanceTimersByTimeAsync(249);
+    expect(sends).toHaveLength(1);
+    await jest.advanceTimersByTimeAsync(1);
     expect(sends).toHaveLength(2);
+    expect(sync.waitForUpload()).toBeUndefined();
     expect(sends[1].value).toBe(sends[0].value);
-    acknowledge(sends[1]);
-    await flush();
-    expect(sync.forRun().walletSnapshotRef).toBeDefined();
+    sends[1].reject(new TypeError('offline'));
+    await jest.advanceTimersByTimeAsync(499);
     expect(sends).toHaveLength(2);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(sends).toHaveLength(3);
+    expect(sends[2].value).toBe(sends[0].value);
+    acknowledge(sends[2]);
+    await flush();
+    expect(sync.waitForUpload()).toBeUndefined();
+    expect(sync.forRun().walletSnapshotRef).toBeDefined();
+    expect(sends).toHaveLength(3);
   });
 
   it('aborts background work on close and ignores late acknowledgements after reset', async () => {

@@ -4,6 +4,7 @@ import { getActions, withGlobal } from '../../../../global';
 import type { NavigationTab, Theme } from '../../../../global/types';
 import { ContentTab } from '../../../../global/types';
 
+import { ANIMATED_STICKER_ICON_SPEED } from '../../../../config';
 import { selectCurrentAccountSettings } from '../../../../global/selectors';
 import { ACCENT_COLORS } from '../../../../util/accentColor/constants';
 import buildClassName from '../../../../util/buildClassName';
@@ -24,15 +25,15 @@ import Button from '../../../ui/Button';
 import styles from './LandscapeNavBar.module.scss';
 
 const ANIMATED_ICON_SIZE_PX = 34;
-const ANIMATED_STICKER_SPEED = 2;
 
-type IconKey = 'iconWallet' | 'iconMarket' | 'iconAgent' | 'iconExplore' | 'iconSettings';
+type IconKey = 'iconWallet' | 'iconMarket' | 'iconFutures' | 'iconAgent' | 'iconExplore' | 'iconSettings';
 
 interface StateProps {
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
+  isFuturesOpen?: boolean;
   theme: Theme;
   accentColorIndex?: number;
   navigationTabOrder?: NavigationTab[];
@@ -41,6 +42,7 @@ interface StateProps {
 const TAB_LABELS: Record<NavigationTab, string> = {
   wallet: 'Wallet',
   market: 'Market',
+  futures: 'Futures',
   agent: 'Agent',
   explore: 'Explore',
   settings: 'Settings',
@@ -49,16 +51,18 @@ const TAB_LABELS: Record<NavigationTab, string> = {
 const TAB_ICON_KEYS: Record<NavigationTab, IconKey> = {
   wallet: 'iconWallet',
   market: 'iconMarket',
+  futures: 'iconFutures',
   agent: 'iconAgent',
   explore: 'iconExplore',
   settings: 'iconSettings',
 };
 
 function LandscapeNavBar({
-  areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, theme, accentColorIndex, navigationTabOrder,
+  areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, theme, accentColorIndex,
+  navigationTabOrder,
 }: StateProps) {
   const {
-    switchToWallet, switchToAgent, switchToExplore, switchToMarket, switchToSettings,
+    switchToWallet, switchToAgent, switchToExplore, switchToMarket, switchToFutures, switchToSettings,
     closeNftCollection, selectToken, setActiveContentTab, setNavigationTabOrder,
   } = getActions();
 
@@ -79,10 +83,11 @@ function LandscapeNavBar({
     onReorder: (newOrder) => setNavigationTabOrder({ order: newOrder }),
   });
 
-  const isWalletActive = !areSettingsOpen && !isAgentOpen && !isExploreOpen && !isMarketOpen;
+  const isWalletActive = !areSettingsOpen && !isAgentOpen && !isExploreOpen && !isMarketOpen && !isFuturesOpen;
   const activeTabs: Record<NavigationTab, boolean | undefined> = {
     wallet: isWalletActive,
     market: isMarketOpen,
+    futures: isFuturesOpen,
     agent: isAgentOpen,
     explore: isExploreOpen,
     settings: areSettingsOpen,
@@ -101,6 +106,7 @@ function LandscapeNavBar({
     const openTab: Record<NavigationTab, NoneToVoidFunction> = {
       wallet: handleWalletClick,
       market: switchToMarket,
+      futures: switchToFutures,
       agent: switchToAgent,
       explore: switchToExplore,
       settings: switchToSettings,
@@ -140,13 +146,16 @@ function LandscapeNavBar({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen } = global;
+  const {
+    areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen,
+  } = global;
 
   return {
     areSettingsOpen,
     isAgentOpen,
     isExploreOpen,
     isMarketOpen,
+    isFuturesOpen,
     theme: global.settings.theme,
     accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
     navigationTabOrder: global.settings.navigationTabOrder,
@@ -191,7 +200,7 @@ function NavButtonInternal({
       <AnimatedIconWithPreview
         play={isAnimating}
         size={ANIMATED_ICON_SIZE_PX}
-        speed={ANIMATED_STICKER_SPEED}
+        speed={ANIMATED_STICKER_ICON_SPEED}
         nonInteractive
         forceOnHeavyAnimation
         className={styles.icon}

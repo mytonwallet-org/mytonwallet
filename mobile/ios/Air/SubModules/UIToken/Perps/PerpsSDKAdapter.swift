@@ -150,12 +150,7 @@ import WalletContext
                          message: L10n.perpsFundingMissing(minUSDC: usdc, feeETH: eth),
                          buttonTitle: lang("Not Enough Funds"), actionTitle: L10n.buyToken(token: "USDC"), action: .buyUsdc)
         } else if requirements.needsUsdc {
-            let message = if let (amount, fees) = fundingUsdcBreakdown(requirements) {
-                isEditing ? L10n.perpsFundingUsdcIncreaseFees(minUSDC: usdc, amount: amount, fees: fees)
-                    : L10n.perpsFundingUsdcFees(minUSDC: usdc, amount: amount, fees: fees)
-            } else {
-                isEditing ? L10n.perpsFundingUsdcIncrease(minUSDC: usdc) : L10n.perpsFundingUsdc(minUSDC: usdc)
-            }
+            let message = isEditing ? L10n.perpsFundingUsdcIncrease(minUSDC: usdc) : L10n.perpsFundingUsdc(minUSDC: usdc)
             return .init(title: L10n.notEnoughSymbolLowercase(symbol: "USDC"), message: message,
                          buttonTitle: L10n.notEnoughSymbol(symbol: "USDC"), actionTitle: L10n.buyToken(token: "USDC"), action: .buyUsdc)
         } else {
@@ -172,19 +167,10 @@ import WalletContext
             return requirements.requiredUsdc
         }
         let gas = Decimal(string: requirements.requiredGasUsdc, locale: locale) ?? 0
-        return (deposit + gas).formatted(.number.locale(.forNumberFormatters).precision(.fractionLength(0...6)))
-    }
-
-    /// The order amount, as the minimum-amount warning states it, and the bridge and paymaster fees on top of it.
-    private static func fundingUsdcBreakdown(_ requirements: ApiPerpsFundingRequirements) -> (amount: String, fees: String)? {
-        let locale = Locale(identifier: "en_US_POSIX")
-        guard let deposit = Decimal(string: requirements.requiredUsdc, locale: locale),
-              let bridgeFee = requirements.requiredBridgeFeeUsdc.flatMap({ Decimal(string: $0, locale: locale) }) else { return nil }
-        let amount = deposit - bridgeFee
-        let fees = bridgeFee + (Decimal(string: requirements.requiredGasUsdc, locale: locale) ?? 0)
-        guard amount > 0, fees > 0 else { return nil }
-        let format = Decimal.FormatStyle.number.locale(.forNumberFormatters).precision(.fractionLength(0...6))
-        return (amount.formatted(format), fees.formatted(format))
+        var total = deposit + gas
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &total, 1, .up)
+        return rounded.formatted(.number.locale(.forNumberFormatters).precision(.fractionLength(0...1)))
     }
 
     public static func balanceWithdrawalReview(_ quote: ApiPerpsBalanceWithdrawalQuote) -> PerpsBalanceWithdrawalReviewDisplayData {

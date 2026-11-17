@@ -294,8 +294,12 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
     }
 
     private func makeSnapshot() async -> ApiAgentV2HostContext {
+        await Self.makeSnapshot(activeAccount: activeAccount())
+    }
+
+    /// The context the chat publishes, with `activeAccount` as the wallet the user is in
+    static func makeSnapshot(activeAccount: MAccount?) async -> ApiAgentV2HostContext {
         // Capture actor-owned state together before suspending. Formatting must not read live stores.
-        let activeAccount = self.activeAccount()
         let accounts = AccountStore.orderedAccounts.map { account in
             let context = AccountContext(accountId: account.id)
             return AccountSnapshot(

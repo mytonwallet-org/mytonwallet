@@ -666,6 +666,10 @@ private class AppActionsImpl: AppActionsProtocol {
         rootContainerRouter.showHome(popToRoot: popToRoot)
     }
 
+    static func showRootAfterAccountSwitch() {
+        rootContainerRouter.showRootAfterAccountSwitch()
+    }
+
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) {
         showLinkDomain(accountSource: accountSource, nftAddress: nftAddress, nft: nil)
     }

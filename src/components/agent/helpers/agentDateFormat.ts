@@ -1,6 +1,6 @@
 import type { LangFn } from '../../../util/langProvider';
 
-import { DAY } from '../../../util/dateFormat';
+import { DAY, formatFullDay } from '../../../util/dateFormat';
 import { toNativeDigits } from '../../../util/nativeDigits';
 
 const WEEK_DAYS = 7;
@@ -17,6 +17,11 @@ const SHORT_DAY_OPTIONS: Intl.DateTimeFormatOptions = { month: 'short', day: 'nu
 const NUMERIC_DAY_OPTIONS: Intl.DateTimeFormatOptions = { year: '2-digit', month: '2-digit', day: '2-digit' };
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
+
+/** A digest's discussion is named by the day its window ends: "News for November 11", with the year for another one */
+export function formatAgentDigestDiscussionTitle(lang: LangFn, windowEnd: string) {
+  return lang('$agent_digest_discussion_title', formatFullDay(lang.code!, windowEnd));
+}
 
 /**
  * The time of day in 24 or 12 hours, as the language writes it: "09:41" in Russian, "9:41 AM" in English. Times on

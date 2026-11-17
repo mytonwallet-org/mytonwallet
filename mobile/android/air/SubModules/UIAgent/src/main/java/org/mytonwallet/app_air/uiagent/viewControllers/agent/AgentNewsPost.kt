@@ -81,7 +81,7 @@ internal fun agentNewsPostMessages(
     threadNews: AgentV2ThreadNewsCard?,
     request: AgentNewsChatRequest?,
     threadDigest: AgentV2ThreadDigestCard? = null,
-    discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = request?.discussionNaming
+    discussionFollowups: List<String>? = null
 ): List<AgentTimelineItem.Message> {
     val news = threadNews?.let { keepFeedPicture(it, request) } ?: request?.takeIf {
         it.headline.isNotBlank() && it.publishedAt?.let(::parseAgentV2Timestamp) != null
@@ -99,15 +99,20 @@ internal fun agentNewsPostMessages(
             it.role == AgentMessageRole.USER
         }?.takeIf { it.sdkMessageId != null && it.text == card.headline }
     }
+    val previewFollowups = if (digest != null) {
+        discussionFollowups
+    } else {
+        request?.discussionNaming?.followups
+    }
     val post = AgentMessage(
         id = news?.let { "news-post-${it.eventId}" } ?: "digest-post-${digest!!.id}",
         sdkMessageId = storedPost?.let { it.sdkMessageId ?: it.id },
         role = AgentMessageRole.ASSISTANT,
         text = "**${content.headline}**" +
             ((if (news != null) news.body else content.body)?.let { "\n\n$it" } ?: ""),
-        followups = explicitPost?.followups ?: discussionNaming?.takeIf {
+        followups = explicitPost?.followups ?: previewFollowups?.takeIf {
             storedPost == null && threadNews == null && request?.threadId == null
-        }?.followups?.mapIndexed { index, text ->
+        }?.mapIndexed { index, text ->
             AgentV2FollowUp("discussion-preview-$index", "suggested_prompt", text)
         }.orEmpty(),
         date = parseAgentV2Timestamp(content.publishedAt) ?: Date(0),

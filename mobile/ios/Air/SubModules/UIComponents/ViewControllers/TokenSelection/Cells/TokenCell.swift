@@ -225,7 +225,7 @@ public final class TokenCell: UICollectionViewCell {
         secondaryAmountLabelContainer.isHidden = false
         secondaryAmountLabel.textColor = .air.secondaryLabel
         iconView.config(with: token, isStaking: isStaking, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != .ton)
-        let badgeText = token?.label?.nilIfEmpty
+        let badgeText = token?.badgeLabel
         titleLabel.text = if let token {
             MTokenBalance.displayName(
                 apiToken: token,

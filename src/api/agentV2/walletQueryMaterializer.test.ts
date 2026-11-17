@@ -714,7 +714,8 @@ describe('wallet query materializer', () => {
     expect(serialized).not.toContain(mainHash);
     expect(serialized).not.toContain(savingsHash);
     expect(serialized).not.toContain('EQ-external-counterparty-address');
-    expect(fetchPastActivities.mock.calls.map(([accountId]) => accountId).sort()).toEqual(['main', 'savings']);
+    const readAccountIds = new Set(fetchPastActivities.mock.calls.map(([accountId]) => accountId));
+    expect(readAccountIds).toEqual(new Set(['main', 'savings']));
   });
 
   it('projects approvals without treating the allowance as transferred value', async () => {
@@ -913,8 +914,50 @@ describe('wallet query materializer', () => {
     expect(result.operation).toBe('transactions.list');
     if (result.operation !== 'transactions.list') return;
     expect(result.transactions).toHaveLength(50);
-    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual([50, 100]);
+    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual([50, 100, 200]);
     expect(result.coverage).toMatchObject({ status: 'partial', rowsOmitted: 10, limitations: ['row_limit'] });
+  });
+
+  it.each([
+    { name: 'a longer history', recordCount: 60, filters: undefined, reads: [50, 100, 200], rowCount: 59 },
+    {
+      name: 'a period the first page already covers',
+      recordCount: 60,
+      filters: buildTransactionFilters([buildTimestampClause('2026-08-10T11:30:00.000Z', NOW)]),
+      reads: [50],
+      rowCount: 29,
+    },
+    {
+      name: 'a history longer than the scan limit',
+      recordCount: 600,
+      filters: undefined,
+      reads: [50, 100, 200, 400, 500],
+      rowCount: 499,
+      hasHistoryLimit: true,
+    },
+  ])('does not take the end of the history from a page that lost a row: $name', async ({
+    recordCount, filters, reads, rowCount, hasHistoryLimit = false,
+  }) => {
+    const fetchPastActivities = createRowCountedHistory(buildHistory(recordCount, MINUTE), 10);
+    const result = await runQuery(sessionWithHost(), {
+      ...transactionsArgs('list'), accountSelector: { kind: 'current' }, ...(filters && { filters }),
+    }, { fetchPastActivities });
+
+    expect(result.operation).toBe('transactions.list');
+    if (result.operation !== 'transactions.list') return;
+    expect(fetchPastActivities.mock.calls.map(([, limit]) => limit)).toEqual(reads);
+    expect(result.transactions.length + result.coverage.rowsOmitted).toBe(rowCount);
+    expect(result.coverage.limitations.includes('history_limit')).toBe(hasHistoryLimit);
+  });
+
+  it('reads an empty history once', async () => {
+    const fetchPastActivities = createPagedHistory([]);
+    const result = await runQuery(sessionWithHost(), {
+      ...transactionsArgs('list'), accountSelector: { kind: 'current' },
+    }, { fetchPastActivities });
+
+    expect(fetchPastActivities).toHaveBeenCalledTimes(1);
+    expect(result.coverage).toMatchObject({ status: 'complete', rowsOmitted: 0 });
   });
 
   it.each([
@@ -1471,6 +1514,17 @@ function createPagedHistory(activities: ApiActivity[]) {
   return createHistorySource((limit) => (activities.length >= limit
     ? { activities: activities.slice(0, limit - 1), hasMore: true }
     : { activities, hasMore: false }));
+}
+
+// Mirrors how `fetchPastActivities` counts parsed rows: a full source page with a record that gives no row
+// reports the end of the history
+function createRowCountedHistory(records: ApiActivity[], droppedIndex: number) {
+  return createHistorySource((limit) => {
+    const activities = records.slice(0, limit).filter((_, index) => index !== droppedIndex);
+    return activities.length === limit
+      ? { activities: activities.slice(0, limit - 1), hasMore: true }
+      : { activities, hasMore: false };
+  });
 }
 
 // Paging by `toTimestamp` loses rows that share the boundary timestamp, so every read starts from the newest row

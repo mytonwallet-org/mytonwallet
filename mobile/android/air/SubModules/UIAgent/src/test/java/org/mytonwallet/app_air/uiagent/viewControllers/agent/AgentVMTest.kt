@@ -3,7 +3,9 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent
 import android.content.Context
 import android.content.ContextWrapper
 import java.lang.reflect.Proxy
+import java.util.Calendar
 import java.util.Date
+import java.util.TimeZone
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -27,13 +29,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.BeforeClass
 import org.junit.Test
+import org.mytonwallet.app_air.uiagent.agentV2.AgentChatHeader
 import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextSnapshot
+import org.mytonwallet.app_air.uiagent.agentV2.AgentThreadListTexts
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2HostContextProvider
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.formatAgentDigestDiscussionTitle
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
+import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentChatHeader
+import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadListTexts
 import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadTitle
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.formatAgentChatTime
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerButton
@@ -66,6 +73,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2StarterHint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
@@ -80,6 +88,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 
 class AgentVMTest {
     @Test
@@ -1540,7 +1549,7 @@ class AgentVMTest {
     }
 
     @Test
-    fun showsTheLatestThreadTitleWithTheFirstQuestionAsFallback() {
+    fun showsTheLatestThreadTitleWithTheDigestDayOrFirstQuestionAsFallback() {
         val thread =
             AgentV2ThreadSummary(
                 "thread",
@@ -1570,6 +1579,86 @@ class AgentVMTest {
             "New Chat",
             resolveAgentThreadTitle(AgentV2ThreadSummary("empty", 1), null, "New Chat")
         )
+
+        val language = LocaleController::class.java.getDeclaredField("_activeLanguage")
+            .apply { isAccessible = true }
+        val dictionary = LocaleController::class.java.getDeclaredField("dictionary")
+            .apply { isAccessible = true }
+        val previousLanguage = language.get(null)
+        val previousDictionary = dictionary.get(null)
+        val previousTimeZone = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        val year = Calendar.getInstance().get(Calendar.YEAR)
+        val digest = AgentV2ThreadDigestCard("digest", "$year-11-11T18:00:00Z", 0, emptyList())
+        val unnamedThread = thread.copy(title = null, hasCustomTitle = null, digest = digest)
+        fun resolveHeader(thread: AgentV2ThreadSummary?, preview: AgentV2ThreadDigestCard?) =
+            resolveAgentChatHeader(
+                thread = thread,
+                firstMessage = "Question",
+                news = null,
+                digestId = preview?.id,
+                digestPreview = preview,
+                isDeferredDiscussion = thread == null,
+                newChatTitle = "New Chat",
+                formatDigestTitle = ::formatAgentDigestDiscussionTitle
+            )
+        try {
+            for ((locale, template, day) in listOf(
+                Triple(WLanguage.ENGLISH, "News for %date%", "November 11"),
+                Triple(WLanguage.RUSSIAN, "Новости %date%", "11 ноября")
+            )) {
+                language.set(null, locale)
+                dictionary.set(null, mapOf("\$agent_digest_discussion_title" to template))
+                val title = template.replace("%date%", day)
+                assertEquals(AgentChatHeader(title, "🗓"), resolveHeader(null, digest))
+                assertEquals(
+                    AgentChatHeader(title, "💎"),
+                    resolveHeader(unnamedThread, digest.copy(windowEnd = "$year-11-12T18:00:00Z"))
+                )
+                assertEquals(AgentChatHeader(title, "💎"), resolveHeader(unnamedThread, null))
+                assertEquals(
+                    AgentChatHeader("My title", "💎"),
+                    resolveHeader(thread.copy(digest = digest), digest)
+                )
+                assertEquals(
+                    AgentThreadListTexts(title, "First question"),
+                    resolveAgentThreadListTexts(
+                        item = AgentV2ThreadListItem(
+                            unnamedThread.copy(title = " "),
+                            "First question"
+                        ),
+                        newChatTitle = "New Chat",
+                        formatDigestTitle = ::formatAgentDigestDiscussionTitle
+                    )
+                )
+                assertEquals(
+                    AgentThreadListTexts("My title", "First question"),
+                    resolveAgentThreadListTexts(
+                        item = AgentV2ThreadListItem(
+                            thread.copy(digest = digest),
+                            "First question"
+                        ),
+                        newChatTitle = "New Chat",
+                        formatDigestTitle = ::formatAgentDigestDiscussionTitle
+                    )
+                )
+                val previousDay = if (locale ==
+                    WLanguage.ENGLISH
+                ) {
+                    "$day, ${year - 1}"
+                } else {
+                    "$day ${year - 1}"
+                }
+                assertEquals(
+                    AgentChatHeader(template.replace("%date%", previousDay), "🗓"),
+                    resolveHeader(null, digest.copy(windowEnd = "${year - 1}-11-11T18:00:00Z"))
+                )
+            }
+        } finally {
+            language.set(null, previousLanguage)
+            dictionary.set(null, previousDictionary)
+            TimeZone.setDefault(previousTimeZone)
+        }
     }
 
     @Test
@@ -4626,6 +4715,151 @@ class AgentVMTest {
     }
 
     @Test
+    fun starterHintsStayForTheVisibleEmptyChatAndRefreshOnReopening() = runBlocking {
+        val client = FakeClient(emptyList()).apply {
+            onStarterHints = {
+                AgentV2HintsResponse(
+                    "agent-starter-hints-v2",
+                    if (hintRequests.size == 1) {
+                        listOf(
+                            AgentV2StarterHint("unknown.hint", "unknown"),
+                            AgentV2StarterHint("learn.staking", "learn")
+                        )
+                    } else {
+                        listOf(AgentV2StarterHint("wallet.assets", "wallet"))
+                    }
+                )
+            }
+            onStartRun = { clientRunId ->
+                AgentV2RunResult(clientRunId, "run", state = "completed")
+            }
+        }
+        val model = newModel(client)
+        var hintUpdates = 0
+        val delegate = createPollingDelegate(onHintsUpdated = { hintUpdates++ })
+        model.attach(delegate)
+        model.setActive(delegate, true)
+        try {
+            awaitReady(model)
+            withTimeout(1_000) {
+                while (model.visibleHints.none { it.id == "learn.staking" }) yield()
+            }
+            assertEquals(listOf<String?>(null), client.hintRequests)
+            assertEquals(
+                listOf("learn.staking", AGENT_SUPPORT_HINT_ID),
+                model.visibleHints.map { it.id }
+            )
+            val initialHints = model.visibleHints
+
+            model.setActive(delegate, true)
+            model.attach(delegate)
+            model.onWalletEvent(WalletEvent.AppBackground)
+            client.thread = client.thread.copy(revision = 2)
+            model.refreshThreadIfNeeded(client.thread)
+            withTimeout(1_000) {
+                while (client.messageRequests < 2 || model.currentThread.revision < 2) yield()
+            }
+            model.onWalletEvent(WalletEvent.AppForeground)
+            assertEquals(initialHints, model.visibleHints)
+            assertEquals(1, client.hintRequests.size)
+
+            val updatesBeforeLeaving = hintUpdates
+            model.setActive(delegate, false)
+            assertTrue(model.visibleHints.isEmpty())
+            assertEquals(updatesBeforeLeaving, hintUpdates)
+            model.setActive(delegate, true)
+            withTimeout(1_000) {
+                while (model.visibleHints.none { it.id == "wallet.assets" }) yield()
+            }
+            assertEquals(2, client.hintRequests.size)
+            val hint = model.visibleHints.first()
+            assertEquals("agent-starter-hints-v2", hint.catalogVersion)
+            assertTrue(model.sendMessage(hint.title, model.hintEntryPoint(hint)))
+            withTimeout(1_000) { while (client.startedTexts.isEmpty()) yield() }
+            assertEquals(listOf(hint.title), client.startedTexts)
+            assertEquals(
+                listOf<AgentV2EntryPoint?>(
+                    AgentV2EntryPoint(
+                        kind = "emptyState",
+                        surface = "agentTab",
+                        hintId = "wallet.assets",
+                        catalogVersion = "agent-starter-hints-v2"
+                    )
+                ),
+                client.startedEntryPoints
+            )
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun starterHintFailureKeepsContactSupportWithoutRetryingTheVisibleState() = runBlocking {
+        val client = FakeClient(emptyList()).apply {
+            onStarterHints = { error("Unavailable hints") }
+        }
+        val model = newModel(client)
+        val delegate = createPollingDelegate()
+        model.setActive(delegate, true)
+        try {
+            awaitReady(model)
+            withTimeout(1_000) { while (model.visibleHints.isEmpty()) yield() }
+            assertEquals(listOf(AGENT_SUPPORT_HINT_ID), model.visibleHints.map { it.id })
+            model.setActive(delegate, true)
+            model.attach(delegate)
+            assertEquals(1, client.hintRequests.size)
+            assertEquals(listOf(AGENT_SUPPORT_HINT_ID), model.visibleHints.map { it.id })
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun starterHintsUseTheActiveAccountsKnownTotalBalance() = runBlocking {
+        @Suppress("UNCHECKED_CAST")
+        val totals = BalanceStore::class.java.getDeclaredField("totalBalanceInBaseCurrency").run {
+            isAccessible = true
+            get(null) as MutableMap<String, Double>
+        }
+        val accountId = "starter-hints-account"
+        val previousAccountId = AccountStore.activeAccountId
+        val previousTotal = totals[accountId]
+        AccountStore.updateActiveAccount(accountId)
+        try {
+            for ((balance, expectedState) in listOf(
+                null to null,
+                0.0 to "empty",
+                1.0 to "funded"
+            )) {
+                if (balance == null) totals.remove(accountId) else totals[accountId] = balance
+                val client = FakeClient(emptyList())
+                val host = JSONObject()
+                val model =
+                    newModel(client, makeSnapshot = { AgentHostContextSnapshot(accountId, host) })
+                val delegate = createPollingDelegate()
+                model.setActive(delegate, true)
+                try {
+                    awaitReady(model)
+                    withTimeout(1_000) { while (model.visibleHints.isEmpty()) yield() }
+                    assertEquals(listOf(expectedState), client.hintRequests)
+                    assertSame(host, client.hintContexts.single())
+                } finally {
+                    model.onDestroy()
+                }
+            }
+        } finally {
+            if (previousTotal ==
+                null
+            ) {
+                totals.remove(accountId)
+            } else {
+                totals[accountId] = previousTotal
+            }
+            AccountStore.updateActiveAccount(previousAccountId)
+        }
+    }
+
+    @Test
     fun emptyChatsSupportHintOpensTheChatSupportHasOrCallsSupportHere() = runBlocking {
         val supportThread = AgentV2ThreadSummary(
             "support",
@@ -4650,6 +4884,8 @@ class AgentVMTest {
                     { clientRunId -> AgentV2RunResult(clientRunId, "run", state = "completed") }
             }
             val model = newModel(client)
+            val delegate = createPollingDelegate()
+            model.setActive(delegate, true)
             val opened = mutableListOf<String>()
             try {
                 awaitReady(model)
@@ -4994,6 +5230,7 @@ class AgentVMTest {
 
     private fun createPollingDelegate(
         onRefreshed: () -> Unit = {},
+        onHintsUpdated: () -> Unit = {},
         onError: () -> Unit = {}
     ): AgentVM.Delegate = Proxy.newProxyInstance(
         AgentVM.Delegate::class.java.classLoader,
@@ -5001,6 +5238,7 @@ class AgentVMTest {
     ) { _, method, _ ->
         if (method.name == "onError") onError()
         if (method.name == "onMessagesRefreshed") onRefreshed()
+        if (method.name == "onHintsUpdated") onHintsUpdated()
         null
     } as AgentVM.Delegate
 
@@ -5014,15 +5252,16 @@ class AgentVMTest {
         cachedHistories: AgentCachedHistories = AgentCachedHistories(this) { null },
         stoppedAnswerDurationMs: Long = 0L,
         waitForSupportPoll: suspend () -> Unit = { delay(15_000) },
+        makeSnapshot: suspend () -> AgentHostContextSnapshot = {
+            AgentHostContextSnapshot(AccountStore.activeAccountId, JSONObject())
+        },
         onContextProvider: (AgentV2HostContextProvider) -> Unit = {}
     ): AgentVM {
         val modelScope = CoroutineScope(
             coroutineContext + SupervisorJob(coroutineContext[Job]) +
                 (exceptionHandler ?: EmptyCoroutineContext)
         )
-        val contextProvider = AgentV2HostContextProvider(client, modelScope) {
-            AgentHostContextSnapshot(AccountStore.activeAccountId, JSONObject())
-        }
+        val contextProvider = AgentV2HostContextProvider(client, modelScope, makeSnapshot)
         onContextProvider(contextProvider)
         return AgentVM(
             client = client,
@@ -5221,8 +5460,19 @@ class AgentVMTest {
         }
         override suspend fun loadAvailability() {}
         override suspend fun loadUserQuota() {}
-        override suspend fun hints(langCode: String?) =
-            AgentV2HintsResponse(3, "catalog", emptyList())
+        val hintRequests = mutableListOf<String?>()
+        val hintContexts = mutableListOf<JSONObject?>()
+        var onStarterHints: suspend () -> AgentV2HintsResponse = {
+            AgentV2HintsResponse("agent-starter-hints-v2", emptyList())
+        }
+        override suspend fun getStarterHints(
+            walletState: String?,
+            host: JSONObject?
+        ): AgentV2HintsResponse {
+            hintRequests += walletState
+            hintContexts += host
+            return onStarterHints()
+        }
 
         var nextCursor: String? = null
         var olderPages: Map<String, AgentV2ThreadHydration> = emptyMap()

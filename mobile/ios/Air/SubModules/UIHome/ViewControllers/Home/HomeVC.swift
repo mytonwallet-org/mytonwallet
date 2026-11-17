@@ -546,7 +546,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         observe { [weak self] in
             guard let self else { return }
             let context = AccountContext(accountId: displayedActivitiesAccountId)
-            if bannersSection.update(accountContext: context) {
+            if bannersSection.update(accountContext: context, canFloat: homeVM.isTrackingActiveAccount) {
                 tokensSectionDataProvider.topSpacing = bannersSection.isVisible ? 8 : nil
                 applySnapshot(makeSnapshot(reconfiguringCustomSections: [bannersSection.id]), animatingDifferences: true)
             }
@@ -1273,7 +1273,10 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             let perpsUpdate = pendingPerpsUpdate
             pendingPerpsUpdate = nil
             if perpsUpdate?.accountID == accountId { perpsUpdate?.apply() }
-            _ = bannersSection.update(accountContext: AccountContext(accountId: accountId))
+            _ = bannersSection.update(
+                accountContext: AccountContext(accountId: accountId),
+                canFloat: homeVM.isTrackingActiveAccount
+            )
             tokensSectionDataProvider.topSpacing = bannersSection.isVisible ? 8 : nil
             activitySectionDataProvider.update(viewModel: presentation.activities)
             tokensSectionDataProvider.switchAccountTo(accountId)

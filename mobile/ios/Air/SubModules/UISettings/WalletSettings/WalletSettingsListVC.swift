@@ -411,8 +411,7 @@ final class WalletSettingsListVC: SettingsBaseVC, WSegmentedControllerContent, R
             if accountId != accountStore.currentAccountId {
                 Task {
                     _ = try await accountStore.activateAccount(accountId: accountId)
-                    topViewController()?.dismiss(animated: true)
-                    AppActions.showHome(popToRoot: true)
+                    AppActions.showRootAfterAccountSwitch()
                 }
             } else {
                 topViewController()?.dismiss(animated: true)

@@ -3,13 +3,14 @@ import type {
 } from './protocol/types';
 import type { AgentV2WalletSession } from './walletSession';
 
-import { pauseWithAbortSignal } from '../../util/abortSignal';
+import { pauseWithAbortSignal, raceWithAbortSignal } from '../../util/abortSignal';
 import { isRetryableAgentV2RunError } from './errors';
 import { AgentV2HttpError } from './identity';
 import { projectWalletSnapshot } from './walletSnapshot';
 
 // Local metadata is revalidated before the server's 30-second wallet-read freshness window expires
 const SNAPSHOT_REVALIDATION_INTERVAL_MS = 20_000;
+const RUN_UPLOAD_MAX_BATCHES = 2;
 
 interface Dependencies {
   session: AgentV2WalletSession;
@@ -28,6 +29,7 @@ export class AgentV2WalletSnapshotSync {
   private controller?: AbortController;
   private pending?: AgentWalletSnapshotV1;
   private uploadingRevision?: number;
+  private firstAttemptSettled?: Promise<void>;
   private rejectedFingerprint?: string;
   private revalidationTimer?: ReturnType<typeof setTimeout>;
   private nextRevalidationAt = 0;
@@ -103,11 +105,26 @@ export class AgentV2WalletSnapshotSync {
     }
   }
 
-  forRun(): { walletSnapshotRef?: AgentWalletSnapshotRefV1 } {
+  waitForUpload(): Promise<void> | undefined {
     this.refresh();
-    if (!this.current) return {};
+    if (!this.isActive || !this.current || !this.firstAttemptSettled) return undefined;
+    return this.waitForFirstAttempts();
+  }
+
+  forRun(): { walletSnapshotRef?: AgentWalletSnapshotRefV1 } {
+    if (!this.isActive || !this.current) return {};
     return this.acknowledged?.snapshotRevision === this.current.snapshotRevision
       ? { walletSnapshotRef: this.acknowledged } : {};
+  }
+
+  private async waitForFirstAttempts() {
+    // Only first attempts of the current upload and one coalesced follow-up can extend run preparation
+    for (let batch = 0; batch < RUN_UPLOAD_MAX_BATCHES; batch += 1) {
+      if (!this.isActive || !this.current || !this.controller || !this.firstAttemptSettled) return;
+      const controller = this.controller;
+      await raceWithAbortSignal(this.firstAttemptSettled, controller.signal).catch(() => undefined);
+      if (controller.signal.aborted) return;
+    }
   }
 
   private async drain() {
@@ -119,6 +136,10 @@ export class AgentV2WalletSnapshotSync {
     }
     const controller = new AbortController();
     this.controller = controller;
+    let resolveFirstAttempt!: () => void;
+    this.firstAttemptSettled = new Promise<void>((resolve) => {
+      resolveFirstAttempt = resolve;
+    });
     const value = this.pending;
     this.uploadingRevision = value.snapshotRevision;
     this.pending = undefined;
@@ -135,8 +156,11 @@ export class AgentV2WalletSnapshotSync {
             break;
           }
           if (controller.signal.aborted || this.pending || attempt === 2) break;
-          await pauseWithAbortSignal(250 * 2 ** attempt, controller.signal);
+        } finally {
+          this.firstAttemptSettled = undefined;
+          resolveFirstAttempt();
         }
+        await pauseWithAbortSignal(250 * 2 ** attempt, controller.signal);
       }
     } catch {
       // Closing the chat or resetting the SDK cancels the pending retry.

@@ -1,3 +1,4 @@
+import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
@@ -9,7 +10,7 @@ import Button from '../ui/Button';
 import styles from './BackHeader.module.scss';
 
 interface OwnProps {
-  title: string;
+  title: TeactNode;
   withNotchOnScroll?: boolean;
   isScrolled?: boolean;
   onBackClick: NoneToVoidFunction;

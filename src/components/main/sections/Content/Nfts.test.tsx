@@ -9,6 +9,7 @@ import { addActionHandler, getActions, getGlobal, setGlobal } from '../../../../
 import type { ApiNft } from '../../../../api/types';
 
 import { MAIN_ACCOUNT_ID } from '../../../../config';
+import { requestMutation } from '../../../../lib/fasterdom/fasterdom';
 import { INITIAL_STATE } from '../../../../global/initialState';
 import { cloneDeep } from '../../../../util/iteratees';
 import { pause } from '../../../../util/schedulers';
@@ -31,6 +32,9 @@ const NFT_WITHOUT_IMAGE: ApiNft = {
 
 // The `updateNfts` handler triggers this API-layer action; the tests don't need its effects
 addActionHandler('checkCardNftOwnership', () => {});
+// `selectNfts` opens the list through these navigation actions; the tests render the list themselves
+addActionHandler('selectToken', () => {});
+addActionHandler('setActiveContentTab', () => {});
 
 // TeactN flushes container updates on a microtask, Teact re-renders on rAF;
 // a generous macrotask pause covers both
@@ -187,6 +191,37 @@ describe('Nfts landscape widget', () => {
     const { nfts } = getGlobal().byAccountId[MAIN_ACCOUNT_ID];
     expect(nfts?.orderedAddresses).toEqual([]);
     expect(getIsSpinnerShown()).toBe(false);
+  });
+});
+
+describe('Nfts list selection', () => {
+  function getSelectedNfts() {
+    return getGlobal().byAccountId[MAIN_ACCOUNT_ID].nfts?.selectedNfts;
+  }
+
+  beforeEach(() => {
+    window.ResizeObserver = class {
+      observe() {}
+
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+  });
+
+  it('keeps the selection made before the list opens and clears it when the list hides', async () => {
+    emitNfts([NFT_WITHOUT_IMAGE]);
+    getActions().selectNfts({ nfts: [NFT_WITHOUT_IMAGE] });
+    await flushUpdates();
+
+    // `NftList` measures its container in a layout effect, which needs the mutation phase
+    requestMutation(() => TeactDOM.render(<Nfts isActive />, root));
+    await flushUpdates();
+
+    expect(getSelectedNfts()).toHaveLength(1);
+
+    requestMutation(() => TeactDOM.render(<Nfts />, root));
+    await flushUpdates();
+
+    expect(getSelectedNfts() ?? []).toHaveLength(0);
   });
 });
 

@@ -21,12 +21,6 @@ public class WAnimatedSticker: UIView {
         }
     }
 
-    public var playbackSpeed: Double = 1.0 {
-        didSet {
-            animationView?.playbackSpeed = playbackSpeed
-        }
-    }
-    
     private(set) var animationView: LottieAnimationView? = nil
     private var animationViewWidthConstraint: NSLayoutConstraint?
     private var animationViewHeightConstraint: NSLayoutConstraint?
@@ -48,7 +42,6 @@ public class WAnimatedSticker: UIView {
             let createdAnimationView = LottieAnimationView(frame: CGRect(origin: .zero, size: size))
             createdAnimationView.translatesAutoresizingMaskIntoConstraints = false
             createdAnimationView.renderingScale = renderingScale
-            createdAnimationView.playbackSpeed = playbackSpeed
             addSubview(createdAnimationView)
             let widthConstraint = createdAnimationView.widthAnchor.constraint(equalToConstant: size.width)
             let heightConstraint = createdAnimationView.heightAnchor.constraint(equalToConstant: size.height)

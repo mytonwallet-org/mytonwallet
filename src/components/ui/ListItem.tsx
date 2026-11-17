@@ -9,23 +9,30 @@ import styles from './ListItem.module.scss';
 
 interface OwnProps {
   icon?: string;
+  /** Replaces the font icon */
+  iconContent?: TeactNode;
   label: TeactNode;
   description?: string;
   className?: string;
   testId?: string;
   isLoading?: boolean;
+  isTextTruncated?: boolean;
   onClick: NoneToVoidFunction;
 }
 
 function ListItem({
   icon,
+  iconContent,
   label,
   description,
   className,
   testId,
   isLoading,
+  isTextTruncated,
   onClick,
 }: OwnProps) {
+  const truncatedClassName = isTextTruncated ? styles.truncated : undefined;
+
   return (
     <button
       type="button"
@@ -34,10 +41,12 @@ function ListItem({
       onClick={onClick}
       disabled={isLoading}
     >
-      <i className={buildClassName(styles.icon, `icon-${icon}`)} aria-hidden />
-      <span className={styles.label}>
+      {iconContent ?? <i className={buildClassName(styles.icon, `icon-${icon}`)} aria-hidden />}
+      <span className={buildClassName(styles.label, truncatedClassName)}>
         {label}
-        {Boolean(description) && <em className={styles.description}>{description}</em>}
+        {Boolean(description) && (
+          <em className={buildClassName(styles.description, truncatedClassName)}>{description}</em>
+        )}
       </span>
       {
         isLoading ? (

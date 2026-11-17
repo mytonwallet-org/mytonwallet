@@ -6851,7 +6851,7 @@ describe('AgentV2Runtime transport', () => {
     }
   });
 
-  it('creates a digest thread and rejects a missing digest with digest_unavailable', async () => {
+  it('creates a digest thread with its tapped follow-up and rejects a missing digest as unavailable', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const digest = {
@@ -6873,13 +6873,17 @@ describe('AgentV2Runtime transport', () => {
     try {
       await runtime.acceptConsent();
 
-      await expect(runtime.createThread({ digest: { id: digest.id } })).resolves.toEqual(response);
+      await expect(runtime.createThread({ digest: { id: digest.id, followup: 'What changed?' } }))
+        .resolves.toEqual(response);
       await expect(runtime.createThread({ digest: { id: 'ru:2026-11-05T08:00:00.000Z' } }))
         .rejects.toMatchObject({ name: 'AgentV2HttpError', code: 'digest_unavailable', retryable: false });
 
       expect(fetchMock.mock.calls.map(([input, init]) => [getRequestUrl(input), JSON.parse(init!.body as string)]))
         .toEqual([
-          ['https://agent.test/api/v2/threads', { protocolVersion: 3, digest: { id: digest.id } }],
+          [
+            'https://agent.test/api/v2/threads',
+            { protocolVersion: 3, digest: { id: digest.id, followup: 'What changed?' } },
+          ],
           ['https://agent.test/api/v2/threads', { protocolVersion: 3, digest: { id: 'ru:2026-11-05T08:00:00.000Z' } }],
         ]);
     } finally {
@@ -7215,6 +7219,82 @@ describe('AgentV2Runtime thread cache', () => {
     jest.mocked(idb.get).mockClear();
     jest.mocked(idb.set).mockClear();
     mockUseThreadCacheStore.mockClear();
+  });
+
+  it('persists each news view for offline restart without caching failures or older pages', async () => {
+    const request = { lang: 'en-US', digestHour: 9, digestMinute: 0 as const, timeZone: 'UTC' };
+    for (const view of ['all', 'digests'] as const) {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, locale: 'en', items: [], digests: [] }));
+      const page = await runtime.getNewsFeed({ ...request, view });
+      await expect(runtime.getCachedNewsFeed({ ...request, view })).resolves.toEqual(page);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockRejectedValue(new TypeError('Load failed'));
+    await expect(runtime.getNewsFeed(request)).rejects.toThrow('Load failed');
+    await expect(runtime.getCachedNewsFeed(request)).resolves.toEqual({ locale: 'en', items: [], digests: [] });
+    await expect(runtime.getCachedNewsFeed({ ...request, lang: 'ru' })).resolves.toBeUndefined();
+    await expect(runtime.getCachedNewsFeed({ ...request, digestHour: 10 })).resolves.toBeUndefined();
+    await expect(runtime.getCachedNewsFeed({ ...request, timeZone: 'Europe/Moscow' })).resolves.toBeUndefined();
+    await expect(runtime.getCachedNewsFeed({ ...request, cursor: 'older' })).resolves.toBeUndefined();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, locale: 'en', items: [], nextCursor: 'more' }));
+    await runtime.getNewsFeed({ ...request, cursor: 'older' });
+    await expect(runtime.getCachedNewsFeed(request)).resolves.toEqual({ locale: 'en', items: [], digests: [] });
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    await runtime.destroy();
+    runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+    });
+    await expect(runtime.getCachedNewsFeed(request)).resolves.toEqual({ locale: 'en', items: [], digests: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    await runtime.destroy({ shouldClearPersistentIdentity: true });
+    await expect(runtime.getCachedNewsFeed(request)).resolves.toBeUndefined();
+  });
+
+  it.each(['all', 'digests'] as const)('keeps successful %s news when a newer request fails', async (view) => {
+    const request = { lang: 'en', view };
+    let resumeFirst!: (response: Response) => void;
+    let notifyFirstStarted!: NoneToVoidFunction;
+    const firstStarted = new Promise<void>((resolve) => {
+      notifyFirstStarted = resolve;
+    });
+    fetchMock.mockImplementationOnce(() => {
+      notifyFirstStarted();
+      return new Promise<Response>((resolve) => {
+        resumeFirst = resolve;
+      });
+    });
+    fetchMock.mockRejectedValueOnce(new TypeError('Load failed'));
+    const first = runtime.getNewsFeed(request);
+    await firstStarted;
+    await expect(runtime.getNewsFeed(request)).rejects.toThrow('Load failed');
+    resumeFirst(jsonResponse({ protocolVersion: 3, locale: 'en', items: [], digests: [] }));
+    const page = await first;
+    await expect(runtime.getCachedNewsFeed(request)).resolves.toEqual(page);
+  });
+
+  it('does not deliver a pending news cache read after the runtime is retired', async () => {
+    const request = { lang: 'en' };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, locale: 'en', items: [] }));
+    await runtime.getNewsFeed(request);
+    await expect(runtime.getCachedNewsFeed(request)).resolves.toBeDefined();
+    let resumeRead!: NoneToVoidFunction;
+    let notifyReadStarted!: NoneToVoidFunction;
+    const readStarted = new Promise<void>((resolve) => {
+      notifyReadStarted = resolve;
+    });
+    jest.mocked(idb.get).mockImplementationOnce((key) => {
+      const record = typeof key === 'string' ? mockThreadCacheStore.get(key) : undefined;
+      notifyReadStarted();
+      return new Promise((resolve) => {
+        resumeRead = () => resolve(record);
+      });
+    });
+    const pending = runtime.getCachedNewsFeed(request);
+    await readStarted;
+    await runtime.destroy();
+    resumeRead();
+    await expect(pending).resolves.toBeUndefined();
   });
 
   it('caches only unfiltered first pages and reads snapshots without network requests', async () => {
@@ -7584,6 +7664,273 @@ describe('AgentV2Runtime thread cache', () => {
       ));
     }
   });
+});
+
+describe('AgentV2Runtime wallet snapshot run preparation', () => {
+  let runtime: AgentV2Runtime;
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: Date.parse('2026-11-15T12:00:00.000Z') });
+  });
+
+  afterEach(async () => {
+    await runtime?.destroy();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it.each(['acknowledged', 'inactive', 'no snapshot'] as const)(
+    'sends immediately with %s snapshot sync without adding timers', async (state) => {
+      const harness = await createSnapshotHarness();
+      if (state === 'no snapshot') await runtime.updateHostContext();
+      if (state !== 'inactive') await runtime.setChatActive(true);
+      await jest.advanceTimersByTimeAsync(0);
+      if (state === 'acknowledged') {
+        harness.acknowledgeUpload(0);
+        await jest.advanceTimersByTimeAsync(0);
+      }
+      const setTimer = jest.spyOn(global, 'setTimeout');
+      try {
+        const run = harness.startRun();
+        for (let step = 0; step < 100; step += 1) await Promise.resolve();
+        expect(harness.requests).toHaveLength(1);
+        expect(setTimer).not.toHaveBeenCalled();
+        expect(harness.requests[0].walletSnapshotRef).toEqual(
+          state === 'acknowledged' ? harness.getReference(0) : undefined,
+        );
+        harness.completeRun();
+        await expect(run).resolves.toMatchObject({ state: 'completed' });
+      } finally {
+        setTimer.mockRestore();
+      }
+    },
+  );
+
+  it('waits for an upload in flight before sending its reference', async () => {
+    const harness = await createSnapshotHarness();
+    await runtime.setChatActive(true);
+    const run = harness.startRun();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(harness.uploads).toHaveLength(1);
+    expect(harness.requests).toHaveLength(0);
+
+    harness.acknowledgeUpload(0);
+    await harness.runRequested;
+    expect(harness.requests[0].walletSnapshotRef).toEqual(harness.getReference(0));
+    expect(harness.uploads).toHaveLength(1);
+    harness.completeRun();
+    await expect(run).resolves.toMatchObject({ state: 'completed' });
+  });
+
+  it.each(['acknowledged', 'retryable failure'] as const)(
+    'sends after the first queued attempt is %s using the wallet state after the wait', async (outcome) => {
+      const harness = await createSnapshotHarness();
+      await runtime.setChatActive(true);
+      const host: AgentV2HostContextSnapshot = receiveHost('ton');
+      host.savedAddresses = [{ id: 'mum', name: 'Mum', chain: 'ton', address: 'EQ-contact' }];
+      await runtime.updateHostContext(host);
+      const run = harness.startRun();
+      await jest.advanceTimersByTimeAsync(0);
+      host.savedAddresses = [{ ...host.savedAddresses[0], name: 'Mother' }];
+      await runtime.updateHostContext(host);
+      harness.acknowledgeUpload(0);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(harness.uploads).toHaveLength(2);
+      expect(harness.requests).toHaveLength(0);
+
+      if (outcome === 'acknowledged') harness.acknowledgeUpload(1);
+      else harness.uploads[1].reject(new TypeError('offline'));
+      await jest.advanceTimersByTimeAsync(0);
+      expect(harness.requests).toHaveLength(1);
+      expect(harness.uploads).toHaveLength(2);
+      const { sessionId, revision, activeAccountRef, activeNetwork } = harness.uploads[1].value;
+      expect(harness.requests[0]).toMatchObject({
+        walletContext: { sessionId, revision, activeAccount: { accountRef: activeAccountRef }, activeNetwork },
+      });
+      expect(harness.requests[0].walletSnapshotRef).toEqual(
+        outcome === 'acknowledged' ? harness.getReference(1) : undefined,
+      );
+      harness.completeRun();
+      await expect(run).resolves.toMatchObject({ state: 'completed' });
+    },
+  );
+
+  it.each(['rejection', 'retryable failure', 'HTTP 429', 'abort'] as const)(
+    'sends without a reference after the first upload attempt ends in %s', async (failure) => {
+      const harness = await createSnapshotHarness();
+      await runtime.setChatActive(true);
+      const run = harness.startRun();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(harness.requests).toHaveLength(0);
+      const upload = harness.uploads[0];
+      if (failure === 'retryable failure') upload.reject(new TypeError('offline'));
+      else if (failure === 'abort') upload.reject(new DOMException('Aborted', 'AbortError'));
+      else {
+        upload.resolve(jsonResponse({
+          protocolVersion: 3, error: { code: 'invalid_request', retryable: false },
+        }, failure === 'HTTP 429' ? 429 : 413));
+      }
+      await jest.advanceTimersByTimeAsync(0);
+      expect(harness.requests).toHaveLength(1);
+      expect(harness.uploads).toHaveLength(1);
+      expect(harness.requests[0].walletSnapshotRef).toBeUndefined();
+      harness.completeRun();
+      await expect(run).resolves.toMatchObject({ state: 'completed' });
+    },
+  );
+
+  it.each(['stop', 'clear', 'authority', 'selection', 'consent', 'destroy'] as const)(
+    'ends the snapshot wait promptly on %s with the existing preparation outcome', async (change) => {
+      const harness = await createSnapshotHarness();
+      await runtime.setChatActive(true);
+      const run = harness.startRun().catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(harness.requests).toHaveLength(0);
+      if (change === 'stop') await runtime.stopRun(THREAD_ID);
+      if (change === 'clear') await runtime.clearThread(THREAD_ID, 1);
+      if (change === 'authority') {
+        const host = receiveHost('ton');
+        host.accounts[0].addresses.ton = 'EQ-changed';
+        await runtime.updateHostContext(host);
+      }
+      if (change === 'selection') {
+        await runtime.updateHostContext({
+          ...harness.host, activeAccountId: 'other-account', activeNetwork: 'tron',
+        });
+      }
+      if (change === 'consent') {
+        jest.spyOn(runtime, 'getConsent').mockResolvedValue(false);
+        await runtime.setChatActive(false);
+      }
+      if (change === 'destroy') await runtime.destroy();
+      if (change === 'selection') {
+        await harness.runRequested;
+        expect(harness.requests[0]).toMatchObject({ walletContext: { activeNetwork: 'tron' } });
+        expect(harness.requests[0].walletSnapshotRef).toBeUndefined();
+        harness.completeRun();
+        await expect(run).resolves.toMatchObject({ state: 'completed' });
+      } else {
+        if (change === 'stop' || change === 'clear') {
+          await expect(run).resolves.toMatchObject({ state: 'cancelled' });
+        } else if (change === 'authority') {
+          await expect(run).resolves.toMatchObject({ code: 'wallet_context_changed' });
+        } else {
+          const error = await run;
+          expect(error).toBeInstanceOf(Error);
+          expect(error).toMatchObject({ message: change === 'consent'
+            ? 'Agent V2 consent is required' : 'Agent V2 runtime is destroyed' });
+        }
+        await jest.advanceTimersByTimeAsync(0);
+        expect(harness.requests).toHaveLength(0);
+      }
+    },
+  );
+
+  it('waits for the replacement snapshot before rebinding a manual retry', async () => {
+    const harness = await createSnapshotHarness();
+    const run = harness.startRun();
+    await harness.runRequested;
+    harness.resolveRun(jsonResponse({
+      protocolVersion: 3, error: { code: 'rate_limited', retryable: true, retryAfterMs: 5_000 },
+    }, 429));
+    await expect(run).resolves.toMatchObject({ state: 'failed' });
+    await runtime.setChatActive(true);
+    await runtime.updateHostContext({ ...harness.host,
+      savedAddresses: [{ id: 'mum', name: 'Mum', chain: 'ton', address: 'EQ-contact' }],
+    });
+
+    const retry = runtime.retryRun(CLIENT_RUN_ID);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(harness.requests).toHaveLength(1);
+    harness.acknowledgeUpload(0);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(harness.requests).toHaveLength(1);
+    harness.acknowledgeUpload(1);
+    await expect(retry).resolves.toMatchObject({ state: 'failed' });
+    expect(harness.requests).toHaveLength(2);
+    expect(harness.requests[1].walletSnapshotRef).toEqual(harness.getReference(1));
+    expect(harness.requests[1].walletContext).toMatchObject({ revision: harness.uploads[1].value.revision });
+  });
+
+  it('retains a run limited after account selection during the snapshot wait for manual retry', async () => {
+    const harness = await createSnapshotHarness();
+    await runtime.setChatActive(true);
+    const run = harness.startRun();
+    await jest.advanceTimersByTimeAsync(0);
+    await runtime.updateHostContext({ ...harness.host, activeAccountId: 'other-account' });
+    await harness.runRequested;
+    harness.resolveRun(jsonResponse({
+      protocolVersion: 3, error: { code: 'rate_limited', retryable: true, retryAfterMs: 5_000 },
+    }, 429));
+    await expect(run).resolves.toMatchObject({ state: 'failed' });
+
+    await expect(runtime.retryRun(CLIENT_RUN_ID)).resolves.toMatchObject({ state: 'failed' });
+    expect(harness.requests).toHaveLength(2);
+    expect(harness.requests[1]).toEqual(harness.requests[0]);
+  });
+
+  async function createSnapshotHarness() {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const uploads: {
+      value: AgentWalletSnapshotV1;
+      resolve: (response: Response) => void;
+      reject: (error: unknown) => void;
+    }[] = [];
+    const requests: AgentRunRequestWireV2[] = [];
+    let markRunRequested!: () => void;
+    const runRequested = new Promise<void>((resolve) => {
+      markRunRequested = resolve;
+    });
+    let resolveRun!: (response: Response) => void;
+    const runResponse = new Promise<Response>((resolve) => {
+      resolveRun = resolve;
+    });
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
+      if (url.endsWith('/wallet-snapshots')) {
+        return new Promise<Response>((resolve, reject) => {
+          uploads.push({ value: JSON.parse(init!.body as string), resolve, reject });
+        });
+      }
+      if (url.endsWith('/runs')) {
+        requests.push(JSON.parse(init!.body as string));
+        markRunRequested();
+        return runResponse;
+      }
+      if (url.endsWith('/clear')) {
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3, thread: threadSummary({ revision: 2 }), duplicate: false,
+        }));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+      randomUuid: () => DEVICE_ID,
+    });
+    const host = receiveHost('ton');
+    host.accounts.push({
+      ...host.accounts[0], accountId: 'other-account', addresses: { ton: 'EQ-other', tron: 'T-other' },
+    });
+    await runtime.updateHostContext(host);
+    await runtime.acceptConsent();
+    await runtime.getProblemReportAvailability();
+    function getReference(index: number) {
+      const { instanceId, sessionId, revision, snapshotRevision } = uploads[index].value;
+      return { instanceId, sessionId, revision, snapshotRevision };
+    }
+    return {
+      host, uploads, requests, runRequested, getReference, resolveRun,
+      acknowledgeUpload: (index: number) => uploads[index].resolve(jsonResponse({ snapshotRef: getReference(index) })),
+      completeRun: () => resolveRun(ndjsonResponse([runStart(), messageStart(), messageEnd(3)])),
+      startRun: () => runtime.startRun({
+        clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID,
+        expectedThreadRevision: 1, input: { kind: 'append', text: 'Whose address is this?' },
+      }),
+    };
+  }
 });
 
 describe('AgentV2Runtime stopRun', () => {

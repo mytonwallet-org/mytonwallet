@@ -353,6 +353,8 @@ async function submitPimlicoBatchUserOp(
       return { error: balanceError };
     }
 
+    // The debit is bound to this fresh quote and to the chain's paymaster ceiling. The fee shown at confirmation
+    // is an earlier quote and may be lower.
     if (!isPimlicoUserOperationBound(estimate, {
       chainId,
       sender: address,

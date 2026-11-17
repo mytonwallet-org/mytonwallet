@@ -1014,21 +1014,23 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
 
     private func pendingCexSwapActivities(accountId: String) -> [ApiActivity] {
         let byId = getAccountState(accountId).byId ?? [:]
-        return byId.values.filter { activity in
-            guard case .swap(let swap) = activity,
-                  swap.cex != nil || getIsCrossChainBackendSwap(activity.id, swap),
-                  getIsActivityPendingForUser(activity)
-            else {
-                return false
-            }
-            return true
-        }
+        return byId.values.filter(getShouldPollSwap)
     }
 
-    private func applyFetchedCexSwaps(accountId: String, result: ApiFetchSwapsResult) -> [String] {
-        guard let patch = result.patch else {
+    func applyFetchedCexSwaps(accountId: String, result: ApiFetchSwapsResult) -> [String] {
+        guard var patch = result.patch else {
             log.error("fetchSwaps returned no SDK reconciliation patch")
             return []
+        }
+
+        // Other updates can settle swaps while the polling request is in flight
+        let byId = getAccountState(accountId).byId ?? [:]
+        patch.upsert = patch.upsert.map { activity in
+            guard case .swap(let swap) = activity,
+                  swap.cex != nil || getIsBackendSwapId(swap.id) else {
+                return activity
+            }
+            return preserveActivityStatusProgress(existingActivity: byId[activity.id], incomingActivity: activity)
         }
 
         return applyActivitiesPatch(accountId: accountId, patch: patch, visibleChain: nil)

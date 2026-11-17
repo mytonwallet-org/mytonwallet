@@ -28,17 +28,20 @@ type TelegramAccount = {
 };
 
 export async function createMfaRequest(
-  opts: { walletAddress: string; payload: Buffer; signature: Buffer },
+  opts: { walletAddress: string; payload: Buffer; signature: Buffer; mfaRefillAmount?: bigint; authToken?: string },
 ): Promise<MfaRequestCreated> {
+  const { authToken, mfaRefillAmount, ...request } = opts;
   const response = await fetch(`${MFA_API_BASE_URL}/transaction`, {
     method: 'POST',
     body: JSON.stringify({
-      ...opts,
-      payload: opts.payload.toString('base64'),
-      signature: opts.signature.toString('base64'),
+      ...request,
+      payload: request.payload.toString('base64'),
+      signature: request.signature.toString('base64'),
+      ...(authToken && mfaRefillAmount !== undefined && { mfaRefillAmount: mfaRefillAmount.toString() }),
     }),
     headers: {
       'Content-Type': 'application/json',
+      ...(authToken && mfaRefillAmount !== undefined && { 'X-Auth-Token': authToken }),
     },
   });
 

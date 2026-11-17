@@ -10,7 +10,6 @@ import UIComponents
 
 public enum BadgeContent: Equatable {
     case staking(StakingBadgeContent)
-    case chain(ApiChain)
     case tokenLabel(text: String, style: BadgeView.TokenLabelStyle)
 
     var isTokenLabel: Bool {
@@ -22,16 +21,13 @@ public enum BadgeContent: Equatable {
 }
 
 @MainActor func getBadgeContent(
-    accountContext: AccountContext,
     slug: String,
     stakingBadge: StakingBadgeContent?
 ) -> BadgeContent? {
     if let stakingBadge {
         return .staking(stakingBadge)
-    } else if let token = TokenStore.getToken(slug: slug), let label = token.label?.nilIfEmpty {
+    } else if let token = TokenStore.getToken(slug: slug), let label = token.badgeLabel {
         return .tokenLabel(text: label, style: token.isRwaStock ? .stock : .regular)
-    } else if let chain = accountContext.account.supportedChains.first(where: { $0.usdtSlug[accountContext.account.network] == slug }) {
-        return .chain(chain)
     }
     return nil
 }

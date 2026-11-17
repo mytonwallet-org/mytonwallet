@@ -519,7 +519,7 @@ class AgentNewChatLoaderTest {
                     client.newsRequests
                 )
                 assertEquals(
-                    listOf(AgentV2ThreadDigestRequest(DIGEST_ID).takeIf { isDigest }),
+                    listOf(AgentV2ThreadDigestRequest(DIGEST_ID, followupText).takeIf { isDigest }),
                     client.digestRequests
                 )
                 assertEquals(listOf(optimisticMessage), opening.messages)
@@ -1750,12 +1750,17 @@ class AgentNewChatLoaderTest {
         val thread = AgentV2ThreadSummary("empty-thread", 1)
         val client = FakeNewsClient(thread)
         val model = newModel(client, thread)
+        val delegate = Proxy.newProxyInstance(
+            AgentVM.Delegate::class.java.classLoader,
+            arrayOf(AgentVM.Delegate::class.java)
+        ) { _, _, _ -> null } as AgentVM.Delegate
+        model.setActive(delegate, true)
         try {
             awaitReady(model)
             withTimeout(1_000) {
                 while (model.visibleHints.isEmpty()) yield()
             }
-            assertEquals(listOf("en"), client.hintRequests)
+            assertEquals(listOf<String?>(null), client.hintRequests)
             // Contact Support follows the server's hints
             assertEquals(
                 listOf("learn.staking", AGENT_SUPPORT_HINT_ID),
@@ -2543,9 +2548,15 @@ class AgentNewChatLoaderTest {
             reports += threadId to comment
         }
 
-        override suspend fun hints(langCode: String?): AgentV2HintsResponse {
-            hintRequests += langCode
-            return AgentV2HintsResponse(3, "catalog", listOf(AgentV2StarterHint("learn.staking")))
+        override suspend fun getStarterHints(
+            walletState: String?,
+            host: JSONObject?
+        ): AgentV2HintsResponse {
+            hintRequests += walletState
+            return AgentV2HintsResponse(
+                "agent-starter-hints-v2",
+                listOf(AgentV2StarterHint("learn.staking", "learn"))
+            )
         }
 
         override suspend fun createThread(

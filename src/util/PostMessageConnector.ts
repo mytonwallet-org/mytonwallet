@@ -46,6 +46,8 @@ export type WorkerMessageError = {
   stack?: string;
   // Carried across the hop so that a failure typed by its producer stays branchable by the receiver
   code?: string;
+  // The fields of a Perps error that `PERPS_ERROR_FIELD_KEYS` lists, when they hold a string, a number or a boolean
+  fields?: Record<string, string | number | boolean>;
 };
 
 export type WorkerMessageData = {

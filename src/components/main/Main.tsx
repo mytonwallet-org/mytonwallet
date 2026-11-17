@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useLayoutEffect, useRef, useState } from '../../lib/teact/teact';
+import React, { memo, useEffect, useLayoutEffect, useRef } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiStakingState } from '../../api/types';
@@ -27,6 +27,7 @@ import { getStakingStateStatus } from '../../util/staking';
 import { REM } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from './helpers/calcSafeAreaTop';
 import { getIsMainActive } from './helpers/getIsMainActive';
+import { openStaking } from './helpers/openStaking';
 import { getScrollableContainer, getScrollContainerClosestSelector } from './helpers/scrollableContainer';
 
 import useAccountContentFade from '../../hooks/useAccountContentFade';
@@ -58,13 +59,14 @@ import AccountSelectorModal from './modals/accountSelector/AccountSelectorModal'
 import PromotionModal from './modals/PromotionModal';
 import {
   LandscapeNavBar,
-  LandscapeWalletList,
   PortraitActions,
+  WalletList,
 } from './sections/Actions';
 import PromoteWallet from './sections/Actions/PromoteWallet';
 import Card from './sections/Card';
 import PortraitContent from './sections/Content/PortraitContent';
 import Header, { HEADER_HEIGHT_REM } from './sections/Header/Header';
+import HomeToolbar from './sections/Header/HomeToolbar';
 import HomeBanners from './sections/HomeBanners';
 import LandscapeLayout from './sections/LandscapeLayout';
 import Warnings from './sections/Warnings';
@@ -120,8 +122,6 @@ function Main({
   const {
     openBackupWalletModal,
     closeStakingInfo,
-    openStakingInfoOrStart,
-    changeCurrentStaking,
     loadExploreSites,
     loadMarketAssets,
     updatePendingSwaps,
@@ -137,7 +137,6 @@ function Main({
 
   const safeAreaTop = calcSafeAreaTop();
   const [isFocused, markIsFocused, unmarkIsFocused] = useFlag(!isBackgroundModeActive());
-  const [areTabsStuck, setAreTabsStuck] = useState(false);
   const intersectionRootMarginTop = HEADER_HEIGHT_REM * REM + safeAreaTop;
 
   const stakingStatus = stakingState ? getStakingStateStatus(stakingState) : 'inactive';
@@ -182,28 +181,22 @@ function Main({
 
   useInterval(preloadTokenDetails, isFocused ? TOKEN_DETAILS_PRELOAD_INTERVAL : undefined, true);
 
-  // Use scroll detection for portrait mode
+  // Use scroll detection for the fixed portrait header of the Explorer
   const { isVisible: isPageAtTop } = useElementVisibility({
-    isDisabled: !isPortrait || !isActive,
+    isDisabled: !IS_EXPLORER || !isPortrait || !isActive,
     targetRef: cardRef,
     rootMargin: `-${intersectionRootMarginTop}px 0px 0px 0px`,
     threshold: [1],
   });
 
   const { isVisible: shouldHideBalanceInHeader } = useElementVisibility({
-    isDisabled: !isPortrait || !isActive,
+    isDisabled: !IS_EXPLORER || !isPortrait || !isActive,
     targetRef: cardRef,
     rootMargin: `-${intersectionRootMarginTop}px 0px 0px 0px`,
   });
 
   const appTheme = useAppTheme(theme);
   useAccentColor(isPortrait ? portraitContainerRef : landscapeContainerRef, appTheme, accentColorIndex);
-
-  const handleEarnClick = useLastCallback((stakingId?: string) => {
-    if (stakingId) changeCurrentStaking({ stakingId });
-
-    openStakingInfoOrStart();
-  });
 
   const handleBannersHeightChange = useLastCallback((prevHeight: number, nextHeight: number) => {
     // An account switch replaces the content under a crossfade, so there is nothing to shift
@@ -252,19 +245,20 @@ function Main({
         className={buildClassName(styles.portraitContainer, isAccountPending && styles.isAccountPending)}
         data-portrait-wallet
       >
-        <div className={styles.head}>
+        <div className={buildClassName(styles.head, IS_EXPLORER && styles.withFixedHeader)}>
           <TestnetWarning />
 
-          <div ref={accountHeaderRef} className={styles.accountRegion} inert={isAccountPending}>
-            <Header
-              key={accountId}
-              withBalance={!shouldHideBalanceInHeader}
-              areTabsStuck={areTabsStuck}
-              isScrolled={!isPageAtTop}
-            />
-          </div>
+          {IS_EXPLORER && (
+            <div ref={accountHeaderRef} className={styles.accountRegion} inert={isAccountPending}>
+              <Header
+                key={accountId}
+                withBalance={!shouldHideBalanceInHeader}
+                isScrolled={!isPageAtTop}
+              />
+            </div>
+          )}
 
-          <Card ref={cardRef} onYieldClick={handleEarnClick} />
+          <Card ref={cardRef} onYieldClick={openStaking} />
 
           {/* Mounted for view wallets too, or its outgoing view would vanish with the actions */}
           <div ref={accountActionsRef} className={styles.accountRegion} inert={isAccountPending}>
@@ -278,7 +272,7 @@ function Main({
                 isSwapDisabled={isSwapDisabled}
                 isOnRampDisabled={isOnRampDisabled}
                 isOffRampDisabled={!isOffRampAllowed}
-                onEarnClick={handleEarnClick}
+                onEarnClick={openStaking}
               />
             )}
           </div>
@@ -287,12 +281,7 @@ function Main({
         </div>
 
         <div ref={portraitContentRef} className={styles.portraitContentRegion} inert={isAccountPending}>
-          <PortraitContent
-            key={accountId}
-            isActive={isActive}
-            onStakedTokenClick={handleEarnClick}
-            onTabsStuck={setAreTabsStuck}
-          />
+          <PortraitContent key={accountId} />
         </div>
       </div>
     );
@@ -308,11 +297,13 @@ function Main({
         <div ref={sidebarRef} className={buildClassName(styles.sidebar, 'custom-scroll')}>
           <TestnetWarning />
 
-          <div ref={accountHeaderRef} className={styles.accountRegion} inert={isAccountPending}>
-            <Header key={accountId} />
-          </div>
+          {IS_EXPLORER && (
+            <div ref={accountHeaderRef} className={styles.accountRegion} inert={isAccountPending}>
+              <Header key={accountId} />
+            </div>
+          )}
 
-          <Card onYieldClick={handleEarnClick} />
+          <Card onYieldClick={openStaking} />
 
           {renderNoticesAndBanners()}
 
@@ -321,13 +312,20 @@ function Main({
               <LandscapeNavBar />
             </div>
             <div ref={accountListRef} className={styles.accountRegion}>
-              <LandscapeWalletList />
+              <WalletList />
             </div>
           </div>
           {IS_EXPLORER && <PromoteWallet />}
         </div>
-        <div ref={accountContentRef} className={styles.main} inert={isAccountPending}>
-          <LandscapeLayout onStakedTokenClick={handleEarnClick} />
+        <div className={styles.main}>
+          {!IS_EXPLORER && <HomeToolbar />}
+          <div
+            ref={accountContentRef}
+            className={buildClassName(styles.mainContent, !IS_EXPLORER && styles.mainContentBelowToolbar)}
+            inert={isAccountPending}
+          >
+            <LandscapeLayout onStakedTokenClick={openStaking} />
+          </div>
         </div>
       </div>
     );

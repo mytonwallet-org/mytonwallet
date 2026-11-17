@@ -280,6 +280,7 @@ extension AgentVC: AgentModelDelegate {
     }
 
     func agentModelDidUpdateState() {
+        markLoadedHistorySeenIfVisible()
         leaveEditingOnceSupportHasChat()
         updateSupportFollowState()
         loadingOlderIndicator.setLoading(model.isLoadingOlderMessages)

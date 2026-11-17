@@ -17,6 +17,7 @@ import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
@@ -29,6 +30,9 @@ import kotlin.math.roundToInt
 import kotlin.math.sign
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -42,10 +46,20 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 
-class InfoBannerStackView(context: Context) :
-    FrameLayout(context),
+class InfoBannerStackView @JvmOverloads constructor(
+    context: Context,
+    private val style: Style = Style.INLINE
+) : FrameLayout(context),
     WThemedView,
     WProtectedView {
+    enum class Style {
+        // Cards in a list
+        INLINE,
+
+        // Cards floating over content: glass in front, frosted behind
+        FLOATING
+    }
+
     private data class Card(val promotion: ApiPromotion, val view: BannerView)
     private data class Position(
         val scale: Float,
@@ -63,7 +77,10 @@ class InfoBannerStackView(context: Context) :
     private var spring: SpringAnimation? = null
     private var progress = 1f
     private var startHeight = 0
-    private var targetHeight = 0
+
+    // The height the stack settles at, which a host reserves while the stack animates toward it
+    var targetHeight = 0
+        private set
     private var pendingAnimation = false
     private var isAppearing = false
     private var layoutWidthForTransition = 0
@@ -90,6 +107,14 @@ class InfoBannerStackView(context: Context) :
     var onAction: ((ApiPromotion) -> Unit)? = null
     var onDismiss: ((ApiPromotion) -> Unit)? = null
     var onTransitionFinished: (() -> Unit)? = null
+
+    // What floating cards blur; it must not contain the stack
+    var glassRoot: ViewGroup? = null
+        set(value) {
+            field = value
+            cards.forEach { it.view.setGlassRoot(value) }
+            departingCard?.view?.setGlassRoot(value)
+        }
 
     val isPresenting: Boolean
         get() = cards.isNotEmpty() || departingCard != null || pendingAnimation || spring != null
@@ -186,10 +211,14 @@ class InfoBannerStackView(context: Context) :
 
     override fun canScrollHorizontally(direction: Int): Boolean = isPresenting
 
+    // Floating cards keep the spacing only for the card that shows below the front one
+    private val effectiveBottomSpacing: Int
+        get() = if (style == Style.FLOATING && cards.size < 2) 0 else bottomSpacing
+
     fun containsBannerTouch(rawX: Int, rawY: Int): Boolean {
         val cardHeight = cards.firstOrNull()?.view?.height
             ?: departingCard?.view?.height
-            ?: (height - bottomSpacing).coerceAtLeast(0)
+            ?: (height - effectiveBottomSpacing).coerceAtLeast(0)
         val location = IntArray(2)
         getLocationOnScreen(location)
         return rawX >= location[0] && rawX < location[0] + width &&
@@ -378,13 +407,16 @@ class InfoBannerStackView(context: Context) :
             )
         }
         targetHeight = cards.firstOrNull()?.view?.measuredHeight?.let {
-            it + bottomSpacing
+            it + effectiveBottomSpacing
         } ?: 0
         setMeasuredDimension(
             width,
-            if (dragCard != null) {
+            // A floating stack is held by its bottom, so it keeps its height while a card is dragged
+            if (dragCard != null && style == Style.FLOATING) {
+                targetHeight
+            } else if (dragCard != null) {
                 val nextHeight = cards.getOrNull(1)?.view?.measuredHeight?.let {
-                    it + bottomSpacing
+                    it + effectiveBottomSpacing
                 } ?: 0
                 (
                     targetHeight + (
@@ -519,6 +551,11 @@ class InfoBannerStackView(context: Context) :
     }
 
     override fun dispatchDraw(canvas: Canvas) {
+        // Floating glass draws its rim and shadow past the cards, and a leaving card lifts above the stack
+        if (style == Style.FLOATING) {
+            super.dispatchDraw(canvas)
+            return
+        }
         val saved = canvas.save()
         canvas.clipRect(-width, 0, width * 2, height)
         super.dispatchDraw(canvas)
@@ -526,6 +563,8 @@ class InfoBannerStackView(context: Context) :
     }
 
     override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+        // Floating glass casts its own shadow
+        if (style == Style.FLOATING) return super.drawChild(canvas, child, drawingTime)
         val index = cards.indexOfFirst { it.view === child }
         val below = if (departingCard?.view === child) {
             cards.firstOrNull()?.view
@@ -587,8 +626,9 @@ class InfoBannerStackView(context: Context) :
         get() = WGlobalStorage.getAreAnimationsActive() &&
             (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled())
 
+    // Floating cards stay rounded, as the toolbar's pills do
     private val cardRadius: Float
-        get() = if (ViewConstants.BLOCK_RADIUS == 0f) 0f else 26f.dp
+        get() = if (style == Style.INLINE && ViewConstants.BLOCK_RADIUS == 0f) 0f else 26f.dp
 
     private fun cardBackground() = GradientDrawable().apply {
         cornerRadius = cardRadius
@@ -655,6 +695,19 @@ class InfoBannerStackView(context: Context) :
             contentDescription = LocaleController.getString("Close")
             setOnClickListener { onDismiss() }
         }
+
+        // A floating card's glass in front, and the frosted plate it turns into behind the front card. They
+        // crossfade, as a flavor change rebuilds the glass.
+        private val backplateGlass = if (style == Style.FLOATING) {
+            makeGlass(GlassFlavor.FROSTED, WGlassView.Style.PANEL, isLiquid = false)
+        } else {
+            null
+        }
+        private val frontGlass = if (style == Style.FLOATING) {
+            makeGlass(GlassFlavor.GLASS, WGlassView.Style.PILL, isLiquid = true)
+        } else {
+            null
+        }
         private var verticalBody = false
         var contentOpacity = 1f
             set(value) {
@@ -663,12 +716,23 @@ class InfoBannerStackView(context: Context) :
                 descriptionLabel.alpha = value
                 actionButton.alpha = value
                 closeButton.alpha = value
+                frontGlass?.alpha = value
+                backplateGlass?.alpha = 1f - value
             }
 
         init {
             id = generateViewId()
             minimumHeight = 90.dp
-            clipToOutline = true
+            if (style == Style.FLOATING) {
+                // The glass reaches past the card for its rim and shadow
+                clipChildren = false
+                clipToPadding = false
+                backplateGlass?.alpha = 0f
+                backplateGlass?.let { addView(it) }
+                frontGlass?.let { addView(it) }
+            } else {
+                clipToOutline = true
+            }
             isFocusable = true
             setOnClickListener(actionClickListener)
             layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -677,6 +741,26 @@ class InfoBannerStackView(context: Context) :
             addView(actionButton)
             addView(closeButton)
             updateTheme()
+        }
+
+        private fun makeGlass(
+            flavor: GlassFlavor,
+            glassStyle: WGlassView.Style,
+            isLiquid: Boolean
+        ) = WGlassView(context).apply {
+            this.flavor = flavor
+            this.style = glassStyle
+            liquidGlass = isLiquid
+            glassPadding = WGlassView.GLASS_PADDING_DP.dp
+            setRadius(cardRadius)
+            setProvider(GlassProviders.pill(WColor.SearchFieldBackground))
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+            setupWith(glassRoot)
+        }
+
+        fun setGlassRoot(root: ViewGroup?) {
+            frontGlass?.setupWith(root)
+            backplateGlass?.setupWith(root)
         }
 
         fun setInteractive(interactive: Boolean) {
@@ -760,15 +844,37 @@ class InfoBannerStackView(context: Context) :
                 width - 14.dp - actionButton.measuredWidth,
                 bodyBottom - actionButton.measuredHeight - 7.dp
             )
+            // The stack lays cards out at heights between the measured ones, so the glass follows the frame
+            val height = bottom - top
+            val padding = WGlassView.GLASS_PADDING_DP.dp
+            listOfNotNull(backplateGlass, frontGlass).forEach {
+                it.measure(
+                    MeasureSpec.makeMeasureSpec(width + padding * 2, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(height + padding * 2, MeasureSpec.EXACTLY)
+                )
+                it.layout(-padding, -padding, width + padding, height + padding)
+            }
         }
 
         override fun updateTheme() {
             val cardBackground = cardBackground()
-            background = RippleDrawable(
-                ColorStateList.valueOf(WColor.TintRipple.color),
-                cardBackground,
-                cardBackground.constantState?.newDrawable()
-            )
+            if (style == Style.FLOATING) {
+                // A background would sit under the glass, so the ripple goes over it
+                background = null
+                foreground = RippleDrawable(
+                    ColorStateList.valueOf(WColor.TintRipple.color),
+                    null,
+                    cardBackground
+                )
+                frontGlass?.updateTheme()
+                backplateGlass?.updateTheme()
+            } else {
+                background = RippleDrawable(
+                    ColorStateList.valueOf(WColor.TintRipple.color),
+                    cardBackground,
+                    cardBackground.constantState?.newDrawable()
+                )
+            }
             titleLabel.setTextColor(WColor.PrimaryText.color)
             descriptionLabel.setTextColor(WColor.SecondaryText.color)
             updateText()

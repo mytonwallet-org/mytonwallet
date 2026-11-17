@@ -1152,12 +1152,8 @@ class AgentNewsFeedModelTest {
         val thread = AgentV2ThreadSummary("digest-thread", revision = 1, messageCount = 2)
         val discussed = digest("en:2026-11-08T18:00:00.000Z")
             .copy(discussion = AgentV2NewsFeedItem.Discussion(thread.id))
-        val naming = AgentV2NewsFeedItem.DiscussionNaming(
-            "Digest discussion",
-            "📰",
-            listOf("Explain the impact")
-        )
-        val fresh = digest("en:2026-11-07T18:00:00.000Z").copy(discussionNaming = naming)
+        val followups = listOf("Explain the impact")
+        val fresh = digest("en:2026-11-07T18:00:00.000Z").copy(discussionFollowups = followups)
         assertEquals(
             AgentNewsChatTarget.Discussion(thread),
             resolveAgentDigestDiscussionTarget(discussed) { id -> thread.takeIf { it.id == id } }
@@ -1174,14 +1170,14 @@ class AgentNewsFeedModelTest {
             AgentNewsChatTarget.Digest(
                 fresh.id,
                 preview(fresh),
-                naming,
+                followups,
                 shouldDeferCreation = true
             ),
             resolveAgentDigestDiscussionTarget(fresh) { error("Nothing to find") }
         )
         assertEquals(
             AgentNewsChatTarget.Digest(fresh.id, preview(fresh), shouldDeferCreation = true),
-            resolveAgentDigestDiscussionTarget(fresh.copy(discussionNaming = null)) {
+            resolveAgentDigestDiscussionTarget(fresh.copy(discussionFollowups = null)) {
                 error("Nothing to find")
             }
         )

@@ -71,7 +71,8 @@ extension SwapExecutionResult {
         activity candidate: ApiActivity,
         receipt: ActionSubmissionReceipt<Self>
     ) -> Bool {
-        receipt.correlates(with: candidate)
+        guard candidate.swap != nil else { return false }
+        return receipt.correlates(with: candidate)
             || receipt.payload?.matches(activity: candidate) == true
     }
 

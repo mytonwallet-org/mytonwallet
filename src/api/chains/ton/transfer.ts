@@ -45,14 +45,13 @@ import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFe
 import { explainApiTransferFee, getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
 import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
-import { randomBytes } from '../../../util/random';
 import { getNativeToken } from '../../../util/tokens';
 import { getMaxMessagesInTransaction, isTokenTransferPayload } from '../../../util/ton/transfer';
 import { logDeploymentStateDrift } from './util/deploymentStateDrift';
 import { parsePayloadSlice } from './util/metadata';
 import { waitUntilWalletSeqnoChanges } from './util/sendBocRetry';
 import { sendExternal } from './util/sendExternal';
-import { getSigner } from './util/signer';
+import { createMfaWalletActions, getSigner } from './util/signer';
 import {
   commentToBytes,
   getOurFeePayload,
@@ -65,7 +64,6 @@ import {
   parseAddress,
   parseBase64,
   parseStateInitCell,
-  toBase64Address,
 } from './util/tonCore';
 import { getMfaExtensionSeqno, getMfaFees, resolveMfaExtensionAddress } from './contracts/util';
 import { fetchStoredChainAccount, fetchStoredWallet, updateStoredAccount } from '../../common/accounts';
@@ -85,7 +83,8 @@ import {
   LEDGER_VESTING_SUBWALLET_ID,
   TRANSFER_TIMEOUT_SEC,
 } from './constants';
-import { emulateExternalMessage, emulateTransaction } from './emulation';
+import { emulateTransaction } from './emulation';
+import { prepareMfaRefillBundle } from './mfaRefill';
 import {
   buildTokenTransfer,
   calculateTokenBalanceWithMintless,
@@ -340,12 +339,15 @@ export async function checkTransactionDraft(
       signal,
     );
 
+    // A plain native Max draft prices the refill without spending its reserve; affordability still uses `amount`
+    const shouldEstimateMfaMaxFee = isFullTonTransfer && mfaExtensionSeqno !== undefined && !payload && !stateInit;
+
     const signingOptions = {
       account,
       accountId,
       messages: [{
         toAddress,
-        amount: toncoinAmount,
+        amount: shouldEstimateMfaMaxFee ? 0n : toncoinAmount,
         payload,
         stateInit,
         hints: {
@@ -357,19 +359,6 @@ export async function checkTransactionDraft(
       doPayFeeFromAmount: isFullTonTransfer,
     };
 
-    let legacyWalletTransaction: Cell | undefined;
-    if (mfaExtensionSeqno !== undefined) {
-      const legacySigningResult = await signTransaction({ ...signingOptions, allowLegacyMfaSigning: true });
-      if ('error' in legacySigningResult) {
-        return {
-          ...result,
-          error: legacySigningResult.error,
-        };
-      }
-
-      legacyWalletTransaction = legacySigningResult.transaction;
-    }
-
     const signingResult = await signTransaction({ ...signingOptions, mfaExtensionSeqno });
     if ('error' in signingResult) {
       return {
@@ -378,32 +367,22 @@ export async function checkTransactionDraft(
       };
     }
 
-    const mfaFee = signingResult.mfaRequest ? signingResult.mfaFee ?? 0n : 0n;
+    const mfaFee = mfaExtensionSeqno !== undefined ? signingResult.mfaFee ?? 0n : 0n;
 
     const emulation = applyFeeFactorToEmulationResult(
-      signingResult.mfaRequest && legacyWalletTransaction && account.byChain.ton.mfa
-        ? await emulateMfaRequestWithFallback(
-          network,
-          wallet,
-          walletInfo.isInitialized,
-          account.byChain.ton.mfa.address,
-          signingResult.mfaRequest,
-          legacyWalletTransaction,
-          signal,
-        )
+      mfaExtensionSeqno !== undefined
+        ? getMfaTraceEmulation(signingResult.mfaNetworkFee ?? 0n)
         : await emulateTransactionWithFallback(
-          network,
-          wallet,
-          signingResult.transaction,
-          walletInfo.isInitialized,
-          signal,
+          network, wallet, signingResult.transaction, walletInfo.isInitialized, signal,
         ),
     );
 
     // todo: Use `received` from the emulation to calculate the real fee. Check what happens when the receiver is the same wallet.
     const { networkFee } = emulation;
-    fee += networkFee;
-    realFee += networkFee;
+    // The refill is a native wallet debit, so fold it into the existing displayed MFA fee (phi).
+    const refillAmount = signingResult.mfaRefill ?? 0n;
+    fee += networkFee + refillAmount;
+    realFee += networkFee + refillAmount;
     result.diesel = DIESEL_NOT_AVAILABLE;
 
     const effectiveToncoinBalance = toncoinBalance + mfaFee;
@@ -412,7 +391,7 @@ export async function checkTransactionDraft(
     let isEnoughBalance: boolean;
 
     if (!tokenAddress) {
-      isEnoughBalance = effectiveToncoinBalance >= fee + (isFullTonTransfer ? 0n : amount);
+      isEnoughBalance = effectiveToncoinBalance >= fee + (isFullTonTransfer && !refillAmount ? 0n : amount);
     } else {
       const canTransferGasfully = effectiveToncoinBalance >= fee;
 
@@ -444,6 +423,9 @@ export async function checkTransactionDraft(
       diesel: result.diesel,
       tokenSlug,
     });
+    if (mfaExtensionSeqno !== undefined) {
+      result.explainedFee.canTransferFullBalance = false;
+    }
 
     return isEnoughBalance ? result : {
       ...result,
@@ -575,18 +557,19 @@ export async function submitGasfullTransfer(
           'submitTransfer',
         );
 
+        const messages = [{
+          toAddress,
+          amount: toncoinAmount,
+          payload,
+          stateInit,
+          hints: {
+            tokenAddress,
+          },
+        }];
         const signingResult = await signTransaction({
           account,
           accountId,
-          messages: [{
-            toAddress,
-            amount: toncoinAmount,
-            payload,
-            stateInit,
-            hints: {
-              tokenAddress,
-            },
-          }],
+          messages,
           seqno,
           signer,
           doPayFeeFromAmount: isFullTonTransfer,
@@ -596,6 +579,12 @@ export async function submitGasfullTransfer(
         const { transaction, mfaRequest } = signingResult;
 
         if (mfaRequest) {
+          const refillAmount = signingResult.mfaRefill ?? 0n;
+          const networkFee = getMfaFinalNetworkFee(signingResult);
+          const effectiveBalance = toncoinBalance + (signingResult.mfaFee ?? 0n);
+          if (effectiveBalance < toncoinAmount + refillAmount + networkFee) {
+            return { error: ApiTransactionError.InsufficientBalance };
+          }
           return { mfaRequest };
         }
 
@@ -820,6 +809,7 @@ export async function checkMultiTransactionDraft(
   // Attached TON and network fees reserved for earlier batches
   previousCost = 0n,
   demand?: FetchDemand,
+  isTonConnect = false,
 ): Promise<ApiCheckMultiTransactionDraftResult> {
   let totalAmount: bigint = 0n;
 
@@ -865,33 +855,18 @@ export async function checkMultiTransactionDraft(
       demand,
     );
 
-    const signingOptions = { accountId, account, messages, seqno, signer };
-
-    let legacyWalletTransaction: Cell | undefined;
-    if (mfaExtensionSeqno !== undefined) {
-      const legacySigningResult = await signTransaction({ ...signingOptions, allowLegacyMfaSigning: true });
-      if ('error' in legacySigningResult) return legacySigningResult;
-      legacyWalletTransaction = legacySigningResult.transaction;
-    }
+    const signingOptions = {
+      accountId, account, messages, seqno, signer, isTonConnect, onRawTrace,
+    };
 
     const signingResult = await signTransaction({ ...signingOptions, mfaExtensionSeqno });
     if ('error' in signingResult) return signingResult;
 
-    const mfaFee = signingResult.mfaRequest ? signingResult.mfaFee ?? 0n : 0n;
+    const mfaFee = mfaExtensionSeqno !== undefined ? signingResult.mfaFee ?? 0n : 0n;
 
     const emulation = applyFeeFactorToEmulationResult(
-      signingResult.mfaRequest && legacyWalletTransaction && account.byChain.ton.mfa
-        ? await emulateMfaRequestWithFallback(
-          network,
-          wallet,
-          walletInfo.isInitialized,
-          account.byChain.ton.mfa.address,
-          signingResult.mfaRequest,
-          legacyWalletTransaction,
-          undefined,
-          onRawTrace,
-          demand,
-        )
+      mfaExtensionSeqno !== undefined
+        ? getMfaTraceEmulation(signingResult.mfaNetworkFee ?? 0n)
         : await emulateTransactionWithFallback(
           network,
           wallet,
@@ -902,12 +877,23 @@ export async function checkMultiTransactionDraft(
           demand,
         ),
     );
-    const result = { emulation, parsedPayloads };
+    if (mfaExtensionSeqno !== undefined) {
+      // The trace fee gets the normal safety factor; the refill is an exact wallet debit and must not be multiplied.
+      emulation.networkFee += signingResult.mfaRefill ?? 0n;
+    }
+    const result = {
+      emulation,
+      parsedPayloads,
+      mfaRefill: signingResult.mfaRefill === undefined ? undefined : {
+        toAddress: account.byChain.ton.mfa!.address,
+        amount: signingResult.mfaRefill,
+      },
+    };
 
     // TODO Should `totalAmount` be `0` for `isGasless`?
     // Check for insufficient balance (both tokens and TON) and return error
     const effectiveBalance = balance + mfaFee;
-    const hasInsufficientTonBalance = !isGasless
+    const hasInsufficientTonBalance = (!isGasless || mfaExtensionSeqno !== undefined)
       && effectiveBalance < previousCost + totalAmount + result.emulation.networkFee;
 
     if (hasInsufficientTokenBalance || hasInsufficientTonBalance) {
@@ -1101,6 +1087,12 @@ async function submitMultiTransferInternal(
         const { transaction, mfaRequest } = signingResult;
 
         if (mfaRequest) {
+          const refillAmount = signingResult.mfaRefill ?? 0n;
+          const networkFee = getMfaFinalNetworkFee(signingResult);
+          const effectiveBalance = balance + (signingResult.mfaFee ?? 0n);
+          if (effectiveBalance < totalAmount + refillAmount + networkFee) {
+            return { error: ApiTransactionError.InsufficientBalance };
+          }
           logDebug('submitMultiTransfer', 'MFA confirmation is required for multi-transfer', {
             accountId,
             fromAddress,
@@ -1221,6 +1213,7 @@ export async function signTransfers(
   /** Used for specific transactions on vesting.ton.org */
   ledgerVestingAddress?: string,
   isTonConnect?: boolean,
+  expectedMfaRefill?: bigint,
 ): Promise<
   | ApiSignedTransfer<DappProtocolType.TonConnect>[]
   | { mfaRequest: SignedMfaRequest }
@@ -1254,7 +1247,7 @@ export async function signTransfers(
     ledgerVestingAddress ? LEDGER_VESTING_SUBWALLET_ID : undefined,
   );
   const signedTransactions = await signTransactions({
-    account, accountId, expireAt, messages, seqno, signer, isTonConnect, mfaExtensionSeqno,
+    account, accountId, expireAt, messages, seqno, signer, isTonConnect, mfaExtensionSeqno, expectedMfaRefill,
   });
   if ('error' in signedTransactions) return signedTransactions;
 
@@ -1288,10 +1281,10 @@ interface SignTransactionOptions {
   /** If true, will sign the transaction as an internal message instead of external. Not supported by Ledger. */
   shouldBeInternal?: boolean;
   isTonConnect?: boolean;
+  expectedMfaRefill?: bigint;
+  onRawTrace?: (trace: EmulationResponse) => void;
   /** If value given, will sign the transactions for MFA Extension instead of Wallet. Not supported by Ledger. */
   mfaExtensionSeqno?: number;
-  /** Used only for emulating the legacy wallet transaction before submitting it through the MFA extension. */
-  allowLegacyMfaSigning?: boolean;
 }
 
 async function signTransaction(options: SignTransactionOptions) {
@@ -1317,7 +1310,25 @@ type SignedTransactions = {
   transaction: Cell;
   mfaRequest?: SignedMfaRequest;
   mfaFee?: bigint;
+  mfaRefill?: bigint;
+  /** Exact full unsigned MFA trace fee, before the normal fee safety factor. */
+  mfaNetworkFee?: bigint;
 };
+
+function getMfaFinalNetworkFee(transaction: SignedTransactions) {
+  return applyFeeFactorToEmulationResult(getMfaTraceEmulation(transaction.mfaNetworkFee ?? 0n)).networkFee;
+}
+
+function getMfaTraceEmulation(networkFee: bigint): ApiEmulationWithFallbackResult {
+  return {
+    isFallback: false,
+    networkFee,
+    realFee: networkFee,
+    received: 0n,
+    traceOutputs: [],
+    activities: [],
+  };
+}
 
 async function signTransactions(
   {
@@ -1331,13 +1342,22 @@ async function signTransactions(
     shouldBeInternal,
     allowOnlyOneTransaction,
     isTonConnect,
+    expectedMfaRefill,
     mfaExtensionSeqno,
-    allowLegacyMfaSigning,
+    onRawTrace,
   }: SignTransactionOptions & { allowOnlyOneTransaction?: boolean },
 ): Promise<SignedTransactions[] | { error: any }> {
-  const messagesPerTransaction = getMaxMessagesInTransaction(account);
+  const maxMessagesPerTransaction = getMaxMessagesInTransaction(account);
+  const needsMfaRefillSlot = mfaExtensionSeqno !== undefined;
+  if (needsMfaRefillSlot && maxMessagesPerTransaction < 2) {
+    return { error: ApiTransactionError.InsufficientBalance };
+  }
+  const messagesPerTransaction = maxMessagesPerTransaction - Number(needsMfaRefillSlot);
   const messagesByTransaction = split(messages, messagesPerTransaction);
 
+  if (needsMfaRefillSlot && messagesByTransaction.length !== 1) {
+    return { error: ApiCommonError.Unexpected };
+  }
   if (allowOnlyOneTransaction && messagesByTransaction.length !== 1) {
     throw new Error(
       messagesByTransaction.length === 0
@@ -1346,7 +1366,7 @@ async function signTransactions(
     );
   }
 
-  const transactionsToSign = messagesByTransaction.map((transactionMessages, index) => {
+  let transactionsToSign = messagesByTransaction.map((transactionMessages, index) => {
     if (!signer.isMock) {
       logDebug('Signing transaction', {
         seqno,
@@ -1357,7 +1377,8 @@ async function signTransactions(
     return makePreparedTransactionToSign({
       messages: transactionMessages,
       seqno: seqno + index,
-      doPayFeeFromAmount,
+      // Carry-all cannot fund a second explicit refill action.
+      doPayFeeFromAmount: needsMfaRefillSlot ? false : doPayFeeFromAmount,
       expireAt,
       shouldBeInternal,
     });
@@ -1369,18 +1390,56 @@ async function signTransactions(
   if (mfaExtensionSeqno !== undefined) {
     const wallet = getTonWallet(account.byChain.ton);
     const fees = await getMfaFeesFromTransactions(parseAccountId(accountId).network, transactionsToSign, wallet);
+    const bundle = await prepareMfaRefillBundle(
+      parseAccountId(accountId).network,
+      wallet,
+      account.byChain.ton.mfa,
+      transactionsToSign,
+      fees,
+      mfaExtensionSeqno,
+      onRawTrace,
+      isTonConnect ? expectedMfaRefill : undefined,
+    );
+    if (!bundle) return { error: ApiTransactionError.InsufficientBalance };
+    transactionsToSign = bundle.transactions;
+    const { refills, finalNetworkFees: networkFees } = bundle;
+    // Drafts consume the same exact unsigned final trace as submission. They must not construct a mock signed MFA
+    // request solely for emulation; the real MFA request is signed exactly once at submission.
+    if (signer.isMock) {
+      return transactionsToSign.map((transaction, index) => ({
+        seqno: transaction.seqno,
+        transaction: beginCell().endCell(),
+        mfaFee: fees[index],
+        mfaRefill: refills[index],
+        mfaNetworkFee: networkFees[index],
+      }));
+    }
+    if (isTonConnect) {
+      // The confirmation already showed the extra transfer. Never sign a different refill after approval.
+      if (expectedMfaRefill === undefined || refills[0] !== expectedMfaRefill) {
+        return { error: ApiTransactionError.ConcurrentTransaction };
+      }
+      const { balance } = await getWalletInfo(parseAccountId(accountId).network, wallet);
+      const amount = messages.reduce((sum, message) => sum + message.amount, 0n);
+      const networkFee = applyFeeFactorToEmulationResult(getMfaTraceEmulation(networkFees[0])).networkFee;
+      if (balance + fees[0] < amount + expectedMfaRefill + networkFee) {
+        return { error: ApiTransactionError.InsufficientBalance };
+      }
+    }
     const signedRequest = await signer.signMfaTransactions(transactionsToSign, mfaExtensionSeqno, fees);
     if ('error' in signedRequest) return signedRequest;
 
     return signedRequest.map((opts, index) => ({
       seqno: transactionsToSign[index].seqno,
-      mfaRequest: opts,
+      mfaRequest: { ...opts, mfaRefillAmount: refills[index] },
       transaction: opts.transaction,
       mfaFee: fees[index],
+      mfaRefill: refills[index],
+      mfaNetworkFee: networkFees[index],
     }));
   }
 
-  if (account.byChain.ton.mfa && !allowLegacyMfaSigning) {
+  if (account.byChain.ton.mfa) {
     throw new Error('MFA extension seqno is required');
   }
 
@@ -1419,57 +1478,6 @@ async function waitForWalletSeqnoChange(network: ApiNetwork, address: string, se
     waitMs: WAIT_TRANSFER_TIMEOUT,
     pauseMs: WAIT_PAUSE,
   });
-}
-
-async function emulateMfaRequestWithFallback(
-  network: ApiNetwork,
-  wallet: TonWallet,
-  walletIsInitialized: boolean | undefined,
-  mfaExtensionAddress: string,
-  mfaRequest: SignedMfaRequest,
-  legacyWalletTransaction: Cell,
-  signal?: AbortSignal,
-  onRawTrace?: (trace: EmulationResponse) => void,
-  demand?: FetchDemand,
-): Promise<ApiEmulationWithFallbackResult> {
-  try {
-    const authDate = Math.floor(Date.now() / 1000);
-    const seedSignature = Buffer.from(randomBytes(64));
-
-    const body = beginCell()
-      .storeRef(beginCell().storeBuffer(seedSignature).endCell())
-      .storeStringRefTail(String(authDate))
-      .storeSlice(mfaRequest.payload.beginParse())
-      .storeBuffer(mfaRequest.signature)
-      .endCell();
-
-    const walletAddress = toBase64Address(wallet.address, false, network);
-    const emulation = await emulateExternalMessage(
-      network,
-      walletAddress,
-      Address.parse(mfaExtensionAddress),
-      body,
-      undefined,
-      signal,
-      onRawTrace,
-      demand,
-    );
-    return { isFallback: false, ...emulation };
-  } catch (err) {
-    throwIfAborted(signal);
-    logDebugError('Failed to emulate an MFA transaction', err);
-  }
-
-  const fallback = await emulateTransactionWithFallback(
-    network,
-    wallet,
-    legacyWalletTransaction,
-    walletIsInitialized,
-    signal,
-    undefined,
-    demand,
-  );
-  return { ...fallback, isFallback: true };
 }
 
 async function emulateTransactionWithFallback(
@@ -1739,11 +1747,7 @@ function prepareMfaMessages(transactions: PreparedTransactionToSign[], wallet: T
         body: wallet.createRequest({
           authType: 'extension',
           seqno: transaction.seqno,
-          actions: transaction.messages.map((message) => ({
-            type: 'sendMsg',
-            outMsg: message,
-            mode: transaction.sendMode,
-          })),
+          actions: createMfaWalletActions(transaction.messages, transaction.sendMode),
         }),
       },
     );

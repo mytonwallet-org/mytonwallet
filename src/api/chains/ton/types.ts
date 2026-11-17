@@ -168,6 +168,7 @@ export type ApiCheckMultiTransactionDraftResult = (
   }
 ) & {
   parsedPayloads?: (ApiParsedPayload | undefined)[];
+  mfaRefill?: { toAddress: string; amount: bigint };
 };
 
 export type ApiTransactionExtended = ApiTransaction & {

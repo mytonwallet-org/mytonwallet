@@ -1419,24 +1419,35 @@ $agent_hint_swap_title: Как работают обмены?
 $agent_hint_swap_prompt: Объясни, как работает обмен токенов.
 $agent_hint_staking_title: Что такое стейкинг?
 $agent_hint_staking_prompt: Объясни стейкинг с нуля, как человеку, который раньше не пользовался криптовалютой.
-$agent_hint_security_title: Как защитить кошелёк?
-$agent_hint_security_prompt: Расскажи, как защитить мой кошелёк.
+$agent_hint_security_title: Защита кошелька
+$agent_hint_security_prompt: Как защитить кошелёк?
 $agent_hint_receive_title: Получить токены
 $agent_hint_receive_prompt: Помоги мне получить токены.
-$agent_hint_assets_title: Покажи мои активы
-$agent_hint_total_title: Сколько у меня всего?
-$agent_hint_spending_title: На что я тратил за неделю?
-$agent_hint_last_transfer_title: Покажи последний перевод
-$agent_hint_fund_title: Как пополнить кошелёк?
-$agent_hint_market_today_title: Что сегодня на рынке?
-$agent_hint_news_today_title: Главные новости за сутки
-$agent_hint_bitcoin_title: Что происходит с биткоином?
+$agent_hint_assets_title: Мои активы
+$agent_hint_assets_prompt: Покажи мои активы
+$agent_hint_total_title: Общий баланс
+$agent_hint_total_prompt: Какой у меня общий баланс?
+$agent_hint_spending_title: Траты за неделю
+$agent_hint_spending_prompt: На что ушли деньги за неделю?
+$agent_hint_last_transfer_title: Последний перевод
+$agent_hint_last_transfer_prompt: Покажи мой последний перевод
+$agent_hint_fund_title: Пополнить кошелёк
+$agent_hint_fund_prompt: Как пополнить кошелёк?
+$agent_hint_market_today_title: Рынок сегодня
+$agent_hint_market_today_prompt: Что сегодня на рынке?
+$agent_hint_news_today_title: Новости дня
+$agent_hint_news_today_prompt: Какие главные новости дня?
+$agent_hint_bitcoin_title: Что с биткоином?
+$agent_hint_bitcoin_prompt: Что происходит с биткоином?
 $agent_hint_price_title: Сколько стоит 0,5 ETH?
-$agent_hint_staking_yield_title: Где выше доходность?
-$agent_hint_staking_options_title: Какие варианты стейкинга доступны?
-$agent_hint_multisend_title: Как отправить нескольким людям?
+$agent_hint_staking_yield_title: Доходность стейкинга
+$agent_hint_staking_yield_prompt: Где доходность стейкинга выше?
+$agent_hint_staking_options_title: Варианты стейкинга
+$agent_hint_staking_options_prompt: Какие есть варианты стейкинга?
+$agent_hint_multisend_title: Перевод нескольким
+$agent_hint_multisend_prompt: Как перевести сразу нескольким людям?
 $agent_hint_action_swap_title: Обменять токены
-$agent_hint_action_send_title: Отправить крипту
+$agent_hint_action_send_title: Отправить токены
 $agent_hint_action_stake_title: Начать стейкинг
 $agent_notice_content_over_budget: Результат слишком большой для полного отображения.
 $agent_notice_web_search_no_results: Не удалось найти подходящую информацию по вашему запросу.
@@ -1651,6 +1662,7 @@ Wallet Name: Имя кошелька
 App Icon: Иконка приложения
 Rounded Toolbars: Закруглённые панели инструментов
 Toolbar: Панель инструментов
+Toolbars: Панели
 Shared Background: Общий фон
 Side Gutters: Боковые отступы
 Gradient Navigation Bar: Градиентная панель навигации
@@ -2214,7 +2226,6 @@ $agent_news_unread_digests_count:
 Explorer mode: Режим обозревателя
 Open a link to a wallet, transfer, token or collectible to see its details here.: Откройте ссылку на кошелёк, перевод, токен или NFT, чтобы посмотреть здесь детали.
 
-# Perps
 Long: "Лонг"
 Short: "Шорт"
 Funding Rate: "Ставка финансирования"
@@ -2226,7 +2237,6 @@ $perps_max_leverage_hint: "Максимальное плечо, доступно
 $perps_volume_24h_hint: "Общая стоимость сделок на этом фьючерсном рынке за последние 24 часа. Включает сделки как на открытие, так и на закрытие позиций."
 $perps_open_interest_hint: "Общая стоимость контрактов, открытых в данный момент на этом фьючерсном рынке. В отличие от объёма за 24 часа, не включает уже закрытые позиции."
 
-# Perps order entry
 "Leverage": "Кредитное плечо"
 "Position Size": "Размер позиции"
 "Liquidation Price": "Цена ликвидации"
@@ -2247,18 +2257,15 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "$perps_liquidation_price_hint": "Расчётная цена, при которой ваша позиция может быть автоматически закрыта из-за недостатка средств для её поддержания."
 "$perps_leverage_disclaimer": "Высокое плечо увеличивает потенциальную прибыль и убытки. Даже небольшое изменение цены против вашей позиции может привести к её автоматическому закрытию."
 
-# Perps order review
 "Open Position": "Открыть позицию"
 "$perps_asset_price": "Цена %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
 "$perps_liquidation_acknowledgment": "Подтверждая, я понимаю, что позиция может быть ликвидирована и я могу потерять вложенные средства."
 
-# Perps position receipt
 "Position Opened": "Позиция открыта"
 "Fees": "Комиссии"
 "Transfer ID": "ID перевода"
 
-# Perps active position
 "Equity": "Стоимость позиции"
 "Profit and Loss": "Прибыль и убыток"
 "Invested": "Вложено"
@@ -2271,7 +2278,6 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "$perps_entry_price_hint": "Средняя цена открытия этой позиции."
 "$perps_funding_payments_hint": "Периодические платежи между трейдерами с длинными и короткими позициями. В зависимости от ставки финансирования вы можете платить или получать финансирование, пока ваша позиция открыта."
 
-# Perps edit position
 "$perps_edit_long": "Изменить лонг %asset%"
 "$perps_edit_short": "Изменить шорт %asset%"
 "Current:": "Сейчас:"
@@ -2282,7 +2288,6 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "$perps_network_fee_hint": "Комиссия за обработку этой транзакции в блокчейне."
 "$perps_edit_liquidation_hint": "Ликвидация — цена, при которой позиция автоматически закрывается."
 
-# Perps position lifecycle
 "Increase Position": "Увеличить позицию"
 "Reduce Position": "Уменьшить позицию"
 "Current Value": "Текущая стоимость"
@@ -2304,7 +2309,6 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "$perps_liquidated_title": "Позиция закрыта автоматически."
 "$perps_liquidated_message": "Рыночная цена достигла цены ликвидации, что привело к убытку."
 
-# Perps home
 "Open Positions": "Открытые позиции"
 "Show All Positions": "Все позиции"
 "Futures": "Фьючерсы"
@@ -2318,14 +2322,13 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "$perps_explore_futures": "Открывайте короткие и длинные позиции"
 "$perps_explore_apps": "Исследуйте децентрализованный интернет"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "Цены или позиция изменились. Вернитесь и проверьте ордер ещё раз."
 "PerpsReviewChanged": "Ордер изменился. Вернитесь и проверьте его ещё раз."
 "PerpsInsufficientUsdc": "Недостаточно USDC в Arbitrum с учётом комиссии моста."
 "EvmUserOperationMismatch": "Оплата газа не совпадает с этой транзакцией."
 "PerpsInsufficientBalance": "Недостаточно USDC на балансе Hyperliquid с учётом торговых комиссий."
 "PerpsMarketNeedsUnifiedAccount": "Этот рынок нельзя пополнить из кошелька при текущем типе аккаунта Hyperliquid."
-"PerpsRequiresMultichainWallet": "Для фьючерсов нужен мультичейн-кошелёк. Переключитесь на него или создайте новый, чтобы начать торговать."
+"PerpsRequiresMultichainWallet": "Переключитесь на мультичейн-кошелёк или создайте новый, чтобы начать торговать."
 "PerpsSwitchesToUnifiedAccount": "Этот ордер также переведёт ваш аккаунт Hyperliquid в режим Unified, и один баланс USDC будет покрывать все рынки."
 "PerpsAmountTooSmall": "Эта сумма ниже минимальной для рынка."
 "$perps_minimum_amount": "Минимальная сумма: %amount% USDC."
@@ -2370,7 +2373,6 @@ Could not save the image. Please try again.: Не удалось сохрани�
 "$perps_activity_closed": "Закрытие %asset%"
 "$perps_activity_liquidated": "Ликвидация %asset%"
 
-# Perps
 "PerpsInsufficientGas": "Недостаточно ETH в Arbitrum для комиссии сети. USDC для позиции не покрывают эту комиссию."
 "PerpsFundingMissingTitle": "Нет USDC или ETH в Arbitrum"
 "$perps_funding_missing": "Получите не менее %minUSDC% USDC и %feeETH% ETH для оплаты комиссий."
@@ -2486,9 +2488,13 @@ Unlink Wallet: Отвязать кошелёк
 Confirm Unlinking: Подтвердить отвязку
 Domain Unlinked: Домен отвязан
 Drag here to add to the toolbar: Перетащите сюда, чтобы добавить на панель
+$toolbar_settings_hint: Удерживайте кнопку и перетащите её, чтобы изменить порядок на панелях. Кнопка, перетащенная с панели, убирается; кнопка аккаунта переходит в верхнюю панель.
+$toolbar_full_title: Панель заполнена
+$toolbar_full_hint: Уберите кнопку, чтобы добавить другую
 $send_only_chain_and_token: Отправляйте на этот адрес только %symbol%, %tokenSymbol% или другие активы сети %chain%. Отправка других токенов приведёт к их потере.
 $agent_digest_unavailable: "Эта сводка больше недоступна"
 $agent_digest_title: "Главное за сутки"
+$agent_digest_discussion_title: "Новости %date%"
 $agent_digest_meta:
   oneValue: "%count% новость"
   fewValue: "%count% новости"
@@ -2534,3 +2540,11 @@ $agent_digest_minutes: "Минуты"
 $swap_one_to_one: Более выгодный курс (1:1) доступен от %value%.
 $swap_better_rate_minimum: "Более выгодный курс доступен от %value%."
 $agent_daily_limit_resets_at: "Дневной лимит агента исчерпан. Обновится в %time%."
+$biometric_recovery_title: "Настройте биометрию заново"
+$biometric_recovery_passcode: "Возможно, настройки биометрии изменились. Введите код-пароль кошелька, чтобы продолжить."
+$biometric_recovery_offer: "Код-пароль подтверждён. Хотите настроить биометрию заново?"
+$biometric_recovery_enable: "Включить биометрию"
+$biometric_recovery_failed: "Не удалось настроить биометрию. Попробуйте ещё раз в разделе «Настройки > Безопасность»."
+"$perps_leverage_value": "Плечо %value%"
+"$perps_edit_action": "Изменить"
+"PerpsRequiresOwnWallet": "Переключитесь на свой кошелёк или создайте новый, чтобы начать торговать."

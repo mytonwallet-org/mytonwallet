@@ -30,6 +30,9 @@ type ParticleInput = 'mouse' | 'touch';
 // The text fragments fly to the dust during the transition progress up to this value. The dust alone finishes the rest.
 const FRAGMENT_FLIGHT_END = 0.75;
 
+export const CONCEAL_DURATION_MS = 700;
+const REVEAL_DURATION_MS = 600;
+
 export function createRepulsion(phase: number) {
   const reach = 0.82 + variation(phase, 1.7) * 0.36;
   const strength = 0.4 + variation(phase, 8.3) * 0.6;
@@ -507,9 +510,11 @@ export function createPrivacyField(
       target.style.visibility = isConcealed ? 'hidden' : 'visible';
     }
 
-    // Hiding runs the whole progress in 0.7 s, and a reveal runs back from `FRAGMENT_FLIGHT_END` in 0.6 s
+    // Hiding runs the whole progress in `CONCEAL_DURATION_MS`, and a reveal runs back from `FRAGMENT_FLIGHT_END`
+    // in `REVEAL_DURATION_MS`
     if (atlas) {
-      progress = clamp(progress + (dt / (isConcealed ? 0.7 : 0.6)) * (isConcealed ? 1 : -FRAGMENT_FLIGHT_END), 0, 1);
+      const duration = (isConcealed ? CONCEAL_DURATION_MS : REVEAL_DURATION_MS) / 1000;
+      progress = clamp(progress + (dt / duration) * (isConcealed ? 1 : -FRAGMENT_FLIGHT_END), 0, 1);
     }
 
     if (isConcealed || atlas) advanceDust(isInstant ? 0 : dt, finger, input);

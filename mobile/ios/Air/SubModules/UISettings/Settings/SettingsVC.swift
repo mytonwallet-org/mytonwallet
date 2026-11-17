@@ -290,12 +290,12 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                         UIView.transition(with: transitionView, duration: 0.25,
                                           options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction]) {
                             UIView.performWithoutAnimation {
-                                AppActions.showHome(popToRoot: true)
+                                AppActions.showRootAfterAccountSwitch()
                                 transitionView.layoutIfNeeded()
                             }
                         }
                     } else {
-                        AppActions.showHome(popToRoot: true)
+                        AppActions.showRootAfterAccountSwitch()
                     }
                 } catch {
                     log.error("failed to activate account: \(accountId, .public) \(error, .public)")

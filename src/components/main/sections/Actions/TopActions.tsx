@@ -5,7 +5,7 @@ import type { ApiChain } from '../../../../api/types';
 import type { Theme } from '../../../../global/types';
 import type { StakingStateStatus } from '../../../../util/staking';
 
-import { ANIMATED_STICKER_ICON_PX } from '../../../../config';
+import { ANIMATED_STICKER_ICON_PX, ANIMATED_STICKER_ICON_SPEED } from '../../../../config';
 import {
   selectAccountStakingState,
   selectAccountStakingStateForToken,
@@ -42,8 +42,6 @@ import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
 import Button from '../../../ui/Button';
 
 import styles from './TopActions.module.scss';
-
-const ANIMATED_STICKER_SPEED = 2;
 
 interface ActionButtonProps {
   label: string;
@@ -207,6 +205,15 @@ function TopActions({
           onClick={handleBuyClick}
         />
       )}
+      {isSellShown && (
+        <ActionButton
+          label={lang('Sell')}
+          tgsUrl={stickerPaths.iconSell}
+          previewUrl={stickerPaths.preview.iconSell}
+          accentColor={accentColor}
+          onClick={handleSellClick}
+        />
+      )}
       {depositButton}
       <ActionButton
         label={lang('Send')}
@@ -235,15 +242,6 @@ function TopActions({
           accentColor={stakingStatus === 'inactive' ? accentColor : undefined}
           testId={getActionTestId('header_action_earn')}
           onClick={handleEarnClick}
-        />
-      )}
-      {isSellShown && (
-        <ActionButton
-          label={lang('Sell')}
-          tgsUrl={stickerPaths.iconSell}
-          previewUrl={stickerPaths.preview.iconSell}
-          accentColor={accentColor}
-          onClick={handleSellClick}
         />
       )}
     </div>
@@ -324,7 +322,7 @@ function ActionButtonInternal({
       <AnimatedIconWithPreview
         play={isAnimating}
         size={ANIMATED_STICKER_ICON_PX}
-        speed={ANIMATED_STICKER_SPEED}
+        speed={ANIMATED_STICKER_ICON_SPEED}
         className={styles.icon}
         color={accentColor}
         nonInteractive

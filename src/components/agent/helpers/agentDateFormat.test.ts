@@ -1,9 +1,15 @@
 import type { LangCode } from '../../../global/types';
 import type { LangFn } from '../../../util/langProvider';
 
+import { getTranslation } from '../../../util/langProvider';
 import { setNativeDigitsLang } from '../../../util/nativeDigits';
 import {
-  formatAgentDay, formatAgentDayWithTime, formatAgentListTime, formatAgentTime, getAgentDaysAgo,
+  formatAgentDay,
+  formatAgentDayWithTime,
+  formatAgentDigestDiscussionTitle,
+  formatAgentListTime,
+  formatAgentTime,
+  getAgentDaysAgo,
 } from './agentDateFormat';
 
 // Saturday, November 7, 2026, in the local time zone like the chat itself
@@ -48,6 +54,21 @@ describe('agentDateFormat', () => {
     expect(formatAgentDay(buildLang('en'), THIS_NOVEMBER_5, NOW)).toBe('November 5');
     expect(formatAgentDay(buildLang('en'), LAST_NOVEMBER_7, NOW)).toBe('November 7, 2025');
     expect(formatAgentDay(buildLang('zh-Hans'), LAST_NOVEMBER_7, NOW)).toBe('2025年11月7日');
+  });
+
+  it('names a digest\'s discussion by its day, with the year for another one', () => {
+    jest.useFakeTimers({ now: NOW });
+    try {
+      const thisNovember11 = new Date(2026, 10, 11, 9, 0).toISOString();
+      const lastNovember11 = new Date(2025, 10, 11, 9, 0).toISOString();
+      // The app's own translation gives a string, which a chat header and a list row take as their title
+      const en = Object.assign(getTranslation, { code: 'en' as const });
+      expect(formatAgentDigestDiscussionTitle(en, thisNovember11)).toBe('News for November 11');
+      expect(formatAgentDigestDiscussionTitle(buildRussianDigestLang(), thisNovember11)).toBe('Новости 11 ноября');
+      expect(formatAgentDigestDiscussionTitle(en, lastNovember11)).toBe('News for November 11, 2025');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('names a day later than now "Today", as a clock running ahead may stamp it', () => {
@@ -115,4 +136,11 @@ describe('agentDateFormat', () => {
 
 function buildLang(code: LangCode) {
   return Object.assign((key: string) => key, { code }) as LangFn;
+}
+
+// Russian, which the tests do not load, as its catalog writes the title
+function buildRussianDigestLang() {
+  return Object.assign((key: string, value?: string) => (
+    key === '$agent_digest_discussion_title' ? `Новости ${value}` : key
+  ), { code: 'ru' as const }) as LangFn;
 }

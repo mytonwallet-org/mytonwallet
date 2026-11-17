@@ -1354,22 +1354,33 @@ $agent_hint_swap_title: كيف تعمل المبادلات؟
 $agent_hint_swap_prompt: اشرح كيف تعمل مبادلات الرموز.
 $agent_hint_staking_title: ما هو التخزين؟
 $agent_hint_staking_prompt: اشرح التخزين من البداية، كما لو أنني لم أستخدم العملات المشفرة من قبل.
-$agent_hint_security_title: كيف أحمي محفظتي؟
-$agent_hint_security_prompt: أرني كيف أحافظ على أمان محفظتي.
+$agent_hint_security_title: أمان المحفظة
+$agent_hint_security_prompt: كيف أحمي محفظتي؟
 $agent_hint_receive_title: استقبال الرموز
 $agent_hint_receive_prompt: ساعدني على استقبال الرموز.
-$agent_hint_assets_title: اعرض أصولي
-$agent_hint_total_title: كم إجمالي رصيدي؟
-$agent_hint_spending_title: على ماذا أنفقت هذا الأسبوع؟
-$agent_hint_last_transfer_title: اعرض آخر تحويل لي
-$agent_hint_fund_title: كيف أشحن محفظتي؟
-$agent_hint_market_today_title: ماذا يحدث في السوق اليوم؟
-$agent_hint_news_today_title: أهم أخبار اليوم
-$agent_hint_bitcoin_title: ما الذي يحدث مع البيتكوين؟
+$agent_hint_assets_title: أصولي
+$agent_hint_assets_prompt: اعرض أصولي
+$agent_hint_total_title: إجمالي الرصيد
+$agent_hint_total_prompt: كم إجمالي رصيدي؟
+$agent_hint_spending_title: إنفاق الأسبوع
+$agent_hint_spending_prompt: على ماذا أنفقت هذا الأسبوع؟
+$agent_hint_last_transfer_title: آخر تحويل
+$agent_hint_last_transfer_prompt: اعرض آخر تحويل لي
+$agent_hint_fund_title: شحن المحفظة
+$agent_hint_fund_prompt: كيف أشحن محفظتي؟
+$agent_hint_market_today_title: السوق اليوم
+$agent_hint_market_today_prompt: ماذا يحدث في السوق اليوم؟
+$agent_hint_news_today_title: أخبار اليوم
+$agent_hint_news_today_prompt: أهم أخبار اليوم
+$agent_hint_bitcoin_title: البيتكوين اليوم
+$agent_hint_bitcoin_prompt: ما الذي يحدث مع البيتكوين؟
 $agent_hint_price_title: كم سعر 0.5 ETH؟
-$agent_hint_staking_yield_title: أين العائد أعلى؟
-$agent_hint_staking_options_title: ما خيارات التخزين المتاحة؟
-$agent_hint_multisend_title: كيف أرسل إلى عدة أشخاص؟
+$agent_hint_staking_yield_title: عائد التخزين
+$agent_hint_staking_yield_prompt: أين العائد أعلى؟
+$agent_hint_staking_options_title: خيارات التخزين
+$agent_hint_staking_options_prompt: ما خيارات التخزين المتاحة؟
+$agent_hint_multisend_title: الإرسال إلى عدة أشخاص
+$agent_hint_multisend_prompt: كيف أرسل إلى عدة أشخاص؟
 $agent_hint_action_swap_title: مبادلة الرموز
 $agent_hint_action_send_title: إرسال العملات المشفرة
 $agent_hint_action_stake_title: بدء التخزين
@@ -1566,6 +1577,7 @@ Wallet Name: اسم المحفظة
 App Icon: أيقونة التطبيق
 Rounded Toolbars: أشرطة الأدوات المستديرة
 Toolbar: شريط الأدوات
+Toolbars: أشرطة الأدوات
 Shared Background: خلفية مشتركة
 Side Gutters: المزاريب الجانبية
 Gradient Navigation Bar: شريط التنقل المتدرج
@@ -2184,7 +2196,6 @@ $agent_news_unread_digests_count:
 Explorer mode: وضع المستكشف
 Open a link to a wallet, transfer, token or collectible to see its details here.: افتح رابطًا لمحفظة أو تحويل أو توكن أو مقتنى لعرض تفاصيله هنا.
 
-# Perps
 Long: "لونغ"
 Short: "شورت"
 Funding Rate: "معدل التمويل"
@@ -2196,7 +2207,6 @@ $perps_max_leverage_hint: "أعلى رافعة مالية متاحة لهذا ا
 $perps_volume_24h_hint: "القيمة الإجمالية للتداولات في سوق العقود الآجلة هذا خلال آخر 24 ساعة. تشمل تداولات فتح المراكز وإغلاقها."
 $perps_open_interest_hint: "القيمة الإجمالية للعقود المفتوحة حاليًا في سوق العقود الآجلة هذا. بخلاف حجم التداول خلال 24 ساعة، لا تشمل المراكز التي أُغلقت بالفعل."
 
-# Perps order entry
 "Leverage": "الرافعة المالية"
 "Position Size": "حجم المركز"
 "Liquidation Price": "سعر التصفية"
@@ -2217,18 +2227,15 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "$perps_liquidation_price_hint": "السعر التقديري الذي قد يُغلق عنده مركزك تلقائيًا بسبب عدم كفاية الأموال لإبقائه مفتوحًا."
 "$perps_leverage_disclaimer": "تزيد الرافعة المالية الأعلى من الأرباح والخسائر المحتملة. حتى التغير البسيط في السعر بعكس اتجاه مركزك قد يؤدي إلى إغلاقه تلقائيًا."
 
-# Perps order review
 "Open Position": "فتح مركز"
 "$perps_asset_price": "سعر %asset%"
 "$perps_leverage_direction": "%direction% برافعة %leverage%×"
 "$perps_liquidation_acknowledgment": "بالتأكيد، أقر بأن هذا المركز قد يُصفّى وأنني قد أخسر المال الذي استثمرته."
 
-# Perps position receipt
 "Position Opened": "تم فتح المركز"
 "Fees": "الرسوم"
 "Transfer ID": "معرّف التحويل"
 
-# Perps active position
 "Equity": "قيمة المركز"
 "Profit and Loss": "الربح والخسارة"
 "Invested": "المبلغ المستثمر"
@@ -2241,7 +2248,6 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "$perps_entry_price_hint": "متوسط السعر الذي فُتح عنده هذا المركز."
 "$perps_funding_payments_hint": "مدفوعات دورية بين المتداولين أصحاب المراكز الطويلة والقصيرة. بحسب معدل التمويل، قد تدفع أو تتلقى التمويل ما دام مركزك مفتوحًا."
 
-# Perps edit position
 "$perps_edit_long": "تعديل لونغ %asset%"
 "$perps_edit_short": "تعديل شورت %asset%"
 "Current:": "الحالي:"
@@ -2252,7 +2258,6 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "$perps_network_fee_hint": "رسوم معالجة هذه المعاملة على البلوكشين."
 "$perps_edit_liquidation_hint": "التصفية — السعر الذي يُغلق عنده مركزك تلقائيًا."
 
-# Perps position lifecycle
 "Increase Position": "زيادة المركز"
 "Reduce Position": "تقليل المركز"
 "Current Value": "القيمة الحالية"
@@ -2274,7 +2279,6 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "$perps_liquidated_title": "تم إغلاق المركز تلقائيًا."
 "$perps_liquidated_message": "وصل سعر السوق إلى سعر التصفية، مما أدى إلى خسارة."
 
-# Perps home
 "Open Positions": "المراكز المفتوحة"
 "Show All Positions": "عرض جميع المراكز"
 "Futures": "العقود الآجلة"
@@ -2288,14 +2292,13 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "$perps_explore_futures": "افتح مراكز بيع وشراء"
 "$perps_explore_apps": "استكشف الإنترنت اللامركزي"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "تغيرت الأسعار أو مركزك. ارجع لمراجعة الأمر مجددًا."
 "PerpsReviewChanged": "تغير الأمر. ارجع لمراجعته مجددًا."
 "PerpsInsufficientUsdc": "رصيد USDC على Arbitrum غير كافٍ، بما في ذلك رسوم الجسر."
 "EvmUserOperationMismatch": "دفعة الغاز لا تطابق هذه المعاملة."
 "PerpsInsufficientBalance": "رصيد USDC على Hyperliquid غير كافٍ، بما في ذلك رسوم التداول."
 "PerpsMarketNeedsUnifiedAccount": "لا يمكن تمويل هذا السوق من محفظتك باستخدام نوع حساب Hyperliquid الحالي."
-"PerpsRequiresMultichainWallet": "تتطلب العقود الآجلة محفظة متعددة السلاسل. انتقل إلى واحدة أو أنشئ محفظة جديدة لبدء التداول."
+"PerpsRequiresMultichainWallet": "انتقل إلى محفظة متعددة السلاسل أو أنشئ محفظة جديدة لبدء التداول."
 "PerpsSwitchesToUnifiedAccount": "يحوّل هذا الأمر أيضًا حساب Hyperliquid الخاص بك إلى Unified، ليغطي رصيد USDC واحد جميع الأسواق."
 "PerpsAmountTooSmall": "هذا المبلغ أقل من الحد الأدنى للسوق."
 "$perps_minimum_amount": "الحد الأدنى للمبلغ: %amount% USDC."
@@ -2340,7 +2343,6 @@ Could not save the image. Please try again.: تعذر حفظ الصورة. يُ�
 "$perps_activity_closed": "إغلاق %asset%"
 "$perps_activity_liquidated": "تصفية %asset%"
 
-# Perps
 "PerpsInsufficientGas": "رصيد ETH على Arbitrum غير كافٍ لرسوم الشبكة. مبلغ USDC المخصص للمركز منفصل عن هذه الرسوم."
 "PerpsFundingMissingTitle": "لا يوجد USDC أو ETH على Arbitrum"
 "$perps_funding_missing": "استلم ما لا يقل عن %minUSDC% USDC و%feeETH% ETH للرسوم."
@@ -2456,9 +2458,13 @@ Unlink Wallet: إلغاء ربط المحفظة
 Confirm Unlinking: تأكيد إلغاء الارتباط
 Domain Unlinked: تم إلغاء ربط المجال
 Drag here to add to the toolbar: اسحب هنا للإضافة إلى شريط الأدوات
+$toolbar_settings_hint: اضغط مطولًا على زر واسحبه لإعادة ترتيب الأشرطة. الزر المسحوب خارج شريط الأدوات يُزال، أما زر الحساب فينتقل إلى الشريط العلوي.
+$toolbar_full_title: شريط الأدوات ممتلئ
+$toolbar_full_hint: أزِل زرًا لإضافة زر آخر
 $send_only_chain_and_token: أرسل فقط %symbol%، %tokenSymbol% أو الأصول الأخرى المستندة إلى %chain% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
 $agent_digest_unavailable: "هذا الملخص لم يعد متاحًا"
 $agent_digest_title: "أبرز أخبار اليوم"
+$agent_digest_discussion_title: "أخبار %date%"
 $agent_digest_meta:
   zeroValue: "لا أخبار"
   oneValue: "خبر واحد"
@@ -2508,3 +2514,11 @@ $agent_digest_minutes: "الدقائق"
 $swap_one_to_one: يتوفر سعر صرف أفضل (1:1) ابتداءً من %value%.
 $swap_better_rate_minimum: "يتوفر سعر أفضل ابتداءً من %value%."
 $agent_daily_limit_resets_at: "تم بلوغ الحد اليومي للوكيل. يُعاد تعيينه في %time%."
+$biometric_recovery_title: "إعداد المصادقة الحيوية مجددًا"
+$biometric_recovery_passcode: "ربما تغيرت إعدادات المصادقة الحيوية. أدخل رمز مرور محفظتك للمتابعة."
+$biometric_recovery_offer: "تم تأكيد رمز مرورك. هل تريد إعداد المصادقة الحيوية مجددًا؟"
+$biometric_recovery_enable: "تفعيل المصادقة الحيوية"
+$biometric_recovery_failed: "تعذر إعداد المصادقة الحيوية. يمكنك المحاولة مجددًا من الإعدادات > الأمان."
+"$perps_leverage_value": "الرافعة المالية %value%"
+"$perps_edit_action": "تعديل"
+"PerpsRequiresOwnWallet": "انتقل إلى محفظتك أو أنشئ محفظة جديدة لبدء التداول."

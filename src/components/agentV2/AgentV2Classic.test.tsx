@@ -33,7 +33,9 @@ jest.mock('../../global', () => ({
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
   default: () => Object.assign((key: string, value?: string) => (
-    key === '$agent_daily_limit_resets_at' ? `${key}:${value}` : key
+    key === '$agent_digest_discussion_title' ? `News for ${value}`
+      : key === '$agent_daily_limit_resets_at' ? `${key}:${value}`
+        : key
   ), { code: 'en' }),
 }));
 jest.mock('../agent/hooks/useAgentV2Messages', () => ({
@@ -287,16 +289,23 @@ describe('AgentV2Classic', () => {
   ]))('uses feed naming and report availability until a discussion thread exists: %o', async ({ kind, hasNaming }) => {
     const discussionNaming = hasNaming ? { title: 'Discuss TON news', icon: '💎', followups: [] } : undefined;
     const isDigest = kind === 'digest';
+    // A digest's discussion goes by the digest's day, whatever follow-ups the feed offers for it
+    const digest = { ...DIGEST, windowEnd: new Date(new Date().getFullYear(), 10, 11, 9).toISOString() };
     const result = buildMessagesResult({
-      ...(isDigest ? { digest: DIGEST } : { news: NEWS }),
+      ...(isDigest ? { digest } : { news: NEWS }),
       messages: [NEWS_POST], isOpeningNews: true, reportProblem: undefined,
     });
     useAgentV2MessagesMock.mockReturnValue(result);
     const target = {
       ...(isDigest
-        ? { kind: 'digest' as const, digest: { id: DIGEST.id }, digestPreview: DIGEST }
-        : { kind: 'news' as const, news: { eventId: 5, locale: 'ru' as const }, preview: NEWS }),
-      shouldDeferCreation: true, discussionNaming,
+        ? {
+          kind: 'digest' as const, digest: { id: DIGEST.id }, digestPreview: digest,
+          discussionFollowups: hasNaming ? [NEWS_FOLLOWUP.text] : undefined,
+        }
+        : {
+          kind: 'news' as const, news: { eventId: 5, locale: 'ru' as const }, preview: NEWS, discussionNaming,
+        }),
+      shouldDeferCreation: true,
     };
     const onThreadResolved = jest.fn();
     TeactDOM.render(
@@ -314,8 +323,8 @@ describe('AgentV2Classic', () => {
     const notifyThreadResolved = useAgentV2MessagesMock.mock.calls.at(-1)![0].onThreadResolved!;
 
     const { header, actions, composer } = AgentConversationShellMock.mock.calls.at(-1)![0];
-    expect(header?.title).toBe(discussionNaming?.title ?? (isDigest ? '$agent_digest_title' : NEWS.headline));
-    expect(header?.icon).toBe(discussionNaming?.icon);
+    expect(header?.title).toBe(isDigest ? 'News for November 11' : (discussionNaming?.title ?? NEWS.headline));
+    expect(header?.icon).toBe(isDigest ? '🗓' : discussionNaming?.icon);
     expect(actions?.onReportProblem).toBeUndefined();
     expect(actions?.onDelete).toBeUndefined();
     expect(composer?.isDisabled).toBe(false);
@@ -335,7 +344,7 @@ describe('AgentV2Classic', () => {
       reportProblem,
       thread: {
         id: 'news-thread', revision: 1, messageCount: 1, title: 'Saved news title', icon: '📰',
-        ...(isDigest ? { digest: DIGEST } : { news: NEWS }),
+        ...(isDigest ? { digest } : { news: NEWS }),
         createdAt: timestamp, updatedAt: timestamp, lastActivityAt: timestamp,
       },
     });
@@ -344,11 +353,46 @@ describe('AgentV2Classic', () => {
       AgentConversationShellMock.mock.calls.at(-1)?.[0].header?.title === 'Saved news title'
     ), 10, 300)).toBe(true);
     expect(AgentConversationShellMock.mock.calls.at(-1)![0].header?.icon).toBe('📰');
+    if (isDigest) {
+      // The server leaves a digest's thread nameless, so it keeps the digest's day and takes the server's icon
+      useAgentV2MessagesMock.mockReturnValue({
+        ...result,
+        reportProblem,
+        thread: {
+          id: 'news-thread', revision: 1, messageCount: 1, icon: '🗓', digest,
+          createdAt: timestamp, updatedAt: timestamp, lastActivityAt: timestamp,
+        },
+      });
+      TeactDOM.render(<AgentV2Classic isActive animationLevel={0} target={target} />, root);
+      expect(await waitFor(() => (
+        AgentConversationShellMock.mock.calls.at(-1)?.[0].header?.title === 'News for November 11'
+      ), 10, 300)).toBe(true);
+      expect(AgentConversationShellMock.mock.calls.at(-1)![0].header?.icon).toBe('🗓');
+    }
     expect(AgentConversationShellMock.mock.calls.at(-1)![0].actions?.onReportProblem).toBe(reportProblem);
     TeactDOM.render(undefined, root);
     await rafPromise();
     notifyThreadResolved('created-news-thread');
     expect(onThreadResolved).toHaveBeenCalledWith(5, 'created-news-thread', target);
+  });
+
+  it('titles a digest\'s thread opened from the chat list by the day of the thread\'s digest', async () => {
+    const timestamp = '2026-10-21T12:00:00.000Z';
+    const windowEnd = new Date(new Date().getFullYear(), 10, 11, 9).toISOString();
+    useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({
+      messages: [NEWS_POST],
+      thread: {
+        id: 'digest-thread', revision: 1, messageCount: 2, icon: '🗓', digest: { ...DIGEST, windowEnd },
+        createdAt: timestamp, updatedAt: timestamp, lastActivityAt: timestamp,
+      },
+    }));
+    const target = { kind: 'thread' as const, threadId: 'digest-thread', isNews: true };
+    TeactDOM.render(<AgentV2Classic isActive animationLevel={0} target={target} />, root);
+    await pause(20);
+
+    const { header } = AgentConversationShellMock.mock.calls.at(-1)![0];
+    expect(header?.title).toBe('News for November 11');
+    expect(header?.icon).toBe('🗓');
   });
 
   it('ends the chat with provider capacity as its status line and leaves the input bar to the draft', async () => {
@@ -1163,10 +1207,10 @@ describe('AgentV2Classic', () => {
     const result = buildMessagesResult({
       ...(isDigest ? { digest: DIGEST } : { news: NEWS }), messages: [message], sendFollowup, composerStatus: undefined,
     });
-    // A digest's discussion without a thread offers the suggestions of the feed's naming
+    // A digest's discussion without a thread offers the follow-ups the feed gives the digest
     const target = isDigest ? {
       kind: 'digest' as const, digest: { id: DIGEST.id }, digestPreview: DIGEST, shouldDeferCreation: true,
-      discussionNaming: { title: 'Discuss the digest', followups: [NEWS_FOLLOWUP.text] },
+      discussionFollowups: [NEWS_FOLLOWUP.text],
     } : undefined;
     const messagesRoot = document.createElement('div');
     document.body.appendChild(messagesRoot);

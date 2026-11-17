@@ -20,7 +20,7 @@ import { calculateTokenPrice } from '../../util/calculatePrice';
 import { fromDecimal, toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import {
-  formatCurrency, formatNumber, getIsCurrencySymbolAtStart, getShortCurrencySymbol,
+  formatCurrency, formatNumber, formatPercent, getIsCurrencySymbolAtStart, getShortCurrencySymbol,
 } from '../../util/formatNumber';
 import { vibrate } from '../../util/haptics';
 import getSwapRate from '../../util/swap/getSwapRate';
@@ -34,21 +34,21 @@ import useSwapEstimatePolling from './hooks/useSwapEstimatePolling';
 import useSwapFormState from './hooks/useSwapFormState';
 import useTradeAmountField from './hooks/useTradeAmountField';
 
-import AccountSwitcherPill from '../common/AccountSwitcherPill';
-import FiatCurrencyIcon from '../common/FiatCurrencyIcon';
-import TokenIcon from '../common/TokenIcon';
 import Button from '../ui/Button';
 import FeeLine from '../ui/FeeLine';
 import Modal from '../ui/Modal';
-import RichNumberInput from '../ui/RichNumberInput';
 import CexLegalDescription from './components/CexLegalDescription';
 import SwapHint from './components/SwapHint';
 import SwapSubmitButton from './components/SwapSubmitButton';
 import TokenTradeMenu from './TokenTradeMenu';
 import TokenTradeSlippageModal from './TokenTradeSlippageModal';
+import TradeAmountInput from './TradeAmountInput';
+import TradeCounterRow from './TradeCounterRow';
+import TradeHeader from './TradeHeader';
+import TradeNotice from './TradeNotice';
+import TradePercentRow from './TradePercentRow';
 
 import modalStyles from '../ui/Modal.module.scss';
-import hintStyles from './components/SwapHint.module.scss';
 import styles from './TokenTrade.module.scss';
 
 interface OwnProps {
@@ -265,7 +265,7 @@ function TokenTrade({
 
   const handleProviderInfoClick = useLastCallback(() => {
     showDialog({
-      title: lang('Cross-chain exchange provided by %provider%', currentCexProviderName!) as string,
+      title: lang('Cross-chain exchange provided by %provider%', currentCexProviderName!),
       message: (
         <CexLegalDescription
           providerName={currentCexProviderName!}
@@ -363,11 +363,11 @@ function TokenTrade({
 
   function renderHeader() {
     return (
-      <div className={styles.header}>
-        {hasMultipleAccounts && accountId ? (
-          <AccountSwitcherPill accountId={accountId} title={accountTitle} onClick={handleOpenAccountSelector} />
-        ) : <span />}
-        <div className={styles.headerButtons}>
+      <TradeHeader
+        accountId={accountId}
+        accountTitle={accountTitle}
+        hasMultipleAccounts={hasMultipleAccounts}
+        menu={(
           <TokenTradeMenu
             mode={isCardMode ? 'card' : isCrosschain ? 'cex' : 'dex'}
             exchangeRate={exchangeRate}
@@ -381,11 +381,10 @@ function TokenTrade({
             onProviderInfoClick={handleProviderInfoClick}
             onSlippageClick={openSlippageModal}
           />
-          <Button isRound className={styles.headerButton} ariaLabel={lang('Close')} onClick={cancelSwap}>
-            <i className={buildClassName(styles.headerCloseIcon, 'icon-close')} aria-hidden />
-          </Button>
-        </div>
-      </div>
+        )}
+        onAccountClick={handleOpenAccountSelector}
+        onClose={cancelSwap}
+      />
     );
   }
 
@@ -418,25 +417,16 @@ function TokenTrade({
     const suffix = isTokenUnit ? screenSymbol : (isSymbolAtStart ? '' : currencySymbol);
 
     return (
-      <div className={styles.amountRow}>
-        <RichNumberInput
-          id="token-trade-amount"
-          value={inputValue}
-          prefix={prefix}
-          suffix={suffix}
-          decimals={isTokenUnit ? screenToken?.decimals : currencyDecimals}
-          className={styles.amountInput}
-          inputClassName={styles.amountInputWrapper}
-          valueClassName={styles.amountValue}
-          onChange={handleInputChange}
-          onPressEnter={handleSubmit}
-        />
-        {Boolean(inputValue) && (
-          <button type="button" className={styles.clearButton} aria-label={lang('Clear')} onClick={handleClearClick}>
-            <i className="icon-close-filled" aria-hidden />
-          </button>
-        )}
-      </div>
+      <TradeAmountInput
+        id="token-trade-amount"
+        value={inputValue}
+        prefix={prefix}
+        suffix={suffix}
+        decimals={isTokenUnit ? screenToken?.decimals : currencyDecimals}
+        onChange={handleInputChange}
+        onPressEnter={handleSubmit}
+        onClear={handleClearClick}
+      />
     );
   }
 
@@ -457,40 +447,12 @@ function TokenTrade({
 
   function renderPriceImpactWarning() {
     return (
-      <div className={buildClassName(
-        hintStyles.root,
-        hintStyles.trade,
-        hintStyles.warning,
-        styles.priceImpactWarning,
-      )}
-      >
-        <div className={hintStyles.text}>
-          <span className={hintStyles.title}>
-            {lang('The exchange rate is below market value!', { value: `${priceImpact}%` })}
-          </span>
-          <span className={hintStyles.message}>
-            {lang('We do not recommend to perform an exchange, try to specify a lower amount.')}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  function renderPercentButtons() {
-    return (
-      <div className={styles.percentRow}>
-        {PERCENT_OPTIONS.map((percent) => (
-          <button
-            key={percent}
-            type="button"
-            className={styles.percentButton}
-            disabled={!percentMaxAmount}
-            onClick={() => handlePercentClick(percent)}
-          >
-            {percent}%
-          </button>
-        ))}
-      </div>
+      <TradeNotice
+        title={lang('The exchange rate is below market value!', { value: `${priceImpact}%` })}
+        message={lang('We do not recommend to perform an exchange, try to specify a lower amount.')}
+        isWarning
+        className={styles.priceImpactWarning}
+      />
     );
   }
 
@@ -513,31 +475,17 @@ function TokenTrade({
     }
 
     return (
-      <button type="button" className={styles.counterRow} onClick={handleCounterClick}>
-        {tradeCardCurrency ? (
-          <FiatCurrencyIcon currency={tradeCardCurrency} size="small" className={styles.counterIcon} />
-        ) : counterToken && (
-          <TokenIcon
-            token={counterToken}
-            withChainIcon
-            className={styles.counterIcon}
-            iconClassName={styles.counterIconImage}
-          />
-        )}
-        <span className={styles.counterLabel}>{lang(isBuy ? 'You Pay' : 'You Receive')}</span>
-        <span className={styles.counterValue}>
-          {Boolean(tokenAmount && rowAmount) && (
-            <span className={buildClassName(styles.counterAmount, isRowLoading && styles.loading)}>
-              {formatNumber(rowAmount!)}
-            </span>
-          )}
-          <span className={styles.counterSymbol}>{rowSymbol ?? lang('Select Token')}</span>
-          {!tradeCardCurrency && counterToken?.label && (
-            <span className={styles.counterBadge}>{counterToken.label}</span>
-          )}
-          <i className={buildClassName(styles.counterCaret, 'icon-expand')} aria-hidden />
-        </span>
-      </button>
+      <TradeCounterRow
+        token={counterToken}
+        currency={tradeCardCurrency}
+        label={lang(isBuy ? 'You Pay' : 'You Receive')}
+        amount={tokenAmount && rowAmount ? formatNumber(rowAmount) : undefined}
+        isAmountLoading={isRowLoading}
+        symbol={rowSymbol ?? lang('Select Token')}
+        badge={tradeCardCurrency ? undefined : counterToken?.label}
+        hasCaret
+        onClick={handleCounterClick}
+      />
     );
   }
 
@@ -566,7 +514,14 @@ function TokenTrade({
           </div>
         </div>
         <div className={styles.body}>
-          {shouldShowPercents && renderPercentButtons()}
+          {shouldShowPercents && (
+            <TradePercentRow
+              percents={PERCENT_OPTIONS}
+              isDisabled={!percentMaxAmount}
+              formatPercent={formatPercent}
+              onSelect={handlePercentClick}
+            />
+          )}
           {renderCounterRow()}
           <div className={styles.footer}>
             {estimateDebugSummary && (

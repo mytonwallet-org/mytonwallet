@@ -67,8 +67,7 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
         }
     }
 
-    /// With `isSummaryCached`, a new chat shows no cached history: the summary is the SDK's copy, whose unread state is
-    /// unknown
+    /// With `isSummaryCached`, a new chat waits for live history before falling back to the SDK's copy offline
     func acquireModel(
         thread: ApiAgentV2ThreadSummary,
         news: (item: ApiAgentV2NewsFeedItem, locale: String)? = nil,
@@ -269,6 +268,16 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
 
     func newsModel(eventId: Int) -> AgentV2Model? {
         discussionModels[.news(eventId: eventId)]?.value
+    }
+
+    /// The discussions waiting for their threads take the naming the feed's cards of their news have got since they
+    /// opened, as the server writes it a few seconds after the news
+    func updateNewsDiscussions(from items: [ApiAgentV2NewsFeedItem]) {
+        for (key, model) in discussionModels {
+            guard case .news(let eventId) = key, let model = model.value,
+                  let naming = items.first(where: { $0.eventId == eventId })?.discussionNaming else { continue }
+            model.updateDiscussionNaming(naming)
+        }
     }
 
     func digestModel(id: String) -> AgentV2Model? {

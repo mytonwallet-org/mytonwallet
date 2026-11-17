@@ -1328,6 +1328,27 @@ test('a deposit without enough ETH pays its gas in USDC', async () => {
   expect(estimatePerpsDepositFundingGasUsdc).toHaveBeenCalledWith(account, WALLET, '50.2');
 });
 
+test('a gasless 100% wallet fraction leaves the paymaster cost so preparation succeeds', async () => {
+  jest.mocked(chains.arbitrum.getWalletAssets).mockResolvedValue({
+    [ARBITRUM_USDC_MAINNET.slug]: 27_870000n, [getChainConfig('arbitrum').nativeToken.slug]: 0n,
+  });
+  jest.mocked(estimatePerpsDepositFundingGasUsdc).mockResolvedValue('0.0264');
+  const quote = await perpsPrepareOrder(account, { ...draft, amount: '0', fraction: 100 });
+  expect(quote).toMatchObject({
+    paymentAmount: '27.8436',
+    inputAmount: '27.6436',
+    estimatedNetworkFeeUsdc: '0.0264',
+    fundingRequirements: {
+      requiredUsdc: '27.8436',
+      requiredGasUsdc: '0.0264',
+      availableCollateral: '27.6436',
+      needsUsdc: false,
+      needsEth: false,
+    },
+  });
+  expect(estimatePerpsDepositFundingGasUsdc).toHaveBeenCalledWith(account, WALLET, '27.87');
+});
+
 test.each([
   ['reduce', { kind: 'reduce', amount: '20' }, '0.2'],
   ['close', { kind: 'close' }, '0.2'],

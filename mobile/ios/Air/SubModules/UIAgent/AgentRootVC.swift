@@ -33,7 +33,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     private var isModelPrepared = false
     private var selectedThreadId: String?
     private var isThreadDeleted = false
-    /// The thread's summary is the SDK's copy, so the chat shows only its loaded history
+    /// The cached summary's unread state is unknown, so its history is only an offline fallback
     private let isSummaryCached: Bool
     /// The new chat asks for a support operator, from the starter hints, once it has loaded
     private let shouldRequestSupport: Bool
@@ -291,13 +291,6 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
             }
             guard !Task.isCancelled, isSessionCurrent else {
                 releasePreparingModel()
-                return
-            }
-            // Nor does its cached history show when the history fails to load: the failure shows here with Retry
-            if !isCacheAllowed, model.isShowingCachedMessages {
-                releasePreparingModel()
-                skeletonView.isHidden = true
-                loadErrorView.show(model.initialLoadFailure ?? lang("$agent_error_generic"))
                 return
             }
             // The request goes from a chat the user has stayed on since it opened, not from one left, as by going back

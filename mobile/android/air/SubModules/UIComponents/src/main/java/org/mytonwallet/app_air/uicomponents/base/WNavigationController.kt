@@ -147,6 +147,24 @@ open class WNavigationController(
             viewControllers.firstOrNull()?.refreshRootTopOverlayMode()
             insetsUpdated()
         }
+
+    // Room the root screen keeps above the bottom bar for what floats over it, such as Home's banners
+    var additionalRootBottomInset: Int = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            insetsUpdated()
+        }
+
+    // The root keeps the room while it shows, also under a screen that leaves it
+    private val rootBottomInset: Int
+        get() = if (viewControllers.size == 1 ||
+            viewControllers.firstOrNull()?.isDisappeared == false
+        ) {
+            additionalRootBottomInset
+        } else {
+            0
+        }
     private var keyboardAnimationInProgress = false
 
     var viewControllers: ArrayList<WViewController> = arrayListOf()
@@ -211,7 +229,7 @@ open class WNavigationController(
                 (searchOverlayHost ?: tabBarController)?.getBottomNavigationHeight()
                     ?: if (floatingInset > 0) 0 else (window.systemBars?.bottom ?: 0),
                 window.minimizedBrowserInset(this)
-            )
+            ) + rootBottomInset
         )
     }
 
@@ -247,7 +265,7 @@ open class WNavigationController(
                 } else {
                     0
                 }
-            return gradientInset + baseInset
+            return gradientInset + baseInset + rootBottomInset
         }
 
     val imeInsetBottom: Int

@@ -33,6 +33,7 @@ import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
+import useEffectWithPrevDeps from '../../../../hooks/useEffectWithPrevDeps';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import { usePrevDuringAnimationSimple } from '../../../../hooks/usePrevDuringAnimationSimple';
@@ -70,6 +71,7 @@ interface OwnProps {
   isWidget?: boolean;
   isStretched?: boolean;
   collection?: ApiNftCollection;
+  limit?: number;
   scrollContainerSelector?: string;
 }
 
@@ -94,6 +96,7 @@ function Nfts({
   isActive,
   isWidget,
   isStretched,
+  limit,
   scrollContainerSelector,
   orderedAddresses,
   selectedNfts,
@@ -129,9 +132,12 @@ function Nfts({
     }
   }, [collection, isWidget]);
 
-  // Selection and `Esc` listener are also skipped since compact mode has no selection UI
-  useEffect(() => {
-    if (!isWidget) clearNftsSelection();
+  // Selection and `Esc` listener are also skipped since compact mode has no selection UI.
+  // The list becoming active keeps the selection: `selectNfts` selects first and opens the list after.
+  useEffectWithPrevDeps(([wasActive]) => {
+    if (isWidget || (isActive && !wasActive)) return;
+
+    clearNftsSelection();
   }, [isActive, isWidget, collection?.address, collection?.chain]);
 
   useEffect(() => (hasSelection && !isWidget
@@ -168,10 +174,10 @@ function Nfts({
 
       return matchesCollection
         && getIsNftVisible(nft, blacklistedNftAddressesSet, whitelistedNftAddressesSet, areUnverifiedNftsHidden);
-    });
+    }).slice(0, limit);
   }, [
     byAddress, collection?.address, collection?.chain, orderedAddresses,
-    blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden,
+    blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden, limit,
   ]);
 
   const handleNftMarketplaceClick = useLastCallback(() => {

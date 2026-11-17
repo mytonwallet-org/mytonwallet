@@ -2048,7 +2048,11 @@ export interface AgentNewsFeedDigestV2 {
   top: AgentNewsDigestHeadlineV2[];
   total: number;
   discussion?: AgentNewsFeedDiscussionV2;
-  discussionNaming?: AgentNewsFeedDiscussionNamingV2;
+  /**
+   * @minItems 1
+   * @maxItems 3
+   */
+  discussionFollowups?: AgentFollowUpTextV1[];
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -2764,6 +2768,7 @@ export interface AgentThreadCreateRequestV2 {
   };
   digest?: {
     id: AgentThreadDigestIdV2;
+    followup?: string;
   };
 }
 /**

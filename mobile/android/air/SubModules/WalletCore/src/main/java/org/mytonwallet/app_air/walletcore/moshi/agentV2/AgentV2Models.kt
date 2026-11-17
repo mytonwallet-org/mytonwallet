@@ -86,7 +86,7 @@ data class AgentV2NewsFeedDigest(
     val top: List<AgentV2NewsDigestHeadline>,
     val total: Int,
     val discussion: AgentV2NewsFeedItem.Discussion? = null,
-    val discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null
+    val discussionFollowups: List<String>? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -131,7 +131,7 @@ data class AgentV2ThreadNewsCard(
 data class AgentV2ThreadNewsRequest(val eventId: Int, val locale: String)
 
 @JsonClass(generateAdapter = true)
-data class AgentV2ThreadDigestRequest(val id: String)
+data class AgentV2ThreadDigestRequest(val id: String, val followup: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class AgentV2ThreadCreateRequest(
@@ -313,14 +313,10 @@ data class AgentV2CachedMessages(
 )
 
 @JsonClass(generateAdapter = true)
-data class AgentV2StarterHint(val id: String, val requiredCapabilities: List<String>? = null)
+data class AgentV2StarterHint(val id: String, val group: String)
 
 @JsonClass(generateAdapter = true)
-data class AgentV2HintsResponse(
-    val protocolVersion: Int,
-    val catalogVersion: String,
-    val items: List<AgentV2StarterHint>
-)
+data class AgentV2HintsResponse(val catalogVersion: String, val items: List<AgentV2StarterHint>)
 
 @JsonClass(generateAdapter = true)
 data class AgentV2AssetRef(val slug: String, val chain: String, val tokenAddress: String? = null)

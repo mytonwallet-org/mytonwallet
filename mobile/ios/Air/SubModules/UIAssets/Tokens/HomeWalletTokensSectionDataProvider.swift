@@ -459,7 +459,6 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
                 tokenBalance: tokenBalance,
                 token: tokenBalance.token,
                 badgeContent: getBadgeContent(
-                    accountContext: accountContext,
                     slug: tokenBalance.tokenSlug,
                     stakingBadge: stakingPresentation?.badge
                 ),

@@ -6,6 +6,7 @@ import WalletCore
 /// splicing and block parsing; the renderer turns marked labels into links and removes the markers. A marker
 /// carries its URL percent-encoded to letters, digits and `%`, which Markdown parsing leaves alone.
 enum AgentTextLinks {
+    private static let EXTERNAL_NEWS_SOURCE_DOMAINS = ["x.com", "twitter.com"]
     private static let linkStart = "\u{E004}"
     private static let urlEnd = "\u{E005}"
     private static let linkEnd = "\u{E006}"
@@ -134,7 +135,7 @@ enum AgentTextLinks {
     static func openNewsSource(
         _ rawURL: String?,
         openInBrowser: (URL) -> Void = { AppActions.openInBrowser($0, title: nil, injectDappConnect: false) },
-        openTelegramURL: (URL) -> Void = { UIApplication.shared.open($0) },
+        openExternalUrl: (URL) -> Void = { UIApplication.shared.open($0) },
         showLinkError: (DisplayError) -> Void = { AppActions.showError(error: $0) }
     ) {
         guard let rawURL else { return }
@@ -146,8 +147,11 @@ enum AgentTextLinks {
             if WalletContextManager.delegate?.handleDeeplink(url: url) != true {
                 showLinkError(DisplayError(text: lang("Unsupported link")))
             }
-        } else if url.isTelegramURL {
-            openTelegramURL(url)
+        } else if url.isTelegramURL || EXTERNAL_NEWS_SOURCE_DOMAINS.contains(where: { domain in
+            let host = url.host?.lowercased()
+            return host == domain || host?.hasSuffix(".\(domain)") == true
+        }) {
+            openExternalUrl(url)
         } else {
             openInBrowser(url)
         }

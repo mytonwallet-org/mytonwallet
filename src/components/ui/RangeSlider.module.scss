@@ -1,0 +1,155 @@
+@use "../../styles/mixins";
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 3.5rem;
+  padding: 0 1.25rem;
+}
+
+.boundButton {
+  cursor: var(--custom-cursor, pointer);
+
+  flex: 0 0 auto;
+
+  width: 4.5rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 1rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+
+  background-color: var(--color-gray-button-background-light);
+
+  @include mixins.transition(background-color 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-gray-button-background-light-hover);
+    }
+  }
+}
+
+$thumb-width: 2.5rem;
+$thumb-height: 1.75rem;
+$track-height: 0.375rem;
+$track-color: rgba(120, 120, 120, 0.2);
+$tick-size: 0.25rem;
+// The thumb center travels this far from the edges of the area
+$thumb-inset: 2.5rem;
+// The track runs past the thumb center by half the thumb, so the thumb at an end lines up with the track end
+$track-overhang: calc(#{$thumb-width} / 2);
+
+.sliderArea {
+  --fill: 0;
+  --track-direction: to right;
+
+  position: relative;
+  padding: 0.5rem $thumb-inset;
+
+  :global(html[dir="rtl"]) & {
+    --track-direction: to left;
+  }
+}
+
+// The input's own track is transparent and the thumb overhangs it by half its width at either end,
+// so the thumb center reaches the end dots
+.track {
+  // The filled part ends under the thumb center, which travels between the overhangs
+  --fill-end: calc(#{$track-overhang} + (100% - 2 * #{$track-overhang}) * var(--fill));
+
+  position: absolute;
+  top: calc(0.5rem + ($thumb-height - $track-height) / 2);
+  inset-inline: calc(#{$thumb-inset} - #{$track-overhang});
+
+  height: $track-height;
+  border-radius: $track-height;
+
+  background: linear-gradient(
+    var(--track-direction),
+    var(--color-accent) 0,
+    var(--color-accent) var(--fill-end),
+    $track-color var(--fill-end),
+    $track-color 100%
+  );
+}
+
+.slider {
+  cursor: var(--custom-cursor, pointer);
+
+  // The thumb covers the dot it stands on
+  position: relative;
+  z-index: 1;
+
+  display: block;
+
+  width: calc(100% + #{$thumb-width});
+  height: $thumb-height;
+  margin: 0 calc(#{$thumb-width} / -2);
+
+  appearance: none;
+  background: transparent;
+
+  &::-webkit-slider-runnable-track {
+    height: $track-height;
+    background: transparent;
+  }
+
+  &::-moz-range-track {
+    height: $track-height;
+    background: transparent;
+  }
+
+  &::-webkit-slider-thumb {
+    width: $thumb-width;
+    height: $thumb-height;
+    margin-top: calc(($track-height - $thumb-height) / 2);
+    border: none;
+    border-radius: $thumb-height;
+
+    appearance: none;
+    background: var(--color-background-first);
+    box-shadow: 0 0.125rem 0.3125rem 0 #0000001F;
+  }
+
+  &::-moz-range-thumb {
+    width: $thumb-width;
+    height: $thumb-height;
+    border: none;
+    border-radius: $thumb-height;
+
+    background: var(--color-background-first);
+    box-shadow: 0 0.125rem 0.3125rem 0 #0000001F;
+  }
+}
+
+// The dots are centered under the thumb positions, from one end of the track to the other
+.ticks {
+  pointer-events: none;
+  position: absolute;
+  top: 1.9375rem;
+  inset-inline: $thumb-inset;
+}
+
+.tick {
+  position: absolute;
+  inset-inline-start: var(--position);
+  transform: translateX(-50%);
+
+  width: $tick-size;
+  height: $tick-size;
+  border-radius: 50%;
+
+  background-color: $track-color;
+
+  :global(html[dir="rtl"]) & {
+    transform: translateX(50%);
+  }
+}

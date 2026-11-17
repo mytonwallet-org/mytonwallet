@@ -118,7 +118,20 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var tabControlTrailingConstraint: NSLayoutConstraint?
     private var toolbarSettingsObservation: NSObjectProtocol?
     private var accountVisibilityAnimationID: UUID?
-    private var accountButtonPlacement: (isHidden: Bool, trailingSpacing: CGFloat)?
+    private var tabControlLeadingConstraint: NSLayoutConstraint?
+    private var accountLeadingConstraint: NSLayoutConstraint?
+    private var accountTrailingConstraint: NSLayoutConstraint?
+    private var accountButtonPlacement: (isHidden: Bool, isAtStart: Bool, isOnToolbar: Bool, isDragActive: Bool)?
+    /// The account button is being dragged: the tabs leave both ends of the bar free for it to drop on
+    private var isAccountDragActive = false
+    /// Lifts the account button for a drag to the toolbar or the bar's other side. It is on the button's container:
+    /// the button's menu cancels the recognizers on the button itself as it opens.
+    private lazy var accountHoldRecognizer: UILongPressGestureRecognizer = {
+        let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleAccountHold(_:)))
+        recognizer.minimumPressDuration = 0.4
+        recognizer.delegate = self
+        return recognizer
+    }()
     private var headerPlatterTransition: AgentHeaderPlatterTransition?
     /// A chat composed in the list is taking the screen's place, carrying the header with it
     private var isPresentingComposedChat = false
@@ -601,8 +614,18 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         )
     }
 
-    func switchToHome(popToRoot: Bool) {
-        selectTab(.wallet, popToRoot: popToRoot)
+    func switchToHome(popToRoot: Bool, shouldPreserveSelectedTab: Bool = false) {
+        var tab: AppTabId = .wallet
+        if shouldPreserveSelectedTab {
+            tab = currentTabId == .settings
+                ? Self.pageOrder(for: AppTabManager.shared.orderedTabIds)[0].tabId
+                : currentTabId
+            discardSearch()
+        }
+        selectTab(tab, popToRoot: popToRoot, animated: !shouldPreserveSelectedTab)
+        if shouldPreserveSelectedTab, popToRoot, tab != .wallet {
+            setNavigationPath([], for: .wallet)
+        }
         if let rootViewController = view.window?.rootViewController,
            rootViewController.presentedViewController != nil {
             rootViewController.dismiss(animated: true)
@@ -774,6 +797,22 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         )
         accountSwitcherMenuInteraction.attach(to: accountSwitcherButton)
         self.accountSwitcherMenuInteraction = accountSwitcherMenuInteraction
+        tabControlContainer.addGestureRecognizer(accountHoldRecognizer)
+        searchController.topAccountFrameProvider = { [weak self] isAtStart in
+            self?.getTopAccountFrame(isAtStart: isAtStart)
+        }
+        searchController.onTopAccountHeldChange = { [weak self] isHeld in
+            self?.accountSwitcherButton.alpha = isHeld ? 0 : 1
+        }
+        searchController.onTopAccountDragActiveChange = { [weak self] isActive in
+            guard let self, isAccountDragActive != isActive else { return }
+            isAccountDragActive = isActive
+            updateAccountButtonPlacement(animated: true)
+        }
+        searchController.onWillLiftAccounts = { [weak self] in
+            self?.accountSwitcherMenuInteraction?.cancelActivationGesture()
+            self?.accountSwitcherMenuInteraction?.dismiss()
+        }
         tabControlContainer.backgroundColor = .clear
         tabControlContainer.translatesAutoresizingMaskIntoConstraints = false
         let contentView: UIView
@@ -806,20 +845,27 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         )
         navigationBarTitleWidthConstraint = titleWidthConstraint
 
+        // The tabs leave room for the account button on the side it is on
+        let tabControlLeadingConstraint = segmentedControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor)
         let tabControlTrailingConstraint = segmentedControl.trailingAnchor.constraint(
-            equalTo: accountSwitcherButton.leadingAnchor, constant: -topTabsNavigationBarSpacing
+            equalTo: contentView.trailingAnchor, constant: -topTabsNavigationBarHeight - topTabsNavigationBarSpacing
         )
+        self.tabControlLeadingConstraint = tabControlLeadingConstraint
         self.tabControlTrailingConstraint = tabControlTrailingConstraint
+        let accountLeadingConstraint = accountSwitcherButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor)
+        let accountTrailingConstraint = accountSwitcherButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
+        self.accountLeadingConstraint = accountLeadingConstraint
+        self.accountTrailingConstraint = accountTrailingConstraint
         horizontalHeaderConstraints = [
             titleWidthConstraint,
             tabControlContainer.heightAnchor.constraint(equalToConstant: topTabsNavigationBarHeight),
 
-            accountSwitcherButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            accountTrailingConstraint,
             accountSwitcherButton.topAnchor.constraint(equalTo: contentView.topAnchor),
             accountSwitcherButton.widthAnchor.constraint(equalToConstant: topTabsNavigationBarHeight),
             accountSwitcherButton.heightAnchor.constraint(equalToConstant: topTabsNavigationBarHeight),
 
-            segmentedControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            tabControlLeadingConstraint,
             tabControlTrailingConstraint,
             segmentedControl.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             segmentedControl.heightAnchor.constraint(equalToConstant: topTabsSegmentedControlHeight),
@@ -830,14 +876,11 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private func updateTabBarPlacement() {
         guard segmentedControl != nil else { return }
         let edge: SideTabEdge?
-        if #available(iOS 27.1, *) {
-            switch traitCollection.verticalBarEdge {
-            case .leading: edge = view.effectiveUserInterfaceLayoutDirection == .leftToRight ? .left : .right
-            case .trailing: edge = view.effectiveUserInterfaceLayoutDirection == .leftToRight ? .right : .left
-            default: edge = nil
-            }
-        } else {
-            edge = nil
+        // The navigation container owns bar placement while the root enters or leaves a Back transition
+        switch searchToolbarVerticalEdge {
+        case .left: edge = .left
+        case .right: edge = .right
+        default: edge = nil
         }
         guard sideTabEdge != edge else {
             updateSideHeaderGeometry()
@@ -981,18 +1024,39 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     private func updateAccountButtonPlacement(animated: Bool) {
-        let movedToToolbar = ToolbarSettings.configuration().showsAccounts
+        let configuration = ToolbarSettings.configuration()
+        let movedToToolbar = configuration.showsAccounts
+        let isAtStart = configuration.isAccountsAtStart
         let isHidden = movedToToolbar
             || (sideTabEdge != nil && homeVC.walletAssetsEditingNavigator?.state.editingState != nil)
-        let trailingSpacing = movedToToolbar ? topTabsNavigationBarHeight : -topTabsNavigationBarSpacing
-        guard accountButtonPlacement?.isHidden != isHidden || accountButtonPlacement?.trailingSpacing != trailingSpacing else { return }
-        accountButtonPlacement = (isHidden, trailingSpacing)
+        let isDragActive = isAccountDragActive
+        guard accountButtonPlacement?.isHidden != isHidden || accountButtonPlacement?.isAtStart != isAtStart
+            || accountButtonPlacement?.isOnToolbar != movedToToolbar
+            || accountButtonPlacement?.isDragActive != isDragActive else { return }
+        let hasSideChanged = accountButtonPlacement.map { $0.isAtStart != isAtStart } ?? isAtStart
+        accountButtonPlacement = (isHidden, isAtStart, movedToToolbar, isDragActive)
         let animationID = UUID()
         accountVisibilityAnimationID = animationID
         tabControlContainer.layoutIfNeeded()
         if sideTabEdge != nil { view.layoutIfNeeded() }
+        if hasSideChanged, let leading = accountLeadingConstraint, let trailing = accountTrailingConstraint {
+            let (side, otherSide) = isAtStart ? (leading, trailing) : (trailing, leading)
+            horizontalHeaderConstraints.removeAll { $0 === otherSide }
+            otherSide.isActive = false
+            horizontalHeaderConstraints.append(side)
+            // The button changes sides at once, before the tabs start to move: it does so out of sight, or under the
+            // dragged copy that lands on it
+            if sideTabEdge == nil {
+                UIView.performWithoutAnimation {
+                    side.isActive = true
+                    accountSwitcherButton.superview?.layoutIfNeeded()
+                }
+            }
+        }
         sideTabTopConstraint?.constant = movedToToolbar ? -48 : 12
-        tabControlTrailingConstraint?.constant = trailingSpacing
+        let reserve = topTabsNavigationBarHeight + topTabsNavigationBarSpacing
+        tabControlLeadingConstraint?.constant = isDragActive || (!movedToToolbar && isAtStart) ? reserve : 0
+        tabControlTrailingConstraint?.constant = isDragActive || (!movedToToolbar && !isAtStart) ? -reserve : 0
         accountSwitcherButton.isHidden = false
         accountSwitcherButton.isUserInteractionEnabled = !isHidden
         accountSwitcherButton.accessibilityElementsHidden = isHidden
@@ -1006,12 +1070,31 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             self.accountSwitcherButton.isHidden = isHidden
         }
         if animated, view.window != nil, UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled {
-            UIView.animate(withDuration: 0.4, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction],
-                           animations: updates, completion: completion)
+            UIView.animate(withDuration: 0.42, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction], animations: updates, completion: completion)
         } else {
             UIView.performWithoutAnimation(updates)
             completion(true)
         }
+    }
+
+    /// The account button's place on a side of the horizontal top bar, in window coordinates
+    private func getTopAccountFrame(isAtStart: Bool) -> CGRect? {
+        guard sideTabEdge == nil, !isSearchVisible, let contentView = headerContentView, contentView.window != nil,
+              navigationItem.titleView === tabControlContainer else { return nil }
+        let size = topTabsNavigationBarHeight
+        let isOnLeft = isAtStart != (contentView.effectiveUserInterfaceLayoutDirection == .rightToLeft)
+        return contentView.convert(
+            CGRect(x: isOnLeft ? 0 : contentView.bounds.width - size, y: 0, width: size, height: size),
+            to: nil
+        )
+    }
+
+    @objc private func handleAccountHold(_ recognizer: UILongPressGestureRecognizer) {
+        searchController.toolbarEditor.handleTopAccountHold(
+            recognizer,
+            isAtStart: ToolbarSettings.configuration().isAccountsAtStart
+        )
     }
 
     private func updateRootChromeVisibilityForSelectedPage() {
@@ -1531,6 +1614,11 @@ extension TopTabsRootViewController: RootSearchToolbarHost {
         selectedPage == .wallet ? homeVC.walletAssetsEditingNavigator : nil
     }
     var showsRootSearchToolbar: Bool { true }
+    var canFloatPromotions: Bool { true }
+    /// The Agent tab's question field and suggestions take the banners' place there
+    var promotionOverlayContentControllers: [UIViewController] {
+        [walletPage, marketPage, explorePage].compactMap(\.loadedContentViewController)
+    }
 
     func agentQuestionEditingDidChange(_ isEditing: Bool) {
         guard isEditing else {
@@ -1548,5 +1636,20 @@ extension TopTabsRootViewController: RootSearchToolbarHost {
               sharedMainNavigationController?.topViewController === self else { return }
         composeHeaderSwap.setActive(true, animated: view.window != nil)
         updatePagingEnabled()
+    }
+}
+
+extension TopTabsRootViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === accountHoldRecognizer else { return true }
+        return !accountSwitcherButton.isHidden
+            && accountSwitcherButton.bounds.contains(touch.location(in: accountSwitcherButton))
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === accountHoldRecognizer && !(otherGestureRecognizer is UIPanGestureRecognizer)
     }
 }

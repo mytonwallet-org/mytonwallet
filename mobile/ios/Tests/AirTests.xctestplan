@@ -14,6 +14,13 @@
   "testTargets" : [
     {
       "target" : {
+        "containerPath" : "container:../Packages/GraphKit",
+        "identifier" : "GraphKitTests",
+        "name" : "GraphKitTests"
+      }
+    },
+    {
+      "target" : {
         "containerPath" : "container:..\/Air",
         "identifier" : "LedgerTests",
         "name" : "LedgerTests"

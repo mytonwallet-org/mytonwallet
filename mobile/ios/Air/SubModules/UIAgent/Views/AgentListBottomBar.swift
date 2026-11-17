@@ -99,6 +99,13 @@ public final class AgentListBottomBar: UIView {
             if toolbarActionsWidth != oldValue { setNeedsLayout() }
         }
     }
+    /// The space the toolbar's buttons before its search field take. The field starts after them, as the search field
+    /// does, and grows over them as they fold into the search circle.
+    public var toolbarLeadingInset: CGFloat = 0 {
+        didSet {
+            if toolbarLeadingInset != oldValue { setNeedsLayout() }
+        }
+    }
     /// How far the field is widened to a thread composer's width, as `setExpansion` set it
     public private(set) var expansion: CGFloat = 0
     private weak var glassHost: UIView?
@@ -260,7 +267,7 @@ public final class AgentListBottomBar: UIView {
         // The field starts where the toolbar's search field is, beside the trailing button the microphone's circle
         // stands in for, and its leading edge parts from the circle the search field shrinks into
         let listX = Self.height + Self.spacing
-        let restingX = listX * progress
+        let restingX = max(listX * progress, toolbarLeadingInset * (1 - Self.getSearchCircleCollapse(at: progress)))
         let minX = restingX - restingX * expansion
         let maxX = width
         // The field rests on the bar's bottom, which the host places as it places its search field, above the

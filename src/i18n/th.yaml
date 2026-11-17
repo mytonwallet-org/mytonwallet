@@ -1381,22 +1381,33 @@ $agent_hint_swap_title: สวอปทำงานอย่างไร?
 $agent_hint_swap_prompt: อธิบายวิธีการสวอปโทเค็น
 $agent_hint_staking_title: การสเตกคืออะไร?
 $agent_hint_staking_prompt: อธิบายการสเตกตั้งแต่พื้นฐาน เหมือนกับว่าฉันไม่เคยใช้คริปโตมาก่อน
-$agent_hint_security_title: จะปกป้องกระเป๋าเงินของฉันอย่างไร?
-$agent_hint_security_prompt: แสดงวิธีรักษาความปลอดภัยกระเป๋าเงินของฉัน
+$agent_hint_security_title: ความปลอดภัยกระเป๋าเงิน
+$agent_hint_security_prompt: จะปกป้องกระเป๋าเงินของฉันอย่างไร?
 $agent_hint_receive_title: รับโทเค็น
 $agent_hint_receive_prompt: ช่วยฉันรับโทเค็น
-$agent_hint_assets_title: แสดงสินทรัพย์ของฉัน
-$agent_hint_total_title: ยอดรวมของฉันเท่าไร?
-$agent_hint_spending_title: สัปดาห์นี้ฉันใช้จ่ายไปกับอะไรบ้าง?
-$agent_hint_last_transfer_title: แสดงการโอนล่าสุดของฉัน
-$agent_hint_fund_title: เติมเงินเข้ากระเป๋าเงินอย่างไร?
-$agent_hint_market_today_title: วันนี้ตลาดเป็นอย่างไร?
-$agent_hint_news_today_title: ข่าวเด่นประจำวัน
-$agent_hint_bitcoin_title: บิตคอยน์เป็นอย่างไรบ้าง?
+$agent_hint_assets_title: สินทรัพย์ของฉัน
+$agent_hint_assets_prompt: แสดงสินทรัพย์ของฉัน
+$agent_hint_total_title: ยอดรวม
+$agent_hint_total_prompt: ยอดรวมของฉันเท่าไร?
+$agent_hint_spending_title: รายจ่ายสัปดาห์นี้
+$agent_hint_spending_prompt: สัปดาห์นี้ฉันใช้จ่ายไปกับอะไรบ้าง?
+$agent_hint_last_transfer_title: การโอนล่าสุด
+$agent_hint_last_transfer_prompt: แสดงการโอนล่าสุดของฉัน
+$agent_hint_fund_title: เติมเงินกระเป๋าเงิน
+$agent_hint_fund_prompt: เติมเงินเข้ากระเป๋าเงินอย่างไร?
+$agent_hint_market_today_title: ตลาดวันนี้
+$agent_hint_market_today_prompt: วันนี้ตลาดเป็นอย่างไร?
+$agent_hint_news_today_title: ข่าววันนี้
+$agent_hint_news_today_prompt: ข่าวเด่นประจำวัน
+$agent_hint_bitcoin_title: บิตคอยน์วันนี้
+$agent_hint_bitcoin_prompt: บิตคอยน์เป็นอย่างไรบ้าง?
 $agent_hint_price_title: 0.5 ETH ราคาเท่าไร?
-$agent_hint_staking_yield_title: ที่ไหนให้ผลตอบแทนสูงกว่า?
-$agent_hint_staking_options_title: มีตัวเลือกการสเตกอะไรบ้าง?
-$agent_hint_multisend_title: จะส่งให้หลายคนได้อย่างไร?
+$agent_hint_staking_yield_title: ผลตอบแทนการสเตก
+$agent_hint_staking_yield_prompt: ที่ไหนให้ผลตอบแทนสูงกว่า?
+$agent_hint_staking_options_title: ตัวเลือกการสเตก
+$agent_hint_staking_options_prompt: มีตัวเลือกการสเตกอะไรบ้าง?
+$agent_hint_multisend_title: ส่งให้หลายคน
+$agent_hint_multisend_prompt: จะส่งให้หลายคนได้อย่างไร?
 $agent_hint_action_swap_title: สวอปโทเค็น
 $agent_hint_action_send_title: ส่งคริปโต
 $agent_hint_action_stake_title: เริ่มสเตก
@@ -1606,6 +1617,7 @@ Wallet Name: ชื่อกระเป๋า
 App Icon: ไอคอนแอป
 Rounded Toolbars: แถบเครื่องมือโค้งมน
 Toolbar: แถบเครื่องมือ
+Toolbars: แถบเครื่องมือ
 Shared Background: พื้นหลังร่วมกัน
 Side Gutters: ขอบด้านข้าง
 Gradient Navigation Bar: แถบนำทางไล่สี
@@ -2159,7 +2171,6 @@ $agent_news_unread_digests_count:
 Explorer mode: โหมดสำรวจ
 Open a link to a wallet, transfer, token or collectible to see its details here.: เปิดลิงก์ของกระเป๋าสตางค์ การโอน โทเคน หรือของสะสม เพื่อดูรายละเอียดที่นี่
 
-# Perps
 Long: Long
 Short: Short
 Funding Rate: "อัตราฟันดิง"
@@ -2171,7 +2182,6 @@ $perps_max_leverage_hint: "เลเวอเรจสูงสุดที่�
 $perps_volume_24h_hint: "มูลค่ารวมของการซื้อขายในตลาดฟิวเจอร์สนี้ในช่วง 24 ชั่วโมงที่ผ่านมา รวมทั้งการซื้อขายเพื่อเปิดและปิดสถานะ"
 $perps_open_interest_hint: "มูลค่ารวมของสัญญาที่ยังเปิดอยู่ในตลาดฟิวเจอร์สนี้ ต่างจากปริมาณซื้อขาย 24 ชั่วโมง เนื่องจากไม่รวมสถานะที่ปิดไปแล้ว"
 
-# Perps order entry
 "Leverage": "เลเวอเรจ"
 "Position Size": "ขนาดสถานะ"
 "Liquidation Price": "ราคาบังคับปิดสถานะ"
@@ -2192,18 +2202,15 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "$perps_liquidation_price_hint": "ราคาโดยประมาณที่สถานะของคุณอาจถูกปิดโดยอัตโนมัติ เนื่องจากมีเงินไม่เพียงพอที่จะคงสถานะไว้"
 "$perps_leverage_disclaimer": "เลเวอเรจที่สูงขึ้นจะเพิ่มทั้งกำไรและขาดทุนที่อาจเกิดขึ้น แม้ราคาเปลี่ยนแปลงสวนทางกับสถานะของคุณเพียงเล็กน้อย ก็อาจทำให้สถานะถูกปิดโดยอัตโนมัติได้"
 
-# Perps order review
 "Open Position": "เปิดสถานะ"
 "$perps_asset_price": "ราคา %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
 "$perps_liquidation_acknowledgment": "เมื่อยืนยัน ฉันเข้าใจว่าสถานะนี้อาจถูกบังคับปิด และฉันอาจสูญเสียเงินที่ลงทุนไป"
 
-# Perps position receipt
 "Position Opened": "เปิดสถานะแล้ว"
 "Fees": "ค่าธรรมเนียม"
 "Transfer ID": "รหัสการโอน"
 
-# Perps active position
 "Equity": "มูลค่าสุทธิ"
 "Profit and Loss": "กำไรและขาดทุน"
 "Invested": "เงินลงทุน"
@@ -2216,7 +2223,6 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "$perps_entry_price_hint": "ราคาเฉลี่ยที่เปิดสถานะนี้"
 "$perps_funding_payments_hint": "การชำระเงินเป็นระยะระหว่างผู้ถือสถานะ Long และ Short คุณอาจต้องจ่ายหรือได้รับเงินทุนขณะที่สถานะยังเปิดอยู่ ขึ้นอยู่กับอัตราเงินทุน"
 
-# Perps edit position
 "$perps_edit_long": "แก้ไข %asset% Long"
 "$perps_edit_short": "แก้ไข %asset% Short"
 "Current:": "ปัจจุบัน:"
@@ -2227,7 +2233,6 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "$perps_network_fee_hint": "ค่าธรรมเนียมสำหรับการประมวลผลธุรกรรมนี้บนบล็อกเชน"
 "$perps_edit_liquidation_hint": "การบังคับปิดสถานะ — ราคาที่สถานะของคุณจะถูกปิดโดยอัตโนมัติ"
 
-# Perps position lifecycle
 "Increase Position": "เพิ่มสถานะ"
 "Reduce Position": "ลดสถานะ"
 "Current Value": "มูลค่าปัจจุบัน"
@@ -2249,7 +2254,6 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "$perps_liquidated_title": "สถานะถูกปิดโดยอัตโนมัติ"
 "$perps_liquidated_message": "ราคาตลาดแตะราคาบังคับปิดสถานะ ทำให้เกิดการขาดทุน"
 
-# Perps home
 "Open Positions": "สถานะที่เปิดอยู่"
 "Show All Positions": "แสดงทุกสถานะ"
 "Futures": "ฟิวเจอร์ส"
@@ -2263,14 +2267,13 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "$perps_explore_futures": "เปิดสถานะ Short และ Long"
 "$perps_explore_apps": "สำรวจอินเทอร์เน็ตแบบกระจายศูนย์"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "ราคาหรือสถานะของคุณเปลี่ยนไป กลับไปตรวจสอบคำสั่งอีกครั้ง"
 "PerpsReviewChanged": "คำสั่งเปลี่ยนไป กลับไปตรวจสอบอีกครั้ง"
 "PerpsInsufficientUsdc": "USDC บน Arbitrum ไม่เพียงพอเมื่อรวมค่าธรรมเนียมบริดจ์"
 "EvmUserOperationMismatch": "การชำระค่าแก๊สไม่ตรงกับธุรกรรมนี้"
 "PerpsInsufficientBalance": "USDC ในยอดคงเหลือ Hyperliquid ของคุณไม่เพียงพอเมื่อรวมค่าธรรมเนียมการซื้อขาย"
 "PerpsMarketNeedsUnifiedAccount": "ไม่สามารถเติมเงินตลาดนี้จากกระเป๋าเงินของคุณด้วยประเภทบัญชี Hyperliquid ปัจจุบันได้"
-"PerpsRequiresMultichainWallet": "ฟิวเจอร์สต้องใช้กระเป๋าเงินแบบหลายเชน สลับไปใช้หรือสร้างใหม่เพื่อเริ่มซื้อขาย"
+"PerpsRequiresMultichainWallet": "สลับไปใช้กระเป๋าเงินแบบหลายเชนหรือสร้างใหม่เพื่อเริ่มซื้อขาย"
 "PerpsSwitchesToUnifiedAccount": "คำสั่งนี้จะเปลี่ยนบัญชี Hyperliquid ของคุณเป็น Unified ด้วย เพื่อให้ยอดคงเหลือ USDC เดียวครอบคลุมทุกตลาด"
 "PerpsAmountTooSmall": "จำนวนนี้ต่ำกว่าขั้นต่ำของตลาด"
 "$perps_minimum_amount": "จำนวนเงินขั้นต่ำ: %amount% USDC"
@@ -2315,7 +2318,6 @@ Could not save the image. Please try again.: ไม่สามารถบั�
 "$perps_activity_closed": "ปิด %asset%"
 "$perps_activity_liquidated": "บังคับปิด %asset%"
 
-# Perps
 "PerpsInsufficientGas": "ETH บน Arbitrum ไม่เพียงพอสำหรับค่าธรรมเนียมเครือข่าย USDC สำหรับสถานะแยกจากค่าธรรมเนียมนี้"
 "PerpsFundingMissingTitle": "ไม่มี USDC หรือ ETH บน Arbitrum"
 "$perps_funding_missing": "รับอย่างน้อย %minUSDC% USDC และ %feeETH% ETH สำหรับค่าธรรมเนียม"
@@ -2431,9 +2433,13 @@ Unlink Wallet: ยกเลิกการเชื่อมโยงกระ�
 Confirm Unlinking: ยืนยันการยกเลิกการเชื่อมโยง
 Domain Unlinked: ยกเลิกการเชื่อมโยงโดเมนเรียบร้อยแล้ว
 Drag here to add to the toolbar: ลากมาที่นี่เพื่อเพิ่มลงในแถบเครื่องมือ
+$toolbar_settings_hint: แตะปุ่มค้างไว้แล้วลากเพื่อจัดเรียงแถบใหม่ ปุ่มที่ลากออกจากแถบเครื่องมือจะถูกนำออก ส่วนปุ่มบัญชีจะย้ายไปที่แถบด้านบน
+$toolbar_full_title: แถบเครื่องมือเต็มแล้ว
+$toolbar_full_hint: นำปุ่มออกหนึ่งปุ่มเพื่อเพิ่มปุ่มใหม่
 $send_only_chain_and_token: ส่งเฉพาะ %symbol%, %tokenSymbol% หรือสินทรัพย์อื่นบน %chain% ไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
 $agent_digest_unavailable: "สรุปนี้ไม่พร้อมใช้งานอีกต่อไป"
 $agent_digest_title: "ข่าวเด่นประจำวัน"
+$agent_digest_discussion_title: "ข่าววันที่ %date%"
 $agent_digest_meta:
   otherValue: "%count% ข่าว"
 $agent_digest_more:
@@ -2470,3 +2476,11 @@ $agent_digest_minutes: "นาที"
 $swap_one_to_one: อัตราแลกเปลี่ยนที่ดีกว่า (1:1) ใช้ได้ตั้งแต่ %value% ขึ้นไป
 $swap_better_rate_minimum: "อัตราแลกเปลี่ยนที่ดีกว่าเริ่มต้นที่ %value%"
 $agent_daily_limit_resets_at: "ถึงขีดจำกัดรายวันของผู้ช่วยแล้ว จะรีเซ็ตเวลา %time%"
+$biometric_recovery_title: "ตั้งค่าชีวมิติอีกครั้ง"
+$biometric_recovery_passcode: "การตั้งค่าชีวมิติของคุณอาจเปลี่ยนไป ป้อนรหัสผ่านกระเป๋าเงินเพื่อดำเนินการต่อ"
+$biometric_recovery_offer: "ยืนยันรหัสผ่านแล้ว ต้องการตั้งค่าชีวมิติอีกครั้งหรือไม่"
+$biometric_recovery_enable: "เปิดใช้ชีวมิติ"
+$biometric_recovery_failed: "ไม่สามารถตั้งค่าชีวมิติได้ คุณสามารถลองอีกครั้งได้ที่ การตั้งค่า > ความปลอดภัย"
+"$perps_leverage_value": "เลเวอเรจ %value%"
+"$perps_edit_action": "แก้ไข"
+"PerpsRequiresOwnWallet": "สลับไปใช้กระเป๋าเงินของคุณหรือสร้างใหม่เพื่อเริ่มซื้อขาย"

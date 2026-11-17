@@ -83,12 +83,15 @@ export async function publishSignedMfaRequest(
   mfaRequest: SignedMfaRequest,
 ) {
   const walletAddress = await fetchStoredAddress(accountId, chain);
-  const { payload, signature } = mfaRequest;
+  const { payload, signature, mfaRefillAmount } = mfaRequest;
+  const authToken = mfaRefillAmount === undefined ? undefined : await getStoredBackendAuthToken(accountId);
 
   const { reqId } = await createMfaRequest({
     walletAddress,
     payload: payload.toBoc(),
     signature,
+    mfaRefillAmount: authToken ? mfaRefillAmount : undefined,
+    authToken,
   });
 
   return { mfaRequestHash: reqId };

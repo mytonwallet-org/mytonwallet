@@ -123,10 +123,13 @@ class ActivityCell(
     private var baseCurrencyRate: Double? = null
     private var heightSpringAnimation: SpringAnimation? = null
 
+    init {
+        id = UIComponentsR.id.activity_row
+    }
+
     override fun setupViews() {
         super.setupViews()
 
-        id = UIComponentsR.id.activity_row
         addView(dateView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(
             mainContentView,

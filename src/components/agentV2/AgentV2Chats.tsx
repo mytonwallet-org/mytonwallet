@@ -47,6 +47,7 @@ import { getCanRequestAgentV2SupportFromList, requestAgentV2Support } from './us
 import useAgentV2ThreadList from './useAgentV2ThreadList';
 
 import useFlag from '../../hooks/useFlag';
+import useHideHomeToolbar from '../../hooks/useHideHomeToolbar';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -138,6 +139,7 @@ function AgentV2Chats({
   // Before consent the feed and its discussions open as they do after it, and chats wait for it
   const activeLevel: StackLevel = [feed, parentChat, chat].filter(Boolean).length;
   const canGoBack = activeLevel !== StackLevel.List;
+  useHideHomeToolbar(isActive && canGoBack);
   // Telegram's own swipe would close the Mini App in place of the swipe back
   const { disableSwipeToClose, enableSwipeToClose } = useTelegramMiniAppSwipeToClose(isActive && canGoBack);
 
@@ -524,7 +526,7 @@ function AgentV2Chats({
       digest: { id },
       digestPreview,
       ...(digest?.kind === 'digest' && !digest.discussion && {
-        shouldDeferCreation: true, discussionNaming: digest.discussionNaming,
+        shouldDeferCreation: true, discussionFollowups: digest.discussionFollowups,
       }),
     });
   });

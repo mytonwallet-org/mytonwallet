@@ -140,10 +140,6 @@ public final class BadgeView: UIView {
         invalidateIntrinsicContentSize()
     }
 
-    public func configureChain(chain: ApiChain) {
-        configureTokenLabel(text: chain.usdtBadgeText, style: .regular)
-    }
-
     public func configureTokenLabel(text: String, style: TokenLabelStyle, content: WTextContent = .technical) {
         switch style {
         case .regular:

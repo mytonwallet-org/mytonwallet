@@ -140,6 +140,28 @@ struct UniversalSearchActionCompositionTests {
     }
 
     @Test
+    func `agent suggestions that fail to load replace the shown ones with none`() async throws {
+        struct LoadError: Error {}
+        let source = UniversalSearchAgentSuggestionSource { _ in throw LoadError() }
+        let sourceSnapshot = try await source.snapshot(for: context)
+        #expect(sourceSnapshot.sourceID == UniversalSearchAgentSuggestionSource.id)
+        #expect(sourceSnapshot.documents.isEmpty)
+    }
+
+    @Test
+    func `agent suggestions are loaded for the account of the context they are indexed under`() async throws {
+        let accountIds = AccountIds()
+        let source = UniversalSearchAgentSuggestionSource { accountId in
+            await accountIds.append(accountId)
+            return []
+        }
+        _ = try await source.snapshot(
+            for: UniversalSearchContext(scopeID: "account-a", network: "mainnet", localeIdentifier: "en")
+        )
+        #expect(await accountIds.values == ["account-a"])
+    }
+
+    @Test
     func `missing agent conversation keeps starter metadata and opens a start row without a query`() async throws {
         let source = UniversalSearchAgentSuggestionSource { _ in
             [
@@ -277,5 +299,13 @@ struct UniversalSearchActionCompositionTests {
             rankingPolicyVersion: "test",
             generatedAt: Date(timeIntervalSince1970: 1)
         )
+    }
+}
+
+private actor AccountIds {
+    private(set) var values: [String?] = []
+
+    func append(_ value: String?) {
+        values.append(value)
     }
 }

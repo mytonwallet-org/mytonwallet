@@ -8,7 +8,47 @@
 
 import UIKit
 
+protocol ChartAccessibilityProvider: AnyObject {
+    var chartAccessibilityLabel: String { get }
+    var chartAccessibilityValue: String { get }
+    func selectAccessibilityCandle(offset: Int)
+}
+
 class ChartView: UIControl {
+    weak var accessibilityProvider: ChartAccessibilityProvider? {
+        didSet {
+            isAccessibilityElement = accessibilityProvider != nil
+            if accessibilityProvider != nil {
+                accessibilityTraits.insert(.adjustable)
+            } else {
+                accessibilityTraits.remove(.adjustable)
+            }
+        }
+    }
+
+    override var accessibilityLabel: String? {
+        get { accessibilityProvider?.chartAccessibilityLabel ?? super.accessibilityLabel }
+        set { super.accessibilityLabel = newValue }
+    }
+
+    override var accessibilityValue: String? {
+        get { accessibilityProvider?.chartAccessibilityValue ?? super.accessibilityValue }
+        set { super.accessibilityValue = newValue }
+    }
+
+    override func accessibilityElementDidBecomeFocused() {
+        super.accessibilityElementDidBecomeFocused()
+        accessibilityProvider?.selectAccessibilityCandle(offset: 0)
+    }
+
+    override func accessibilityIncrement() {
+        accessibilityProvider?.selectAccessibilityCandle(offset: 1)
+    }
+
+    override func accessibilityDecrement() {
+        accessibilityProvider?.selectAccessibilityCandle(offset: -1)
+    }
+
     private enum InteractionConstants {
         static let longPressDuration = 0.15
         static let longPressAllowableMovement = CGFloat(12.0)

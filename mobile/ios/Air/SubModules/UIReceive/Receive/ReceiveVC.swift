@@ -116,6 +116,7 @@ public class ReceiveVC: WViewController {
                 button.setImage(image, for: .normal)
                 button.tintColor = .white
                 button.accessibilityLabel = lang("Close")
+                button.accessibilityIdentifier = "nav_close"
                 button.widthAnchor.constraint(equalToConstant: 44).isActive = true
                 button.addAction(UIAction { [weak self] _ in
                     self?.dismiss(animated: true)
@@ -128,6 +129,7 @@ public class ReceiveVC: WViewController {
                 topViewController()?.dismiss(animated: true)
             })
             item.tintColor = .white.withAlphaComponent(0.75)
+            item.accessibilityIdentifier = "nav_close"
             navigationItem.rightBarButtonItem = item
         }
         updateNavigationItems()

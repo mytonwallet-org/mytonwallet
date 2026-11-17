@@ -83,6 +83,8 @@ public struct ContextMenuPage {
     /// Called with the row's old and new index on each step, while the finger is still down.
     /// Only list pages made entirely of actions support it
     public var onReorder: ((_ sourceIndex: Int, _ destinationIndex: Int) -> Void)?
+    /// What else a held row of a grid page does. It takes `onReorder` to lift a row.
+    public var rowDrag: ContextMenuRowDrag?
 
     public init(
         id: String = UUID().uuidString,
@@ -110,6 +112,35 @@ public struct ContextMenuPage {
         )
         return pageView.preferredSize(constrainedTo: CGSize(width: maxWidth, height: .greatestFiniteMagnitude))
     }
+}
+
+/// A lifted row of a grid page, which can leave the menu for a host that takes it further
+public struct ContextMenuRowDrag {
+    public var onLift: ((ContextMenuRowLift) -> Void)?
+    /// The row went back into the grid
+    public var onDrop: (() -> Void)?
+    /// The finger carried the row out through the page's top edge. Return `true` to take the row: the page leaves it
+    /// where it is and follows the touch no further, so the host tracks the finger itself.
+    public var onExit: ((ContextMenuRowLift) -> Bool)?
+
+    public init(
+        onLift: ((ContextMenuRowLift) -> Void)? = nil,
+        onDrop: (() -> Void)? = nil,
+        onExit: ((ContextMenuRowLift) -> Bool)? = nil
+    ) {
+        self.onLift = onLift
+        self.onDrop = onDrop
+        self.onExit = onExit
+    }
+}
+
+@MainActor
+public struct ContextMenuRowLift {
+    /// The row's place among the page's items, after any reordering
+    public let index: Int
+    public let rowView: UIView
+    public let locationInWindow: CGPoint
+    public let pageFrameInWindow: CGRect
 }
 
 public enum ContextMenuPageLayout: Sendable {

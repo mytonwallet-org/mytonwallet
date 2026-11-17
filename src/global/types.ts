@@ -58,11 +58,22 @@ import type {
   ApiNetwork,
   ApiNft,
   ApiNftCollection,
+  ApiPerpsAccountPosition,
   ApiPerpsAssetDetail,
   ApiPerpsAssetId,
+  ApiPerpsBalanceWithdrawalQuote,
+  ApiPerpsFill,
+  ApiPerpsFundingRequirements,
+  ApiPerpsFundingSource,
   ApiPerpsGetAssetsResult,
   ApiPerpsListedAsset,
+  ApiPerpsMarketAsset,
+  ApiPerpsMarketSnapshot,
   ApiPerpsOperation,
+  ApiPerpsPositionSide,
+  ApiPerpsQuote,
+  ApiPerpsReceiptDetails,
+  ApiPerpsSnapshot,
   ApiPortfolioHistoryResponse,
   ApiPriceHistoryBackfill,
   ApiPriceHistoryPeriod,
@@ -141,9 +152,144 @@ export type PortfolioState = {
   error?: string;
 };
 
+export type PerpsNavigation = {
+  screen: 'home' | 'market' | 'position' | 'section';
+  assetId?: string;
+  /** The section on screen, or the section that Back from a market or a position returns to */
+  sectionId?: string;
+  /** Back from the market or the position returns to the Wallet screen it was opened from */
+  isOpenedFromWallet?: true;
+};
+
+export type PerpsChartState = {
+  points?: ApiHistoryList;
+  fetchedAt?: number;
+  hasError?: true;
+};
+
+export type PerpsState = {
+  /** The SDK catalogue with trading availability, sections and deposit limits */
+  market?: ApiPerpsMarketSnapshot & { langCode?: LangCode };
+  isMarketLoadFailed?: true;
+  chartsByAssetId: Record<string, Partial<Record<ApiPriceHistoryPeriod, PerpsChartState>>>;
+  navigation: PerpsNavigation;
+  trade?: PerpsTradeState;
+  /**
+   * The state each operation had when the user hid its banner. The banner comes back when the state changes.
+   * Hidden operations still block new orders.
+   */
+  hiddenOperationStates?: Record<string, ApiPerpsOperation['state']>;
+  /** The trade from the history whose receipt is open */
+  openedActivity?: PerpsOpenedActivity;
+};
+
+export type PerpsOpenedActivity = { fill: ApiPerpsFill };
+
+/** The account part of the SDK snapshot. The catalogue it repeats lives in `PerpsState.market`. */
+export type PerpsAccountSnapshot = Omit<ApiPerpsSnapshot, keyof ApiPerpsMarketSnapshot>;
+
+export type PerpsHistoryState = {
+  fills: ApiPerpsFill[];
+  nextCursor?: string;
+  fetchedAt?: number;
+  isLoading?: true;
+  hasError?: true;
+  /** The history comes from the last launch without its cursor, so the first refresh replaces the cursor */
+  isRestored?: true;
+};
+
+export type PerpsMarketDetailState = {
+  asset?: ApiPerpsMarketAsset;
+  history?: PerpsHistoryState;
+  hasError?: true;
+};
+
+/** What the receipt of an operation this app submitted shows besides the operation itself */
+export type PerpsOperationReceipt = {
+  /** The quote the user reviewed and signed */
+  quote: ApiPerpsQuote;
+  /** The position right after the operation, which the receipt shows instead of the estimates of the quote */
+  position?: ApiPerpsAccountPosition;
+  details?: ApiPerpsReceiptDetails;
+};
+
+export type AccountPerpsState = {
+  snapshot?: PerpsAccountSnapshot;
+  /** The last snapshot request failed, which matters only while there is no snapshot to show */
+  isSnapshotLoadFailed?: true;
+  history?: PerpsHistoryState;
+  marketDetailById?: Record<string, PerpsMarketDetailState>;
+  /** The account has traded at least once. Unknown until a history page loads, and the onboarding waits for it. */
+  hasActivityHistory?: boolean;
+};
+
+type PerpsTradeKind = 'open' | 'edit' | 'close';
+
+export type PerpsLeverageEstimate = {
+  liquidationPrice?: string;
+};
+
+/** The amounts the SDK names in `PerpsAmountTooSmall` and `PerpsInsufficientBalance`, as decimal strings in USDC */
+export type PerpsErrorDetails = {
+  minimumAmount?: string;
+  /** The amount must exceed `minimumAmount` rather than reach it */
+  isMinimumExclusive?: boolean;
+  minimumReduction?: string;
+  requiredBalance?: string;
+  availableBalance?: string;
+};
+
+export type PerpsTradeStep = 'form' | 'selectAccount' | 'review' | 'password' | 'progress' | 'receipt' | 'status'
+  | 'withdrawal' | 'withdrawalPassword' | 'balanceWithdrawal' | 'balanceWithdrawalPassword';
+
+/**
+ * The Futures trade modal. With `kind` it is a trade. Without `kind` it is either the status of `operationId`, which
+ * the user opened from its banner or from a button the operation blocks, or a withdrawal from the Hyperliquid balance.
+ */
+export type PerpsTradeState = {
+  /** Tells this trade from a later one, so a late SDK reply cannot land in another trade */
+  id: string;
+  accountId: string;
+  step: PerpsTradeStep;
+  kind?: PerpsTradeKind;
+  assetId: string;
+  side: ApiPerpsPositionSide;
+  /** Collateral in dollars. An edit sets the collateral the position gets. */
+  amount: string;
+  /**
+   * The percentage button that set `amount`. The SDK prices that exact share, while the field shows it in cents. Any
+   * other change of the amount drops it.
+   */
+  fraction?: number;
+  /** The collateral of the edited position, exactly as the SDK reports it */
+  currentCollateral?: string;
+  /** `currentCollateral` as the amount field shows it. An unchanged field changes nothing. */
+  currentAmount?: string;
+  leverage: number;
+  /** Where an open or an increase takes its margin from. Absent means the wallet. */
+  fundingSource?: ApiPerpsFundingSource;
+  preview?: ApiPerpsQuote;
+  isPreviewLoading?: true;
+  funding?: ApiPerpsFundingRequirements;
+  /** The error of the last load of `funding`, which the form offers to retry */
+  fundingError?: string;
+  leverageEstimates?: Record<number, PerpsLeverageEstimate>;
+  /** The executable quote the Review screen shows */
+  quote?: ApiPerpsQuote;
+  isPreparing?: true;
+  reviewNotice?: string;
+  error?: string;
+  /** The amounts of `error`. An update that sets or clears `error` without them drops them. */
+  errorDetails?: PerpsErrorDetails;
+  operationId?: string;
+  withdrawalAmount?: string;
+  /** The reviewed withdrawal from the Hyperliquid balance to the wallet */
+  balanceWithdrawal?: ApiPerpsBalanceWithdrawalQuote;
+};
+
 export type AnimationLevel = 0 | 1 | 2;
 export type Theme = 'light' | 'dark' | 'system';
-export type NavigationTab = 'wallet' | 'market' | 'agent' | 'explore' | 'settings';
+export type NavigationTab = 'wallet' | 'market' | 'futures' | 'agent' | 'explore' | 'settings';
 export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
 export type DialogAction = 'openReturnUrl' | 'exportLogs';
@@ -250,11 +396,13 @@ export enum AppState {
   Agent,
   Explore,
   Portfolio,
+  ContentList,
   TokenInfo,
   Settings,
   Ledger,
   Inactive,
   Empty,
+  Futures,
 }
 
 export enum AuthState {
@@ -516,6 +664,7 @@ export enum ContentTab {
   Settings,
   Portfolio,
   Market,
+  Futures,
 }
 
 export enum MediaType {
@@ -783,7 +932,10 @@ export interface AccountState {
   currentPerpsAssetPeriod?: ApiPriceHistoryPeriod;
   perpsAssetDetailById?: Record<string, PerpsAssetDetailState>;
   perpsOperations?: Record<string, ApiPerpsOperation>;
+  /** The receipts of `perpsOperations`, kept while their operations are kept */
+  perpsReceipts?: Record<string, PerpsOperationReceipt>;
   perpsBalanceDeposit?: PerpsBalanceDepositProgress;
+  perps?: AccountPerpsState;
   tokenNetWorthHistory?: Record<string, PriceHistoryPeriods>;
   savedAddresses?: SavedAddress[];
   activeContentTab?: ContentTab;
@@ -1102,6 +1254,8 @@ export type GlobalState = {
   marketData?: ApiMarketAssetsResponseWithSlug & { langCode: LangCode };
   // The token screen opened from the market, as opposed to the one opened in the wallet
   marketTokenSlug?: string;
+  // The market section that "See All" opens
+  marketSectionId?: string;
 
   currentDappTransfer: {
     state: TransferState;
@@ -1370,9 +1524,11 @@ export type GlobalState = {
   agentNewsDiscussionRequest?: { eventId: number };
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
+  isFuturesOpen?: boolean;
   isPortfolioOpen?: boolean;
   portfolioReturnTo?: 'settings';
   portfolio?: PortfolioState;
+  perps: PerpsState;
   isAppUpdateAvailable?: boolean;
   // Force show the "Update My Wallet" pop-up on all platforms
   isAppUpdateRequired?: boolean;
@@ -1690,7 +1846,49 @@ export interface ActionPayloads {
   closeExplore: undefined;
   openMarket: undefined;
   closeMarket: undefined;
+  openMarketSection: { sectionId: string };
+  closeMarketSection: undefined;
   openMarketToken: { slug: string };
+  openFutures: undefined;
+  closeFutures: undefined;
+  openFuturesMarket: { assetId: string };
+  openFuturesPosition: { assetId: string };
+  openFuturesSection: { sectionId: string };
+  closeFuturesScreen: undefined;
+  loadPerpsMarket: { force?: boolean } | undefined;
+  loadPerpsSnapshot: undefined;
+  loadPerpsCandles: { assetId: string; period: ApiPriceHistoryPeriod };
+  loadPerpsMarketDetail: { assetId: string; isNextPage?: boolean };
+  loadPerpsHistory: { isNextPage?: boolean } | undefined;
+  reconcilePerpsOperations: undefined;
+  hidePerpsOperationBanner: { operationId: string };
+  startPerpsTrade: { kind: 'open'; assetId: string; side: ApiPerpsPositionSide }
+    | { kind: 'edit' | 'close'; assetId: string };
+  switchPerpsTradeAccount: { accountId: string };
+  openPerpsOperation: { operationId: string };
+  setPerpsTradeAmount: { amount: string };
+  applyPerpsTradeFraction: { fraction: number };
+  resetPerpsTradeAmount: undefined;
+  setPerpsTradeLeverage: { leverage: number };
+  setPerpsTradeFundingSource: { fundingSource: ApiPerpsFundingSource };
+  loadPerpsTradePreview: undefined;
+  loadPerpsFundingRequirements: undefined;
+  loadPerpsLeverageEstimate: { leverage: number };
+  preparePerpsTrade: undefined;
+  confirmPerpsTrade: undefined;
+  submitPerpsTrade: { enclaveToken: string };
+  loadPerpsReceiptDetails: { operationId: string };
+  acknowledgePerpsOperation: { operationId: string };
+  preparePerpsWithdrawal: { operationId: string };
+  submitPerpsWithdrawal: { operationId: string; enclaveToken: string };
+  startPerpsBalanceWithdrawal: undefined;
+  preparePerpsBalanceWithdrawal: undefined;
+  confirmPerpsBalanceWithdrawal: undefined;
+  submitPerpsBalanceWithdrawal: { enclaveToken: string };
+  setPerpsTradeStep: { step: PerpsTradeStep };
+  cancelPerpsTrade: undefined;
+  openPerpsActivity: PerpsOpenedActivity;
+  closePerpsActivity: undefined;
   openPortfolio: { returnTo?: 'settings' } | undefined;
   closePortfolio: undefined;
   loadPortfolioHistory: { range?: ApiPriceHistoryPeriod } | undefined;
@@ -1725,6 +1923,7 @@ export interface ActionPayloads {
   switchToAgent: undefined;
   switchToExplore: undefined;
   switchToMarket: undefined;
+  switchToFutures: undefined;
   switchToSettings: undefined;
   switchToPortfolio: undefined;
 

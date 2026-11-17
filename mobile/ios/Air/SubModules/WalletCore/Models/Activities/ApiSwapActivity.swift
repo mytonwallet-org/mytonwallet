@@ -20,17 +20,46 @@ public struct ApiSwapActivity: BaseActivity, Codable, Equatable, Hashable, Senda
     public let lt: Int64?
     public let from: String
     public let fromAmount: MDouble
-    public let to: String
-    public let toAmount: MDouble
+    public var to: String
+    public var toAmount: MDouble
     public let networkFee: MDouble? // FIXME: Had to add ? for comatibility
     public let swapFee: MDouble? // FIXME: Had to add ? for comatibility
     public let ourFee: MDouble?
     public let cexLabel: ApiSwapCexLabel?
     public var status: ApiSwapStatus
+    public let msgHash: String?
     public let hashes: [String]?
     public let transactionIds: ApiSwapTransactionIds
     public let isCanceled: Bool?
     public var cex: ApiSwapCexTransactionExtras?
+    public var lifi: ApiSwapLifiDetails?
+    public var layerzero: ApiSwapLayerzeroDetails?
+}
+
+public struct ApiSwapLifiDetails: Codable, Equatable, Hashable, Sendable {
+    public let outcome: Outcome?
+    public let quotedTo: String
+    public let quotedToAmount: String
+    public let received: Received?
+
+    public enum Outcome: String, Codable, Sendable {
+        case completed
+        case partial
+        case refunded
+    }
+
+    public struct Received: Codable, Equatable, Hashable, Sendable {
+        public let chain: ApiChain
+        public let tokenAddress: String
+        public let symbol: String
+        public let decimals: Int
+        public let amount: String
+    }
+}
+
+public struct ApiSwapLayerzeroDetails: Codable, Equatable, Hashable, Sendable {
+    public let quoteId: String
+    public let status: String?
 }
 
 public enum ApiSwapStatus: String, Codable, Sendable {

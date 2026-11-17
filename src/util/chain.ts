@@ -158,6 +158,11 @@ export interface ChainConfig {
    * The configuration does not contain data for NFT addresses, they must be configured separately.
    */
   explorers: ExplorerConfig[];
+  /**
+   * The explorer of perpetual futures trades on mainnet, the only network of Perps.
+   * `explorers` leave it out, since it shows no regular wallet data.
+   */
+  perpsExplorer?: Pick<ExplorerConfig, 'transaction'> & { baseUrl: string };
 
   /**
    * Configuration of available NFT marketplaces on chain.
@@ -1034,6 +1039,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       transaction: '{base}tx/{hash}',
       doConvertHashFromBase64: false,
     }],
+    perpsExplorer: {
+      baseUrl: 'https://app.hyperliquid.xyz/explorer/',
+      transaction: '{base}tx/{hash}',
+    },
     marketplaces: [{
       id: 'openSea',
       name: 'OpenSea',

@@ -48,7 +48,6 @@ public final class PerpsPositionReceiptVC: WViewController, UISheetPresentationC
                 }
             }
         }
-        navigationItem.hidesBackButton = true
         navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
             self?.dismiss(animated: true)
         })
@@ -67,6 +66,7 @@ public final class PerpsPositionReceiptVC: WViewController, UISheetPresentationC
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         updatePresentationMode()
+        applySheetPresentation()
         onVisibilityChanged?(true)
     }
 
@@ -119,14 +119,20 @@ public final class PerpsPositionReceiptVC: WViewController, UISheetPresentationC
         presentationMode = mode
         presentation.canCollapse = mode == .bottomAttached
         setDetailsExpanded(!presentation.canCollapse || replacingConfirmation)
-        (navigationController ?? self).preferredContentSize = mode == .floating ? CGSize(width: 580, height: 720) : .zero
+        applySheetPresentation()
+    }
+
+    private func applySheetPresentation() {
+        if let presentationMode {
+            (navigationController ?? self).preferredContentSize = presentationMode == .floating ? CGSize(width: 580, height: 720) : .zero
+        }
         guard let sheet = receiptSheet else { return }
         sheet.delegate = self
-        sheet.prefersGrabberVisible = presentation.canCollapse
+        sheet.prefersGrabberVisible = presentation.canCollapse && !presentation.detailsExpanded
         sheet.prefersScrollingExpandsWhenScrolledToEdge = true
         if #available(iOS 26.1, *) { sheet.backgroundEffect = UIColorEffect(color: .air.sheetBackground) }
         sheet.detents = presentation.canCollapse ? makeDetents() : [.large()]
-        sheet.selectedDetentIdentifier = presentation.canCollapse && !replacingConfirmation ? Self.compactDetent : .large
+        sheet.selectedDetentIdentifier = presentation.canCollapse && !presentation.detailsExpanded ? Self.compactDetent : .large
     }
 
     private func makeDetents() -> [UISheetPresentationController.Detent] {

@@ -33,7 +33,7 @@ import { getTokenInfo } from '../util/chain';
 import { buildCollectionByKey, mapValues } from '../util/iteratees';
 import { USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
-export const STATE_VERSION = 66;
+export const STATE_VERSION = 67;
 
 export const INITIAL_STATE: GlobalState = {
   appState: IS_EXPLORER ? AppState.Main : AppState.Auth,
@@ -124,6 +124,11 @@ export const INITIAL_STATE: GlobalState = {
   },
 
   byAccountId: {},
+
+  perps: {
+    chartsByAssetId: {},
+    navigation: { screen: 'home' },
+  },
 
   dialogs: [],
   toasts: [],

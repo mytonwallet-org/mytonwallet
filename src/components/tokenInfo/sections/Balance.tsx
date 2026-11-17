@@ -77,6 +77,7 @@ function Balance({
       <div ref={amountRef} className={styles.amountWrapper}>
         <SensitiveData
           isActive={isSensitiveDataHidden}
+          withDust
           align="center"
           min={AMOUNT_MIN_COLS}
           max={AMOUNT_MAX_COLS}
@@ -98,6 +99,7 @@ function Balance({
 
       <SensitiveData
         isActive={isSensitiveDataHidden}
+        withDust
         align="center"
         cols={VALUE_COLS}
         rows={VALUE_ROWS}

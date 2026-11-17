@@ -2,7 +2,11 @@ package org.mytonwallet.app_air.uiagent.search
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextBuilder
+import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextSnapshot
+import org.mytonwallet.app_air.uiagent.agentV2.AgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
+import org.mytonwallet.app_air.uiagent.agentV2.loadAgentV2StarterHints
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadTitle
@@ -86,8 +90,13 @@ object AgentSearchSuggestions : WalletCore.EventObserver, WalletCore.UpdatesObse
 
     suspend fun search(query: String): List<AgentThreadSearchResult> = threadSearch.search(query)
 
-    suspend fun suggested(): List<AgentHint> = runAgentSearchRequest {
-        val response = client.hints(LocaleController.activeLanguage.langCode)
+    suspend fun suggested(): List<AgentHint> = suggested(client, AgentHostContextBuilder::build)
+
+    internal suspend fun suggested(
+        client: AgentV2Client,
+        makeSnapshot: suspend () -> AgentHostContextSnapshot
+    ): List<AgentHint> = runAgentSearchRequest {
+        val response = loadAgentV2StarterHints(client::getStarterHints, makeSnapshot)
         response.items.mapNotNull { hint ->
             localizedAgentV2Hint(hint.id)?.copy(catalogVersion = response.catalogVersion)
         }

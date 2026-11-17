@@ -27,6 +27,12 @@
     <item name="home_search_input" type="id" />
     <item name="home_toolbar_accounts_button" type="id" />
     <item name="home_toolbar_scan_button" type="id" />
+    <item name="home_toolbar_buy_button" type="id" />
+    <item name="home_toolbar_fund_button" type="id" />
+    <item name="home_toolbar_trade_button" type="id" />
+    <item name="home_toolbar_sell_button" type="id" />
+    <item name="home_toolbar_send_button" type="id" />
+    <item name="home_toolbar_earn_button" type="id" />
 
     <!-- Home "+" button and the actions sheet it opens (HomeActionsSheetVC) -->
     <item name="home_more_actions_button" type="id" />
@@ -268,6 +274,7 @@
     <item name="home_assets_more_button" type="id" />
     <item name="home_show_all" type="id" />
     <item name="activity_row" type="id" />
+    <item name="activity_row_title" type="id" />
 
     <!-- Tokens and Collectibles tabs -->
     <item name="assets_tab_tokens" type="id" />
@@ -359,6 +366,9 @@
     <item name="invoice_comment_input" type="id" />
     <item name="invoice_link" type="id" />
     <item name="earn_how_it_works" type="id" />
+    <item name="earn_add_stake" type="id" />
+    <item name="earn_unstake" type="id" />
+    <item name="earn_staked_label" type="id" />
     <item name="browser_menu_reload" type="id" />
     <item name="browser_menu_open_external" type="id" />
     <item name="browser_menu_copy_url" type="id" />

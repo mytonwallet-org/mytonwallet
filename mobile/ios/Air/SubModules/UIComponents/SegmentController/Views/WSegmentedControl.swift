@@ -94,7 +94,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         self.model = model
         self.scrollContentMargin = scrollContentMargin
         self.isGlassInteractive = isGlassInteractive
-        self.lensView = WSegmentedControlLensView(shouldDarkenSelection: model.style == .tokenPicker)
+        self.lensView = WSegmentedControlLensView()
         super.init(frame: .zero)
         setupViews()
         rebuildItems()

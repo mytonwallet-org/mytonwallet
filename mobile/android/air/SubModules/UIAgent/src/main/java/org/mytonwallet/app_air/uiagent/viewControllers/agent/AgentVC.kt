@@ -69,9 +69,10 @@ import org.mytonwallet.app_air.uiagent.agentV2.AndroidAgentDictationRecorder
 import org.mytonwallet.app_air.uiagent.agentV2.agentActionUnavailableText
 import org.mytonwallet.app_air.uiagent.agentV2.agentUnavailableText
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.formatAgentDigestDiscussionTitle
 import org.mytonwallet.app_air.uiagent.agentV2.hasPost
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
-import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadTitle
+import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentChatHeader
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentBulletinDurations
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentDateHeaderCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCell
@@ -153,7 +154,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
-import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
@@ -171,7 +171,7 @@ class AgentVC(
     private val digestId: String? = null,
     /** The feed's copy of the digest, whose post the discussion shows until its thread comes */
     private val digestPreview: AgentV2ThreadDigestCard? = null,
-    discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
+    discussionFollowups: List<String>? = null,
     shouldDeferCreation: Boolean = false
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
@@ -232,8 +232,7 @@ class AgentVC(
             val padding = composerView.paddingBottom / context.resources.displayMetrics.density
             return FIELD_LINE_LIFT + extra - padding.roundToInt()
         }
-    private val discussionNaming = news?.discussionNaming
-        ?: discussionNaming?.takeIf { shouldDeferCreation }
+    private val discussionFollowups = discussionFollowups?.takeIf { shouldDeferCreation }
     private val discussionKey = getAgentDeferredDiscussionKey(news, digestId, shouldDeferCreation)
 
     // A discussion whose first message still waits for its thread opens as it was left
@@ -1956,23 +1955,16 @@ class AgentVC(
 
     private fun updateChatTitle() {
         val firstMessage = displayMessages.firstOrNull { it.role == AgentMessageRole.USER }?.text
-        val thread = preparedVM?.currentThread
-        val headline = news?.headline
-            ?: digestPreview?.takeIf { chatOpening?.isDeferredDiscussion == true }
-                ?.let { LocaleController.getString("\$agent_digest_title") }
-        val title = if (thread == null && chatOpening?.isDeferredDiscussion == true &&
-            discussionNaming != null
-        ) {
-            discussionNaming.title
-        } else if (!headline.isNullOrBlank() &&
-            thread?.title.isNullOrBlank()
-        ) {
-            headline
-        } else {
-            thread?.let { resolveAgentThreadTitle(it, firstMessage) } ?: firstMessage.orEmpty()
-        }
-        val icon = (if (thread != null) thread.icon else discussionNaming?.icon ?: news?.icon)
-            ?.trim()?.takeIf { it.isNotEmpty() }
+        val (title, icon) = resolveAgentChatHeader(
+            thread = preparedVM?.currentThread,
+            firstMessage = firstMessage,
+            news = news,
+            digestId = digestId,
+            digestPreview = digestPreview,
+            isDeferredDiscussion = chatOpening?.isDeferredDiscussion == true,
+            newChatTitle = LocaleController.getString("New Chat"),
+            formatDigestTitle = ::formatAgentDigestDiscussionTitle
+        )
         setNavTitle(if (icon != null) "$icon $title" else title, animated = false)
         chatTitleView.setTitle(title, icon)
     }
@@ -3471,7 +3463,7 @@ class AgentVC(
             preparedVM?.currentThread?.news,
             news,
             preparedVM?.currentThread?.digest ?: digestPreview,
-            discussionNaming = if (preparedVM == null) discussionNaming else news?.discussionNaming
+            discussionFollowups = discussionFollowups.takeIf { preparedVM == null }
         )
         val shownItems = messageItems.filterNot { hiddenIncomingMessageIds.contains(it.message.id) }
         val hasAuthors = presentationMessages.hasSupportOperatorJoined()

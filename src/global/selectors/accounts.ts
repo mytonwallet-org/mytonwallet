@@ -1,6 +1,7 @@
 import type { ApiChain, ApiLedgerAccountInfo, ApiNetwork } from '../../api/types';
 import type { LegacyAuthConfig } from '../../enclave';
 import type { Account, AccountSettings, AccountState, GlobalState, UserToken } from '../types';
+import { ContentTab } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
@@ -84,6 +85,40 @@ export function selectCurrentAccountState(global: GlobalState) {
 
 export function selectAccountState(global: GlobalState, accountId: string): AccountState | undefined {
   return global.byAccountId[accountId];
+}
+
+/** No other section (Agent, Explore, Market, Futures, Settings or Portfolio) covers the wallet */
+export function selectIsWalletTabActive(global: GlobalState) {
+  const {
+    areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, isPortfolioOpen,
+  } = global;
+
+  return !isAgentOpen && !isExploreOpen && !isMarketOpen && !isFuturesOpen && !areSettingsOpen && !isPortfolioOpen;
+}
+
+/** The selected token belongs to the open Market, not to the wallet */
+export function selectIsMarketTokenOpen(global: GlobalState) {
+  const { isMarketOpen, marketTokenSlug } = global;
+
+  return Boolean(isMarketOpen && marketTokenSlug)
+    && selectCurrentAccountState(global)?.currentTokenSlug === marketTokenSlug;
+}
+
+/** A full list opened from the wallet home: Assets, Activity, Collectibles or one collection */
+export function selectIsContentListOpen(global: GlobalState): boolean {
+  if (selectCurrentAccountState(global)?.nfts?.currentCollection) return true;
+
+  const tab = selectShownContentTab(global);
+
+  return tab === ContentTab.Assets || tab === ContentTab.Activity || tab === ContentTab.Nft;
+}
+
+/** The wallet tab shown in portrait */
+export function selectShownContentTab(global: GlobalState) {
+  const { activeContentTab, activityReturnContentTab, currentTokenSlug } = selectCurrentAccountState(global) ?? {};
+
+  // A token screen slides over the wallet in portrait, so what stays underneath is the tab it was opened from
+  return currentTokenSlug ? activityReturnContentTab : activeContentTab;
 }
 
 export function selectAccountSettings(global: GlobalState, accountId: string): AccountSettings | undefined {

@@ -24,7 +24,7 @@ internal sealed interface AgentNewsChatTarget {
     data class Digest(
         val id: String,
         val preview: AgentV2ThreadDigestCard? = null,
-        val discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
+        val discussionFollowups: List<String>? = null,
         val shouldDeferCreation: Boolean = false
     ) : AgentNewsChatTarget
 }
@@ -49,7 +49,7 @@ internal fun resolveAgentDigestDiscussionTarget(
     ?: AgentNewsChatTarget.Digest(
         digest.id,
         AgentV2ThreadDigestCard(digest.id, digest.deliveredAt, digest.total, digest.top),
-        digest.discussionNaming,
+        digest.discussionFollowups,
         shouldDeferCreation = digest.discussion == null
     )
 

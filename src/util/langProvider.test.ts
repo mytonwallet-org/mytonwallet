@@ -63,6 +63,36 @@ describe('getTranslationForLanguage', () => {
     expect(remoteFetch).toHaveBeenCalledTimes(1);
     expect(translation('remote_key')).toBe('Remote translation');
   });
+
+  it('reads a plural entry without a count from its most general form', async () => {
+    jest.spyOn(cacheApi, 'fetch').mockResolvedValue(undefined);
+    jest.spyOn(cacheApi, 'save').mockResolvedValue(undefined);
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        $many_transactions: {
+          zeroValue: 'brak przelewów',
+          oneValue: '%count% przelew',
+          fewValue: '%count% przelewy',
+          manyValue: '%count% przelewów',
+        },
+        $utxo_confirmations: {
+          oneValue: '%count% z %max% potwierdzenia',
+          otherValue: '%count% z %max% potwierdzeń',
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const translation = await getTranslationForLanguage('pl');
+
+    expect(translation('$many_transactions', '5')).toBe('5 przelewów');
+    expect(translation('$utxo_confirmations', ['2', '6'])).toBe('2 z 6 potwierdzeń');
+    expect(translation('$many_transactions', '1', undefined, 1)).toBe('1 przelew');
+    expect(translation('$many_transactions', '1')).toBe('1 przelewów');
+    expect(translation('$many_transactions', 1)).toBe('1 przelew');
+    expect(translation('$many_transactions', '0', undefined, 0)).toBe('brak przelewów');
+    expect(translation('$many_transactions', '0')).toBe('0 przelewów');
+  });
 });
 
 // Create a mock React element for testing

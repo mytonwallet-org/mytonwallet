@@ -646,7 +646,7 @@ class AgentNewsFeedVC(
                     navigation,
                     target.id,
                     target.preview,
-                    discussionNaming = target.discussionNaming,
+                    discussionFollowups = target.discussionFollowups,
                     shouldDeferCreation = target.shouldDeferCreation,
                     onThreadCreated = { thread ->
                         learnDiscussion(thread) { model.markDiscussion(target.id, it) }

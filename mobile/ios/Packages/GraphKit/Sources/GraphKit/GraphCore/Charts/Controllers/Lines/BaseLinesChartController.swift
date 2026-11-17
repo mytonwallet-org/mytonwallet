@@ -238,11 +238,14 @@ public class BaseLinesChartController: BaseChartController {
         let distance = verticalRange.distance
         let chartHeight = chartFrame().height
         
-        guard distance > 0, chartHeight > 0 else { return (BaseConstants.defaultRange, []) }
+        guard distance.isFinite, distance > 0, chartHeight.isFinite, chartHeight > 0 else {
+            return (BaseConstants.defaultRange, [])
+        }
         
         let approximateNumberOfChartValues = (chartHeight / BaseConstants.minimumAxisYLabelsDistance)
         
         var numberOfOffsetsPerItem = distance / approximateNumberOfChartValues
+        guard numberOfOffsetsPerItem.isFinite, numberOfOffsetsPerItem > 0 else { return (verticalRange, []) }
         var multiplier: CGFloat = 1.0
         if numberOfOffsetsPerItem > 0 {
             while numberOfOffsetsPerItem > 10 {
@@ -262,9 +265,11 @@ public class BaseLinesChartController: BaseChartController {
         
         var base: CGFloat = BaseConstants.verticalBaseAnchors.first { numberOfOffsetsPerItem > $0 } ?? BaseConstants.defaultVerticalBaseAnchor
         base = base * multiplier / dividor
+        guard base.isFinite, base > 0 else { return (verticalRange, []) }
         
         var verticalLabels: [LinesChartLabel] = []
         var verticalValue = (verticalRange.lowerBound / base).rounded(.down) * base
+        guard verticalValue.isFinite else { return (verticalRange, []) }
         let lowerBound = verticalValue
         
         let numberFormatter = BaseConstants.chartNumberFormatter
@@ -273,8 +278,12 @@ public class BaseLinesChartController: BaseChartController {
             let text: String = numberFormatter.string(from: NSNumber(value: Double(verticalValue))) ?? ""
             
             verticalLabels.append(LinesChartLabel(value: verticalValue, text: text))
-            verticalValue += base
+            let nextValue = verticalValue + base
+            guard nextValue.isFinite, nextValue > verticalValue else { return (verticalRange, []) }
+            verticalValue = nextValue
         }
+        let updatedDistance = verticalValue - lowerBound
+        guard updatedDistance.isFinite, updatedDistance > 0 else { return (verticalRange, []) }
         let updatedRange = lowerBound...verticalValue
         
         return (updatedRange, verticalLabels)

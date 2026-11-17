@@ -75,7 +75,10 @@ public final class UniversalSearchFieldView: UIView {
     public var onMicrophoneTap: (() -> Void)?
     public var onActionsTap: (() -> Void)?
     public var onAccountsTap: (() -> Void)?
-    public var onScanTap: (() -> Void)?
+    /// A tap on one of the home toolbar's own buttons other than the accounts and the actions buttons
+    public var onHomeItemTap: ((HomeToolbarItem) -> Void)?
+    /// A navigation transition took the toolbar away from under a drag
+    public var onHomeEditInterruption: (() -> Void)?
     public var onToolbarActionTap: ((String) -> Void)?
     public var onCloseTap: (() -> Void)?
     public var onHomeConfigurationLayoutChange: (() -> Void)?
@@ -123,12 +126,32 @@ public final class UniversalSearchFieldView: UIView {
     public var isEditing: Bool { fieldView.isEditing }
     public var searchButtonPresentationSourceView: UIView { fieldView }
     public var trailingButtonView: UIView { closeButton.interactionView }
-    public var trailingButtonPresentationSourceView: UIView { closeButton.presentationSourceView }
+    /// What a presentation grows out of at the trailing button. A zoom gets a plain view in the button's place, as
+    /// `getHomeItemZoomSourceView` does.
+    public var trailingButtonPresentationSourceView: UIView {
+        if #available(iOS 26, iOSApplicationExtension 26, *) {
+            return getZoomAnchorView(for: .actions)
+        }
+        return closeButton.presentationSourceView
+    }
     public let accountsButton = WalletAccountButton()
-    public var scanButtonPresentationSourceView: UIView? {
-        showsHomeActions(in: presentation) && presentation != .empty && homeConfiguration.showsScan ? scanButton : nil
+    /// The home toolbar's button for `item` while it shows, such as for a presentation that grows out of it
+    public func getHomeItemSourceView(for item: HomeToolbarItem) -> UIView? {
+        guard showsHomeActions(in: presentation), presentation != .empty, isHomeItemShown(item) else { return nil }
+        return getHomeItemView(item)
+    }
+    public var scanButtonPresentationSourceView: UIView? { getHomeItemSourceView(for: .scan) }
+
+    /// What a zoom transition grows out of at the button for `item`: a plain view in the button's place, outside
+    /// the toolbar's glass. A zoom takes over the glass around its source for its own morph and can hand it back
+    /// changed.
+    public func getHomeItemZoomSourceView(for item: HomeToolbarItem) -> UIView? {
+        guard getHomeItemSourceView(for: item) != nil else { return nil }
+        return getZoomAnchorView(for: item)
     }
     public private(set) var homeConfiguration = HomeToolbarConfiguration()
+    /// The drag that is rearranging the home toolbar
+    public private(set) var homeEdit: HomeToolbarEdit?
     public private(set) var compactActions: [SharedBottomToolbarAction] = []
     public private(set) var presentation: UniversalSearchFieldPresentation = .search
     public private(set) var searchOverlayAppearance: ContentOverlayAppearance = .standard
@@ -143,40 +166,44 @@ public final class UniversalSearchFieldView: UIView {
         if actions != actionsOverlayAppearance {
             actionsOverlayAppearance = actions
             closeButton.setOverlayAppearance(actions, animated: animated)
-            scanButton.setOverlayAppearance(actions)
-            sharedActionsGlass.overrideUserInterfaceStyle = actions.userInterfaceStyle
-            sharedActionsGlass.setUsesClearGlass(actions.usesClearGlass)
+            itemButtons.values.forEach { $0.setOverlayAppearance(actions) }
+            accountsButton.overrideUserInterfaceStyle = actions.userInterfaceStyle
+            for glass in [leadingGroupGlass, trailingGroupGlass] {
+                glass.overrideUserInterfaceStyle = actions.userInterfaceStyle
+                glass.setUsesClearGlass(actions.usesClearGlass)
+            }
         }
     }
 
     private var storedConfiguration: UniversalSearchFieldConfiguration
     private let fieldView = UniversalSearchFieldCapsuleView()
     private let closeButton = UniversalSearchCloseButton()
-    private let scanButton = UniversalSearchScanButton()
-    private let sharedActionsGlass = UniversalSearchInteractiveGlassView()
-    private var accountsLeadingConstraint: NSLayoutConstraint!
-    private var scanLeadingConstraint: NSLayoutConstraint!
-    private var sharedActionsLeadingConstraint: NSLayoutConstraint!
-    private var accountsTopConstraint: NSLayoutConstraint!
-    private var scanTopConstraint: NSLayoutConstraint!
-    private var sharedActionsTopConstraint: NSLayoutConstraint!
+    private var itemButtons: [HomeToolbarItem: UniversalSearchIconButton] = [:]
+    /// The buttons whose glass shows. A button on its way out keeps its glass until it has merged into its neighbor.
+    private var materialItems: Set<HomeToolbarItem> = []
+    /// The glass that the buttons before the field share, and the glass of the buttons after it. Buttons that share
+    /// a background are inside one piece of glass, which reacts to a touch as a whole.
+    private let leadingGroupGlass = UniversalSearchInteractiveGlassView()
+    private let trailingGroupGlass = UniversalSearchInteractiveGlassView()
+    /// The sides of the field whose buttons are inside their shared glass, by whether the side is before the field.
+    /// A side keeps its shared glass through a change that leaves it one button, until the change has finished.
+    private var groupedSides: Set<Bool> = []
+    private var zoomAnchorViews: [HomeToolbarItem: UIView] = [:]
+    /// The item a drag just dropped, whose button stays empty until the dragged copy has landed on it
+    private var homeLandingItem: HomeToolbarItem?
+    /// The items the buttons were last shown for. A toolbar that changes width may show others.
+    private var laidOutHomeItems: [HomeToolbarItem] = []
+    private var fieldLeadingConstraint: NSLayoutConstraint!
+    private var fieldTopConstraint: NSLayoutConstraint!
+    private var fieldTrailingConstraint: NSLayoutConstraint!
+    private var fieldWidthConstraint: NSLayoutConstraint!
     private var pendingHomeConfiguration: HomeToolbarConfiguration?
     private var configurationAnimationID: UUID?
-    private var homeActionGlassViews: [UIVisualEffectView] = []
-    /// Out of the hierarchy between transitions. The glass container keeps a tag for every glass view that ever
-    /// joined it, so transitions reuse these instead of adding new glass.
-    private var reusableHomeActionGlassViews: [UIVisualEffectView] = []
-    private var homeActionGlassPresentation: UniversalSearchFieldPresentation = .homeToolbar
     // Mirrors an owning animator's fraction without rendering anything. The
     // display link uses it to keep content blur interactive with push/pop.
     private let transitionProgressView = UIView()
     private let glassContainerView: UIVisualEffectView?
     private let contentView: UIView
-    private var closeButtonTopConstraint: NSLayoutConstraint!
-    private var closeButtonLeadingConstraint: NSLayoutConstraint!
-    private var closeButtonTrailingConstraint: NSLayoutConstraint!
-    private var closeButtonCompactCenterXConstraint: NSLayoutConstraint!
-    private var fieldCompactWidthConstraint: NSLayoutConstraint!
     private var compactActionButtons: [String: UniversalSearchToolbarActionButton] = [:]
     private var compactActionButtonOrder: [UniversalSearchToolbarActionButton] = []
     private var compactActionConstraints: [NSLayoutConstraint] = []
@@ -190,7 +217,6 @@ public final class UniversalSearchFieldView: UIView {
     private var presentationTransition: PresentationTransition?
     private var transitionDisplayLink: CADisplayLink?
     private var trailingHandoffProgress: CGFloat = 0
-    private lazy var fieldHandoffWidthConstraint = fieldView.widthAnchor.constraint(equalToConstant: 48)
 
     public init(configuration: UniversalSearchFieldConfiguration) {
         storedConfiguration = configuration
@@ -215,7 +241,8 @@ public final class UniversalSearchFieldView: UIView {
         fieldView.microphoneAccessibilityLabel = microphoneAccessibilityLabel
         fieldView.clearAccessibilityLabel = clearAccessibilityLabel
         updateTrailingButtonAccessibilityLabel()
-        updatePresentationConstraints(for: presentation)
+        prepareHomeItemViews(for: homeConfiguration.visibleItems)
+        updatePresentationConstraints()
         applyStaticVisualState(for: presentation)
     }
 
@@ -228,9 +255,13 @@ public final class UniversalSearchFieldView: UIView {
         CGSize(width: UIView.noIntrinsicMetric, height: presentation == .sideToolbar ? sideToolbarHeight : 48)
     }
 
+    /// The side toolbar is a column of every configured button, whatever fits the toolbar as a row
     public var sideToolbarHeight: CGFloat {
-        108 + CGFloat((homeConfiguration.showsAccounts ? 1 : 0) + (homeConfiguration.showsScan ? 1 : 0))
-            * (usesSharedActionsBackground ? 48 : 56)
+        let layout = HomeToolbarLayout(
+            items: homeOrder.filter(isHomeItemConfigured),
+            sharesBackground: usesSharedActionsBackground
+        )
+        return HomeToolbarLayout.buttonSize + layout.buttonsSpan
     }
 
     public override var center: CGPoint {
@@ -363,59 +394,62 @@ public final class UniversalSearchFieldView: UIView {
         return nil
     }
 
-    /// How much wider than the trailing button the home toolbar's buttons are: the scan and accounts buttons with
-    /// their spacing. A trailing handoff folds them into the trailing button as the field collapses.
-    public var homeActionsWidth: CGFloat { getHomeActionOffsets().width }
+    /// How much wider than the trailing button the home toolbar's buttons after the field are. A trailing handoff
+    /// folds them into the trailing button as the field collapses.
+    public var homeActionsWidth: CGFloat {
+        max(0, homeLayout.fieldTrailingInset - HomeToolbarLayout.fieldGap - HomeToolbarLayout.buttonSize)
+    }
+
+    /// The space the home toolbar's buttons before the field take, with their gap to it. A trailing handoff folds
+    /// them into the search circle as the field collapses.
+    public var homeFieldLeadingInset: CGFloat { homeLayout.fieldLeadingInset }
 
     private var isTrailingHandoffActive: Bool {
         trailingHandoffProgress > 0 && contentPresentation(for: presentation) == .homeToolbar
     }
 
-    /// The fold at which the scan and accounts buttons' content has shrunk away
+    /// The fold at which the buttons' content has shrunk away
     private static let homeActionsContentSwapEnd: CGFloat = 0.75
 
-    /// How far a trailing handoff has folded the scan and accounts buttons into the trailing button
+    /// How far a trailing handoff has folded the buttons into the search circle and the trailing button
     private var homeActionsFold: CGFloat {
         isTrailingHandoffActive ? trailingHandoffProgress : 0
     }
 
-    /// Whether a trailing handoff had the scan and accounts buttons out of reach when it last applied
+    /// Whether a trailing handoff had the buttons out of reach when it last applied
     private var areHomeActionsHandedOff = false
 
     private func applyTrailingHandoff() {
         let isActive = isTrailingHandoffActive
-        if isActive {
-            let fullWidth = max(48, bounds.width - 48 - closeButtonLeadingConstraint.constant)
-            fieldHandoffWidthConstraint.constant = fullWidth + (48 - fullWidth) * trailingHandoffProgress
-            closeButtonLeadingConstraint.isActive = false
-            fieldHandoffWidthConstraint.isActive = true
-        } else if fieldHandoffWidthConstraint.isActive {
-            fieldHandoffWidthConstraint.isActive = false
-            let contentPresentation = contentPresentation(for: presentation)
-            closeButtonLeadingConstraint.isActive = contentPresentation != .compactToolbar
-                && contentPresentation != .sideToolbar
-        }
-        closeButton.alpha = isActive || isTrailingButtonHandedOff ? 0 : 1
-        applyHomeActionOffsets(for: contentPresentation(for: presentation))
+        updateFieldConstraints()
         let fold = homeActionsFold
-        // The buttons' glass slides into the trailing button's place, merging with the host's control there, and
-        // their content shrinks away on the way, as the trailing button's own glyph does on the host's control. Folded
-        // all the way, their glass lies under the host's control, which stands in for it.
-        sharedActionsGlass.alpha = fold > 0.99 ? 0 : 1
+        // The buttons' glass slides into the search circle or the trailing button's place, merging with the host's
+        // control there, and their content shrinks away on the way, as the trailing button's own glyph does on the
+        // host's control. Folded all the way, their glass lies under the host's control, which stands in for it.
+        let isFolded = fold > 0.99
         let contentSwap = min(1, fold / Self.homeActionsContentSwapEnd)
         let contentScale = 1 + (GlassMotion.matchScale - 1) * contentSwap
-        accountsButton.setHandoffContent(alpha: 1 - contentSwap, scale: contentScale)
-        scanButton.setHandoffContent(alpha: 1 - contentSwap, scale: contentScale)
+        for item in materialItems {
+            guard let view = getOptionalItemView(item) else { continue }
+            view.alpha = isFolded ? 0 : 1
+            view.setHandoffContent(alpha: 1 - contentSwap, scale: contentScale)
+        }
+        leadingGroupGlass.alpha = isFolded ? 0 : 1
+        trailingGroupGlass.alpha = isFolded ? 0 : 1
+        let isTrailingGlassShared = closeButton.superview !== contentView
+        closeButton.alpha = isTrailingButtonHandedOff || (isActive && (!isTrailingGlassShared || isFolded)) ? 0 : 1
+        closeButton.setHandoffContentHidden(isActive)
         let isHandedOff = fold > 0
         if isHandedOff != areHomeActionsHandedOff {
             areHomeActionsHandedOff = isHandedOff
-            updateHomeActionsAppearance(for: presentation)
+            updateHomeItemsAppearance(for: presentation)
         }
         updateTrailingButtonAccessibilityLabel()
         fieldView.setHandoff(
             progress: isActive ? trailingHandoffProgress : 0,
-            isCollapsed: isActive && fieldHandoffWidthConstraint.constant < 110
+            isCollapsed: isActive && fieldWidthConstraint.constant < 110
         )
+        setNeedsLayout()
     }
 
     public func setHomeConfiguration(_ configuration: HomeToolbarConfiguration, animated: Bool) {
@@ -425,31 +459,125 @@ public final class UniversalSearchFieldView: UIView {
             return
         }
         guard configuration != homeConfiguration else { return }
-        layoutIfNeeded()
-        let shouldAnimate = animated && window != nil && UIView.areAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled
-        if shouldAnimate, showsHomeActions(in: presentation) {
-            prepareHomeActionsGlassTransition()
-        }
+        prepareHomeItemViews(for: configuration.visibleItems)
         homeConfiguration = configuration
+        applyHomeItemsChange(animated: animated)
+    }
+
+    /// Shows the toolbar as a drag arranges it: its other buttons make room where `edit` would drop its item and
+    /// wiggle, as Home Screen icons do while they are edited. `nil` puts the toolbar back as it is configured.
+    public func setHomeEdit(_ edit: HomeToolbarEdit?, animated: Bool) {
+        guard edit != homeEdit, presentationTransition == nil else { return }
+        if let edit { prepareHomeItemViews(for: [edit.item]) }
+        let isEditing = edit != nil
+        let hasEditingChanged = isEditing != (homeEdit != nil)
+        homeEdit = edit
+        applyHomeItemsChange(animated: animated, usesSpring: true)
+        if hasEditingChanged { setHomeItemsEditing(isEditing) }
+    }
+
+    /// Ends the drag and takes `configuration` in one move. The button of `landingItem` stays empty until
+    /// `finishHomeItemLanding`, for the dragged copy to land on it.
+    public func endHomeEdit(
+        with configuration: HomeToolbarConfiguration,
+        landingItem: HomeToolbarItem? = nil,
+        animated: Bool
+    ) {
+        setHomeItemsEditing(false)
+        guard presentationTransition == nil else {
+            homeEdit = nil
+            pendingHomeConfiguration = configuration
+            return
+        }
+        prepareHomeItemViews(for: configuration.visibleItems)
+        homeEdit = nil
+        homeLandingItem = landingItem
+        homeConfiguration = configuration
+        applyHomeItemsChange(animated: animated, usesSpring: true)
+    }
+
+    public func finishHomeItemLanding() {
+        guard homeLandingItem != nil else { return }
+        homeLandingItem = nil
+        UIView.performWithoutAnimation {
+            updateHomeItemsAppearance(for: presentation)
+        }
+    }
+
+    /// The frame of the place `item` has in the home toolbar as it is being laid out, in this view's coordinates
+    public func getHomeItemFrame(_ item: HomeToolbarItem) -> CGRect? {
+        guard contentPresentation(for: presentation) == .homeToolbar else { return nil }
+        let layout = homeLayout
+        if item == .search {
+            return getDirectionalFrame(
+                start: layout.fieldLeadingInset,
+                length: max(HomeToolbarLayout.buttonSize, bounds.width - layout.buttonsSpan)
+            )
+        }
+        guard let slot = layout.slot(for: item) else { return nil }
+        return getDirectionalFrame(start: layout.getStart(of: slot, length: bounds.width), length: HomeToolbarLayout.buttonSize)
+    }
+
+    /// The home toolbar's button under `point`, in this view's coordinates
+    public func getHomeItem(at point: CGPoint) -> HomeToolbarItem? {
+        guard presentation == .homeToolbar, homeActionsFold == 0 else { return nil }
+        return homeOrder.first { isHomeItemShown($0) && getHomeItemFrame($0)?.contains(point) == true }
+    }
+
+    /// The order with `item` moved to the place nearest to `x`, in this view's coordinates
+    public func getHomeOrder(moving item: HomeToolbarItem, toward x: CGFloat) -> [HomeToolbarItem] {
+        var shownItems = Set(homeOrder.filter(isHomeItemShown))
+        shownItems.insert(item)
+        return HomeToolbarLayout.getOrder(
+            moving: item,
+            in: homeOrder,
+            shownItems: shownItems,
+            sharesBackground: usesSharedActionsBackground,
+            toward: effectiveUserInterfaceLayoutDirection == .rightToLeft ? bounds.width - x : x,
+            length: bounds.width
+        )
+    }
+
+    /// Whether the toolbar keeps a usable search field with `item` shown too, beside the buttons `configuration`
+    /// shows, or the ones the toolbar shows now
+    public func canHoldHomeItem(_ item: HomeToolbarItem, in configuration: HomeToolbarConfiguration? = nil) -> Bool {
+        var configuration = configuration ?? homeConfiguration
+        configuration.sharesBackground = configuration.sharesBackground && Self.supportsSharedBackground
+        return HomeToolbarLayout.canHold(item, in: configuration, length: bounds.width)
+    }
+
+    /// A copy of what the button of `item` shows, for a view that stands in for it while it is dragged
+    public func makeHomeItemContentCopy(_ item: HomeToolbarItem) -> UIView {
+        if item == .accounts { return accountsButton.makeContentCopy() }
+        let imageView = UIImageView(image: item.makeToolbarImage())
+        imageView.tintColor = actionsOverlayAppearance.foregroundColor ?? .label
+        imageView.contentMode = .center
+        imageView.frame = CGRect(x: 0, y: 0, width: HomeToolbarLayout.buttonSize, height: HomeToolbarLayout.buttonSize)
+        return imageView
+    }
+
+    private func applyHomeItemsChange(animated: Bool, usesSpring: Bool = false) {
+        let shouldAnimate = animated && window != nil && UIView.areAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled
         invalidateIntrinsicContentSize()
         let animationID = UUID()
         configurationAnimationID = animationID
-        accountsButton.isHidden = false
-        scanButton.isHidden = false
-        updatePresentationConstraints(for: contentPresentation(for: presentation))
+        beginHomeItemsChange(to: presentation)
+        updateFieldConstraints()
         let updates = {
-            self.updateHomeActionsAppearance(for: self.presentation)
+            self.updateHomeItemsAppearance(for: self.presentation)
             self.onHomeConfigurationLayoutChange?()
+            self.setNeedsLayout()
             self.layoutIfNeeded()
-            self.layoutHomeActionsGlassTransition()
         }
         let completion: (Bool) -> Void = { [weak self] _ in
             guard let self, self.configurationAnimationID == animationID else { return }
             self.configurationAnimationID = nil
-            self.finishHomeActionsGlassTransition()
-            self.finishHomeActionsAppearance()
+            self.finishHomeItemsAppearance()
         }
-        if shouldAnimate {
+        if shouldAnimate, usesSpring {
+            UIView.animate(withDuration: 0.42, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction], animations: updates, completion: completion)
+        } else if shouldAnimate {
             UIView.animate(withDuration: 0.4, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction],
                            animations: updates, completion: completion)
         } else {
@@ -511,8 +639,10 @@ public final class UniversalSearchFieldView: UIView {
         }
         layoutIfNeeded()
         updateEmptyBasePresentation(for: presentation)
-        if showsHomeActions(in: self.presentation) || showsHomeActions(in: presentation) {
-            prepareHomeActionsGlassTransition()
+        if homeEdit != nil {
+            homeEdit = nil
+            setHomeItemsEditing(false)
+            onHomeEditInterruption?()
         }
 
         let transition = PresentationTransition(
@@ -523,6 +653,7 @@ public final class UniversalSearchFieldView: UIView {
             targetActions: targetActions
         )
         presentationTransition = transition
+        beginHomeItemsChange(to: presentation)
         let actionsChanged = targetActions != self.compactActions
         if actionsChanged {
             // Keep the source controls alive until the navigation finishes or
@@ -560,9 +691,7 @@ public final class UniversalSearchFieldView: UIView {
         }
         setCompactActionsTransform(actionsChanged ? incomingTransform : compactActionsTransform(for: self.presentation))
         closeButton.prepareTransition(from: sourceContentPresentation)
-        updateHomeActionsAppearance(for: self.presentation)
-        accountsButton.isHidden = false
-        scanButton.isHidden = false
+        updateHomeItemsAppearance(for: self.presentation)
         startTrackingTransitionProgress()
         return transition.id
     }
@@ -596,7 +725,7 @@ public final class UniversalSearchFieldView: UIView {
         let contentPresentation = contentPresentation(for: presentation)
         self.presentation = presentation
 
-        updatePresentationConstraints(for: contentPresentation)
+        updatePresentationConstraints()
         fieldView.setPresentation(contentPresentation, animator: animator)
         closeButton.setPresentation(
             contentPresentation,
@@ -606,7 +735,7 @@ public final class UniversalSearchFieldView: UIView {
         let updates = {
             guard self.presentationTransition?.id == transition.id else { return }
             self.transform = self.toolbarTransform(for: presentation)
-            self.updateHomeActionsAppearance(for: presentation)
+            self.animateHomeItemsAppearance(from: transition.source, to: presentation)
             self.setCompactActionsTransform(self.compactActionsTransform(for: presentation))
             let outgoingTransform = self.compactActionsOffscreenTransform(
                 for: self.outgoingCompactActionButtons,
@@ -616,8 +745,8 @@ public final class UniversalSearchFieldView: UIView {
                 button.transform = presentation == .empty ? .identity : outgoingTransform
             }
             self.transitionProgressView.alpha = 1
+            self.setNeedsLayout()
             self.layoutIfNeeded()
-            self.layoutHomeActionsGlassTransition()
         }
         if let animator {
             animator.addAnimations(updates)
@@ -646,7 +775,7 @@ public final class UniversalSearchFieldView: UIView {
         let contentPresentation = contentPresentation(for: presentation)
         self.presentation = presentation
 
-        updatePresentationConstraints(for: contentPresentation)
+        updatePresentationConstraints()
         fieldView.setPresentation(contentPresentation, animator: nil)
         applyStaticVisualState(for: presentation)
         updateTrailingButtonAccessibilityLabel()
@@ -663,37 +792,51 @@ public final class UniversalSearchFieldView: UIView {
         setCompactActionsHidden(contentPresentation != .compactToolbar)
         setCompactActionsTransform(compactActionsTransform(for: presentation))
         closeButton.applyStaticPresentation(contentPresentation)
-        finishHomeActionsGlassTransition()
-        updateHomeActionsAppearance(for: presentation)
-        finishHomeActionsAppearance()
+        finishHomeItemsAppearance()
         updateCompactActionsAccessibility(for: presentation)
         updateEmptyAccessibility(for: presentation)
     }
 
-    private func updatePresentationConstraints(
-        for presentation: UniversalSearchFieldPresentation
-    ) {
-        defer { applyTrailingHandoff() }
-        fieldHandoffWidthConstraint.isActive = false
-        applyHomeActionOffsets(for: presentation)
-        if presentation == .compactToolbar || presentation == .sideToolbar {
-            NSLayoutConstraint.deactivate([
-                closeButtonLeadingConstraint,
-                closeButtonTrailingConstraint,
-            ])
-            NSLayoutConstraint.activate([
-                closeButtonCompactCenterXConstraint,
-                fieldCompactWidthConstraint,
-            ])
-        } else {
-            NSLayoutConstraint.deactivate([
-                closeButtonCompactCenterXConstraint,
-                fieldCompactWidthConstraint,
-            ])
-            NSLayoutConstraint.activate([
-                closeButtonLeadingConstraint,
-                closeButtonTrailingConstraint,
-            ])
+    private func updatePresentationConstraints() {
+        applyTrailingHandoff()
+    }
+
+    /// Places the field for the presentation, between the home toolbar's buttons or as the leading circle a
+    /// trailing handoff collapses it into
+    private func updateFieldConstraints() {
+        let layout = homeLayout
+        var leading: CGFloat = 0
+        var top: CGFloat = 0
+        var trailing: CGFloat?
+        var width: CGFloat?
+        switch contentPresentation(for: presentation) {
+        case .homeToolbar:
+            let progress = isTrailingHandoffActive ? trailingHandoffProgress : 0
+            leading = layout.fieldLeadingInset * (1 - progress)
+            if progress > 0 {
+                let fullWidth = max(HomeToolbarLayout.buttonSize, bounds.width - layout.buttonsSpan)
+                width = fullWidth + (HomeToolbarLayout.buttonSize - fullWidth) * progress
+            } else {
+                trailing = layout.fieldTrailingInset
+            }
+        case .sideToolbar:
+            top = layout.fieldLeadingInset
+            width = HomeToolbarLayout.buttonSize
+        case .compactToolbar:
+            width = HomeToolbarLayout.buttonSize
+        case .search, .empty:
+            trailing = HomeToolbarLayout.buttonSize + 8
+        }
+        fieldLeadingConstraint.constant = leading
+        fieldTopConstraint.constant = top
+        if let width {
+            fieldTrailingConstraint.isActive = false
+            fieldWidthConstraint.constant = width
+            fieldWidthConstraint.isActive = true
+        } else if let trailing {
+            fieldWidthConstraint.isActive = false
+            fieldTrailingConstraint.constant = -trailing
+            fieldTrailingConstraint.isActive = true
         }
     }
 
@@ -715,129 +858,398 @@ public final class UniversalSearchFieldView: UIView {
         applyStaticVisualState(for: presentation)
     }
 
-    /// How far the scan and accounts buttons, and their shared glass, reach before the trailing button
-    private func getHomeActionOffsets() -> (scan: CGFloat, accounts: CGFloat, width: CGFloat) {
-        let stride: CGFloat = usesSharedActionsBackground ? 48 : 56
-        let scan: CGFloat = homeConfiguration.showsScan ? stride : 0
-        let accounts: CGFloat = homeConfiguration.showsAccounts ? scan + stride : 0
-        return (scan, accounts, max(scan, accounts))
-    }
-
-    private func applyHomeActionOffsets(for presentation: UniversalSearchFieldPresentation) {
-        let isSide = presentation == .sideToolbar
-        let isHome = presentation == .homeToolbar || isSide
-        let offsets = isHome ? getHomeActionOffsets() : (scan: CGFloat(0), accounts: CGFloat(0), width: CGFloat(0))
-        // A trailing handoff folds the buttons toward the trailing button; the field keeps its width beside them
-        let shown = presentation == .homeToolbar ? 1 - homeActionsFold : 1
-        closeButtonLeadingConstraint.constant = isHome ? 12 + offsets.width : 8
-        scanLeadingConstraint.constant = isSide ? 0 : -offsets.scan * shown
-        accountsLeadingConstraint.constant = isSide ? 0 : -offsets.accounts * shown
-        sharedActionsLeadingConstraint.constant = isSide ? 0 : -offsets.width * shown
-        scanTopConstraint.constant = isSide ? -offsets.scan : 0
-        accountsTopConstraint.constant = isSide ? -offsets.accounts : 0
-        sharedActionsTopConstraint.constant = isSide ? -offsets.width : 0
-        closeButtonTopConstraint.constant = isSide ? 60 + offsets.width : 0
-    }
-
-    private var usesSharedActionsBackground: Bool {
+    /// Buttons share a background only as glass
+    private static var supportsSharedBackground: Bool {
         if IOS_26_MODE_ENABLED, #available(iOS 26, *) {
-            return homeConfiguration.sharesBackground
+            return true
         }
         return false
     }
 
-    private func updateHomeActionsAppearance(for presentation: UniversalSearchFieldPresentation) {
-        homeActionGlassPresentation = presentation
-        let isHome = showsHomeActions(in: presentation)
-        let showsAccounts = isHome && homeConfiguration.showsAccounts
-        let showsScan = isHome && homeConfiguration.showsScan
-        let shared = isHome && usesSharedActionsBackground && (showsAccounts || showsScan)
-        let showsMaterial = homeActionGlassViews.isEmpty
-        let isHandingOff = homeActionsFold > 0
-        // The invisible action wrapper overlaps Search when the toolbar is compact.
-        sharedActionsGlass.isUserInteractionEnabled = presentation != .compactToolbar && presentation != .empty
-        sharedActionsGlass.setEffectVisible(showsMaterial && shared, inheritsAnimation: true)
-        accountsButton.setToolbarAppearance(showsBackground: showsMaterial && showsAccounts && !shared, showsContent: showsAccounts)
-        scanButton.setAppearance(showsBackground: showsMaterial && showsScan && !shared, showsContent: showsScan)
-        closeButton.setBackgroundVisible(showsMaterial && !shared && (contentPresentation(for: presentation) != .compactToolbar || presentationTransition != nil))
-        accountsButton.isUserInteractionEnabled = showsAccounts && presentation != .empty && !isHandingOff
-        accountsButton.accessibilityElementsHidden = !accountsButton.isUserInteractionEnabled
-        scanButton.isUserInteractionEnabled = showsScan && presentation != .empty && !isHandingOff
-        scanButton.accessibilityElementsHidden = !scanButton.isUserInteractionEnabled
+    private var usesSharedActionsBackground: Bool {
+        Self.supportsSharedBackground && homeConfiguration.sharesBackground
     }
 
-    private func homeActionGlassFrames(for presentation: UniversalSearchFieldPresentation) -> [CGRect] {
-        let closeFrame = closeButton.convert(closeButton.bounds, to: contentView)
-        let isHome = showsHomeActions(in: presentation)
-        if isHome, usesSharedActionsBackground, homeConfiguration.showsAccounts || homeConfiguration.showsScan {
-            let sharedFrame = sharedActionsGlass.convert(sharedActionsGlass.bounds, to: contentView)
-            return Array(repeating: sharedFrame, count: 3)
+    private var homeOrder: [HomeToolbarItem] { homeEdit?.order ?? homeConfiguration.order }
+
+    private func isHomeItemConfigured(_ item: HomeToolbarItem) -> Bool {
+        if let homeEdit, homeEdit.item == item { return homeEdit.reservesSlot || !item.isHideable }
+        return homeConfiguration.isShown(item)
+    }
+
+    /// The configured items that fit the home toolbar. A toolbar narrower than the one the configuration was made
+    /// on, such as after a rotation, leaves out the buttons last in order rather than squeeze the field away.
+    private var shownHomeItems: [HomeToolbarItem] {
+        let items = homeOrder.filter(isHomeItemConfigured)
+        // The side toolbar is a column, as long as it needs to be
+        guard bounds.width > 0, contentPresentation(for: presentation) != .sideToolbar else { return items }
+        return HomeToolbarLayout.getFittingItems(items, sharesBackground: usesSharedActionsBackground, length: bounds.width)
+    }
+
+    private func isHomeItemShown(_ item: HomeToolbarItem) -> Bool {
+        shownHomeItems.contains(item)
+    }
+
+    private var homeLayout: HomeToolbarLayout {
+        HomeToolbarLayout(items: shownHomeItems, sharesBackground: usesSharedActionsBackground)
+    }
+
+    /// The buttons that come and go with the configuration: every item but the field and the actions button
+    private static let optionalItems = HomeToolbarItem.allCases.filter(\.isHideable)
+
+    private func getOptionalItemView(_ item: HomeToolbarItem) -> (any HomeToolbarItemView)? {
+        item == .accounts ? accountsButton : itemButtons[item]
+    }
+
+    private func getHomeItemView(_ item: HomeToolbarItem) -> UIView? {
+        switch item {
+        case .search: fieldView
+        case .actions: closeButton
+        default: getOptionalItemView(item)
         }
-        return [
-            isHome && homeConfiguration.showsAccounts ? accountsButton.convert(accountsButton.bounds, to: contentView) : closeFrame,
-            isHome && homeConfiguration.showsScan ? scanButton.convert(scanButton.bounds, to: contentView) : closeFrame,
-            closeFrame,
-        ]
     }
 
-    private func prepareHomeActionsGlassTransition() {
-        // Handed off, the buttons are the host's control, which carries itself through the transition
-        guard homeActionGlassViews.isEmpty, glassContainerView != nil, homeActionsFold == 0, !isTrailingButtonHandedOff,
-              #available(iOS 26, *) else { return }
-        homeActionGlassPresentation = presentation
-        // Keep material visible while its geometry merges. Duplicate shapes start
-        // overlapped when splitting and are replaced only after the animation.
+    /// Creates the buttons of `items` that the toolbar has not shown before, where they wait hidden, so that they
+    /// come out of their neighbors when the layout that shows them is applied
+    private func prepareHomeItemViews(for items: [HomeToolbarItem]) {
+        var hasNewButton = false
+        for item in items where item.isHideable && item != .accounts && itemButtons[item] == nil {
+            let button = UniversalSearchIconButton(item: item)
+            button.onTap = { [weak self] in self?.onHomeItemTap?(item) }
+            button.setOverlayAppearance(actionsOverlayAppearance)
+            button.setHomeAppearance(showsGlass: false, showsContent: false)
+            button.isHidden = true
+            contentView.insertSubview(button, aboveSubview: trailingGroupGlass)
+            itemButtons[item] = button
+            hasNewButton = true
+        }
+        layoutIfNeeded()
+        if hasNewButton {
+            UIView.performWithoutAnimation { layoutHomeItems() }
+        }
+    }
+
+    /// Before an animated change: the buttons the change shows get their glass where they wait, merged into a
+    /// neighbor, and the buttons it hides keep theirs until `finishHomeItemsAppearance`. A side that will hold two
+    /// buttons or more moves them into its shared glass.
+    private func beginHomeItemsChange(to presentation: UniversalSearchFieldPresentation) {
+        let visibleItems = materialItems.filter { getOptionalItemView($0)?.isHidden == false }
+        if showsHomeActions(in: presentation) {
+            materialItems.formUnion(Self.optionalItems.filter(isHomeItemShown))
+        }
         UIView.performWithoutAnimation {
-            for (index, frame) in homeActionGlassFrames(for: presentation).enumerated() {
-                let glass: UIVisualEffectView
-                if let reusable = reusableHomeActionGlassViews.popLast() {
-                    removeAnimations(in: reusable.layer)
-                    glass = reusable
-                } else {
-                    glass = UIVisualEffectView()
-                    glass.cornerConfiguration = .capsule()
-                    glass.isUserInteractionEnabled = false
-                }
-                glass.effect = UIGlassEffect(style: actionsOverlayAppearance.usesClearGlass ? .clear : .regular)
-                glass.overrideUserInterfaceStyle = actionsOverlayAppearance.userInterfaceStyle
-                glass.frame = frame
-                glass.accessibilityIdentifier = "home_toolbar_transition_glass_\(index)"
-                contentView.insertSubview(glass, belowSubview: sharedActionsGlass)
-                // Resolve adaptive corners before the host starts animating frames.
-                glass.layoutIfNeeded()
-                homeActionGlassViews.append(glass)
+            for item in materialItems {
+                guard let view = getOptionalItemView(item), view.isHidden else { continue }
+                view.isHidden = false
+                view.setHomeAppearance(showsGlass: true, showsContent: false)
             }
-            updateHomeActionsAppearance(for: presentation)
+            for isBeforeField in [true, false] {
+                let isGrouped = groupedSides.contains(isBeforeField)
+                if wantsGroup(isBeforeField: isBeforeField, in: presentation) {
+                    if !isGrouped { enterGroup(isBeforeField: isBeforeField, visibleItems: visibleItems) }
+                } else if isGrouped, showsHomeActions(in: presentation), getGroupItems(isBeforeField: isBeforeField).count > 1 {
+                    // The buttons part into pieces of their own, which materialize as the shared glass goes
+                    groupedSides.remove(isBeforeField)
+                }
+            }
+            updateHomeItemHosts()
         }
         noteJoinedGlass()
     }
 
-    private func finishHomeActionsGlassTransition() {
-        guard !homeActionGlassViews.isEmpty else { return }
-        let outgoingGlass = homeActionGlassViews
-        homeActionGlassViews = []
-        UIView.performWithoutAnimation {
-            updateHomeActionsAppearance(for: presentation)
-            outgoingGlass.forEach { $0.removeFromSuperview() }
-        }
-        reusableHomeActionGlassViews.append(contentsOf: outgoingGlass)
+    /// The shown buttons on a side of the field, in order
+    private func getGroupItems(isBeforeField: Bool) -> [HomeToolbarItem] {
+        homeLayout.slots.filter { $0.isBeforeField == isBeforeField }.map(\.item)
     }
 
-    private func layoutHomeActionsGlassTransition() {
-        guard !homeActionGlassViews.isEmpty else { return }
-        contentView.layoutIfNeeded()
-        for (glass, frame) in zip(homeActionGlassViews, homeActionGlassFrames(for: homeActionGlassPresentation)) {
-            glass.frame = frame
+    private func getGroupGlass(isBeforeField: Bool) -> UniversalSearchInteractiveGlassView {
+        isBeforeField ? leadingGroupGlass : trailingGroupGlass
+    }
+
+    private func wantsGroup(isBeforeField: Bool, in presentation: UniversalSearchFieldPresentation) -> Bool {
+        usesSharedActionsBackground && showsHomeActions(in: presentation)
+            && getGroupItems(isBeforeField: isBeforeField).count > 1
+    }
+
+    private func isOnSide(_ item: HomeToolbarItem, isBeforeField: Bool) -> Bool {
+        let order = homeOrder
+        let isItemBeforeField = (order.firstIndex(of: item) ?? order.count) < (order.firstIndex(of: .search) ?? 0)
+        return isItemBeforeField == isBeforeField
+    }
+
+    /// Moves a side's buttons into its shared glass, which starts where their own glass is. One piece of glass or
+    /// none hands over at once; several pieces merge with the change that follows.
+    private func enterGroup(isBeforeField: Bool, visibleItems: Set<HomeToolbarItem>) {
+        let glass = getGroupGlass(isBeforeField: isBeforeField)
+        let layout = homeLayout
+        let items = HomeToolbarItem.allCases.filter {
+            $0 != .search && isOnSide($0, isBeforeField: isBeforeField)
+                && ($0 == .actions ? belongsInGroup($0, layout: layout) : materialItems.contains($0))
+        }
+        let pieces = items.filter { $0 == .actions ? closeButton.isBackgroundVisible : visibleItems.contains($0) }
+        // Buttons that are not showing wait under the ones that are
+        let views = (pieces.isEmpty ? items : pieces).compactMap(getHomeItemView)
+        glass.isHidden = false
+        glass.frame = views.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: contentView)) }
+        glass.layoutIfNeeded()
+        groupedSides.insert(isBeforeField)
+        updateHomeItemHosts()
+        if pieces.count <= 1 {
+            glass.setEffectVisible(true)
+            updateOwnGlass()
+        } else {
+            glass.setEffectVisible(false)
         }
     }
 
-    private func finishHomeActionsAppearance() {
+    /// Puts every button where it belongs: inside its side's shared glass, or straight in the toolbar
+    private func updateHomeItemHosts() {
+        let layout = homeLayout
+        var hasMovedView = false
+        for item in HomeToolbarItem.allCases where item != .search {
+            guard let view = getHomeItemView(item) else { continue }
+            let isBeforeField = isOnSide(item, isBeforeField: true)
+            let isHosted = groupedSides.contains(isBeforeField) && belongsInGroup(item, layout: layout)
+            let host = isHosted ? getGroupGlass(isBeforeField: isBeforeField).contentView : contentView
+            guard let superview = view.superview, superview !== host else { continue }
+            let center = host.convert(view.center, from: superview)
+            host.addSubview(view)
+            view.center = center
+            hasMovedView = true
+        }
+        if hasMovedView {
+            // The trailing button stays above the ones that gather under it
+            closeButton.superview?.bringSubviewToFront(closeButton)
+        }
+    }
+
+    /// Whether the button for `item` goes inside its side's shared glass while the side has one
+    private func belongsInGroup(_ item: HomeToolbarItem, layout: HomeToolbarLayout) -> Bool {
+        if item == .actions { return !isTrailingButtonApart }
+        return layout.slot(for: item) != nil || materialItems.contains(item)
+    }
+
+    /// Whether the trailing button keeps out of the shared glass of the buttons before the field: search has it at
+    /// the end of the toolbar, so on its way there it parts from them in its own glass, and on its way back joins
+    /// them once it is in its place
+    private var isTrailingButtonApart: Bool {
+        let presentations = presentationTransition.map { [$0.source, $0.target] } ?? [presentation]
+        return isOnSide(.actions, isBeforeField: true)
+            && presentations.contains { contentPresentation(for: $0) == .search }
+    }
+
+    private func isInSharedGlass(_ view: UIView) -> Bool {
+        view.superview !== contentView
+    }
+
+    /// A button's own glass shows while it is not inside a shared one
+    private func updateOwnGlass() {
+        for item in Self.optionalItems {
+            guard let view = getOptionalItemView(item) else { continue }
+            view.setHomeAppearance(
+                showsGlass: materialItems.contains(item) && !isInSharedGlass(view),
+                showsContent: view.showsHomeContent
+            )
+        }
+        updateTrailingButtonGlass(for: presentation)
+    }
+
+    private func updateTrailingButtonGlass(for presentation: UniversalSearchFieldPresentation) {
+        closeButton.setBackgroundVisible(
+            (contentPresentation(for: presentation) != .compactToolbar || presentationTransition != nil)
+                && !isInSharedGlass(closeButton)
+        )
+    }
+
+    private func updateHomeItemsAppearance(for presentation: UniversalSearchFieldPresentation) {
         let isHome = showsHomeActions(in: presentation)
-        accountsButton.isHidden = !isHome || !homeConfiguration.showsAccounts
-        scanButton.isHidden = !isHome || !homeConfiguration.showsScan
+        let isHandingOff = homeActionsFold > 0
+        for item in Self.optionalItems {
+            guard let view = getOptionalItemView(item) else { continue }
+            let isShown = isHome && isHomeItemShown(item)
+            let isEmpty = homeEdit?.item == item || homeLandingItem == item
+            view.setHomeAppearance(
+                showsGlass: materialItems.contains(item) && !isInSharedGlass(view),
+                showsContent: isShown && !isEmpty
+            )
+            view.isUserInteractionEnabled = isShown && presentation != .empty && !isHandingOff && homeEdit == nil
+            view.accessibilityElementsHidden = !view.isUserInteractionEnabled
+        }
+        updateTrailingButtonGlass(for: presentation)
+        for isBeforeField in [true, false] {
+            getGroupGlass(isBeforeField: isBeforeField)
+                .setEffectVisible(groupedSides.contains(isBeforeField), inheritsAnimation: true)
+        }
+    }
+
+    /// Inside a presentation change's animation: the buttons' content leaves in its first half and arrives in its
+    /// second, so that it doesn't cross the field's content while their glass merges into what they gather under
+    private func animateHomeItemsAppearance(
+        from source: UniversalSearchFieldPresentation,
+        to target: UniversalSearchFieldPresentation
+    ) {
+        let isArriving = showsHomeActions(in: target) && !showsHomeActions(in: source)
+        UIView.animateKeyframes(withDuration: 0, delay: 0) {
+            UIView.addKeyframe(withRelativeStartTime: isArriving ? 0.5 : 0, relativeDuration: 0.5) {
+                self.updateHomeItemsAppearance(for: target)
+            }
+        }
+    }
+
+    private func finishHomeItemsAppearance() {
+        materialItems = showsHomeActions(in: presentation) ? Set(Self.optionalItems.filter(isHomeItemShown)) : []
+        UIView.performWithoutAnimation {
+            groupedSides = Set([true, false].filter { wantsGroup(isBeforeField: $0, in: presentation) })
+            updateHomeItemHosts()
+            for isBeforeField in [true, false] {
+                getGroupGlass(isBeforeField: isBeforeField).isHidden = !groupedSides.contains(isBeforeField)
+            }
+            updateHomeItemsAppearance(for: presentation)
+            for item in Self.optionalItems {
+                getOptionalItemView(item)?.isHidden = !materialItems.contains(item)
+            }
+            layoutHomeItems()
+        }
+        noteJoinedGlass()
         if let configuration = pendingHomeConfiguration, presentationTransition == nil {
             pendingHomeConfiguration = nil
             setHomeConfiguration(configuration, animated: window != nil)
+        }
+    }
+
+    /// Places the buttons: on the home toolbar in their order around the field, and otherwise gathered under the
+    /// field's leading end or the trailing button, which they come out of when the home toolbar returns. A side's
+    /// shared glass spans its shown buttons.
+    private func layoutHomeItems() {
+        UIView.performWithoutAnimation { updateHomeItemHosts() }
+        let content = contentPresentation(for: presentation)
+        let isVertical = content == .sideToolbar
+        let isHome = content == .homeToolbar || isVertical
+        let layout = homeLayout
+        let order = homeOrder
+        let size = HomeToolbarLayout.buttonSize
+        let length = isVertical ? bounds.height : bounds.width
+        let fold = content == .homeToolbar ? homeActionsFold : 0
+        let fieldIndex = order.firstIndex(of: .search) ?? 0
+        var starts: [HomeToolbarItem: CGFloat] = [:]
+        // A side's shared glass goes wherever its buttons do, so that it merges into what they gather under
+        var groupSpans: [Bool: ClosedRange<CGFloat>] = [:]
+        for item in HomeToolbarItem.allCases where item != .search {
+            let isBeforeField = (order.firstIndex(of: item) ?? order.count) < fieldIndex
+            let start: CGFloat
+            if isHome, let slot = layout.slot(for: item) {
+                let restingStart = layout.getStart(of: slot, length: length)
+                let foldedStart = slot.isBeforeField ? 0 : length - size
+                start = restingStart + (foldedStart - restingStart) * fold
+            } else if isHome {
+                start = getWaitingStart(of: item, in: order, layout: layout, length: length)
+            } else if content == .search, item == .actions || !isBeforeField {
+                start = length - size
+            } else {
+                start = 0
+            }
+            starts[item] = start
+            // A trailing button on its way to join the shared glass already has its place in it
+            let isInSpan = item == .actions && isHome || belongsInGroup(item, layout: layout)
+            if isInSpan {
+                let span = groupSpans[isBeforeField] ?? start...start
+                groupSpans[isBeforeField] = min(span.lowerBound, start)...max(span.upperBound, start + size)
+            }
+        }
+        for isBeforeField in [true, false] where groupedSides.contains(isBeforeField) {
+            let glass = getGroupGlass(isBeforeField: isBeforeField)
+            let span = groupSpans[isBeforeField] ?? (isBeforeField ? 0...size : (length - size)...length)
+            glass.frame = getItemFrame(start: span.lowerBound, length: span.upperBound - span.lowerBound, isVertical: isVertical)
+            glass.layoutIfNeeded()
+        }
+        for (item, start) in starts {
+            guard let view = getHomeItemView(item), let superview = view.superview else { continue }
+            let frame = getItemFrame(start: start, length: size, isVertical: isVertical)
+            view.bounds.size = frame.size
+            view.center = superview.convert(CGPoint(x: frame.midX, y: frame.midY), from: contentView)
+            view.layoutIfNeeded()
+            getZoomAnchorView(for: item).frame = frame
+        }
+    }
+
+    /// The plain view that keeps the place of the button for `item`, behind the toolbar's glass
+    private func getZoomAnchorView(for item: HomeToolbarItem) -> UIView {
+        if let view = zoomAnchorViews[item] { return view }
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        contentView.insertSubview(view, at: 0)
+        zoomAnchorViews[item] = view
+        return view
+    }
+
+    /// The frame in the toolbar of a span of buttons along its axis
+    private func getItemFrame(start: CGFloat, length: CGFloat, isVertical: Bool) -> CGRect {
+        let size = HomeToolbarLayout.buttonSize
+        if isVertical {
+            return CGRect(x: 0, y: start, width: size, height: length)
+        }
+        var frame = getDirectionalFrame(start: start, length: length)
+        frame.size.height = size
+        return frame
+    }
+
+    /// Where a hidden button waits: on the shown button after it on its side of the field, else on the one before
+    /// it, else under the field's end
+    private func getWaitingStart(
+        of item: HomeToolbarItem,
+        in order: [HomeToolbarItem],
+        layout: HomeToolbarLayout,
+        length: CGFloat
+    ) -> CGFloat {
+        let fieldIndex = order.firstIndex(of: .search) ?? 0
+        let index = order.firstIndex(of: item) ?? order.count
+        let isBeforeField = index < fieldIndex
+        let side = isBeforeField ? Array(order[..<fieldIndex]) : Array(order[(fieldIndex + 1)...])
+        let sideIndex = isBeforeField ? index : index - fieldIndex - 1
+        let neighbors = side.suffix(from: min(side.count, sideIndex + 1)) + side.prefix(max(0, sideIndex)).reversed()
+        if let slot = neighbors.lazy.compactMap({ layout.slot(for: $0) }).first {
+            return layout.getStart(of: slot, length: length)
+        }
+        return isBeforeField ? 0 : length - HomeToolbarLayout.buttonSize
+    }
+
+    private func getDirectionalFrame(start: CGFloat, length: CGFloat) -> CGRect {
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        return CGRect(x: isRightToLeft ? bounds.width - start - length : start, y: 0, width: length, height: bounds.height)
+    }
+
+    private static let jiggleAnimationKey = "homeToolbarJiggle"
+
+    /// While a drag rearranges the toolbar its buttons wiggle, and their glass stops reacting to the finger
+    private func setHomeItemsEditing(_ isEditing: Bool) {
+        fieldView.setGlassInteractive(!isEditing)
+        closeButton.setGlassInteractive(!isEditing)
+        leadingGroupGlass.setInteractive(!isEditing)
+        trailingGroupGlass.setInteractive(!isEditing)
+        for item in Self.optionalItems {
+            getOptionalItemView(item)?.setGlassInteractive(!isEditing)
+        }
+        setHomeItemsJiggling(isEditing)
+    }
+
+    private func setHomeItemsJiggling(_ isJiggling: Bool) {
+        let layers = Self.optionalItems.compactMap { getOptionalItemView($0)?.jiggleLayer } + [closeButton.jiggleLayer]
+        for (index, layer) in layers.enumerated() {
+            guard isJiggling, !UIAccessibility.isReduceMotionEnabled else {
+                layer.removeAnimation(forKey: Self.jiggleAnimationKey)
+                continue
+            }
+            guard layer.animation(forKey: Self.jiggleAnimationKey) == nil else { continue }
+            let animation = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            animation.values = [-0.07, 0.07, -0.07]
+            animation.duration = 0.26
+            animation.repeatCount = .infinity
+            animation.timeOffset = 0.26 * Double(index % 3) / 3
+            animation.timingFunctions = [
+                CAMediaTimingFunction(name: .easeInEaseOut),
+                CAMediaTimingFunction(name: .easeInEaseOut),
+            ]
+            layer.add(animation, forKey: Self.jiggleAnimationKey)
         }
     }
 
@@ -998,58 +1410,33 @@ public final class UniversalSearchFieldView: UIView {
         }
 
         fieldView.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
         transitionProgressView.translatesAutoresizingMaskIntoConstraints = false
         transitionProgressView.isUserInteractionEnabled = false
         contentView.addSubview(fieldView)
-        sharedActionsGlass.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(sharedActionsGlass)
-        sharedActionsGlass.contentView.addSubview(accountsButton)
-        scanButton.translatesAutoresizingMaskIntoConstraints = false
-        sharedActionsGlass.contentView.addSubview(scanButton)
-        sharedActionsGlass.contentView.addSubview(closeButton)
+        for glass in [leadingGroupGlass, trailingGroupGlass] {
+            glass.translatesAutoresizingMaskIntoConstraints = true
+            glass.setEffectVisible(false)
+            glass.isHidden = true
+            contentView.addSubview(glass)
+        }
+        // `layoutHomeItems` places the buttons. The trailing button stays above the ones that gather under it.
+        accountsButton.translatesAutoresizingMaskIntoConstraints = true
+        accountsButton.isHidden = true
+        accountsButton.setToolbarAppearance(showsBackground: false, showsContent: false)
+        contentView.addSubview(accountsButton)
+        closeButton.translatesAutoresizingMaskIntoConstraints = true
+        contentView.addSubview(closeButton)
         contentView.addSubview(transitionProgressView)
 
-        closeButtonLeadingConstraint = closeButton.leadingAnchor.constraint(
-            equalTo: fieldView.trailingAnchor,
-            constant: 8
-        )
-        closeButtonTrailingConstraint = closeButton.trailingAnchor.constraint(
-            equalTo: contentView.trailingAnchor
-        )
-        closeButtonCompactCenterXConstraint = closeButton.centerXAnchor.constraint(
-            equalTo: fieldView.centerXAnchor
-        )
-        fieldCompactWidthConstraint = fieldView.widthAnchor.constraint(equalToConstant: 48)
-        closeButtonTopConstraint = closeButton.topAnchor.constraint(equalTo: contentView.topAnchor)
-        accountsLeadingConstraint = accountsButton.leadingAnchor.constraint(equalTo: closeButton.leadingAnchor)
-        scanLeadingConstraint = scanButton.leadingAnchor.constraint(equalTo: closeButton.leadingAnchor)
-        sharedActionsLeadingConstraint = sharedActionsGlass.leadingAnchor.constraint(equalTo: closeButton.leadingAnchor)
-        accountsTopConstraint = accountsButton.topAnchor.constraint(equalTo: closeButton.topAnchor)
-        scanTopConstraint = scanButton.topAnchor.constraint(equalTo: closeButton.topAnchor)
-        sharedActionsTopConstraint = sharedActionsGlass.topAnchor.constraint(equalTo: closeButton.topAnchor)
+        fieldLeadingConstraint = fieldView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor)
+        fieldTopConstraint = fieldView.topAnchor.constraint(equalTo: contentView.topAnchor)
+        fieldTrailingConstraint = fieldView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
+        fieldWidthConstraint = fieldView.widthAnchor.constraint(equalToConstant: HomeToolbarLayout.buttonSize)
         NSLayoutConstraint.activate([
-            accountsLeadingConstraint,
-            accountsTopConstraint,
-            accountsButton.widthAnchor.constraint(equalToConstant: 48),
-            accountsButton.heightAnchor.constraint(equalToConstant: 48),
-            scanLeadingConstraint,
-            scanTopConstraint,
-            scanButton.widthAnchor.constraint(equalToConstant: 48),
-            scanButton.heightAnchor.constraint(equalToConstant: 48),
-            sharedActionsLeadingConstraint,
-            sharedActionsGlass.trailingAnchor.constraint(equalTo: closeButton.trailingAnchor),
-            sharedActionsTopConstraint,
-            sharedActionsGlass.bottomAnchor.constraint(equalTo: closeButton.bottomAnchor),
-            fieldView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            fieldView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            fieldLeadingConstraint,
+            fieldTopConstraint,
+            fieldTrailingConstraint,
             fieldView.heightAnchor.constraint(equalToConstant: 48),
-
-            closeButtonLeadingConstraint,
-            closeButtonTrailingConstraint,
-            closeButtonTopConstraint,
-            closeButton.heightAnchor.constraint(equalToConstant: 48),
-            closeButton.widthAnchor.constraint(equalToConstant: 48),
 
             transitionProgressView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             transitionProgressView.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -1060,12 +1447,20 @@ public final class UniversalSearchFieldView: UIView {
 
     public override func layoutSubviews() {
         if isTrailingHandoffActive {
-            let fullWidth = max(48, bounds.width - 48 - closeButtonLeadingConstraint.constant)
-            let width = fullWidth + (48 - fullWidth) * trailingHandoffProgress
-            if abs(fieldHandoffWidthConstraint.constant - width) > 0.25 { applyTrailingHandoff() }
+            let fullWidth = max(HomeToolbarLayout.buttonSize, bounds.width - homeLayout.buttonsSpan)
+            let width = fullWidth + (HomeToolbarLayout.buttonSize - fullWidth) * trailingHandoffProgress
+            if abs(fieldWidthConstraint.constant - width) > 0.25 { updateFieldConstraints() }
+        }
+        if presentationTransition == nil, configurationAnimationID == nil {
+            let items = shownHomeItems
+            if items != laidOutHomeItems {
+                laidOutHomeItems = items
+                updateFieldConstraints()
+                finishHomeItemsAppearance()
+            }
         }
         super.layoutSubviews()
-        layoutHomeActionsGlassTransition()
+        layoutHomeItems()
         if presentationTransition == nil {
             transform = toolbarTransform(for: presentation)
             setCompactActionsTransform(compactActionsTransform(for: presentation))
@@ -1082,7 +1477,6 @@ public final class UniversalSearchFieldView: UIView {
     private func setupCallbacks() {
         accountsButton.accessibilityIdentifier = "home_accounts_button"
         accountsButton.addAction(UIAction { [weak self] _ in self?.onAccountsTap?() }, for: .touchUpInside)
-        scanButton.onTap = { [weak self] in self?.onScanTap?() }
         fieldView.onTextChange = { [weak self] text in
             guard let self else { return }
             storedConfiguration.text = text
@@ -1166,7 +1560,7 @@ public final class UniversalSearchFieldView: UIView {
                 self?.onToolbarActionTap?(action.id)
             }
             button.translatesAutoresizingMaskIntoConstraints = false
-            contentView.insertSubview(button, belowSubview: sharedActionsGlass)
+            contentView.insertSubview(button, aboveSubview: fieldView)
             compactActionButtonOrder.append(button)
         }
         noteJoinedGlass()
@@ -1266,6 +1660,10 @@ private final class UniversalSearchFieldCapsuleView: UIView, UITextFieldDelegate
             UIView.transition(with: magnifyingGlass, duration: 0.25,
                               options: [.transitionCrossDissolve, .beginFromCurrentState, .allowAnimatedContent], animations: updates)
         } else { updates() }
+    }
+
+    func setGlassInteractive(_ isInteractive: Bool) {
+        glassView.setInteractive(isInteractive)
     }
 
     var compactAccessibilityIdentifier: String? {
@@ -1454,6 +1852,8 @@ private final class UniversalSearchFieldCapsuleView: UIView, UITextFieldDelegate
         addSubview(glassView)
 
         textField.translatesAutoresizingMaskIntoConstraints = false
+        // The buttons beside the field decide its width; a long placeholder must not widen the toolbar
+        textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textField.delegate = self
         textField.borderStyle = .none
         textField.backgroundColor = .clear
@@ -2320,16 +2720,59 @@ private final class UniversalSearchToolbarActionButton: UIControl {
     }
 }
 
+/// A button of the home toolbar, apart from the field and the actions button
+@MainActor
+private protocol HomeToolbarItemView: UIView {
+    func setHomeAppearance(showsGlass: Bool, showsContent: Bool)
+    /// Fades and scales the content for a host's handoff morph, apart from `setHomeAppearance`'s visibility
+    func setHandoffContent(alpha: CGFloat, scale: CGFloat)
+    /// Whether the content shows, as `setHomeAppearance` last set it
+    var showsHomeContent: Bool { get }
+    /// The layer that wiggles while the toolbar is rearranged
+    var jiggleLayer: CALayer { get }
+    func setGlassInteractive(_ isInteractive: Bool)
+}
+
+extension WalletAccountButton: HomeToolbarItemView {
+    fileprivate func setHomeAppearance(showsGlass: Bool, showsContent: Bool) {
+        setToolbarAppearance(showsBackground: showsGlass, showsContent: showsContent)
+    }
+
+    fileprivate var showsHomeContent: Bool { showsToolbarContent }
+    fileprivate var jiggleLayer: CALayer { contentLayer }
+}
+
 @MainActor
 private final class UniversalSearchInteractiveGlassView: UIView {
     let contentView: UIView
     var presentationSourceView: UIView { effectView }
+    var isEffectVisible: Bool { effectView.effect != nil }
 
     private let effectView: UIVisualEffectView
     private var materialEffect: UIVisualEffect
     private var usesClearGlass = false
     private var glassTintColor: UIColor?
-    private let isInteractive: Bool
+    private var isInteractive: Bool
+
+    /// Glass that reacts to touches keeps reacting to a finger that a drag has taken for something else, so a host
+    /// turns the reaction off while it rearranges the glass
+    func setInteractive(_ isInteractive: Bool) {
+        guard isInteractive != self.isInteractive else { return }
+        self.isInteractive = isInteractive
+        let isVisible = effectView.effect != nil
+        if !isInteractive, isVisible {
+            // The press the glass is showing ends only with the effect that shows it
+            for recognizer in effectView.gestureRecognizers ?? [] where recognizer.isEnabled {
+                recognizer.isEnabled = false
+                recognizer.isEnabled = true
+            }
+            UIView.performWithoutAnimation { effectView.effect = nil }
+        }
+        setGlassTintColor(glassTintColor, animator: nil)
+        if isVisible {
+            UIView.performWithoutAnimation { effectView.effect = materialEffect }
+        }
+    }
 
     func setUsesClearGlass(_ usesClearGlass: Bool) {
         guard usesClearGlass != self.usesClearGlass else { return }
@@ -2447,10 +2890,12 @@ private final class UniversalSearchInteractiveGlassView: UIView {
 }
 
 @MainActor
-private final class UniversalSearchScanButton: UIView {
+private final class UniversalSearchIconButton: UIView, HomeToolbarItemView {
     var onTap: (() -> Void)?
     private let glassView = UniversalSearchInteractiveGlassView()
     private let button = UIButton(type: .system)
+
+    var jiggleLayer: CALayer { button.layer }
 
     func setOverlayAppearance(_ appearance: ContentOverlayAppearance) {
         overrideUserInterfaceStyle = appearance.userInterfaceStyle
@@ -2458,20 +2903,17 @@ private final class UniversalSearchScanButton: UIView {
         button.configuration?.baseForegroundColor = appearance.foregroundColor ?? .label
     }
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(item: HomeToolbarItem) {
+        super.init(frame: CGRect(x: 0, y: 0, width: HomeToolbarLayout.buttonSize, height: HomeToolbarLayout.buttonSize))
         glassView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(glassView)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.configuration = .plain()
-        button.configuration?.image = UIImage(
-            systemName: "viewfinder",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)
-        )
+        button.configuration?.image = item.makeToolbarImage()
         button.configuration?.contentInsets = .zero
         button.configuration?.baseForegroundColor = .label
-        button.accessibilityLabel = lang("Scan QR Code")
-        button.accessibilityIdentifier = "home_scan_qr_button"
+        button.accessibilityLabel = item == .scan ? lang("Scan QR Code") : item.title
+        button.accessibilityIdentifier = item.toolbarAccessibilityIdentifier
         button.addAction(UIAction { [weak self] _ in self?.onTap?() }, for: .touchUpInside)
         glassView.contentView.addSubview(button)
         NSLayoutConstraint.activate([
@@ -2489,15 +2931,21 @@ private final class UniversalSearchScanButton: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func setAppearance(showsBackground: Bool, showsContent: Bool) {
-        glassView.setEffectVisible(showsBackground, inheritsAnimation: true)
+    private(set) var showsHomeContent = true
+
+    func setHomeAppearance(showsGlass: Bool, showsContent: Bool) {
+        showsHomeContent = showsContent
+        glassView.setEffectVisible(showsGlass, inheritsAnimation: true)
         button.alpha = showsContent ? 1 : 0
     }
 
-    /// Fades and scales the glyph for a host's handoff morph, apart from `setAppearance`'s visibility
     func setHandoffContent(alpha: CGFloat, scale: CGFloat) {
         glassView.contentView.alpha = alpha
         button.transform = scale == 1 ? .identity : CGAffineTransform(scaleX: scale, y: scale)
+    }
+
+    func setGlassInteractive(_ isInteractive: Bool) {
+        glassView.setInteractive(isInteractive)
     }
 }
 
@@ -2515,8 +2963,21 @@ private final class UniversalSearchCloseButton: UIView {
     var interactionView: UIView { button }
     var presentationSourceView: UIView { glassView.presentationSourceView }
 
+    var isBackgroundVisible: Bool { glassView.isEffectVisible }
+
     func setBackgroundVisible(_ visible: Bool) {
         glassView.setEffectVisible(visible, inheritsAnimation: true)
+    }
+
+    /// Hides the glyph while a host's control stands in for the button, whose glass may still show
+    func setHandoffContentHidden(_ isHidden: Bool) {
+        glassView.contentView.alpha = isHidden ? 0 : 1
+    }
+
+    var jiggleLayer: CALayer { actionContentView.layer }
+
+    func setGlassInteractive(_ isInteractive: Bool) {
+        glassView.setInteractive(isInteractive)
     }
 
     var buttonAccessibilityLabel: String? {
@@ -2556,7 +3017,6 @@ private final class UniversalSearchCloseButton: UIView {
 
         glassView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(glassView)
-
         button.translatesAutoresizingMaskIntoConstraints = false
         button.configuration = .plain()
         button.configuration?.contentInsets = .zero

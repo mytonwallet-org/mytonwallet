@@ -1,0 +1,439 @@
+name: iOS cadence Preview build
+
+# The archive is built unsigned on a machine outside our control, so the signing identity and the
+# App Store Connect key live only in the Linux jobs after it, which treat the archive as untrusted.
+on:
+  workflow_dispatch:
+    inputs:
+      since_sha:
+        description: The last commit already built; empty builds without reading the range
+        type: string
+        default: ''
+      archive_on_hosted:
+        description: Archive on the hosted xcode-27 runner instead of vars.IOS_ARCHIVE_RUNS_ON
+        type: boolean
+        default: false
+
+concurrency:
+  group: ios-cadence-build
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# The SDK build bakes these values into the bundle, so they mirror Package and publish; an empty
+# PUBLISH_REPO keeps the copied steps on the development path.
+env:
+  APP_VARIANT: mytonwallet
+  PUBLISH_REPO: ''
+  IS_RELEASE_CANDIDATE: ''
+  PROXY_HOSTS: ${{ vars.PROXY_HOSTS }}
+  STAKING_POOLS: ${{ vars.STAKING_POOLS }}
+  BRILLIANT_API_BASE_URL: ${{ vars.BRILLIANT_API_BASE_URL }}
+  SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
+  DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
+  WALLET_CONNECT_PROJECT_ID: ${{ vars.WALLET_CONNECT_PROJECT_ID }}
+  WALLET_CONNECT_PAY_APP_ID: ${{ vars.WALLET_CONNECT_PAY_APP_ID }}
+  AGENT_API_URL: ${{ vars.AGENT_API_URL }}
+
+jobs:
+  plan:
+    name: Plan the Preview build
+    # Preview belongs to the development repo; the publishing repo ships only through Package and publish.
+    if: vars.PUBLISH_REPO == ''
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      build: ${{ steps.plan.outputs.build }}
+      runner: ${{ steps.plan.outputs.runner }}
+      build_ios: ${{ steps.plan.outputs.build_ios }}
+    steps:
+      - name: Checkout the planner
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            dev/iosCadenceBuild.mjs
+            package.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Plan the build
+        id: plan
+        uses: actions/github-script@v9
+        env:
+          SINCE_SHA: ${{ inputs.since_sha }}
+          ARCHIVE_ON_HOSTED: ${{ inputs.archive_on_hosted }}
+          ARCHIVE_RUNS_ON: ${{ vars.IOS_ARCHIVE_RUNS_ON }}
+        with:
+          script: |
+            const { planBuild } = await import(`${process.env.GITHUB_WORKSPACE}/dev/iosCadenceBuild.mjs`);
+            await planBuild({ github, context, core, env: process.env });
+
+  # The gate cancels this job when it waits too long for its runner, matching it by this name.
+  archive:
+    name: Archive Preview
+    needs: plan
+    if: needs.plan.outputs.build_ios == 'true'
+    runs-on: ${{ needs.plan.outputs.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      built-at: ${{ steps.archive.outputs.built-at }}
+    env:
+      GYM_DERIVED_DATA_PATH: ${{ github.workspace }}/.derived-data
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      IOS_REQUIRED_SDK: "27.1"
+      BUILD_VERSION: ${{ needs.plan.outputs.version }}
+      BUILD_NUMBER: ${{ needs.plan.outputs.build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify Xcode 27.1 toolchain
+        run: |
+          set -euo pipefail
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::Xcode 27.1 is missing from this runner: $DEVELOPER_DIR"
+            exit 1
+          fi
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphoneos --show-sdk-version)
+          if [ "$sdk" != "$IOS_REQUIRED_SDK" ]; then
+            echo "::error::Expected iOS SDK $IOS_REQUIRED_SDK, found $sdk"
+            exit 1
+          fi
+
+      - name: Configure iOS variant
+        env:
+          IOS_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          IOS_PREVIEW_TESTFLIGHT_GROUP: ${{ vars.IOS_PREVIEW_TESTFLIGHT_GROUP }}
+          IOS_GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: bash deploy/configure_ios_variant.sh >> "$GITHUB_ENV"
+
+      - name: Install Preview Firebase configuration
+        if: env.IOS_BUILD_CHANNEL == 'preview'
+        env:
+          IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64: ${{ secrets.IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64" ]; then
+            echo "::error::Missing IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64 for org.mytonwallet.app.preview"
+            exit 1
+          fi
+          config=mobile/ios/App/App/Resources/MyTonWalletPreview/GoogleService-Info.plist
+          mkdir -p "$(dirname "$config")"
+          printf '%s' "$IOS_PREVIEW_GOOGLE_SERVICE_INFO_BASE64" | base64 --decode > "$config"
+          if [ "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$config")" != "$IOS_APP_IDENTIFIER" ]; then
+            echo "::error::Preview Firebase configuration must be registered for $IOS_APP_IDENTIFIER"
+            exit 1
+          fi
+
+      # The node_modules cache of prepare_node is shared with every branch, so this build installs its own.
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+          dont-install-npm-packages: 'true'
+
+      - name: Install npm packages
+        run: npm ci
+
+      - name: Build and sync mobile project
+        run: |
+          defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+          npm run mobile:build:staging
+
+      - name: Archive Preview without signing
+        id: archive
+        run: |
+          set -euo pipefail
+          if [ -z "$BRILLIANT_API_BASE_URL" ]; then
+            echo "::error::BRILLIANT_API_BASE_URL is required for the Preview widget"
+            exit 1
+          fi
+
+          # DEVELOPER_DIR already picks the toolchain, and -n keeps a machine without passwordless sudo from hanging.
+          sudo -n xcode-select --switch "$DEVELOPER_DIR" || true
+          xcodebuild -downloadPlatform iOS || true
+          sudo -n xcodebuild -runFirstLaunch || true
+          xcodebuild -downloadComponent MetalToolchain
+
+          echo "Preview $BUILD_VERSION ($BUILD_NUMBER)"
+          xcodebuild archive \
+            -workspace mobile/ios/App/App.xcworkspace \
+            -scheme "$IOS_SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$GYM_DERIVED_DATA_PATH" \
+            -archivePath "$RUNNER_TEMP/Preview.xcarchive" \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="$BUILD_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            WIDGET_API_BASE_URL="$BRILLIANT_API_BASE_URL"
+          echo "built-at=$(date -u '+%Y-%m-%d %H:%M')" >> "$GITHUB_OUTPUT"
+
+          mkdir -p "$RUNNER_TEMP/preview"
+          (cd "$RUNNER_TEMP/Preview.xcarchive/Products/Applications" && tar -cf "$RUNNER_TEMP/preview/app.tar" ./*.app)
+
+      # A tar keeps the executable bits of the bundle, which an artifact alone drops.
+      - name: Upload the unsigned build
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-preview-unsigned-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/preview
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  sign-upload:
+    name: Sign and upload Preview
+    needs: [plan, archive]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    # Shares the release workflow's group, so two runs never reach App Store Connect with Preview at once.
+    concurrency:
+      group: ios-upload-${{ github.ref }}-mytonwallet
+      cancel-in-progress: false
+    outputs:
+      handoff-id: ${{ steps.handoff.outputs.artifact-id }}
+    env:
+      BUILD_VERSION: ${{ needs.plan.outputs.version }}
+      BUILD_NUMBER: ${{ needs.plan.outputs.build }}
+      ARCHIVE_ID: ${{ needs.archive.outputs.artifact-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 4
+          persist-credentials: false
+
+      # download-artifact reads an empty list of IDs as every artifact of the run.
+      - name: Refuse a missing archive ID
+        run: |
+          if [ -z "$ARCHIVE_ID" ]; then
+            echo "::error::The archive job left no artifact ID"
+            exit 1
+          fi
+
+      - name: Download the unsigned build
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ env.ARCHIVE_ID }}
+          path: ${{ runner.temp }}/unsigned
+          merge-multiple: true
+
+      - name: Install rcodesign
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          name=apple-codesign-0.29.0-x86_64-unknown-linux-musl
+          curl -fsSLO "https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/$name.tar.gz"
+          echo "dbe85cedd8ee4217b64e9a0e4c2aef92ab8bcaaa41f20bde99781ff02e600002  $name.tar.gz" | sha256sum -c -
+          tar -xzf "$name.tar.gz"
+          echo "RCODESIGN=$RUNNER_TEMP/$name/rcodesign" >> "$GITHUB_ENV"
+
+      - name: Configure iOS variant
+        env:
+          IOS_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          IOS_PREVIEW_TESTFLIGHT_GROUP: ${{ vars.IOS_PREVIEW_TESTFLIGHT_GROUP }}
+          IOS_GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: bash deploy/configure_ios_variant.sh >> "$GITHUB_ENV"
+
+      - name: Sign the build
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PREVIEW_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_BASE64 }}
+          IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in IOS_CERTIFICATE_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PREVIEW_PROVISION_PROFILE_BASE64 \
+            IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64 IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64 TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is empty"
+              exit 1
+            fi
+          done
+
+          signing="$RUNNER_TEMP/signing"
+          mkdir -m 700 "$signing"
+          trap 'rm -rf "$signing"' EXIT
+          printf '%s' "$IOS_CERTIFICATE_BASE64" | base64 --decode > "$signing/certificate.p12"
+          printf '%s' "$IOS_CERTIFICATE_PASSWORD" > "$signing/password"
+          printf '%s' "$IOS_PREVIEW_PROVISION_PROFILE_BASE64" | base64 --decode > "$signing/app.mobileprovision"
+          printf '%s' "$IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode > "$signing/widget.mobileprovision"
+          printf '%s' "$IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64" | base64 --decode > "$signing/notification.mobileprovision"
+
+          mkdir -p "$RUNNER_TEMP/signed"
+          P12_PATH="$signing/certificate.p12" P12_PASSWORD_FILE="$signing/password" \
+            APP_PROFILE="$signing/app.mobileprovision" WIDGET_PROFILE="$signing/widget.mobileprovision" \
+            NOTIFICATION_PROFILE="$signing/notification.mobileprovision" ENTITLEMENTS_DIR=mobile/ios/App/Entitlements \
+            EXPECT_VERSION="$BUILD_VERSION" EXPECT_BUILD="$BUILD_NUMBER" \
+            bash deploy/ios_sign/sign_ipa.sh "$RUNNER_TEMP/unsigned/app.tar" "$RUNNER_TEMP/signed/preview.ipa"
+
+      - name: Write the distribution handoff
+        env:
+          BUILT_AT: ${{ needs.archive.outputs.built-at }}
+          IOS_TESTFLIGHT_HANDOFF: ${{ runner.temp }}/signed/testflight-handoff.json
+        run: |
+          python3 -I - <<'EOF'
+          import json, os, re, subprocess, sys
+          # The notes the beta lane writes: a provenance line from the archive's moment, then what
+          # fastlane's changelog_from_git_commits makes of the last three commits.
+          env = os.environ
+          if not re.fullmatch(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', env['BUILT_AT']):
+              sys.exit(f"::error::The archive job reported its build time as {env['BUILT_AT']!r}")
+          notes = subprocess.run(['git', 'log', '--pretty=%B', '-n', '3', '--no-merges'],
+                                 check=True, capture_output=True, text=True).stdout
+          notes = (notes[:-1] if notes.endswith('\n') else notes).replace('\n\n', '\n')
+          meta = ' \u00b7 '.join([env['BUILD_VERSION'], f"{env['BUILT_AT']} UTC", env['GITHUB_SHA'][:7]])
+          with open(env['IOS_TESTFLIGHT_HANDOFF'], 'w') as handoff:
+              json.dump({
+                  'app_identifier': env['IOS_APP_IDENTIFIER'],
+                  'testflight_group': env['IOS_TESTFLIGHT_GROUP'],
+                  'version': env['BUILD_VERSION'],
+                  'build_number': env['BUILD_NUMBER'],
+                  'changelog': f'{meta}\n\n{notes}',
+              }, handoff, indent=2)
+          EOF
+
+      # setup-ruby's bundler cache is the same shared cache, and this job holds the signing identity.
+      - name: Use Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: false
+          working-directory: mobile
+
+      - name: Install the gems from the lockfile
+        working-directory: mobile
+        env:
+          BUNDLE_FROZEN: "true"
+        run: bundle install --jobs 4
+
+      - name: "iOS: Upload to App Store Connect"
+        uses: ./.github/actions/ios-fastlane-asc
+        env:
+          IOS_IPA_HANDOFF: ${{ runner.temp }}/signed/preview.ipa
+          IOS_TESTFLIGHT_HANDOFF: ${{ runner.temp }}/signed/testflight-handoff.json
+        with:
+          lane: upload_ipa
+          auth-key-base64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          key-id: ${{ vars.IOS_AUTH_KEY_ID }}
+          issuer-id: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+
+      # A re-run of failed jobs keeps the build number of its first attempt, and the uploader then
+      # reports the binary App Store Connect already holds under it instead of this one.
+      - name: Refuse a build number App Store Connect already holds
+        run: |
+          if grep -q 'ended in SKIPPED' "$RUNNER_TEMP/fastlane-upload_ipa.log"; then
+            echo "::error::App Store Connect already holds build $BUILD_NUMBER; dispatch a new run, which takes the next number"
+            exit 1
+          fi
+
+      - name: Upload the TestFlight distribution handoff
+        id: handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-preview-handoff-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/signed/testflight-handoff.json
+          if-no-files-found: error
+          retention-days: 7
+
+  distribute:
+    name: Distribute Preview
+    needs: sign-upload
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+    concurrency:
+      group: ios-distribute-${{ github.ref }}-mytonwallet
+      cancel-in-progress: false
+    env:
+      IOS_EXTERNAL_BETA_ENABLED: "true"
+      HANDOFF_ID: ${{ needs.sign-upload.outputs.handoff-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Refuse a missing handoff ID
+        run: |
+          if [ -z "$HANDOFF_ID" ]; then
+            echo "::error::The upload job left no handoff artifact ID"
+            exit 1
+          fi
+
+      - name: Download the TestFlight distribution handoff
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ env.HANDOFF_ID }}
+          path: mobile/ios/App
+          merge-multiple: true
+
+      - name: Configure iOS variant
+        env:
+          IOS_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          IOS_PREVIEW_TESTFLIGHT_GROUP: ${{ vars.IOS_PREVIEW_TESTFLIGHT_GROUP }}
+          IOS_GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: bash deploy/configure_ios_variant.sh >> "$GITHUB_ENV"
+
+      - name: Use Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: false
+          working-directory: mobile
+
+      - name: Install the gems from the lockfile
+        working-directory: mobile
+        env:
+          BUNDLE_FROZEN: "true"
+        run: bundle install --jobs 4
+
+      - name: "iOS: Distribute to TestFlight"
+        uses: ./.github/actions/ios-fastlane-asc
+        with:
+          lane: distribute
+          auth-key-base64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          key-id: ${{ vars.IOS_AUTH_KEY_ID }}
+          issuer-id: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+
+  # Moves only once testers have the build, so a failed distribution leaves the range owed and the gate
+  # builds it again on its own, which no one has to notice and the rented machine makes cheap.
+  anchor:
+    name: Record the build anchor (ios-mywallet)
+    needs: [plan, distribute]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.plan.outputs.build_ios == 'false' || needs.distribute.result == 'success') }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: cadence-anchor-${{ github.ref }}-ios-mywallet
+      cancel-in-progress: false
+    steps:
+      - name: Checkout the anchor
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: dev/cadenceAnchor.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Move the anchor tag
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { moveAnchor } = await import(`${process.env.GITHUB_WORKSPACE}/dev/cadenceAnchor.mjs`);
+            await moveAnchor({ github, context, core, key: 'ios-mywallet' });

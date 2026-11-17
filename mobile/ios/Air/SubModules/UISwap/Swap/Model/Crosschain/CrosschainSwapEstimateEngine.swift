@@ -74,6 +74,9 @@ func crosschainAdjustedNativeMaxAmount(
     var fetchEstimate: (String, ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse = {
         try await Api.swapEstimate(accountId: $0, request: $1)
     }
+    var fetchTransactionDraft: (ApiChain, ApiCheckTransactionDraftOptions) async throws -> ApiCheckTransactionDraftResult = {
+        try await Api.checkTransactionDraft(chain: $0, options: $1)
+    }
 
     func estimate(
         _ input: SwapEstimateInput,
@@ -112,22 +115,21 @@ func crosschainAdjustedNativeMaxAmount(
                     account: account,
                     amount: selling.amount
                 )
-                if let feeData = try? await fetchNetworkFee(
+                let feeData = try await fetchNetworkFee(
                     sellingToken: selling.token,
                     account: account,
                     amount: feeDraftAmount
+                )
+                networkFee = feeData.networkFee
+                realNetworkFee = feeData.realNetworkFee
+                if let adjustedMaxAmount = crosschainAdjustedNativeMaxAmount(
+                    sellingToken: selling.token,
+                    swapType: swapType,
+                    isMaxAmount: input.isMaxAmount,
+                    account: account,
+                    networkFee: feeData.networkFee
                 ) {
-                    networkFee = feeData.networkFee
-                    realNetworkFee = feeData.realNetworkFee
-                    if let adjustedMaxAmount = crosschainAdjustedNativeMaxAmount(
-                        sellingToken: selling.token,
-                        swapType: swapType,
-                        isMaxAmount: input.isMaxAmount,
-                        account: account,
-                        networkFee: feeData.networkFee
-                    ) {
-                        requestAmount = adjustedMaxAmount
-                    }
+                    requestAmount = adjustedMaxAmount
                 }
                 try Task.checkCancellation()
             }
@@ -213,7 +215,7 @@ func crosschainAdjustedNativeMaxAmount(
 
         if swapType.cexTopology != .toWallet {
             if networkFee == nil, realNetworkFee == nil {
-                if let feeData = try? await fetchNetworkFee(
+                let feeData = try await fetchNetworkFee(
                     sellingToken: selling.token,
                     account: account,
                     amount: crosschainNetworkFeeDraftAmount(
@@ -222,10 +224,9 @@ func crosschainAdjustedNativeMaxAmount(
                         account: account,
                         amount: selling.amount
                     )
-                ) {
-                    networkFee = feeData.networkFee
-                    realNetworkFee = feeData.realNetworkFee
-                }
+                )
+                networkFee = feeData.networkFee
+                realNetworkFee = feeData.realNetworkFee
                 try Task.checkCancellation()
             }
             swapEstimate.networkFee = networkFee
@@ -271,7 +272,15 @@ func crosschainAdjustedNativeMaxAmount(
             allowGasless: false
         )
         let draft = try await SwapQuoteDiagnostics.step("networkFee") {
-            try await Api.checkTransactionDraft(chain: chain, options: options)
+            try await fetchTransactionDraft(chain, options)
+        }
+        SwapQuoteDiagnostics.receivedNetworkFee(draft)
+        if draft.fullNativeFee == nil, let error = draft.error {
+            // A draft for more than the balance fails on the amount, not the fee: the quote stays and the validator reports the balance
+            let isAmountAboveBalance = amount.map { $0 > account.balances[sellingToken.slug] ?? 0 } ?? false
+            if error != .insufficientBalance || !isAmountAboveBalance {
+                throw error
+            }
         }
         let decimals = chain.nativeToken.decimals
         let networkFee = draft.fullNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }

@@ -1,0 +1,43 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.row {
+  --list-item-gap: 0.625rem;
+  --list-item-padding: 0.625rem 0.75rem;
+  --list-item-separator-start: 3.125rem;
+
+  height: 4rem;
+}
+
+.icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4375rem;
+
+  font-size: 1.375rem;
+  color: var(--color-white);
+}
+
+.iconMarket {
+  background: linear-gradient(#EEB627, #E438B3);
+}
+
+.iconFutures {
+  background: linear-gradient(#C6E720, #10B189);
+}
+
+.iconAgent {
+  background: linear-gradient(#65BCFF, #9D53C8);
+}
+
+.iconApps {
+  background: linear-gradient(#65BCFF, #1150EC);
+}

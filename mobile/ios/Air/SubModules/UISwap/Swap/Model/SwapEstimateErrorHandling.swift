@@ -29,6 +29,9 @@ func swapEstimateRefusal(from error: Error) -> String? {
 }
 
 func swapEstimateIssue(from error: Error) -> SwapIssue {
+    if let draftError = error as? ApiAnyDisplayError {
+        return draftError == .insufficientBalance ? .insufficientFee : .quoteUnavailable
+    }
     guard let refusal = swapEstimateRefusal(from: error) else {
         return .unexpectedEstimateError
     }

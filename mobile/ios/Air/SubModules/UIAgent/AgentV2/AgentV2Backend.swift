@@ -10,6 +10,7 @@ final class AgentV2Model: AgentModel {
     private var didStop = false
     private var presentationCount = 0
     private var activePresentations = Set<ObjectIdentifier>()
+    private var hasBeenPresented = false
     private var hasLeftOpening = false
     var onStop: (() -> Void)?
     var onDiscussionMessageQueued: (() -> Void)?
@@ -209,7 +210,40 @@ final class AgentV2Model: AgentModel {
 
     func updateNewsPreview(_ news: ApiAgentV2NewsFeedItem) {
         coordinator.updateNewsPreview(Self.newsPreview(for: news))
-        coordinator.updateDiscussionNaming(news.discussionNaming)
+        if let naming = news.discussionNaming { coordinator.updateDiscussionNaming(naming) }
+    }
+
+    /// The title, icon and suggestions the server wrote for the news after the discussion opened, which a later page
+    /// of the feed brings
+    func updateDiscussionNaming(_ naming: ApiAgentV2NewsFeedItem.DiscussionNaming) {
+        coordinator.updateDiscussionNaming(naming)
+    }
+
+    /// The feed's refresh a news discussion without its thread asked for, which may bring its suggestions
+    private var isRefreshingFeedForFollowups = false
+
+    /// A news discussion that waits for its thread and was opened from a card without the server's naming, which comes
+    /// a few seconds after the news, asks the feed for one refresh with `refreshFeed`. Its post waits for suggestions
+    /// while the refresh runs.
+    func refreshFollowupsIfNeeded(using refreshFeed: @escaping () async -> Void) {
+        guard !didStop, coordinator.isDeferredDiscussion, coordinator.news != nil, coordinator.discussionNaming == nil,
+              !isRefreshingFeedForFollowups else { return }
+        isRefreshingFeedForFollowups = true
+        v2Backend.refreshPresentation()
+        Task { [weak self] in
+            await refreshFeed()
+            guard let self else { return }
+            isRefreshingFeedForFollowups = false
+            if !didStop { v2Backend.refreshPresentation() }
+        }
+    }
+
+    /// Whether suggestions may still come under the post of `message` while it is the chat's last message. A news
+    /// discussion without its thread gets them only from the feed's refresh it asked for.
+    func isLoadingPostFollowups(for message: AgentMessage) -> Bool {
+        guard itemIDs.last == message.id, !message.isStreaming else { return false }
+        guard coordinator.isDeferredDiscussion, coordinator.news != nil else { return true }
+        return isRefreshingFeedForFollowups
     }
 
     /// The feed's language a reopened discussion was opened from, which its share link carries
@@ -222,8 +256,7 @@ final class AgentV2Model: AgentModel {
     }
 
     func updateDigestPreview(_ digest: ApiAgentV2NewsFeedDigest) {
-        coordinator.updateDigestPreview(Self.digestPreview(for: digest))
-        coordinator.updateDiscussionNaming(digest.discussionNaming)
+        coordinator.updateDigestPreview(Self.digestPreview(for: digest), discussionFollowups: digest.discussionFollowups)
     }
 
     var isOpening: Bool { coordinator.hasPendingOpenings }
@@ -275,12 +308,12 @@ final class AgentV2Model: AgentModel {
         return news.map(AgentNewsPostView.Content.init(news:)) ?? coordinator.digest.map(AgentNewsPostView.Content.init(digest:))
     }
 
-    /// A discussion that waits for its thread takes the feed's name for it, otherwise the title of its post
     override var chatTitleText: String {
-        if coordinator.isDeferredDiscussion {
-            if let naming = coordinator.discussionNaming { return naming.title }
-            if coordinator.digest != nil { return lang("$agent_digest_title") }
+        if coordinator.thread?.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+           let digest = coordinator.digest {
+            return Self.formatDigestDiscussionTitle(windowEnd: digest.windowEnd)
         }
+        if coordinator.isDeferredDiscussion, let naming = coordinator.discussionNaming { return naming.title }
         return Self.chatTitleText(
             thread: coordinator.thread,
             firstUserMessage: coordinator.news?.headline ?? coordinator.messages.first(where: { $0.role == .user })?.text
@@ -288,13 +321,30 @@ final class AgentV2Model: AgentModel {
     }
 
     override var chatIcon: String? {
-        coordinator.isDeferredDiscussion ? coordinator.discussionNaming?.icon : Self.chatIcon(thread: coordinator.thread)
+        if coordinator.digest != nil {
+            return coordinator.thread == nil ? "🗓" : Self.chatIcon(thread: coordinator.thread)
+        }
+        return coordinator.isDeferredDiscussion ? coordinator.discussionNaming?.icon : Self.chatIcon(thread: coordinator.thread)
     }
 
     static func chatTitleText(thread: ApiAgentV2ThreadSummary?, firstUserMessage: String? = nil) -> String {
         let title = thread?.title?.trimmingCharacters(in: .whitespacesAndNewlines)
         let firstMessage = firstUserMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return title?.isEmpty == false ? title! : firstMessage?.isEmpty == false ? firstMessage! : lang("New Chat")
+        if title?.isEmpty == false { return title! }
+        if let digest = thread?.digest { return formatDigestDiscussionTitle(windowEnd: digest.windowEnd) }
+        return firstMessage?.isEmpty == false ? firstMessage! : lang("New Chat")
+    }
+
+    static func formatDigestDiscussionTitle(
+        windowEnd: String,
+        relativeTo now: Date = .now,
+        calendar: Calendar = LocalizationSupport.shared.calendar,
+        locale: Locale = LocalizationSupport.shared.locale
+    ) -> String {
+        let date = AgentThreadDateFormatting.formatDayText(
+            for: AgentV2DateParser.date(windowEnd), relativeTo: now, calendar: calendar, locale: locale
+        )
+        return langFormat("$agent_digest_discussion_title", date)
     }
 
     static func chatIcon(thread: ApiAgentV2ThreadSummary?) -> String? {
@@ -307,10 +357,16 @@ final class AgentV2Model: AgentModel {
         return chatIcon(thread: thread).map { "\($0) \(text)" } ?? text
     }
 
-    func setPresentationActive(_ isActive: Bool, owner: ObjectIdentifier) {
+    /// With `isShownAnew`, a screen shows the chat after it was gone, rather than back from a canceled back swipe
+    func setPresentationActive(_ isActive: Bool, owner: ObjectIdentifier, isShownAnew: Bool = false) {
         guard !didStop else { return }
         if isActive {
             hasLeftOpening = false
+            if isShownAnew {
+                // The chat's first showing has the hints its start loaded; a later one, a new pick
+                if hasBeenPresented, activePresentations.isEmpty { v2Backend.pickNewHints() }
+                hasBeenPresented = true
+            }
             activePresentations.insert(owner)
         } else {
             activePresentations.remove(owner)
@@ -341,7 +397,7 @@ final class AgentV2Model: AgentModel {
     }
 
     /// With `cachedHistory`, a chat that may show the cached history shows it from the start. With `isSummaryCached`,
-    /// the thread's summary is the SDK's copy, whose unread state is unknown, and the chat shows no cached history.
+    /// the thread's unread state is unknown, so cached history appears only after a connection failure.
     /// `activeAccount` is the wallet the user is in, which a question that waits is asked for.
     init(
         client: AgentV2Client,
@@ -420,7 +476,7 @@ final class AgentV2Model: AgentModel {
         let coordinator = AgentV2Coordinator(
             client: client,
             shouldDeferThread: digest.discussion == nil,
-            discussionNaming: digest.discussionNaming,
+            discussionFollowups: digest.discussionFollowups,
             digestRequest: .init(id: digest.id),
             digest: Self.digestPreview(for: digest),
             activeAccount: activeAccount
@@ -849,6 +905,17 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         }
     }
 
+    /// The empty chat shown anew drops the hints it showed before and loads a new pick of them
+    func pickNewHints() {
+        guard coordinator.hasHydratedMessages, !coordinator.isDiscussion, !coordinator.hasPendingOpenings,
+              queuedQuestions.isEmpty, !coordinator.messages.contains(where: { $0.role == .user }) else { return }
+        coordinator.discardHints()
+        synchronizeHints()
+        Task { [weak self] in
+            await self?.coordinator.loadHints()
+        }
+    }
+
     func prepareForEditing(_ editContext: AgentBackendEditContext) {
         guard !coordinator.isSupportActive, let nativeID = nativeIDByUIID[editContext.messageID] else { return }
         messageReplacement.beginEditing(targetNativeID: nativeID, messages: coordinator.messages)
@@ -877,7 +944,10 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                 timestamp: context?.message(for: userMessageID)?.timestamp ?? Date(),
                 accountID: coordinator.activeAccountID
             ))
-            if shouldCreateDiscussionThread { coordinator.requestDiscussionThreadCreation() }
+            if shouldCreateDiscussionThread {
+                let followup: String? = if case .followup = source { text } else { nil }
+                coordinator.requestDiscussionThreadCreation(followup: followup)
+            }
             synchronizeMessages()
             notifyStateChanged()
             return
@@ -1093,6 +1163,8 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
 
     func clearConversation() {
         guard canClearConversation else { return }
+        // The chat cleared is empty again, with a new pick of hints
+        coordinator.discardHints()
         queuedQuestions.removeAll()
         failedQuestionGroups.removeAll()
         isClearing = true
@@ -1329,7 +1401,8 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     }
 
     private func synchronizeHints(force: Bool = false) {
-        let response = coordinator.hasHydratedMessages && !coordinator.isDiscussion ? coordinator.hints : nil
+        let canShowHints = coordinator.hasHydratedMessages && !coordinator.isDiscussion
+        let response = canShowHints ? coordinator.hints : nil
         var hints: [AgentHint] = response?.items.map { item in
             let copy = AgentV2Copy.hint(item.id)
             return AgentHint(
@@ -1341,8 +1414,8 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
             )
         } ?? []
         // Contact Support follows the server's suggestions, drawn by the client, once the server's chats it chooses
-        // from start to load
-        if response != nil, isSupportRequestVisible {
+        // from start to load. It stays when the suggestions fail to load.
+        if response != nil || canShowHints && coordinator.hasHintsLoadFailed, isSupportRequestVisible {
             hints.append(.supportRequest)
             loadSupportHintThreadsIfNeeded()
         }
@@ -1400,7 +1473,8 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                     interactions: &nextInteractions
                 )
             } else if coordinator.isDeferredDiscussion, queuedQuestions.isEmpty {
-                postControls = (coordinator.discussionNaming?.followups ?? []).enumerated().map { index, text in
+                let followups = coordinator.digest != nil ? coordinator.discussionFollowups : coordinator.discussionNaming?.followups
+                postControls = (followups ?? []).enumerated().map { index, text in
                     let controlID = "discussion-followup:\(index)"
                     nextInteractions[postItemID, default: [:]][controlID] = .discussionFollowup(text: text)
                     return AgentMessageControl(

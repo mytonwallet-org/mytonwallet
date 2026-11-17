@@ -1,0 +1,25 @@
+@use "../../styles/mixins";
+
+// The portrait sheet opens over the trade sheet, which already holds the shared modal backdrop,
+// so it dims that sheet with a tint of its own
+.sheet::before {
+  pointer-events: none;
+  content: "";
+
+  position: fixed;
+  inset: 0;
+
+  opacity: 0;
+  background-color: var(--color-tint);
+
+  @include mixins.transition(opacity var(--transition));
+}
+
+.sheet:global(.open)::before {
+  opacity: 1;
+}
+
+// Doubled to outweigh the compact modal's own `.compact .dialog` width
+.dialog.dialog {
+  max-width: 23.125rem;
+}

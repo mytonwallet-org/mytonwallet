@@ -15,6 +15,7 @@ import java.math.BigInteger
 import java.math.RoundingMode
 import java.util.Date
 import kotlin.math.abs
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
@@ -68,6 +69,7 @@ class ActivityMainContentView(context: Context) :
     }
 
     private val topLeftLabel = WLabel(context).apply {
+        id = UIComponentsR.id.activity_row_title
         setStyle(adaptiveFontSize(), WFont.Medium)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END

@@ -1,0 +1,297 @@
+@use "../../styles/mixins";
+
+.body {
+  @include mixins.respond-below(xs) {
+    // Leaves room for the floating search capsule above the bottom bar
+    --body-end-gap: calc(max(var(--safe-area-bottom), 1rem) + 3.5rem);
+  }
+}
+
+// The size of `.onboarding`, whose content stays within its minimum height
+.onboardingSkeleton {
+  flex-shrink: 0;
+  height: 16.875rem;
+  margin-inline: 0.25rem;
+  border-radius: 1.625rem;
+
+  @include mixins.respond-above(xs) {
+    height: 8.75rem;
+    margin-inline: 0;
+    border-radius: var(--border-radius-default);
+  }
+}
+
+// The banner keeps the same blue look in both themes
+.onboarding {
+  --background-gradient: linear-gradient(#2DBDFF, #1590FF 55%, #0A6CF0);
+
+  position: relative;
+
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 1rem;
+  justify-content: space-between;
+
+  min-height: 16.875rem;
+  // The screen body keeps `0.75rem` side paddings, while the design puts the banner `1rem` from the screen edges
+  margin-inline: 0.25rem;
+  padding: 2.8125rem 1.5rem 1.5rem;
+  border-radius: 1.625rem;
+
+  color: #FFFFFF;
+
+  // The artwork sticks to the end side, and a wider banner continues it with the same gradient
+  background:
+    url("../../assets/futures/onboardingArtwork.webp") right top / 23.125rem 100% no-repeat,
+    var(--background-gradient);
+
+  @include mixins.respond-above(xs) {
+    gap: 0.75rem;
+    align-items: flex-start;
+    justify-content: center;
+
+    min-height: 8.75rem;
+    margin-inline: 0;
+    padding-block: 1.125rem;
+    border-radius: var(--border-radius-default);
+
+    background:
+      url("../../assets/futures/onboardingArtworkWide.webp") right top / 37.6875rem 100% no-repeat,
+      var(--background-gradient);
+  }
+
+  :global(html[dir="rtl"]) & {
+    background-position: left top, 0 0;
+  }
+}
+
+.onboardingIllustration {
+  pointer-events: none;
+
+  position: absolute;
+  top: 2.75rem;
+  inset-inline-end: 0.75rem;
+
+  width: 11.375rem;
+  height: 6.625rem;
+
+  @include mixins.respond-above(xs) {
+    top: calc(50% - 4.1875rem);
+    inset-inline-end: 2.6875rem;
+    width: 14.375rem;
+    height: 8.375rem;
+  }
+}
+
+// The text stops before the illustration
+.onboardingText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  width: 10rem;
+  max-width: calc(100% - 10.125rem);
+
+  @include mixins.respond-above(xs) {
+    gap: 0.25rem;
+    width: 18.75rem;
+    max-width: calc(100% - 15.9375rem);
+  }
+}
+
+// The texts break lines where the translations put them, while the wide banner keeps each of them in one line
+.onboardingTitle {
+  margin: 0;
+
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.875rem;
+  letter-spacing: -0.025rem;
+  white-space: pre-line;
+
+  @include mixins.respond-above(xs) {
+    font-size: 1.375rem;
+    line-height: 1.75rem;
+    letter-spacing: 0;
+    white-space: normal;
+  }
+}
+
+.onboardingDescription {
+  margin: 0;
+
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: pre-line;
+
+  @include mixins.respond-above(xs) {
+    white-space: normal;
+  }
+}
+
+.onboardingButton {
+  cursor: var(--custom-cursor, pointer);
+
+  flex-shrink: 0;
+
+  height: 3rem;
+  padding: 0 1.5rem;
+  border: none;
+  border-radius: 1.5rem;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  color: #2C333E;
+
+  background-color: #FFFFFF;
+
+  @include mixins.respond-above(xs) {
+    height: 2.5rem;
+    border-radius: 1.625rem;
+    font-size: 0.9375rem;
+    font-weight: 650;
+  }
+}
+
+.onboardingClose {
+  cursor: var(--custom-cursor, pointer);
+
+  position: absolute;
+  top: 0.75rem;
+  inset-inline-end: 0.75rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+
+  font-size: 1.75rem;
+  color: rgba(255, 255, 255, 0.92);
+
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.marketDivider {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+
+  height: 1.375rem;
+  // With the `1rem` gap of the block, the divider stands `1.5rem` below the banner
+  margin: 0.5rem 0 0;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+
+  @include mixins.respond-below(xs) {
+    // Cancels part of the gaps before the markets, so they also start `1.5rem` below the divider
+    margin-bottom: -0.5rem;
+  }
+
+  &::before,
+  &::after {
+    content: '';
+
+    // The design draws the lines `0.66px` thick, and the stylesheet rules allow only whole pixels in sizes
+    transform: scaleY(0.66);
+
+    flex-shrink: 0;
+
+    width: 4rem;
+    height: 0.0625rem;
+    // The lines sit `1px` below the middle of the text
+    margin-top: 0.125rem;
+
+    background-color: var(--color-separator);
+  }
+}
+
+.catalogue {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+
+  // Together with the `1rem` gap of the screen body, this gives the space between the positions and the markets from the design
+  margin-top: 1rem;
+  // Market sections keep their own side paddings, so the showcase spans the whole screen width
+  margin-inline: -0.75rem;
+}
+
+// The block holds the space after the banner, so its height change is the whole shift of the content below
+.operationBannerBlock {
+  display: flow-root;
+  flex-shrink: 0;
+
+  @include mixins.respond-below(xs) {
+    // The banner margin replaces the gap of the screen body
+    margin-bottom: -1rem;
+  }
+}
+
+.operationBanner {
+  margin-bottom: 1rem;
+}
+
+.panel {
+  --background-color: var(--color-background-first);
+  // The panel ends before the scrollbar gutter, so the market sections inside it keep equal side paddings
+  --scrollbar-width: 0rem;
+
+  // The sticky search paints over the top corners, and `clip`, unlike `hidden`, keeps it sticky to the screen scroll
+  overflow: clip;
+  padding-bottom: 1rem;
+  border-radius: var(--border-radius-default);
+  background-color: var(--background-color);
+
+  :global(html.theme-dark) & {
+    --background-color: var(--color-background-window);
+  }
+}
+
+.positions {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 1rem;
+
+  // An empty block cancels the gap of the screen body after it, so the markets stay right under the header
+  &:empty {
+    @include mixins.respond-below(xs) {
+      margin-bottom: -1rem;
+    }
+  }
+
+  // The panel of the markets stands right at the top when the block is empty. A padding, unlike a margin, counts in
+  // the height whose change `ResizingBlock` animates.
+  &:not(:empty) {
+    @include mixins.respond-above(xs) {
+      padding-bottom: 1.5rem;
+    }
+  }
+}
+
+.unavailable {
+  flex-shrink: 0;
+
+  @include mixins.respond-above(xs) {
+    // Lines up with the market search above it
+    margin: 0 1.25rem 1.5rem;
+  }
+
+  @include mixins.respond-below(xs) {
+    // As the onboarding banner, the notice stands `1rem` from the screen edges
+    margin-inline: 0.25rem;
+  }
+}

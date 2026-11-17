@@ -54,6 +54,7 @@ import {
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useFlag from '../../hooks/useFlag';
 import useHideBottomBar from '../../hooks/useHideBottomBar';
+import useHideHomeToolbar from '../../hooks/useHideHomeToolbar';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -64,6 +65,7 @@ import { useStateRef } from '../../hooks/useStateRef';
 import LedgerConnect from '../ledger/LedgerConnect';
 import LedgerSelectWallets from '../ledger/LedgerSelectWallets';
 import LogOutModal from '../main/modals/LogOutModal';
+import WalletList from '../main/sections/Actions/WalletList';
 import Switcher from '../ui/Switcher';
 import Transition from '../ui/Transition';
 import SettingsAbout from './SettingsAbout';
@@ -188,6 +190,7 @@ function Settings({
 
   const [isLogOutModalOpened, openLogOutModal, closeLogOutModal] = useFlag();
   const isInitialScreen = renderingKey === SettingsState.Initial;
+  const hasWalletHeader = isPortrait && !IS_EXPLORER;
 
   const { isScrolled, handleScroll: handleContentScroll } = useScrolledState();
 
@@ -237,6 +240,7 @@ function Settings({
   });
 
   useHideBottomBar(isOpen && !isInitialScreen);
+  useHideHomeToolbar(isOpen && !isInitialScreen);
 
   const handlCloseDeveloperModal = useLastCallback(() => {
     setSettingsState({ state: SettingsState.Initial });
@@ -422,7 +426,7 @@ function Settings({
   function renderSettings() {
     return (
       <div className={styles.slide}>
-        {isPortrait && (
+        {isPortrait && IS_EXPLORER && (
           <SettingsHeader title={lang('Settings')} className={styles.mobileHeader} isScrolled={isScrolled} />
         )}
 
@@ -431,10 +435,12 @@ function Settings({
             styles.content,
             styles.content_main,
             'custom-scroll',
+            hasWalletHeader && styles.withWalletHeader,
             !isPortrait && styles.content_noHeader,
           )}
-          onScroll={isPortrait ? handleContentScroll : undefined}
+          onScroll={isPortrait && IS_EXPLORER ? handleContentScroll : undefined}
         >
+          {hasWalletHeader && <WalletList isInSettings />}
 
           {IS_WEB && (
             <div className={styles.block}>
@@ -554,7 +560,11 @@ function Settings({
               </div>
             )}
             {accountType === 'mnemonic' && wallets.length > 0 && (
-              <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleOpenWalletVersions}>
+              <div
+                className={buildClassName(styles.item, styles.itemMenu)}
+                data-testid={getTestId('settings_item_wallet_versions')}
+                onClick={handleOpenWalletVersions}
+              >
                 <img className={styles.menuIcon} src={tonWallets} alt={lang('Wallet Versions')} />
                 <div className={styles.itemContent}>
                   <span className={styles.itemTitle}>{lang('Wallet Versions')}</span>

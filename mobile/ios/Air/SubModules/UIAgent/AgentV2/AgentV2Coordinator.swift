@@ -81,6 +81,12 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         let code: ApiAgentV2ErrorCode?
     }
 
+    /// The hints a load got, `nil` when it failed
+    private struct HintsLoad {
+        let generation: Int
+        let response: ApiAgentV2StarterHints?
+    }
+
     private enum ErrorSource {
         case agentUnavailable
         case newsUnavailable
@@ -159,7 +165,11 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private(set) var runActivity: ApiAgentV2RunActivityEvent?
     private(set) var availability = ApiAgentV2AvailabilityState(state: .available)
     private(set) var userQuota: ApiAgentV2UserQuota?
-    private(set) var hints: ApiAgentV2HintsResponse?
+    /// The pick of starter hints the chat shows until it shows them again on a new screen
+    private(set) var hints: ApiAgentV2StarterHints?
+    private(set) var hasHintsLoadFailed = false
+    /// A load of hints older than the latest one leaves the latest pick in place
+    private var hintsLoadGeneration = 0
     private(set) var limitRetry: LimitRetry?
     private(set) var hasHydratedMessages = false
     /// The messages are the SDK's copy of the thread's latest ones, shown until the history loads. Nothing in them can be
@@ -368,6 +378,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private let digestRequest: ApiAgentV2ThreadDigestRequest?
     private let shouldDeferThread: Bool
     private(set) var discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming?
+    private(set) var discussionFollowups: [String]?
+    private var discussionFollowup: String?
     private var hasRequestedDiscussionThread = false
     private(set) var hasLoadedDiscussionStatus = false
     private(set) var isDiscussionSupportRequest = false
@@ -459,19 +471,24 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         notifyObservers()
     }
 
-    func updateDigestPreview(_ preview: ApiAgentV2ThreadDigestCard) {
+    func updateDigestPreview(_ preview: ApiAgentV2ThreadDigestCard, discussionFollowups: [String]? = nil) {
         digestPreview = preview
+        self.discussionFollowups = discussionFollowups
         notifyObservers()
     }
 
-    func updateDiscussionNaming(_ naming: ApiAgentV2NewsFeedItem.DiscussionNaming?) {
+    /// The server names a news discussion a few seconds after the news comes, so a card without the naming keeps the
+    /// naming the discussion has
+    func updateDiscussionNaming(_ naming: ApiAgentV2NewsFeedItem.DiscussionNaming) {
+        guard discussionNaming != naming else { return }
         discussionNaming = naming
         notifyObservers()
     }
 
-    func requestDiscussionThreadCreation(isSupportRequest: Bool = false) {
+    func requestDiscussionThreadCreation(followup: String? = nil, isSupportRequest: Bool = false) {
         guard isWaitingForFirstDiscussionMessage, !isStopped else { return }
         hasRequestedDiscussionThread = true
+        discussionFollowup = followup
         isDiscussionSupportRequest = isSupportRequest
         startOpening()
     }
@@ -549,6 +566,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private var feedbackRequestsByMessageId: [String: FeedbackRequests] = [:]
     /// The chat opened on an existing thread by its id, whose history the SDK may have a copy of
     private let canShowCachedMessages: Bool
+    private let isSummaryCached: Bool
     /// The hydration whose history request is still under way, which the SDK's copy may stand in for
     private var cacheableHydrationGeneration: Int?
     private var initialContentWaiters: [CheckedContinuation<Void, Never>] = []
@@ -578,6 +596,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         newsRequest: ApiAgentV2ThreadNewsRequest? = nil,
         shouldDeferThread: Bool = false,
         discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming? = nil,
+        discussionFollowups: [String]? = nil,
         digestRequest: ApiAgentV2ThreadDigestRequest? = nil,
         digest: ApiAgentV2ThreadDigestCard? = nil,
         question: String? = nil,
@@ -593,12 +612,14 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         self.thread = thread
         self.newsPreview = news
         digestPreview = digest
-        canShowCachedMessages = !isSummaryCached && (thread?.messageCount ?? 0) > 0
+        self.isSummaryCached = isSummaryCached
+        canShowCachedMessages = (thread?.messageCount ?? 0) > 0
             && thread?.news == nil && thread?.digest == nil
             && news == nil && newsRequest == nil && digestRequest == nil && digest == nil && question == nil
         self.newsRequest = newsRequest
         self.shouldDeferThread = shouldDeferThread
         self.discussionNaming = discussionNaming
+        self.discussionFollowups = discussionFollowups
         hasOpeningConsent = shouldDeferThread && client.isConsentKnownGiven
         needsConsentToSend = shouldDeferThread && !hasOpeningConsent
         self.digestRequest = digestRequest
@@ -711,10 +732,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         }
         async let hints = loadStartupHints()
         if requiresHostContext { await loadConversation() }
-        let response = await hints
-        guard !isStopped, !isDiscussion, self.hints != response else { return }
-        self.hints = response
-        notifyObservers()
+        applyHints(await hints)
     }
 
     /// The availability, the quota and the problem report's availability, which the SDK gives only with consent
@@ -732,9 +750,25 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         refreshProblemReportAvailability()
     }
 
-    private func loadStartupHints() async -> ApiAgentV2HintsResponse? {
-        guard !isStopped, opening?.isQuestion != true, !isDiscussion else { return nil }
-        return try? await client.hints()
+    /// A chat started again keeps the hints it has
+    private func loadStartupHints() async -> HintsLoad? {
+        guard !isStopped, opening?.isQuestion != true, !isDiscussion, hints == nil else { return nil }
+        return await fetchHints()
+    }
+
+    private func fetchHints() async -> HintsLoad {
+        hintsLoadGeneration += 1
+        let generation = hintsLoadGeneration
+        return HintsLoad(generation: generation, response: try? await client.loadStarterHints(for: activeAccount()))
+    }
+
+    private func applyHints(_ load: HintsLoad?) {
+        guard let load, !isStopped, !isDiscussion, load.generation == hintsLoadGeneration else { return }
+        let hasFailed = load.response == nil
+        guard hints != load.response || hasHintsLoadFailed != hasFailed else { return }
+        hints = load.response
+        hasHintsLoadFailed = hasFailed
+        notifyObservers()
     }
 
     private func openingMessage(_ opening: Opening) -> AgentV2NativeMessage {
@@ -761,7 +795,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     func transferOpening(to coordinator: AgentV2Coordinator) {
         if let newsPreview { coordinator.updateNewsPreview(newsPreview) }
-        if let digestPreview { coordinator.updateDigestPreview(digestPreview) }
+        if let digestPreview { coordinator.updateDigestPreview(digestPreview, discussionFollowups: discussionFollowups) }
         guard let opening, opening.isQuestion, !openingRunAttempted else { return }
         coordinator.acceptOpening(opening)
     }
@@ -839,7 +873,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                         case .news(let request, _):
                             return try await client.createThread(news: request).thread
                         case .digest(let request):
-                            return try await client.createThread(digest: request).thread
+                            return try await client.createThread(digest: .init(
+                                id: request.id, followup: self.discussionFollowup ?? request.followup
+                            )).thread
                         }
                     }
                     self.threadCreationTask = creation
@@ -1152,10 +1188,14 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     func loadHints() async {
         guard !isStopped, !isDiscussion else { return }
-        let response = try? await client.hints()
-        guard !isStopped, !isDiscussion, hints != response else { return }
-        hints = response
-        notifyObservers()
+        applyHints(await fetchHints())
+    }
+
+    /// Drops the hints shown, for a new pick that `loadHints()` loads
+    func discardHints() {
+        hintsLoadGeneration += 1
+        hints = nil
+        hasHintsLoadFailed = false
     }
 
     func loadDefaultThread() async {
@@ -1319,11 +1359,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             updateSupportPolling()
         }
         defer { endHistoryRead() }
-        let isCacheable = canShowCachedHistory
-        cacheableHydrationGeneration = isCacheable ? generation : nil
-        if isCacheable {
-            showCachedMessages(threadId: threadId, generation: generation)
-        }
+        let isCacheable = canShowCachedHistory()
+        cacheableHydrationGeneration = generation
+        let cachedHistoryTask = isCacheable ? showCachedMessages(threadId: threadId, generation: generation) : nil
         do {
             var retriesRemaining = 2
             let page: ApiAgentV2ThreadHydration
@@ -1427,6 +1465,14 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             startNextOpeningIfPossible()
             return true
         } catch {
+            if AgentV2Copy.isConnectionError(error) {
+                await cachedHistoryTask?.value
+                guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return false }
+                if canShowCachedHistory(isOfflineFallback: true) {
+                    cacheableHydrationGeneration = generation
+                    await showCachedMessages(threadId: threadId, generation: generation, isOfflineFallback: true).value
+                }
+            }
             endCacheableHydration(generation)
             guard !Task.isCancelled, !(error is CancellationError),
                   !isStopped, hydrationGeneration == generation else { return false }
@@ -1442,7 +1488,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 return false
             }
             log.error("thread hydration failed error=\(agentFailureSummary(error), .public)")
-            self.errorSource = .failedToLoadChat((error as? ApiAgentV2MutationError)?.code)
+            self.errorSource = .failedToLoadChat(
+                AgentV2Copy.isConnectionError(error) ? .networkError : (error as? ApiAgentV2MutationError)?.code
+            )
             notifyObservers()
             return false
         }
@@ -1592,20 +1640,23 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     /// A chat opened on its thread that shows nothing of its own yet. A chat with unread messages opens at the first of
     /// them, which only its history places.
-    private var canShowCachedHistory: Bool {
-        guard canShowCachedMessages, let thread, !AgentThreadReadState.shared.isUnread(thread) else { return false }
+    private func canShowCachedHistory(isOfflineFallback: Bool = false) -> Bool {
+        guard canShowCachedMessages, let thread,
+              isOfflineFallback || !isSummaryCached && !AgentThreadReadState.shared.isUnread(thread) else { return false }
         return !hasHydratedMessages && !isDiscussion && messages.isEmpty && activeRun?.isRunning != true && !hasPendingOpenings
     }
 
     /// Shows the SDK's copy of the thread's latest messages while the hydration `generation` reads the history, unless
-    /// its first request ends first, another hydration starts or the chat gets messages of its own
-    private func showCachedMessages(threadId: String, generation: Int) {
+    /// another hydration starts or the chat gets messages of its own. An offline failure waits for the copy.
+    private func showCachedMessages(threadId: String, generation: Int, isOfflineFallback: Bool = false) -> Task<Void, Never> {
         Task { [weak self, client] in
             let cached = await client.cachedMessages(threadId: threadId)
             guard let self, let cached, !self.isStopped,
                   self.cacheableHydrationGeneration == generation,
                   self.thread?.id == threadId,
-                  self.showCachedHistory(AgentCachedHistory(thread: cached.thread, messages: cached.messages)) else { return }
+                  self.showCachedHistory(
+                    AgentCachedHistory(thread: cached.thread, messages: cached.messages), isOfflineFallback: isOfflineFallback
+                  ) else { return }
             self.resumeInitialContentWaiters()
             self.notifyObservers()
         }
@@ -1613,8 +1664,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     /// Shows the cached history in place of the thread's history, when the chat may show it
     @discardableResult
-    private func showCachedHistory(_ history: AgentCachedHistory) -> Bool {
-        guard canShowCachedHistory,
+    private func showCachedHistory(_ history: AgentCachedHistory, isOfflineFallback: Bool = false) -> Bool {
+        guard canShowCachedHistory(isOfflineFallback: isOfflineFallback),
               let threadId = thread?.id,
               history.thread.id == threadId,
               history.thread.news == nil,
