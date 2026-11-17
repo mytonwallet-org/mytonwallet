@@ -60,6 +60,8 @@
 
 // The list, with the consent over it until the user allows the Agent
 .listLevel {
+  @include mixins.belowHomeToolbar();
+
   position: relative;
 
   display: flex;

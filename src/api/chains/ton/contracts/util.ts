@@ -42,12 +42,13 @@ export async function resolveMfaExtensionAddress(
 
     const codeHash = Cell.fromBase64(code).hash();
 
-    if (
+    const isAcceptedMfaCode = (
       codeHash.equals(extensionCodeHashLibraryRef)
       || (extensionCodeHashFull && codeHash.equals(extensionCodeHashFull))
-    ) {
-      return extension;
-    }
+    );
+    if (!isAcceptedMfaCode) continue;
+
+    return extension;
   }
 }
 

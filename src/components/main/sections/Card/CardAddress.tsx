@@ -12,9 +12,9 @@ import {
   selectAccountChainDisplay,
   selectCurrentAccountId,
 } from '../../../../global/selectors';
+import { getAccountTitle } from '../../../../util/account';
 import buildClassName from '../../../../util/buildClassName';
 import { getChainTitle } from '../../../../util/chain';
-import { copyTextToClipboard } from '../../../../util/clipboard';
 import isEmptyObject from '../../../../util/isEmptyObject';
 import { openUrl } from '../../../../util/openUrl';
 import { shortenAddress } from '../../../../util/shortenAddress';
@@ -23,10 +23,8 @@ import { getExplorerAddressUrl, getExplorerName } from '../../../../util/url';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 import useAddressMenu from './addressMenu/useAddressMenu';
 
-import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useWindowSize from '../../../../hooks/useWindowSize';
 
 import AddressMenu from './addressMenu/AddressMenu';
 import AddressMenuButton from './AddressMenuButton';
@@ -43,6 +41,7 @@ interface OwnProps {
 }
 
 interface StateProps {
+  title?: string;
   accountType?: AccountType;
   accountByChain?: Account['byChain'];
   visibleChains?: ApiChain[];
@@ -54,11 +53,11 @@ interface StateProps {
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
-const TINY_WINDOW_SIZE_PX = 374;
 const EMPTY_BY_CHAIN: Account['byChain'] = {};
 const EMPTY_CHAINS: ApiChain[] = [];
 
 function CardAddress({
+  title,
   accountByChain,
   visibleChains,
   orderedChains,
@@ -76,8 +75,6 @@ function CardAddress({
 
   const ref = useRef<HTMLDivElement>();
   const menuRef = useRef<HTMLDivElement>();
-  const { isLandscape } = useDeviceScreen();
-  const { width: windowWidth } = useWindowSize();
 
   const {
     menuAnchor,
@@ -99,13 +96,9 @@ function CardAddress({
 
   const byChain = accountByChain ?? EMPTY_BY_CHAIN;
   const chains = visibleChains ?? EMPTY_CHAINS;
-  // The address line collapses under the Gram Wallet gate while the menu keeps every visible chain,
-  // matching Air (`AddressesMenu` renders un-gated `displayedChains` on iOS)
-  const lineChains = addressLineChains ?? EMPTY_CHAINS;
 
   const isHardwareAccount = accountType === 'hardware';
   const isViewAccount = accountType === 'view';
-  const isTinyFormat = isViewAccount && (isLandscape || windowWidth < TINY_WINDOW_SIZE_PX);
   const { menuItems, hiddenMenuItems } = useMemo(() => {
     const hiddenChains = (orderedChains ?? EMPTY_CHAINS).filter((chain) => !chains.includes(chain));
 
@@ -119,7 +112,7 @@ function CardAddress({
     };
   }, [byChain, chains, orderedChains, lang, isTemporary, selectedExplorerIds]);
 
-  const { showToast, openReceiveModal } = getActions();
+  const { openReceiveModal } = getActions();
 
   const handleActionClick = useLastCallback((chain: ApiChain, address: string) => {
     if (isTemporary) {
@@ -127,14 +120,6 @@ function CardAddress({
     } else {
       openReceiveModal({ chain });
     }
-  });
-
-  const handleLongPress = useLastCallback((chain: ApiChain, address: string, domain?: string) => {
-    void copyTextToClipboard(domain ?? address);
-    const message = domain
-      ? lang('%chain% Domain Copied', { chain: getChainTitle(chain) }) as string
-      : lang('%chain% Address Copied', { chain: getChainTitle(chain) }) as string;
-    showToast({ message, icon: 'icon-copy' });
   });
 
   return (
@@ -146,18 +131,17 @@ function CardAddress({
         />
       )}
       {isHardwareAccount && <i className={buildClassName(styles.icon, 'icon-ledger')} aria-hidden />}
-      <AddressMenuButton
-        chains={lineChains}
-        byChain={byChain}
-        withTextGradient={withTextGradient}
-        isMinimized={isMinimized}
-        isTinyFormat={isTinyFormat}
-        testId={testId}
-        toggleMenu={toggleMenu}
-        onLongPress={handleLongPress}
-        onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
-        onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
-      />
+      {Boolean(addressLineChains?.length) && (
+        <AddressMenuButton
+          title={title!}
+          withTextGradient={withTextGradient}
+          isMinimized={isMinimized}
+          testId={testId}
+          toggleMenu={toggleMenu}
+          onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
+          onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
+        />
+      )}
       {!isMinimized && (
         <AddressMenu
           isOpen={isMenuOpen}
@@ -187,6 +171,7 @@ export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
   const chainDisplay = accountId ? selectAccountChainDisplay(global, accountId) : undefined;
 
   return {
+    title: account ? getAccountTitle(account) : undefined,
     accountByChain: byChain,
     visibleChains: chainDisplay?.visibleChains,
     orderedChains: chainDisplay?.orderedChains,

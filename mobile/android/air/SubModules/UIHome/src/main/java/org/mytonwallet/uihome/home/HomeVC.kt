@@ -83,6 +83,7 @@ import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import org.mytonwallet.uihome.home.views.header.StickyHeaderView
 import org.mytonwallet.uihome.home.views.header.StickyHeaderView.Mode
 import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
+import org.mytonwallet.uihome.tabs.BaseTabsVC
 import org.mytonwallet.uihome.tabs.PhoneTabsVC
 import org.mytonwallet.uihome.tabs.views.HomeSearchField
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
@@ -116,6 +117,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     private val hasTopTabs = mode == MScreenMode.Default
 
     override fun wideLayoutChanged() {
+        infoBannerPlacementChanged()
         val nowWide = isWideHome
         if (appliedWideHome == nowWide) return
         appliedWideHome = nowWide
@@ -223,9 +225,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             accountId,
             promotions,
             onAction = { promotion ->
-                val action = promotion.infoBanner?.actionButton?.onClickAction
-                if (action == "openEarn" || action == "unstakeForeign") {
-                    onClick(HeaderActionsView.Identifier.EARN, showStaking = true)
+                window?.let {
+                    presentHomeInfoBannerAction(it, promotion, homeVM.isGeneralDataAvailable)
                 }
             },
             onDismiss = { promotion -> homeVM.dismissInfoBanner(accountId, promotion.id) }
@@ -251,8 +252,24 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             .forEach { it.infoBannersUpdated() }
     }
 
-    override fun activityListInfoBanners(accountId: String): List<ApiPromotion> =
-        infoBannersByAccount[accountId]?.promotions.orEmpty()
+    // The banners float above the phone toolbar instead while Wallet is not the first tab
+    private val isInfoBannerFloating: Boolean
+        get() = hasTopTabs &&
+            (navigationController?.tabBarController as? BaseTabsVC)?.floatsHomePromotions == true
+
+    override fun activityListInfoBanners(accountId: String): List<ApiPromotion> {
+        if (isInfoBannerFloating) return emptyList()
+        return infoBannersByAccount[accountId]?.promotions.orEmpty()
+    }
+
+    // The banners moved between the list and the toolbar. They reload, as the floating ones may have been
+    // dismissed meanwhile.
+    internal fun infoBannerPlacementChanged() {
+        allActivityListViews.mapNotNull {
+            it.showingAccountId
+        }.distinct().forEach(homeVM::loadInfoBanners)
+        allActivityListViews.forEach { it.infoBannersUpdated() }
+    }
 
     override fun onInfoBannerAction(accountId: String, promotion: ApiPromotion) {
         val banners = infoBannersByAccount[accountId] ?: return
@@ -692,7 +709,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         onClick(identifier)
     }
 
-    private fun onClick(identifier: HeaderActionsView.Identifier, showStaking: Boolean = false) {
+    private fun onClick(identifier: HeaderActionsView.Identifier) {
         val window = window ?: return
         when (identifier) {
             HeaderActionsView.Identifier.BACK -> {
@@ -795,7 +812,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
-                if (activeStakingTokenSlug != null && !showStaking) {
+                if (activeStakingTokenSlug != null) {
                     navVC.setRoot(EarnRootVC(context, tokenSlug = activeStakingTokenSlug))
                 } else {
                     navVC.setRoot(StakingVC(context, TONCOIN_SLUG, StakingViewModel.Mode.STAKE))

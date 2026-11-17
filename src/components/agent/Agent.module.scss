@@ -39,6 +39,11 @@ $lastAnswerLineSpace: math.max(
   @include agentSurface.card-corners;
 }
 
+// More specific selector to override the background of the app slide
+.runtimeRoot.runtimeRoot {
+  background-color: var(--agent-background);
+}
+
 // Positioned, so that it lies over the loading bubbles that come before it
 .messages {
   --agent-messages-background: var(--agent-background);

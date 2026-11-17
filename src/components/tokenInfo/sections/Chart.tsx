@@ -1,39 +1,30 @@
 import React, { memo, useEffect, useMemo, useState } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import type { ApiBaseCurrency, ApiHistoryList, ApiPriceHistoryPeriod } from '../../../api/types';
+import type { ApiBaseCurrency, ApiPriceHistoryPeriod } from '../../../api/types';
 import type {
-  LangCode, PriceHistoryBackfillPeriods, PriceHistoryPeriods, TokenChartMode, UserToken,
+  PriceHistoryBackfillPeriods, PriceHistoryPeriods, TokenChartMode, UserToken,
 } from '../../../global/types';
-import type { TabWithProperties } from '../../ui/TabList';
 import type { TokenBalanceChange } from '../helpers/resolveBalanceChange';
 
 import { DEFAULT_PRICE_CURRENCY } from '../../../config';
 import { selectCurrentAccount, selectCurrentAccountState } from '../../../global/selectors';
 import { isNetWorthChartAvailable } from '../../../util/assets/netWorth';
-import buildClassName from '../../../util/buildClassName';
-import { formatChartDate, formatShortDay, formatShortMonth, formatTime, SECOND } from '../../../util/dateFormat';
-import { formatCurrency, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
+import { SECOND } from '../../../util/dateFormat';
+import { getShortCurrencySymbol } from '../../../util/formatNumber';
 import getTestId from '../../../util/getTestId';
 import { vibrate } from '../../../util/haptics';
-import { TIME_RANGES } from '../../../util/portfolio/timeRange';
 import { DEFAULT_PRICE_HISTORY_PERIOD } from '../../../util/priceHistory';
-import { SWIPE_DISABLED_CLASS_NAME } from '../../../util/swipeController';
 import { IS_IOS } from '../../../util/windowEnvironment';
+import { findInitialPoint } from '../helpers/findInitialPoint';
 import { resolveBalanceChange } from '../helpers/resolveBalanceChange';
+import { resolveChartChange } from '../helpers/resolveChartChange';
 
 import useInterval from '../../../hooks/useInterval';
-import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useSyncEffect from '../../../hooks/useSyncEffect';
 
-import TimeRangeSelector from '../../common/TimeRangeSelector';
-import Spinner from '../../ui/Spinner';
-import TabList from '../../ui/TabList';
-import Transition from '../../ui/Transition';
-import Plot from './Plot';
-
-import styles from './Chart.module.scss';
+import ChartCard from './ChartCard';
 
 interface OwnProps {
   token: UserToken;
@@ -59,12 +50,6 @@ interface StateProps {
 const REFRESH_INTERVAL = 15 * SECOND;
 
 const NO_SELECTION = -1;
-const PRICE_TAB = 0;
-const NET_WORTH_TAB = 1;
-const LOADING_SLIDE_KEY = 0;
-const AXIS_LABEL_COUNT = 4;
-const PRICE_FRACTION_DIGITS = 2;
-const SELECTED_PRICE_FRACTION_DIGITS = 4;
 
 function Chart({
   token,
@@ -84,7 +69,6 @@ function Chart({
 }: OwnProps & StateProps) {
   const { loadPriceHistory, loadTokenNetWorthHistory, setCurrentTokenPeriod } = getActions();
 
-  const lang = useLang();
   const [selectedIndex, setSelectedIndex] = useState(NO_SELECTION);
 
   const { slug, symbol } = token;
@@ -138,27 +122,20 @@ function Chart({
   const selectedPoint = selectedIndex >= 0 ? plotHistory?.[selectedIndex] : undefined;
   const isStockSelected = selectedIndex >= 0 && selectedIndex < stockCount;
   const shownPoint = selectedPoint ?? lastPoint;
+  const shownPrice = shownPoint?.[1];
 
-  // A zero price gives no baseline for the change, so the period starts at the first traded point.
-  // The caption on the left shows that same point.
-  const initialPoint = useMemo(() => history?.find(([, value]) => Boolean(value)), [history]);
+  const initialPoint = useMemo(() => history && findInitialPoint(history), [history]);
   const initialPrice = initialPoint?.[1];
-  const historyChangePercent = initialPrice && shownPoint && !isStockSelected
-    ? (shownPoint[1] / initialPrice - 1) * 100
-    : undefined;
-  const shouldUseTokenChange24h = (
-    !isNetWorthMode
-    && period === '1D'
-    && !selectedPoint
-    && backendPercentChange24h !== undefined
-  );
-  const changePercent = shouldUseTokenChange24h
-    ? backendPercentChange24h
-    : historyChangePercent;
+  const { isDayChange: shouldUseTokenChange24h, changePercent } = resolveChartChange({
+    period,
+    isPointSelected: Boolean(selectedPoint),
+    dayChangePercent: isNetWorthMode ? undefined : backendPercentChange24h,
+    initialPrice,
+    price: isStockSelected ? undefined : shownPrice,
+  });
 
   // A price quoted in another currency would make the balance above jump between currencies
   const isBalanceFollowingChart = !isNetWorthMode && chartCurrency === baseCurrency && !isStockSelected;
-  const shownPrice = shownPoint?.[1];
 
   useEffect(() => {
     onBalanceChangeUpdate(resolveBalanceChange({
@@ -172,8 +149,6 @@ function Chart({
     onBalanceChangeUpdate,
   ]);
 
-  const axisLabels = useMemo(() => buildAxisLabels(lang.code!, period, plotHistory), [lang.code, period, plotHistory]);
-
   // The new period reaches the effect above through the global state, which loads the series
   const handlePeriodChange = useLastCallback((newPeriod: ApiPriceHistoryPeriod) => {
     setCurrentTokenPeriod({ period: newPeriod });
@@ -185,124 +160,26 @@ function Chart({
     setSelectedIndex(index);
   });
 
-  const modeTabs = useMemo<TabWithProperties[]>(() => [
-    { id: PRICE_TAB, title: lang('Price') },
-    { id: NET_WORTH_TAB, title: lang('Net Worth') },
-  ], [lang]);
-
-  const handleModeSwitch = useLastCallback((tabId: number) => {
-    onChartModeChange(tabId === NET_WORTH_TAB ? 'netWorth' : 'price');
-  });
-
-  // Dragging over the plot shows the price at that point, so the card is excluded from the swipe
-  // between content tabs and from the swipe back
-  const fullClassName = buildClassName(styles.root, 'no-swipe', SWIPE_DISABLED_CLASS_NAME, className);
-
-  // Every swap of the shown series cross-fades, so the key covers both the period and the mode
-  const contentKey = isLoading
-    ? LOADING_SLIDE_KEY
-    : TIME_RANGES.indexOf(period) * 2 + (isNetWorthMode ? 1 : 0) + 1;
-
   return (
-    <section className={fullClassName} data-testid={isActive ? getTestId('token_price_card') : undefined}>
-      {canSwitchMode && (
-        <TabList
-          tabs={modeTabs}
-          activeTab={isNetWorthMode ? NET_WORTH_TAB : PRICE_TAB}
-          className={styles.modes}
-          overlayClassName={styles.modesOverlay}
-          onSwitchTab={handleModeSwitch}
-        />
-      )}
-
-      <Transition name="fade" activeKey={contentKey} shouldRestoreHeight shouldCleanup>
-        <div className={styles.slide}>
-          <div className={styles.summary}>
-            <div className={styles.summarySide}>
-              <span className={styles.summaryCaption}>
-                {initialPoint && formatShortDay(lang.code!, initialPoint[0] * 1000)}
-              </span>
-              <span className={styles.summaryValue}>
-                {initialPoint && formatCurrency(initialPoint[1], currencySymbol, PRICE_FRACTION_DIGITS, true)}
-              </span>
-            </div>
-
-            <div className={buildClassName(styles.summarySide, styles.summarySideEnd)}>
-              <span className={styles.summaryCaption}>
-                {selectedPoint ? formatChartDate(lang.code!, selectedPoint[0] * 1000) : lang('Now')}
-              </span>
-              <span className={styles.summaryValue}>
-                {shownPoint && (
-                  <>
-                    {formatCurrency(
-                      shownPoint[1],
-                      currencySymbol,
-                      selectedPoint ? SELECTED_PRICE_FRACTION_DIGITS : PRICE_FRACTION_DIGITS,
-                      true,
-                    )}
-                    {isStockSelected ? (
-                      <span className={buildClassName(styles.change, styles.changeStock)}>
-                        {lang('$underlying_stock', { symbol: backfill!.symbol })}
-                      </span>
-                    ) : Boolean(changePercent) && (
-                      <span
-                        className={buildClassName(
-                          styles.change,
-                          changePercent > 0 ? styles.changePositive : styles.changeNegative,
-                        )}
-                      >
-                        {changePercent > 0 ? '↑' : '↓'}&thinsp;{formatPercent(Math.abs(changePercent))}
-                      </span>
-                    )}
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {plotHistory?.length ? (
-            <Plot
-              prices={plotHistory}
-              backfillCount={stockCount}
-              selectedIndex={selectedIndex}
-              className={styles.plot}
-              onSelectIndex={handleSelectIndex}
-            />
-          ) : isLoading ? (
-            <div className={styles.plotLoading}>
-              <Spinner className={styles.spinner} />
-            </div>
-          ) : (
-            <div className={styles.plotEmpty}>{lang('No price data')}</div>
-          )}
-
-          <div className={styles.axis}>
-            {axisLabels?.map((label, index) => (
-              <span key={index}>{label}</span>
-            ))}
-          </div>
-        </div>
-      </Transition>
-
-      <TimeRangeSelector value={period} isPlain className={styles.timeRange} onChange={handlePeriodChange} />
-    </section>
+    <ChartCard
+      history={plotHistory}
+      backfillCount={stockCount}
+      selectedIndex={selectedIndex}
+      initialPoint={initialPoint}
+      price={shownPrice}
+      changePercent={shownPoint ? changePercent : undefined}
+      stockSymbol={isStockSelected ? backfill!.symbol : undefined}
+      currencySymbol={currencySymbol}
+      period={period}
+      canSwitchMode={canSwitchMode}
+      isNetWorthMode={isNetWorthMode}
+      className={className}
+      testId={isActive ? getTestId('token_price_card') : undefined}
+      onSelectIndex={handleSelectIndex}
+      onPeriodChange={handlePeriodChange}
+      onChartModeChange={onChartModeChange}
+    />
   );
-}
-
-// The plot spaces points by time, so the labels split the time span evenly, in the formats of the native apps
-function buildAxisLabels(langCode: LangCode, period: ApiPriceHistoryPeriod, history?: ApiHistoryList) {
-  if (!history?.length) return undefined;
-
-  const first = history[0][0];
-  const span = history[history.length - 1][0] - first;
-
-  return Array.from({ length: AXIS_LABEL_COUNT }, (_, index) => {
-    const timestamp = (first + (span * index) / (AXIS_LABEL_COUNT - 1)) * 1000;
-
-    if (period === '1D') return formatTime(timestamp);
-    if (period === 'ALL') return formatShortMonth(langCode, timestamp);
-    return formatShortDay(langCode, timestamp, false, true);
-  });
 }
 
 export default memo(

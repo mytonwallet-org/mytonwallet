@@ -29,6 +29,7 @@ import styles from './Header.module.scss';
 interface OwnProps {
   token: UserToken;
   isScrolled?: boolean;
+  isHidden?: boolean;
   className?: string;
   onBackClick: NoneToVoidFunction;
 }
@@ -49,6 +50,7 @@ const SHARE_ITEM: DropdownItem<string> = IS_TOUCH_ENV
 function Header({
   token,
   isScrolled,
+  isHidden,
   className,
   onBackClick,
   details,
@@ -61,9 +63,9 @@ function Header({
   const menuButtonRef = useRef<HTMLButtonElement>();
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition>();
 
-  useHistoryBack({ isActive: true, onBack: onBackClick });
+  useHistoryBack({ isActive: !isHidden, onBack: onBackClick });
 
-  useEffect(() => captureEscKeyListener(onBackClick), [onBackClick]);
+  useEffect(() => (isHidden ? undefined : captureEscKeyListener(onBackClick)), [isHidden, onBackClick]);
 
   const explorerUrl = getExplorerTokenUrl(
     token.chain, token.cmcSlug, tokenAddress, isTestnet, selectedExplorerIds?.[token.chain],
@@ -109,7 +111,7 @@ function Header({
         isSimple
         isText
         ariaLabel={lang('Actions')}
-        testId={getTestId('token_more_button')}
+        testId={!isHidden ? getTestId('token_more_button') : undefined}
         onClick={openMenu}
       >
         <i className="icon-menu-dots" aria-hidden />

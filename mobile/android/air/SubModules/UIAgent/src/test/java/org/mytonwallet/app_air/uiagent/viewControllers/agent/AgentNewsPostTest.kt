@@ -313,21 +313,17 @@ class AgentNewsPostTest {
             )
         )
         val followup = AgentV2FollowUp("more", "suggested_prompt", "What else happened?")
-        val naming = AgentV2NewsFeedItem.DiscussionNaming(
-            title = "Digest discussion",
-            icon = "📰",
-            followups = listOf("What matters most?", "Explain the impact")
-        )
+        val followups = listOf("What matters most?", "Explain the impact")
         val preview = agentNewsPostMessages(
             emptyList(),
             null,
             null,
             null,
             digest,
-            discussionNaming = naming
+            discussionFollowups = followups
         ).single()
         assertEquals(AgentNewsPostContent(digest), preview.newsPost)
-        assertEquals(naming.followups, preview.message.followups.map { it.text })
+        assertEquals(followups, preview.message.followups.map { it.text })
         assertTrue(preview.message.followups.all { it.kind == "suggested_prompt" })
         assertTrue(
             agentNewsPostMessages(emptyList(), null, null, null, digest)
@@ -348,7 +344,7 @@ class AgentNewsPostTest {
             null,
             null,
             digest,
-            discussionNaming = naming
+            discussionFollowups = followups
         )
         val post = checkNotNull(items.first().newsPost)
         val title = LocaleController.getString("\$agent_digest_title")

@@ -5,9 +5,8 @@
 @use "../../styles/scssVariables" as v;
 
 $scrollOffset: 0.1875rem;
-// Holds the column's own content at its previous width now that the sidebar reserves 1rem of air
-// on each side of it
-$landscapeSidebarWidth: 22.375rem;
+// A 20.5rem card with 1rem of air on each side of it
+$landscapeSidebarWidth: 22.5rem;
 
 .portraitContainer {
   display: flex;
@@ -17,11 +16,6 @@ $landscapeSidebarWidth: 22.375rem;
   min-height: calc(var(--vh, 1vh) * 100);
   max-height: none;
   padding: 0 0.75rem !important;
-
-  // Fix for Opera, dead zone of 37 pixels in extension window on Windows
-  :global(html.is-windows.is-opera.is-extension) & {
-    padding-top: 1.875rem !important;
-  }
 
   @include mixins.adapt-padding-to-scrollbar(0.75rem, !important);
 
@@ -39,13 +33,16 @@ $landscapeSidebarWidth: 22.375rem;
     width: 100%;
     max-width: v.$portraitContentMaxWidth;
     margin: 0 auto;
-    padding-top: 3rem;
   }
 }
 
 .head {
   position: relative;
   z-index: 3;
+}
+
+.withFixedHeader {
+  padding-top: 3rem;
 }
 
 .landscapeContainer {
@@ -103,6 +100,18 @@ $landscapeSidebarWidth: 22.375rem;
 
 .main {
   overflow: hidden;
+}
+
+.mainContent {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+// `HomeToolbar` already holds the column's top inset, so the screens below it must not repeat it
+.mainContentBelowToolbar {
+  --app-padding-top: 0rem;
 }
 
 .sidebar {

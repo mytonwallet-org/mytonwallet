@@ -1,0 +1,35 @@
+@use "../../../../styles/mixins";
+
+@use "../../../../styles/scssVariables" as v;
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  width: 100%;
+  max-width: v.$portraitContentMaxWidth;
+  margin: 0 auto;
+
+  @include mixins.respond-below(xs) {
+    padding-bottom: calc(var(--bottombar-height) + var(--safe-area-bottom) + 1rem);
+  }
+}
+
+.collectiblesTabs {
+  flex-shrink: 0;
+  padding: 0.75rem 0.75rem 0.25rem;
+}
+
+// The active pill is drawn by a second copy of the tabs, positioned from the container edge, so it needs the same inset
+.collectiblesTabsOverlay {
+  padding-inline: 0.75rem;
+}
+
+.collectiblesTab {
+  flex: 0 0 auto;
+}
+
+.nftsCell {
+  padding-inline-end: 0.5rem;
+}

@@ -1,0 +1,45 @@
+@use "../../../../styles/mixins";
+
+@use "../../../../styles/scssVariables" as v;
+
+.root {
+  cursor: var(--custom-cursor, default);
+
+  display: flex;
+  flex: 1 1 auto;
+  gap: 0.25rem;
+  align-items: center;
+
+  min-width: 0;
+  height: v.$homeToolbarHeight;
+  padding-inline: 0.75rem;
+
+  color: var(--color-gray-3);
+
+  @include mixins.homeToolbarCapsule();
+}
+
+.icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+// The glyphs have wider inner margins than the design icons, so they are drawn larger within the same 20 px of layout
+.enlargedIcon {
+  margin-inline: -0.0625rem;
+  font-size: 1.375rem;
+}
+
+.placeholder {
+  overflow: hidden;
+  flex: 1 1 auto;
+
+  min-width: 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

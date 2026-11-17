@@ -453,8 +453,21 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         select(tab: .explore)
     }
 
-    func showHome(popToRoot: Bool) {
-        select(tab: .wallet, popToRoot: popToRoot)
+    func showHome(popToRoot: Bool, shouldPreserveSelectedTab: Bool = false) {
+        var tab: AppTabId = .wallet
+        if shouldPreserveSelectedTab {
+            tab = currentTabId == .settings
+                ? AppTabManager.shared.toolbarTabIds.first ?? .wallet
+                : currentTabId
+            searchController.discardSearch()
+            if popToRoot {
+                setNavigationPath([], for: tab)
+                if tab != .wallet {
+                    setNavigationPath([], for: .wallet)
+                }
+            }
+        }
+        select(tab: tab, popToRoot: popToRoot && !shouldPreserveSelectedTab)
         if let rootViewController = view.window?.rootViewController, rootViewController.presentedViewController != nil {
             rootViewController.dismiss(animated: true)
         }

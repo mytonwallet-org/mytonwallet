@@ -11,11 +11,11 @@ $gapSize: 0.875rem;
   position: relative;
 
   display: flex;
-  gap: $gapSize;
+  gap: var(--list-item-gap, #{$gapSize});
   align-items: center;
 
   width: 100%;
-  padding: $vPaddingSize $hPaddingSize;
+  padding: var(--list-item-padding, #{$vPaddingSize $hPaddingSize});
   border: none;
 
   font-size: 1rem;
@@ -32,7 +32,7 @@ $gapSize: 0.875rem;
 
     position: absolute;
     top: 0;
-    inset-inline-start: $hPaddingSize + $iconSize + $gapSize;
+    inset-inline-start: var(--list-item-separator-start, #{$hPaddingSize + $iconSize + $gapSize});
     inset-inline-end: 0;
 
     height: 0.0625rem;
@@ -96,4 +96,11 @@ $gapSize: 0.875rem;
   font-style: normal;
   line-height: 1rem;
   color: var(--color-gray-2);
+}
+
+.truncated {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

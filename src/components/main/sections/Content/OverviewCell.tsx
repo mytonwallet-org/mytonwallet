@@ -8,13 +8,12 @@ import type { DropdownItem } from '../../../ui/Dropdown';
 
 import buildClassName from '../../../../util/buildClassName';
 import { stopEvent } from '../../../../util/domEvents';
-import { formatNumber } from '../../../../util/formatNumber';
-import { toNativeDigits } from '../../../../util/nativeDigits';
 
 import useCurrentOrPrev from '../../../../hooks/useCurrentOrPrev';
+import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLastCallback from '../../../../hooks/useLastCallback';
 
-import Button from '../../../ui/Button';
+import ShowAllButton from '../../../common/ShowAllButton';
 import DropdownMenu from '../../../ui/DropdownMenu';
 
 import styles from './OverviewCell.module.scss';
@@ -22,20 +21,31 @@ import styles from './OverviewCell.module.scss';
 export const OVERVIEW_CELL_BODY_CLASS = 'overview-cell-body';
 
 interface OwnProps<T, MenuValue extends string = string> {
-  caption: string;
-  showAllIcon: string;
-  showAllLabel: string;
+  caption?: string;
+  showAllIcon?: ShowAllIcon;
+  showAllLabel?: string;
   showAllAmount?: number;
   showAllTestId?: string;
   clickArg?: T;
   menuItems?: DropdownItem<MenuValue>[];
   size?: OverviewCellSize;
+  /** Fills the row when it holds the only cell */
+  isStretched?: boolean;
   className?: string;
   bodyClassName?: string;
   children: TeactNode;
   onShowAllClick?: (arg: T) => void;
   onMenuItemClick?: (value: MenuValue, arg: T) => void;
 }
+
+type ShowAllIcon = 'showAll' | 'collectibles' | 'gift' | 'positions';
+
+const SHOW_ALL_ICON_CLASS: Record<ShowAllIcon, string> = {
+  showAll: 'icon-show-all',
+  collectibles: 'icon-show-all-collectibles',
+  gift: buildClassName('icon-gift', styles.showAllIconGift),
+  positions: 'icon-show-all-positions',
+};
 
 const SIZE_CLASS: Record<OverviewCellSize, string> = {
   small: styles.sizeSmall,
@@ -52,12 +62,14 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
   clickArg,
   menuItems,
   size = 'small',
+  isStretched,
   className,
   bodyClassName,
   children,
   onShowAllClick,
   onMenuItemClick,
 }: OwnProps<T, MenuValue>) {
+  const { isPortrait } = useDeviceScreen();
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition | undefined>(undefined);
   const triggerRef = useRef<HTMLSpanElement>();
   const menuRef = useRef<HTMLDivElement>();
@@ -111,43 +123,56 @@ function OverviewCell<T = undefined, MenuValue extends string = string>({
     </span>
   );
 
+  const captionClassName = buildClassName(styles.caption, isPortrait && styles.captionPortrait);
+
+  function renderCaption() {
+    if (caption === undefined) return undefined;
+
+    if (!hasRenderedMenu) return <div className={captionClassName}>{titleAndBadge}</div>;
+
+    return (
+      <span
+        ref={triggerRef}
+        className={buildClassName(captionClassName, styles.captionInteractive)}
+        role="button"
+        tabIndex={0}
+        onClick={handleOpenMenu}
+        onKeyDown={handleTriggerKeyDown}
+      >
+        {titleAndBadge}
+        <i className={buildClassName('icon', 'icon-expand', styles.captionIcon)} aria-hidden />
+      </span>
+    );
+  }
+
+  const wrapperClassName = buildClassName(
+    styles.wrapper, isPortrait && styles.portrait, isStretched && styles.stretched, SIZE_CLASS[size], className,
+  );
+
   return (
-    <div className={buildClassName(styles.wrapper, SIZE_CLASS[size], className)}>
-      {hasRenderedMenu ? (
-        <span
-          ref={triggerRef}
-          className={buildClassName(styles.caption, styles.captionInteractive)}
-          role="button"
-          tabIndex={0}
-          onClick={handleOpenMenu}
-          onKeyDown={handleTriggerKeyDown}
-        >
-          {titleAndBadge}
-          <i className={buildClassName('icon', 'icon-expand', styles.captionIcon)} aria-hidden />
-        </span>
-      ) : (
-        <div className={styles.caption}>{titleAndBadge}</div>
-      )}
+    <div className={wrapperClassName}>
+      {renderCaption()}
       <div className={styles.card}>
         <div
           className={buildClassName(
             styles.body,
             OVERVIEW_CELL_BODY_CLASS,
-            'custom-scroll',
-            onShowAllClick && styles.bodyWithShowAll,
+            isPortrait ? styles.bodyPortrait : 'custom-scroll',
+            !isPortrait && onShowAllClick && styles.bodyWithShowAll,
             bodyClassName,
           )}
         >
           {children}
         </div>
         {onShowAllClick && (
-          <Button isSimple className={styles.showAll} testId={showAllTestId} onClick={handleShowAllClick}>
-            <i className={buildClassName(styles.showAllIcon, showAllIcon)} aria-hidden />
-            <span className={styles.showAllLabel}>{showAllLabel}</span>
-            {Boolean(showAllAmount) && (
-              <span className={styles.showAllBadge}>{toNativeDigits(formatNumber(showAllAmount))}</span>
-            )}
-          </Button>
+          <ShowAllButton
+            icon={SHOW_ALL_ICON_CLASS[showAllIcon!]}
+            label={showAllLabel!}
+            amount={showAllAmount}
+            isFloating={!isPortrait}
+            testId={showAllTestId}
+            onClick={handleShowAllClick}
+          />
         )}
       </div>
       {hasRenderedMenu && (

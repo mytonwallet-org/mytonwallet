@@ -359,7 +359,7 @@ struct PerpsHomeAdapterTests {
         let row = try #require(data.positions.first)
         #expect(row.directionAndLeverage == "Long 5x")
         #expect(row.isAtRisk)
-        #expect(row.profitLoss.text.contains("80 (80.0%)"))
+        #expect(row.profitLoss.text == "-\(signSpace)$80 • 80.0%")
         #expect(data.profitLoss.text.contains(" · " + formatPercent(-0.8, showPlus: false, showMinus: false)))
     }
 }

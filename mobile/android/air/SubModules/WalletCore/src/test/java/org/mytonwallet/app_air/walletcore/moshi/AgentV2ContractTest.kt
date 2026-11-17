@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Availability
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
@@ -36,6 +37,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ProblemReportResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunActivityEvent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2StarterHint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
@@ -133,6 +135,37 @@ class AgentV2ContractTest {
         assertNull(decoded.value)
         assertEquals("invalid_event", decoded.error?.code)
         assertEquals(false, decoded.error?.retryable)
+    }
+
+    @Test
+    fun serializesStarterHintWalletStateAndDecodesTheSelectedSdkHints() {
+        val argumentMoshi = MoshiBuilder.build()
+        val method = ApiMethod.AgentV2.GetStarterHints(null, moshi = argumentMoshi)
+
+        assertEquals("getAgentV2StarterHints", method.name)
+        assertEquals("[]", method.arguments)
+        assertEquals(
+            "[\"empty\"]",
+            ApiMethod.AgentV2.GetStarterHints("empty", moshi = argumentMoshi).arguments
+        )
+        assertEquals(
+            "[\"funded\"]",
+            ApiMethod.AgentV2.GetStarterHints("funded", moshi = argumentMoshi).arguments
+        )
+        val response = moshi.adapter<AgentV2HintsResponse>(method.type).fromJson(
+            """{"catalogVersion":"agent-starter-hints-v2","items":[
+                {"id":"wallet.assets","group":"wallet"},
+                {"id":"future.hint","group":"market"}
+            ]}"""
+        )!!
+        assertEquals("agent-starter-hints-v2", response.catalogVersion)
+        assertEquals(
+            listOf(
+                AgentV2StarterHint("wallet.assets", "wallet"),
+                AgentV2StarterHint("future.hint", "market")
+            ),
+            response.items
+        )
     }
 
     @Test
@@ -253,6 +286,14 @@ class AgentV2ContractTest {
                 argumentMoshi
             ).arguments
         )
+        assertEquals(
+            """[{"digest":{"id":"$digestId","followup":"Explain the digest"}}]""",
+            ApiMethod.AgentV2.CreateThread(
+                null,
+                AgentV2ThreadDigestRequest(digestId, "Explain the digest"),
+                argumentMoshi
+            ).arguments
+        )
         val method = ApiMethod.Notifications.SetNewsNotifications(
             ApiMethod.Notifications.SetNewsNotifications.Props(
                 "digest",
@@ -284,7 +325,7 @@ class AgentV2ContractTest {
                     {"eventId":43,"headline":"Pictured","imageUrl":"https://example.com/43.jpg"},
                     {"eventId":44,"headline":"Null picture","imageUrl":null}],
                 "discussion":{"threadId":"digest-thread","icon":"📰"},
-                "discussionNaming":{"title":"Daily discussion","icon":"📰","followups":["Explain the digest"],"future":true}
+                "discussionFollowups":["Explain the digest","What changed?"]
             }]}"""
         )!!
         val digest = page.digests!!.single()
@@ -301,22 +342,17 @@ class AgentV2ContractTest {
         )
         assertEquals(AgentV2NewsFeedItem.Discussion("digest-thread", "📰"), digest.discussion)
         assertEquals(
-            AgentV2NewsFeedItem.DiscussionNaming(
-                "Daily discussion",
-                "📰",
-                listOf("Explain the digest")
-            ),
-            digest.discussionNaming
+            listOf("Explain the digest", "What changed?"),
+            digest.discussionFollowups
         )
         val digestAdapter = moshi.adapter(AgentV2NewsFeedDigest::class.java)
-        val withoutNaming =
+        val withoutFollowups =
             """{"id":"$digestId","deliveredAt":"2026-11-08T18:00:00.000Z","total":0,"top":[]}"""
-        assertNull(digestAdapter.fromJson(withoutNaming)!!.discussionNaming)
-        assertEquals(
-            AgentV2NewsFeedItem.DiscussionNaming("Daily discussion", null, listOf("Question")),
+        assertNull(digestAdapter.fromJson(withoutFollowups)!!.discussionFollowups)
+        assertNull(
             digestAdapter.fromJson(
-                """{"id":"$digestId","deliveredAt":"2026-11-08T18:00:00.000Z","total":0,"top":[],"discussionNaming":{"title":"Daily discussion","followups":["Question"]}}"""
-            )!!.discussionNaming
+                """{"id":"$digestId","deliveredAt":"2026-11-08T18:00:00.000Z","total":0,"top":[],"discussionFollowups":null}"""
+            )!!.discussionFollowups
         )
         assertNull(
             moshi.adapter(
@@ -801,11 +837,8 @@ class AgentV2ContractTest {
     @Test
     fun discardsMalformedDiscussionNamingWithoutLosingTheFeedEntry() {
         val itemAdapter = moshi.adapter(AgentV2NewsFeedItem::class.java)
-        val digestAdapter = moshi.adapter(AgentV2NewsFeedDigest::class.java)
         val expected =
             AgentV2NewsFeedItem(42, "2026-10-20T12:00:00Z", "News", "Body", sources = emptyList())
-        val expectedDigest =
-            AgentV2NewsFeedDigest("digest", "2026-10-20T12:00:00Z", emptyList(), 0)
         for (naming in listOf(
             "null",
             "false",
@@ -818,12 +851,6 @@ class AgentV2ContractTest {
                 expected,
                 itemAdapter.fromJson(
                     """{"eventId":42,"deliveredAt":"2026-10-20T12:00:00Z","headline":"News","body":"Body","sources":[],"discussionNaming":$naming}"""
-                )
-            )
-            assertEquals(
-                expectedDigest,
-                digestAdapter.fromJson(
-                    """{"id":"digest","deliveredAt":"2026-10-20T12:00:00Z","total":0,"top":[],"discussionNaming":$naming}"""
                 )
             )
         }

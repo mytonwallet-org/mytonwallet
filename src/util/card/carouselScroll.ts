@@ -307,6 +307,7 @@ export function startCarouselScroll({
     if (
       isInstant
       || getIsMotionDisabled()
+      || getIsViewportHidden()
       || Math.abs(index - centerIndex) > CAROUSEL_WINDOW_RADIUS
       || Math.abs(viewport.scrollLeft - left) < SAME_POSITION_DISTANCE_PX
     ) {
@@ -376,7 +377,8 @@ export function startCarouselScroll({
     input = 'none';
     settleAfterMomentum.cancel();
     setIsSnapDisabled(false);
-    poseCards();
+
+    if (!getIsViewportHidden()) poseCards();
 
     if (isMoving) {
       isMoving = false;
@@ -443,6 +445,12 @@ export function startCarouselScroll({
         items[index].item.style.zIndex = String(CENTER_Z_INDEX - Math.abs(index - nearestIndex));
       }
     }, itemNodes);
+  }
+
+  // A viewport under `display: none`, such as Home behind another tab, ignores scroll writes and reads its
+  // position as zero. Its cards keep the position they were posed at, and the next resize scrolls to them.
+  function getIsViewportHidden() {
+    return !viewport.clientWidth;
   }
 
   function getGestureBounds(): [number, number] {

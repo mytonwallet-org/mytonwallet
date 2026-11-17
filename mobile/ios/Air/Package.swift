@@ -612,6 +612,7 @@ let package = Package(
                 contextMenuKitDependency,
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 "UIBrowser",
+                .product(name: "GraphKit", package: "GraphKit"),
                 .product(name: "Kingfisher", package: "kingfisher"),
                 "ProtectedAction",
                 "UIActivityList",

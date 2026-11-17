@@ -334,7 +334,7 @@ function AgentThreadList({
     const hintEntryPoint = suggestions && buildAgentV2StarterHintEntryPoint(suggestions.starterHints, hint.id);
     onRequestConsent(() => {
       startOpeningSuggestionMorph(button, hint.title);
-      startChat(hint.title, hintEntryPoint);
+      startChat(hint.prompt, hintEntryPoint);
     });
   });
 

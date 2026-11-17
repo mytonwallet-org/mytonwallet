@@ -99,13 +99,13 @@ public enum PerpsFormatting {
         return decimal.formatted(.number.locale(.forNumberFormatters).precision(.fractionLength(0...12))) + " " + symbol
     }
 
-    /// Signed fiat followed by the unsigned return: in parentheses for rows, after a middle dot in a summary.
-    public static func profitLoss(_ amount: String?, returnOnEquity: String? = nil, summary: Bool = false) -> PerpsValue {
+    public static func profitLoss(_ amount: String?, returnOnEquity: String? = nil, isPositionRow: Bool = false) -> PerpsValue {
         guard let amount, let decimal = Decimal(string: amount) else { return .init("—") }
-        var text = (decimal > 0 ? "+" : "") + money(amount)
+        var text = money(amount)
+        if decimal > 0 { text = "+" + (isPositionRow ? signSpace : "") + text }
         if let returnOnEquity, let ratio = Double(returnOnEquity) {
             let percentage = formatPercent(ratio, showPlus: false, showMinus: false)
-            text += summary ? " · " + percentage : " (" + percentage + ")"
+            text += (isPositionRow ? " • " : " · ") + percentage
         }
         return .init(text, tone: decimal == 0 ? .neutral : decimal < 0 ? .negative : .positive)
     }

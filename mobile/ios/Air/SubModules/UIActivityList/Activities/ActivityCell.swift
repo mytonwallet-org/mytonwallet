@@ -59,6 +59,7 @@ public class ActivityCell: WHighlightCollectionViewCell, ActivityDateDisplaying 
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.applyTextStyle(.calloutEmphasized)
+        label.accessibilityIdentifier = "activity_row_title"
         label.isHidden = true
         mainView.addSubview(label)
         NSLayoutConstraint.activate([
@@ -183,6 +184,7 @@ public class ActivityCell: WHighlightCollectionViewCell, ActivityDateDisplaying 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         firstTwoRows.addSubview(titleLabel)
         titleLabel.applyTextStyle(.calloutEmphasized)
+        titleLabel.accessibilityIdentifier = "activity_row_title"
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: firstTwoRows.topAnchor, constant: 1.667),

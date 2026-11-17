@@ -55,7 +55,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     private let model: AgentNewsFeedModel
     private let preloader: AgentPreloader
     private let openInBrowser: (URL) -> Void
-    private let openTelegramURL: (URL) -> Void
+    private let openExternalUrl: (URL) -> Void
     private let showLinkError: (DisplayError) -> Void
     private let makeNewsChatViewController: (ApiAgentV2NewsFeedItem, String, @escaping (ApiAgentV2ThreadSummary) -> Void) -> UIViewController
     /// The discussion of a news item the feed hasn't loaded, from a digest's headline
@@ -172,7 +172,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         model: AgentNewsFeedModel,
         preloader: AgentPreloader = .shared,
         openInBrowser: @escaping (URL) -> Void = { AppActions.openInBrowser($0, title: nil, injectDappConnect: false) },
-        openTelegramURL: @escaping (URL) -> Void = { UIApplication.shared.open($0) },
+        openExternalUrl: @escaping (URL) -> Void = { UIApplication.shared.open($0) },
         showLinkError: @escaping (DisplayError) -> Void = { AppActions.showError(error: $0) },
         makeNewsChatViewController: ((ApiAgentV2NewsFeedItem, String, @escaping (ApiAgentV2ThreadSummary) -> Void) -> UIViewController)? = nil,
         loadNewsChatViewController: ((Int) async throws -> UIViewController)? = nil,
@@ -190,7 +190,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         self.presentDigestSettings = presentDigestSettings
         self.preloader = preloader
         self.openInBrowser = openInBrowser
-        self.openTelegramURL = openTelegramURL
+        self.openExternalUrl = openExternalUrl
         self.showLinkError = showLinkError
         self.makeNewsChatViewController = makeNewsChatViewController ?? {
             AgentEntryPoint.makeNewsChatViewController(item: $0, locale: $1, preloader: preloader, onThreadCreated: $2)
@@ -223,7 +223,11 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
                 self.updateStickyDay()
             }
         }
-        model.onChange = { [weak self] in self?.updateFeed() }
+        model.onChange = { [weak self] in
+            guard let self else { return }
+            preloader.updateNewsDiscussions(from: model.items)
+            updateFeed()
+        }
         setView(model.digestSettings.newsFeedView)
         observeDigestTime()
         observeNewsFeedView()
@@ -635,7 +639,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         if !entries.isEmpty {
             loadErrorView.show(nil)
         } else if let error = model.error {
-            loadErrorView.show(Self.errorText(error))
+            loadErrorView.show(Self.errorText(error), isRetrying: model.isLoading)
         } else {
             let emptyKey = model.view == .digests ? "$agent_news_digests_empty" : "$agent_news_empty"
             loadErrorView.showMessage(model.hasLoaded ? lang(emptyKey) : nil)
@@ -1239,6 +1243,8 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             }
             if let discussion = preloader.newsModel(eventId: eventId) {
                 retainDiscussion(discussion)
+                // Not the feed's own refresh, which the push cancels as the feed leaves the screen
+                discussion.refreshFollowupsIfNeeded { [weak self] in await self?.model.refreshNews() }
             }
         }
         if !isDiscussionStarted(for: item) {
@@ -1479,7 +1485,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         AgentTextLinks.openNewsSource(
             url,
             openInBrowser: openInBrowser,
-            openTelegramURL: openTelegramURL,
+            openExternalUrl: openExternalUrl,
             showLinkError: showLinkError
         )
     }
@@ -1494,6 +1500,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     }
 
     static func errorText(_ error: Error) -> String {
+        if AgentV2Copy.isConnectionError(error) { return AgentV2Copy.error(.networkError) }
         if (error as? ApiAgentV2MutationError)?.code == .newsUnavailable
             || (error as? SdkError)?.backendMessage == "news_unavailable" {
             return lang("$agent_news_unavailable")

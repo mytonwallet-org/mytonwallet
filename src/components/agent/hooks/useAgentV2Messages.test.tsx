@@ -2,7 +2,6 @@ import React from '../../../lib/teact/teact';
 import TeactDOM from '../../../lib/teact/teact-dom';
 
 import type {
-  AgentNewsFeedDiscussionNamingV2,
   AgentPersistedActionV2,
   AgentThreadClearResponseV2,
   AgentThreadNewsCardV2,
@@ -1393,7 +1392,7 @@ describe('useAgentV2Messages', () => {
     isConsentAccepted = hasConsent;
     isProblemReportAvailable = true;
     const onThreadResolved = jest.fn();
-    const target = buildDeferredTarget(discussion, { title: 'Discussion title', followups: [NEWS_FOLLOWUP.text] });
+    const target = buildDeferredTarget(discussion, [NEWS_FOLLOWUP.text]);
     TeactDOM.render(
       <TargetHarness target={target} hasConsent={hasConsent} onThreadResolved={onThreadResolved} />, root,
     );
@@ -1617,7 +1616,7 @@ describe('useAgentV2Messages', () => {
       }
       return defaultImplementation(...args);
     });
-    const target = buildDeferredTarget(discussion, { title: 'Discussion title', followups: [NEWS_FOLLOWUP.text] });
+    const target = buildDeferredTarget(discussion, [NEWS_FOLLOWUP.text]);
     TeactDOM.render(<TargetHarness target={target} hasConsent={hasConsent} />, root);
     if (hasConsent) expect(result!.isSendDisabled).toBe(true);
     expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
@@ -1732,9 +1731,7 @@ describe('useAgentV2Messages', () => {
   it.each(withDiscussions([
     { hasMatch: true }, { hasMatch: false },
   ]))('sends a preview follow-up through its exact saved match: %o', async ({ discussion, hasMatch }) => {
-    const target = buildDeferredTarget(discussion, {
-      title: 'Discussion title', followups: [NEWS_FOLLOWUP.text, 'Another question'],
-    });
+    const target = buildDeferredTarget(discussion, [NEWS_FOLLOWUP.text, 'Another question']);
     hydratedMessages = [{
       ...persistedAssistantTextMessage(), newsPost: true,
       followups: [{ ...NEWS_FOLLOWUP, text: hasMatch ? NEWS_FOLLOWUP.text : `${NEWS_FOLLOWUP.text} ` }],
@@ -1774,8 +1771,13 @@ describe('useAgentV2Messages', () => {
     } else {
       expect(sends[0][1]).not.toHaveProperty('followupOf');
     }
-    expect(callApiMock.mock.calls.filter(([method]) => method === 'createAgentV2Thread'))
-      .toEqual([['createAgentV2Thread', DISCUSSION_CREATION[discussion]]]);
+    // A digest's thread saves the tapped follow-up on its post, which a news thread brings already
+    expect(callApiMock.mock.calls.filter(([method]) => method === 'createAgentV2Thread')).toEqual([[
+      'createAgentV2Thread',
+      discussion === 'digest'
+        ? { digest: { ...DIGEST_TARGET.digest, followup: NEWS_FOLLOWUP.text } }
+        : DISCUSSION_CREATION.news,
+    ]]);
     expect(result!.messages.filter(({ isOutgoing }) => isOutgoing)).toEqual([
       expect.objectContaining({ id: question.id, text: question.text, timestamp: question.timestamp }),
     ]);
@@ -3674,7 +3676,7 @@ describe('useAgentV2Messages', () => {
     expect(result!.messages).toEqual([]);
     expect(result!.hints).toEqual([{
       id: 'staking.yield', langCode: 'en', title: '$agent_hint_staking_yield_title', subtitle: '',
-      prompt: '$agent_hint_staking_yield_title',
+      prompt: '$agent_hint_staking_yield_prompt',
     }]);
     expect(getStarterHintsCalls()).toEqual([['getAgentV2StarterHints']]);
 
@@ -3682,10 +3684,10 @@ describe('useAgentV2Messages', () => {
     result!.sendHint(hint);
 
     expect(await waitFor(
-      () => Boolean(result?.messages.some((message) => message.text === hint.title)), 10, 20,
+      () => Boolean(result?.messages.some((message) => message.text === hint.prompt)), 10, 20,
     )).toBe(true);
     expect(callApiMock).toHaveBeenCalledWith('startAgentV2Run', expect.objectContaining({
-      input: { kind: 'append', text: hint.title },
+      input: { kind: 'append', text: hint.prompt },
       entryPoint: {
         kind: 'emptyState', surface: 'agentTab', hintId: 'staking.yield',
         catalogVersion: 'agent-starter-hints-v2',
@@ -7669,17 +7671,19 @@ describe('useAgentV2Messages', () => {
     return <div />;
   }
 
-  // A news or digest discussion of the feed that has no thread yet, whose creation brings the thread of its card
-  function buildDeferredTarget(
-    discussion: typeof DISCUSSIONS[number], discussionNaming?: AgentNewsFeedDiscussionNamingV2,
-  ): AgentV2ChatTarget {
-    if (discussion === 'news') createdThreadNews = NEWS_TARGET.preview;
-    else createdThreadDigest = DIGEST;
-    return {
-      ...(discussion === 'news' ? NEWS_TARGET : DIGEST_TARGET),
-      shouldDeferCreation: true,
-      ...(discussionNaming && { discussionNaming }),
-    };
+  // A news or digest discussion of the feed that has no thread yet, whose creation brings the thread of its card. The
+  // feed offers a news discussion's follow-ups with its naming and a digest's with the digest.
+  function buildDeferredTarget(discussion: typeof DISCUSSIONS[number], followups?: string[]): AgentV2ChatTarget {
+    if (discussion === 'news') {
+      createdThreadNews = NEWS_TARGET.preview;
+      return {
+        ...NEWS_TARGET,
+        shouldDeferCreation: true,
+        ...(followups && { discussionNaming: { title: 'Discussion title', followups } }),
+      };
+    }
+    createdThreadDigest = DIGEST;
+    return { ...DIGEST_TARGET, shouldDeferCreation: true, ...(followups && { discussionFollowups: followups }) };
   }
 
   function TargetHarness({

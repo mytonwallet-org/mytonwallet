@@ -60,7 +60,7 @@ struct IntroView: View {
     @ViewBuilder
     var iconAndEffect: some View {
         if IS_GRAM_WALLET {
-            WUISpeedingDiamondWithParticles(diamondSize: 124, isWelcome: true)
+            GramDiamondWithParticles(diamondSize: 124)
         } else {
             Image.mainBundle("IntroLogo")
                 .resizable()

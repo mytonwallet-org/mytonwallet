@@ -293,6 +293,37 @@ struct UniversalSearchResultsPresenterTests {
         #expect(result.balanceValue == nil)
     }
 
+    @Test(arguments: [
+        ApiToken.BASE, .ARBITRUM, .OPTIMISM, .TON_USDT, .TRON_USDT, .SOLANA_USDT_MAINNET, .ETH_USDT_MAINNET,
+        .ETH,
+        ApiToken(slug: "ton-empty-label", name: "Token", symbol: "TEST", decimals: 9, chain: .ton, label: ""),
+        ApiToken(slug: "solana-stock", name: "Walmart xStock", symbol: "WMTx", decimals: 6,
+                 chain: .solana, keywords: ["rwa"], label: "xStocks"),
+    ])
+    func `token results preserve network labels and stock styling`(token: ApiToken) throws {
+        let document = WalletCoreTokenSearchDocuments.document(token: token)
+        let presenter = UniversalSearchResultsPresenter(
+            tokenResolver: { _, slug in slug == token.slug ? token : nil },
+            tokenBalanceResolver: { _, _ in nil }
+        )
+        let presentation = presenter.presentation(
+            for: rankedSnapshot(query: token.symbol, documents: [document]),
+            context: context
+        )
+        let item = try #require(presentation.sections.flatMap(\.items).first { $0.id == document.id.rawValue })
+        guard case .token(let result) = item.content else {
+            Issue.record("Expected a token result")
+            return
+        }
+
+        #expect(result.badge == (token.label?.isEmpty == false ? token.label : nil))
+        #expect(result.badgeStyle == (token.isRwaStock ? .stock : .regular))
+        #expect(result.amount == token.symbol)
+        if token.isRwaStock {
+            #expect(result.title == "Walmart")
+        }
+    }
+
     @Test
     func `resolving domain reserves top hit without exposing a wallet action`() throws {
         let domain = "wolf.t.me"

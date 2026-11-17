@@ -316,6 +316,18 @@
   }
 }
 
+// A row that only shows the amount, with no menu behind it
+.counterRowStatic {
+  cursor: default;
+  flex-shrink: 0;
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--color-background-first);
+    }
+  }
+}
+
 .counterIcon {
   --chain-icon-size: 0.75rem !important;
 
@@ -337,6 +349,11 @@
   font-weight: 600;
   line-height: 1.25rem;
   color: var(--color-black);
+}
+
+// The direction of the payment is not known yet
+.counterLabelMuted {
+  color: var(--color-gray-2);
 }
 
 .counterValue {
@@ -427,6 +444,10 @@
   padding: 0.3125rem 0;
 
   box-shadow: 0 0 1.25rem 0 #0000001F;
+}
+
+.menuBubble.menuBubble {
+  max-height: 60vh;
 }
 
 .menuRow {

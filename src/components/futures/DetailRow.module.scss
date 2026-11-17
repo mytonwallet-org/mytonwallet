@@ -1,0 +1,59 @@
+@use "../../styles/mixins";
+
+.root {
+  position: relative;
+
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+
+  min-height: 3rem;
+  padding: 0.875rem 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+
+  @include mixins.separatorList();
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
+}
+
+.label {
+  min-width: 0;
+  color: var(--color-gray-2);
+}
+
+// A tooltip joins the lines of its text, while a hint splits its paragraphs and the parts of a fee with `\n`
+.hint {
+  white-space: pre-line;
+}
+
+// The value stays on one line, and the label wraps instead
+.value {
+  unicode-bidi: plaintext;
+  color: var(--color-black);
+  text-align: end;
+  white-space: nowrap;
+}
+
+// The old value comes first in the reading direction, so the arrow turns with it
+.change {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.prevValue {
+  color: var(--color-gray-2);
+}
+
+.arrow {
+  display: inline-block;
+  color: var(--color-gray-2);
+
+  @include mixins.rtl-mirror();
+}

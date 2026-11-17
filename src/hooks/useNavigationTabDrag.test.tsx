@@ -3,11 +3,12 @@ import TeactDOM from '../lib/teact/teact-dom';
 
 import type { NavigationTab } from '../global/types';
 
-import { DEFAULT_NAVIGATION_TAB_ORDER, getNavigationTabShift } from '../util/navigationTabOrder';
+import { getNavigationTabShift } from '../util/navigationTabOrder';
 import { pause } from '../util/schedulers';
 import useNavigationTabDrag, { NAVIGATION_TAB_HOLD_DURATION_MS } from './useNavigationTabDrag';
 
 const TAB_HEIGHT_PX = 48;
+const ORDER: NavigationTab[] = ['wallet', 'market', 'agent', 'explore', 'settings'];
 
 describe('useNavigationTabDrag', () => {
   let root: HTMLDivElement;
@@ -18,7 +19,7 @@ describe('useNavigationTabDrag', () => {
 
   function Bar() {
     const rootRef = useRef<HTMLDivElement>();
-    const [order, setOrder] = useState(DEFAULT_NAVIGATION_TAB_ORDER);
+    const [order, setOrder] = useState(ORDER);
     const { drag, consumeDragEndClick, pointerHandlers } = useNavigationTabDrag({
       rootRef,
       tabClassName: 'tab',
@@ -78,7 +79,7 @@ describe('useNavigationTabDrag', () => {
   }
 
   function getShifts() {
-    return DEFAULT_NAVIGATION_TAB_ORDER.map((tab) => Number(getTab(tab).dataset.shift));
+    return ORDER.map((tab) => Number(getTab(tab).dataset.shift));
   }
 
   // Moves keep the button pressed unless told otherwise, as between a press and its release

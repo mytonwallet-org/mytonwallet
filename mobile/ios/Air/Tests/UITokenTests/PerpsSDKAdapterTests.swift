@@ -895,21 +895,30 @@ struct PerpsSDKAdapterTests {
         #expect(PerpsSDKAdapter.fundingRequirement(requirements) == nil)
     }
 
-    /// The minimum-amount warning states the order amount, so the funding notice names the same amount and the fees.
-    @Test func usdcFundingNoticeSeparatesTheOrderAmountFromItsFees() throws {
+    @Test(arguments: [
+        ("10.2", "0.021415", "10.3"),
+        ("10.2", "0", "10.2"),
+        ("10.200001", "0", "10.3"),
+        ("10.199999", "0", "10.2"),
+        ("10.2", "0.000001", "10.3"),
+        ("10.2", "0.1", "10.3"),
+        ("10.999999", "0", "11"),
+        ("0.000001", "0", "0.1"),
+        ("1.25", "0.5", "1.8"),
+        ("0.2", "0.5", "0.7"),
+    ])
+    func roundUsdcFundingTotalUpWithoutFeeDetails(deposit: String, gas: String, expected: String) throws {
         var requirements: ApiPerpsFundingRequirements = try decode("""
-        {"requiredUsdc":"10.2","requiredBridgeFeeUsdc":"0.2","requiredGasUsdc":"0.5","requiredEth":"0",
-         "requiredEthUsd":"0","usdcBalance":"3","ethBalance":"0","needsUsdc":true,"needsEth":false}
+        {"requiredUsdc":"\(deposit)","requiredBridgeFeeUsdc":"0.2","requiredGasUsdc":"\(gas)","requiredEth":"0.0001",
+         "requiredEthUsd":"0.25","usdcBalance":"0","ethBalance":"0","needsUsdc":true,"needsEth":false}
         """)
         #expect(PerpsSDKAdapter.fundingRequirement(requirements)?.message
-                == L10n.perpsFundingUsdcFees(minUSDC: "10.7", amount: "10", fees: "0.7"))
-        requirements.requiredUsdc = "1.25"
+                == L10n.perpsFundingUsdc(minUSDC: expected))
         #expect(PerpsSDKAdapter.fundingRequirement(requirements, isEditing: true)?.message
-                == L10n.perpsFundingUsdcIncreaseFees(minUSDC: "1.75", amount: "1.05", fees: "0.7"))
-        // An edit that adds nothing bridges only the fee, so there is no amount to name.
-        requirements.requiredUsdc = "0.2"
-        #expect(PerpsSDKAdapter.fundingRequirement(requirements, isEditing: true)?.message
-                == L10n.perpsFundingUsdcIncrease(minUSDC: "0.7"))
+                == L10n.perpsFundingUsdcIncrease(minUSDC: expected))
+        requirements.needsEth = true
+        #expect(PerpsSDKAdapter.fundingRequirement(requirements)?.message
+                == L10n.perpsFundingMissing(minUSDC: expected, feeETH: "0.0001"))
     }
 
     @Test func initialOrderCanShowFundingRequirementsWithoutAnAmountOrQuote() throws {

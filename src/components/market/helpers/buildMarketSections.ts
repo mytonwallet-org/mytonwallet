@@ -19,8 +19,8 @@ export interface MarketToken {
   token: ApiToken;
   name: string;
   priceText: string;
-  /** Price change over the last 24 hours, in percent */
-  change: number;
+  /** Price change over the last 24 hours, in percent. Unknown for a futures market without it. */
+  change?: number;
   withChainIcon: boolean;
   sparkline?: number[];
   tintColor?: string;

@@ -1,7 +1,9 @@
 import { getBase58Decoder } from '@solana/kit';
 import {
-  Address, beginCell, external, internal, storeMessage, storeMessageRelaxed, toNano,
+  Address, beginCell, external, internal, SendMode, storeMessage, storeMessageRelaxed, toNano,
 } from '@ton/core';
+import { keyPairFromSeed } from '@ton/crypto';
+import { WalletContractV4, WalletContractV5R1 } from '@ton/ton';
 import { Wallet } from 'ethers';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -11,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
-import { getDefaultUpstreams, startBroadcastGuard } from './broadcastGuard.mjs';
+import { getDefaultUpstreams, getPassTonPolicy, startBroadcastGuard } from './broadcastGuard.mjs';
 
 const CHAINS = ['ton', 'tron', 'solana', 'evm', 'utxo', 'backend'];
 const TON_WALLET = Address.parse('0:' + '11'.repeat(32));
@@ -758,6 +760,187 @@ describe('broadcastGuard read cache', () => {
     assert.equal(fetched.headers.get('access-control-allow-origin'), origin);
     assert.equal(cached.headers.get('access-control-allow-origin'), origin);
     assert.equal(cached.headers.get('access-control-expose-headers'), UPSTREAM_EXPOSED_HEADERS);
+  });
+});
+
+describe('broadcastGuard mainnet pass', () => {
+  const keyPair = keyPairFromSeed(randomBytes(32));
+  const w5 = WalletContractV5R1.create({ workchain: 0, publicKey: keyPair.publicKey });
+  const v4 = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
+  let upstream;
+  let upstreamRequests;
+  let guard;
+  let w5Guard;
+
+  before(async () => {
+    upstream = await startFakeUpstream((request) => upstreamRequests.push(request));
+    const start = (wallet, maxCount) => startBroadcastGuard({
+      upstreams: [{ env: ['ton'], port: 0, target: `http://127.0.0.1:${upstream.address().port}`, chain: 'ton' }],
+      controlPort: 0,
+      passTon: getPassTonPolicy({
+        BROADCAST_GUARD_PASS_TON_FROM: wallet.address.toString(),
+        BROADCAST_GUARD_PASS_TON_MAX_NANOTON: toNano('2').toString(),
+        BROADCAST_GUARD_PASS_TON_MAX_JETTON_UNITS: '5000000',
+        BROADCAST_GUARD_PASS_TON_MAX_BURN_UNITS: '3000000000',
+        BROADCAST_GUARD_PASS_TON_MAX_COUNT: String(maxCount),
+      }),
+    });
+    w5Guard = await start(w5, 10);
+    guard = await start(v4, 1);
+  });
+
+  after(async () => {
+    await w5Guard.close();
+    await guard.close();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+
+  beforeEach(() => {
+    upstreamRequests = [];
+  });
+
+  function buildWalletBoc(wallet, messages, sendMode = SendMode.PAY_GAS_SEPARATELY) {
+    const body = wallet.createTransfer({ seqno: 1, secretKey: keyPair.secretKey, messages, sendMode });
+    return beginCell().store(storeMessage(external({ to: wallet.address, body }))).endCell().toBoc().toString('base64');
+  }
+
+  function buildJettonBurnMessage(amount) {
+    const burn = beginCell().storeUint(0x595f07bc, 32).storeUint(0, 64).storeCoins(amount).endCell();
+    return internal({ to: TON_JETTON_WALLET, value: toNano('0.05'), body: burn });
+  }
+
+  function buildJettonMessage(amount) {
+    const jettonTransfer = beginCell()
+      .storeUint(0x0f8a7ea5, 32).storeUint(0, 64).storeCoins(amount)
+      .storeAddress(TON_RECIPIENT).storeAddress(TON_WALLET).storeBit(false).storeCoins(1n).storeBit(false)
+      .endCell();
+    return internal({ to: TON_JETTON_WALLET, value: toNano('0.05'), body: jettonTransfer });
+  }
+
+  function sendBoc(port, boc) {
+    return postJson(port, '/api/v2/jsonRPC', { id: 1, jsonrpc: '2.0', method: 'sendBocReturnHashNoError', params: { boc } });
+  }
+
+  it('refuses sends of the wallet beyond a limit, whole-balance modes and repeated messages', async () => {
+    const port = w5Guard.ports[0];
+    const transfer = internal({ to: TON_RECIPIENT, value: toNano('1.5'), bounce: false });
+
+    const refusals = await Promise.all([
+      sendBoc(port, buildWalletBoc(w5, [internal({ to: TON_RECIPIENT, value: toNano('2.5'), bounce: false })])),
+      sendBoc(port, buildWalletBoc(w5, [internal({ to: TON_RECIPIENT, value: 0n, bounce: false })], SendMode.CARRY_ALL_REMAINING_BALANCE)),
+      sendBoc(port, buildWalletBoc(w5, [transfer, transfer])),
+      sendBoc(port, buildWalletBoc(w5, [buildJettonMessage(5_000_001n)])),
+      sendBoc(port, buildWalletBoc(w5, [buildJettonBurnMessage(3_000_000_001n)])),
+      sendBoc(port, buildWalletBoc(w5, [internal({
+        to: TON_JETTON_WALLET, value: toNano('0.05'), body: beginCell().storeUint(0x0f8a7ea5, 32).storeUint(0, 16).endCell(),
+      })])),
+    ]);
+
+    assert.ok(refusals.every((answer) => answer.error?.message === 'Blocked by the broadcast guard'));
+    assert.equal(upstreamRequests.length, 0);
+  });
+
+  it('passes a send within the limits once per message and intercepts other wallets as usual', async () => {
+    const port = w5Guard.ports[0];
+    const boc = buildWalletBoc(w5, [internal({ to: TON_RECIPIENT, value: toNano('1.5'), bounce: false }), buildJettonMessage(5_000_000n)]);
+
+    await sendBoc(port, boc);
+    await sendBoc(port, boc);
+    const otherWallet = await sendBoc(port, buildTonExternalBoc());
+
+    assert.equal(otherWallet.result['@type'], 'raw.extMessageInfo');
+    assert.deepEqual(upstreamRequests.map(({ body }) => body), [1, 2].map(() => ({
+      jsonrpc: '2.0', id: 1, method: 'sendBocReturnHashNoError', params: { boc },
+    })));
+    const broadcasts = await (await fetch(`http://127.0.0.1:${w5Guard.controlPort}/broadcasts`)).json();
+    assert.equal(broadcasts.filter(({ details }) => details.isPassed).length, 2);
+  });
+
+  it('forwards only the checked message of a v4 REST send and refuses sends over the count', async () => {
+    const port = guard.ports[0];
+    const boc = buildWalletBoc(v4, [internal({ to: TON_RECIPIENT, value: toNano('1'), bounce: false })]);
+    const other = buildWalletBoc(v4, [internal({ to: TON_RECIPIENT, value: toNano('8'), bounce: false })]);
+
+    await postJson(port, '/v2/blockchain/message?extra=1', { boc, batch: [other] });
+    const overCount = await postJson(port, '/v2/blockchain/message', {
+      boc: buildWalletBoc(v4, [internal({ to: TON_RECIPIENT, value: toNano('0.5'), bounce: false })]),
+    });
+
+    assert.deepEqual(upstreamRequests, [{ path: '/v2/blockchain/message', body: { boc } }]);
+    assert.equal(overCount.error, 'Blocked by the broadcast guard');
+  });
+
+  it('passes the wallet a case sets once, and nothing before it is set', async () => {
+    const pending = await startBroadcastGuard({
+      upstreams: [{ env: ['ton'], port: 0, target: `http://127.0.0.1:${upstream.address().port}`, chain: 'ton' }],
+      controlPort: 0,
+      passTon: getPassTonPolicy({
+        BROADCAST_GUARD_PASS_TON: '1',
+        BROADCAST_GUARD_PASS_TON_MAX_NANOTON: toNano('2').toString(),
+        BROADCAST_GUARD_PASS_TON_MAX_COUNT: '2',
+      }),
+    });
+    const setWallet = (address) => fetch(`http://127.0.0.1:${pending.controlPort}/pass`, {
+      method: 'POST', body: JSON.stringify({ from: address.toString() }),
+    });
+    try {
+      const transfer = () => buildWalletBoc(w5, [internal({ to: TON_RECIPIENT, value: toNano('1'), bounce: false })]);
+
+      const beforeSet = await sendBoc(pending.ports[0], transfer());
+      assert.equal(beforeSet.result['@type'], 'raw.extMessageInfo');
+      assert.equal(upstreamRequests.length, 0);
+
+      assert.equal((await setWallet(w5.address)).status, 200);
+      assert.equal((await setWallet(v4.address)).status, 409);
+      await sendBoc(pending.ports[0], transfer());
+      assert.equal(upstreamRequests.length, 1);
+    } finally {
+      await pending.close();
+    }
+  });
+
+  it('decides as in pass mode but sends nothing when dry', async () => {
+    const dry = await startBroadcastGuard({
+      upstreams: [{ env: ['ton'], port: 0, target: `http://127.0.0.1:${upstream.address().port}`, chain: 'ton' }],
+      controlPort: 0,
+      passTon: getPassTonPolicy({
+        BROADCAST_GUARD_PASS_TON_FROM: w5.address.toString(),
+        BROADCAST_GUARD_PASS_TON_DRY: '1',
+        BROADCAST_GUARD_PASS_TON_MAX_NANOTON: toNano('2').toString(),
+        BROADCAST_GUARD_PASS_TON_MAX_COUNT: '1',
+      }),
+    });
+    try {
+      const transfer = (value) => buildWalletBoc(w5, [internal({ to: TON_RECIPIENT, value, bounce: false })]);
+
+      const boc = transfer(toNano('1'));
+
+      const within = await sendBoc(dry.ports[0], boc);
+      const resent = await postJson(dry.ports[0], '/api/v2/sendBoc', { boc });
+      const resentToTonapi = await postJson(dry.ports[0], '/v2/blockchain/message', { boc });
+      const overCount = await sendBoc(dry.ports[0], transfer(toNano('0.5')));
+
+      assert.equal(within.result['@type'], 'raw.extMessageInfo');
+      assert.ok(resent.message_hash && resentToTonapi.message_hash);
+      assert.equal(overCount.error?.message, 'Blocked by the broadcast guard');
+      assert.equal(upstreamRequests.length, 0);
+      const broadcasts = await (await fetch(`http://127.0.0.1:${dry.controlPort}/broadcasts`)).json();
+      assert.deepEqual(broadcasts.map(({ details }) => [Boolean(details.isPassed), Boolean(details.isDry)]), [
+        [true, true], [true, true], [true, true], [false, false],
+      ]);
+      assert.equal((await (await fetch(`http://127.0.0.1:${dry.controlPort}/pass`)).json()).isDry, true);
+    } finally {
+      await dry.close();
+    }
+  });
+
+  it('passes nothing without a wallet and refuses incomplete limits', () => {
+    assert.equal(getPassTonPolicy({}), undefined);
+    assert.equal(getPassTonPolicy({ BROADCAST_GUARD_PASS_TON: '0' }), undefined);
+    assert.throws(() => getPassTonPolicy({ BROADCAST_GUARD_PASS_TON_FROM: TON_WALLET.toString() }), /MAX_COUNT/);
+    assert.throws(() => getPassTonPolicy({
+      BROADCAST_GUARD_PASS_TON_FROM: TON_WALLET.toString(), BROADCAST_GUARD_PASS_TON_MAX_COUNT: '1',
+    }), /MAX_NANOTON/);
   });
 });
 

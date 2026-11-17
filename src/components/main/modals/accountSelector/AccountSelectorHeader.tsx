@@ -121,7 +121,7 @@ const AccountSelectorHeader = ({
         className={styles.titleWrapper}
         slideClassName={styles.title}
       >
-        <div>{toNativeDigits(lang('$wallets_amount', walletsCount) as string)}</div>
+        <div>{toNativeDigits(lang('$wallets_amount', walletsCount))}</div>
         <div className={styles.totalBalance}>
           {lang('$total_balance', { balance: isSensitiveDataHidden ? SENSITIVE_DATA_MASK : (totalBalance ?? '0') })}
         </div>

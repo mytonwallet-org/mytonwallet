@@ -85,14 +85,17 @@ import { DEFAULT_SECRET_PHRASE_PLACEHOLDER, getSecretPhraseWordList, removeSecre
 import { selectAgentV2StarterHints } from './starterHints';
 import { AgentV2StreamMessage } from './streamMessage';
 import {
+  beginNewsFeedCacheRequest,
   beginThreadListCacheRequest,
   beginThreadMessagesCacheRequest,
   cacheMessages,
+  cacheNewsFeed,
   cacheThreads,
   clearThreadCache,
   deleteCachedMessages,
   deleteCachedThread,
   getCachedMessages,
+  getCachedNewsFeed,
   getCachedThreads,
   THREAD_CACHE_MESSAGE_LIMIT,
   updateCachedThread,
@@ -153,6 +156,7 @@ interface RunPreparation {
   threadId?: string;
   clientRunId?: string;
   controller: AbortController;
+  finishSnapshotWait?: () => void;
   /** The server cancellation of a stopped answer that the run waited for */
   stopCancellation?: Promise<AgentThreadSummaryV2 | undefined>;
 }
@@ -333,6 +337,7 @@ export class AgentV2Runtime {
     if (previousHost?.activeAccountId !== nextHost?.activeAccountId) this.clearFailedRunRequests();
     if (hasAuthorityChanged) {
       this.authorityGeneration += 1;
+      this.runPreparations.forEach((preparation) => preparation.finishSnapshotWait?.());
       const isSelectionChange = isWalletSelectionChange(previousHost, nextHost);
       if (!isSelectionChange) this.runGeneration += 1;
       const runIds = isSelectionChange ? [] : this.cancelAllLocally();
@@ -491,28 +496,32 @@ export class AgentV2Runtime {
    * reference or the thread's id, nothing about the wallet or the user's messages. The messages of any other thread
    * need the consent.
    */
-  async getNewsFeed({
-    lang, view, cursor, digestHour, digestMinute, timeZone,
-  }: AgentV2NewsFeedRequest) {
+  getCachedNewsFeed(request: AgentV2NewsFeedRequest) {
+    if (request.cursor) return Promise.resolve(undefined);
+    return this.accessThreadCache((deviceId) => getCachedNewsFeed(
+      deviceId, `${this.dependencies.baseUrl}/news-feed?${buildNewsFeedParameters(request)}`, request.view,
+    ));
+  }
+
+  async getNewsFeed(request: AgentV2NewsFeedRequest) {
     this.assertActive();
-    const params = new URLSearchParams({ locale: getAgentNewsFeedLocale(lang) });
-    if (cursor) params.set('cursor', cursor);
-    if (digestHour !== undefined && timeZone !== undefined) {
-      params.set('digestHour', String(digestHour));
-      if (digestMinute) params.set('digestMinute', String(digestMinute));
-      params.set('timeZone', timeZone);
-    }
-    if (view === 'digests') params.set('view', view);
+    const url = `${this.dependencies.baseUrl}/news-feed?${buildNewsFeedParameters(request)}`;
+    const cacheGeneration = !request.cursor ? beginNewsFeedCacheRequest(request.view) : undefined;
     const { locale, items, nextCursor, digests } = await this.getJson(
-      `${this.dependencies.baseUrl}/news-feed?${params}`,
-      decodeAgentV2NewsFeed,
+      url, decodeAgentV2NewsFeed,
     );
-    return {
+    const page = {
       locale,
       items,
       ...(nextCursor !== undefined && { nextCursor }),
       ...(digests !== undefined && { digests }),
     };
+    if (cacheGeneration !== undefined) {
+      void this.accessThreadCache((deviceId) => cacheNewsFeed(
+        deviceId, { request: url, page }, cacheGeneration, request.view,
+      ));
+    }
+    return page;
   }
 
   // A news or digest discussion opens with its post and suggestions before consent; any other chat needs it
@@ -525,7 +534,9 @@ export class AgentV2Runtime {
       body: JSON.stringify({
         protocolVersion: 3,
         ...(news !== undefined && { news }),
-        ...(digest !== undefined && { digest: { id: digest.id } }),
+        ...(digest !== undefined && {
+          digest: { id: digest.id, ...(digest.followup !== undefined && { followup: digest.followup }) },
+        }),
       }),
     });
   }
@@ -677,6 +688,12 @@ export class AgentV2Runtime {
       this.assertActive();
       const authorityGeneration = this.authorityGeneration;
       const runGeneration = this.runGeneration;
+      const snapshotUpload = this.snapshots.waitForUpload();
+      if (snapshotUpload) {
+        await this.waitForWalletSnapshot(preparation, snapshotUpload);
+        this.assertActive();
+      }
+      const requestAuthorityGeneration = this.authorityGeneration;
       const built = this.walletSession.buildContext();
       const input
         = command.input.kind === 'append'
@@ -711,7 +728,7 @@ export class AgentV2Runtime {
       this.finishRunPreparation(preparation);
       prepared?.();
       const userMessageId = command.input.kind === 'regenerate' ? command.input.userMessageId : messageId;
-      return this.executeRun(request, authorityGeneration, trace, userMessageId, stoppedThread);
+      return this.executeRun(request, requestAuthorityGeneration, trace, userMessageId, stoppedThread);
     } catch (error) {
       if (preparation.controller.signal.aborted) {
         prepared?.('cancelled');
@@ -745,6 +762,10 @@ export class AgentV2Runtime {
       end = trace?.start('client_request');
       await raceWithAbortSignal(this.probes.ensureFeatureCapabilities(trace), preparation.controller.signal);
       this.assertAuthorityGeneration(authorityGeneration);
+      if (failed.walletContextGeneration !== this.walletContextGeneration) {
+        const snapshotUpload = this.snapshots.waitForUpload();
+        if (snapshotUpload) await this.waitForWalletSnapshot(preparation, snapshotUpload);
+      }
       const stoppedThread = await this.waitForStopCancellation(preparation, threadId);
       await raceWithAbortSignal(this.requireConsent(), preparation.controller.signal);
       this.assertAuthorityGeneration(authorityGeneration);
@@ -831,6 +852,17 @@ export class AgentV2Runtime {
     }
   }
 
+  private async waitForWalletSnapshot(preparation: RunPreparation, upload: Promise<void>) {
+    const interrupted = new Promise<void>((resolve) => {
+      preparation.finishSnapshotWait = resolve;
+    });
+    try {
+      await raceWithAbortSignal(Promise.race([upload, interrupted]), preparation.controller.signal);
+    } finally {
+      preparation.finishSnapshotWait = undefined;
+    }
+  }
+
   /**
    * The request a retry sends: the same one while the wallet context stays as it was, and otherwise the same question
    * bound to the wallet context as it is now, as after the same account's authority was published again
@@ -838,6 +870,7 @@ export class AgentV2Runtime {
   private rebindFailedRunRequest({ request, walletContextGeneration }: FailedRunRequest): AgentRunRequestWireV2 {
     if (walletContextGeneration === this.walletContextGeneration) return request;
     const { walletSnapshotRef, ...unboundRequest } = request;
+    this.snapshots.refresh();
     const built = this.walletSession.buildContext();
     return {
       ...unboundRequest,
@@ -1706,7 +1739,8 @@ export class AgentV2Runtime {
       if (this.lifecycleController.signal.aborted) return undefined;
       const deviceId = await this.identity.getDeviceId();
       if (!deviceId || this.lifecycleController.signal.aborted) return undefined;
-      return await operation(deviceId);
+      const result = await operation(deviceId);
+      return this.lifecycleController.signal.aborted ? undefined : result;
     } catch (error) {
       logDebugError('AgentV2 thread cache', error);
       return undefined;
@@ -1748,6 +1782,9 @@ export class AgentV2Runtime {
   // Returns whether a run that may have reached the server was stopped
   private cancelThreadRuns(threadId: string) {
     this.clearGenerationByThreadId.set(threadId, this.getClearGeneration(threadId) + 1);
+    this.runPreparations.forEach((preparation) => {
+      if (preparation.threadId === threadId) preparation.finishSnapshotWait?.();
+    });
     const states = [...this.runs.values()].filter((state) => (
       !state.outcome && (state.threadId ?? state.request.threadId) === threadId
     ));
@@ -2065,4 +2102,16 @@ function failedRunRequestExpiresAt(error: unknown, now: number) {
     return now + FAILED_RUN_RETRY_GRACE_MS;
   }
   return undefined;
+}
+
+function buildNewsFeedParameters({ lang, view, cursor, digestHour, digestMinute, timeZone }: AgentV2NewsFeedRequest) {
+  const parameters = new URLSearchParams({ locale: getAgentNewsFeedLocale(lang) });
+  if (cursor) parameters.set('cursor', cursor);
+  if (digestHour !== undefined && timeZone !== undefined) {
+    parameters.set('digestHour', String(digestHour));
+    if (digestMinute) parameters.set('digestMinute', String(digestMinute));
+    parameters.set('timeZone', timeZone);
+  }
+  if (view === 'digests') parameters.set('view', view);
+  return parameters;
 }

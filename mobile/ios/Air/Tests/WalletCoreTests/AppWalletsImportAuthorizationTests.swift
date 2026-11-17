@@ -80,6 +80,9 @@ struct AppWalletsImportAuthorizationTests {
 }
 
 private enum RestoreAuthSupport: AuthSupportProtocol {
+    static let isBiometricRecoveryRequired = false
+    static let shouldOfferBiometricRecovery = false
+    static func recoverBiometrics(using authorizationToken: EnclaveToken, shouldEnable: Bool) async throws { throw UnexpectedCall.unused }
     struct State {
         var isConfigured = false
         var setupCount = 0

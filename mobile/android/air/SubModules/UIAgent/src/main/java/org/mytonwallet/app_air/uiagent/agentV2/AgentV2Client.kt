@@ -1,6 +1,9 @@
 package org.mytonwallet.app_air.uiagent.agentV2
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
@@ -30,6 +33,8 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadUpdate
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResponse
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 
 interface AgentV2Client {
     /** The user's consent as the app last read or gave it, known at once: false until then */
@@ -39,7 +44,7 @@ interface AgentV2Client {
     suspend fun acceptConsent()
     suspend fun updateHostContext(context: JSONObject?)
     suspend fun setChatActive(isActive: Boolean)
-    suspend fun hints(langCode: String?): AgentV2HintsResponse
+    suspend fun getStarterHints(walletState: String?, host: JSONObject?): AgentV2HintsResponse
     suspend fun problemReportAvailability(): Boolean
 
     /** Asks for the Agent's availability, which arrives as an `availabilityChanged` update */
@@ -119,8 +124,8 @@ class LiveAgentV2Client : AgentV2Client {
         WalletCore.call(ApiMethod.AgentV2.SetChatActive(isActive))
     }
 
-    override suspend fun hints(langCode: String?) =
-        WalletCore.call(ApiMethod.AgentV2.GetHints(langCode))
+    override suspend fun getStarterHints(walletState: String?, host: JSONObject?) =
+        WalletCore.call(ApiMethod.AgentV2.GetStarterHints(walletState, host))
 
     override suspend fun problemReportAvailability() =
         WalletCore.call(ApiMethod.AgentV2.GetProblemReportAvailability())
@@ -251,3 +256,27 @@ internal class AgentV2OperationException(
     val error: AgentV2MutationError,
     cause: Throwable? = null
 ) : Exception(error.code, cause)
+
+internal fun getAgentV2HintWalletState(accountId: String?): String? {
+    val balance = accountId?.let(BalanceStore::totalBalanceInBaseCurrency) ?: return null
+    return if (balance > 0) "funded" else "empty"
+}
+
+internal suspend fun loadAgentV2StarterHints(
+    getHints: suspend (String?, JSONObject?) -> AgentV2HintsResponse,
+    makeSnapshot: suspend () -> AgentHostContextSnapshot
+): AgentV2HintsResponse {
+    val snapshot = try {
+        makeSnapshot()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        null
+    }
+    currentCoroutineContext().ensureActive()
+    val accountId = AccountStore.activeAccountId
+    return getHints(
+        getAgentV2HintWalletState(accountId),
+        snapshot?.takeIf { it.accountId == accountId }?.json
+    )
+}

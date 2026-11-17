@@ -1412,22 +1412,33 @@ $agent_hint_swap_title: Як працюють свопи?
 $agent_hint_swap_prompt: Поясніть, як працює обмін токенами.
 $agent_hint_staking_title: Що таке стейкинг?
 $agent_hint_staking_prompt: Пояснюйте стейкинг з нуля, ніби я ніколи раніше не користувався криптовалютою.
-$agent_hint_security_title: Як захистити гаманець?
-$agent_hint_security_prompt: Покажи мені, як безпечно тримати мій гаманець.
+$agent_hint_security_title: Захист гаманця
+$agent_hint_security_prompt: Як захистити гаманець?
 $agent_hint_receive_title: Отримання токенів
 $agent_hint_receive_prompt: Допоможіть мені отримати токени.
-$agent_hint_assets_title: Покажи мої активи
-$agent_hint_total_title: Скільки в мене всього?
-$agent_hint_spending_title: На що я витрачав за тиждень?
-$agent_hint_last_transfer_title: Покажи останній переказ
-$agent_hint_fund_title: Як поповнити гаманець?
-$agent_hint_market_today_title: Що сьогодні на ринку?
-$agent_hint_news_today_title: Головні новини за добу
-$agent_hint_bitcoin_title: Що відбувається з біткоїном?
+$agent_hint_assets_title: Мої активи
+$agent_hint_assets_prompt: Покажи мої активи
+$agent_hint_total_title: Загальний баланс
+$agent_hint_total_prompt: Який у мене загальний баланс?
+$agent_hint_spending_title: Витрати за тиждень
+$agent_hint_spending_prompt: На що пішли гроші за тиждень?
+$agent_hint_last_transfer_title: Останній переказ
+$agent_hint_last_transfer_prompt: Покажи мій останній переказ
+$agent_hint_fund_title: Поповнити гаманець
+$agent_hint_fund_prompt: Як поповнити гаманець?
+$agent_hint_market_today_title: Ринок сьогодні
+$agent_hint_market_today_prompt: Що сьогодні на ринку?
+$agent_hint_news_today_title: Новини дня
+$agent_hint_news_today_prompt: Які головні новини дня?
+$agent_hint_bitcoin_title: Що з біткоїном?
+$agent_hint_bitcoin_prompt: Що відбувається з біткоїном?
 $agent_hint_price_title: Скільки коштує 0,5 ETH?
-$agent_hint_staking_yield_title: Де вища дохідність?
-$agent_hint_staking_options_title: Які варіанти стейкингу доступні?
-$agent_hint_multisend_title: Як надіслати кільком людям?
+$agent_hint_staking_yield_title: Дохідність стейкингу
+$agent_hint_staking_yield_prompt: Де дохідність стейкингу вища?
+$agent_hint_staking_options_title: Варіанти стейкингу
+$agent_hint_staking_options_prompt: Які є варіанти стейкингу?
+$agent_hint_multisend_title: Переказ кільком
+$agent_hint_multisend_prompt: Як надіслати одразу кільком людям?
 $agent_hint_action_swap_title: Обміняти токени
 $agent_hint_action_send_title: Надіслати крипту
 $agent_hint_action_stake_title: Почати стейкинг
@@ -1644,6 +1655,7 @@ Wallet Name: Назва гаманця
 App Icon: Значок застосунку
 Rounded Toolbars: Заокруглені панелі інструментів
 Toolbar: Панель інструментів
+Toolbars: Панелі
 Shared Background: Спільне тло
 Side Gutters: Бічні відступи
 Gradient Navigation Bar: Градієнтна панель навігації
@@ -2215,7 +2227,6 @@ $agent_news_unread_digests_count:
 Explorer mode: Режим дослідника
 Open a link to a wallet, transfer, token or collectible to see its details here.: Відкрийте посилання на гаманець, переказ, токен або NFT, щоб переглянути тут деталі.
 
-# Perps
 Long: "Лонг"
 Short: "Шорт"
 Funding Rate: "Ставка фінансування"
@@ -2227,7 +2238,6 @@ $perps_max_leverage_hint: "Найвище плече, доступне для ц
 $perps_volume_24h_hint: "Загальна вартість угод на цьому ф’ючерсному ринку за останні 24 години. Включає угоди як на відкриття, так і на закриття позицій."
 $perps_open_interest_hint: "Загальна вартість контрактів, які зараз відкриті на цьому ф’ючерсному ринку. На відміну від обсягу за 24 години, не включає вже закриті позиції."
 
-# Perps order entry
 "Leverage": "Кредитне плече"
 "Position Size": "Розмір позиції"
 "Liquidation Price": "Ціна ліквідації"
@@ -2248,18 +2258,15 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "$perps_liquidation_price_hint": "Розрахункова ціна, за якої вашу позицію може бути автоматично закрито через недостатню кількість коштів для її підтримання."
 "$perps_leverage_disclaimer": "Вище плече збільшує потенційні прибутки та збитки. Навіть невелика зміна ціни проти вашої позиції може призвести до її автоматичного закриття."
 
-# Perps order review
 "Open Position": "Відкрити позицію"
 "$perps_asset_price": "Ціна %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
 "$perps_liquidation_acknowledgment": "Підтверджуючи, я розумію, що позицію може бути ліквідовано й я можу втратити вкладені кошти."
 
-# Perps position receipt
 "Position Opened": "Позицію відкрито"
 "Fees": "Комісії"
 "Transfer ID": "ID переказу"
 
-# Perps active position
 "Equity": "Вартість позиції"
 "Profit and Loss": "Прибуток і збиток"
 "Invested": "Вкладено"
@@ -2272,7 +2279,6 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "$perps_entry_price_hint": "Середня ціна відкриття цієї позиції."
 "$perps_funding_payments_hint": "Періодичні платежі між трейдерами з довгими та короткими позиціями. Залежно від ставки фінансування ви можете сплачувати або отримувати фінансування, поки ваша позиція відкрита."
 
-# Perps edit position
 "$perps_edit_long": "Змінити лонг %asset%"
 "$perps_edit_short": "Змінити шорт %asset%"
 "Current:": "Зараз:"
@@ -2283,7 +2289,6 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "$perps_network_fee_hint": "Комісія за обробку цієї транзакції в блокчейні."
 "$perps_edit_liquidation_hint": "Ліквідація — ціна, за якої позиція автоматично закривається."
 
-# Perps position lifecycle
 "Increase Position": "Збільшити позицію"
 "Reduce Position": "Зменшити позицію"
 "Current Value": "Поточна вартість"
@@ -2305,7 +2310,6 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "$perps_liquidated_title": "Позицію закрито автоматично."
 "$perps_liquidated_message": "Ринкова ціна досягла ціни ліквідації, що призвело до збитку."
 
-# Perps home
 "Open Positions": "Відкриті позиції"
 "Show All Positions": "Усі позиції"
 "Futures": "Ф’ючерси"
@@ -2319,14 +2323,13 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "$perps_explore_futures": "Відкривайте короткі й довгі позиції"
 "$perps_explore_apps": "Досліджуйте децентралізований інтернет"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "Ціни або позиція змінилися. Поверніться та перевірте ордер ще раз."
 "PerpsReviewChanged": "Ордер змінився. Поверніться та перевірте його ще раз."
 "PerpsInsufficientUsdc": "Недостатньо USDC в Arbitrum з урахуванням комісії мосту."
 "EvmUserOperationMismatch": "Оплата газу не збігається з цією транзакцією."
 "PerpsInsufficientBalance": "Недостатньо USDC на балансі Hyperliquid з урахуванням торгових комісій."
 "PerpsMarketNeedsUnifiedAccount": "Цей ринок не можна поповнити з гаманця з поточним типом акаунта Hyperliquid."
-"PerpsRequiresMultichainWallet": "Для ф’ючерсів потрібен мультичейн-гаманець. Перейдіть на нього або створіть новий, щоб почати торгувати."
+"PerpsRequiresMultichainWallet": "Перейдіть на мультичейн-гаманець або створіть новий, щоб почати торгувати."
 "PerpsSwitchesToUnifiedAccount": "Цей ордер також переведе ваш акаунт Hyperliquid у режим Unified, і один баланс USDC покриватиме всі ринки."
 "PerpsAmountTooSmall": "Ця сума нижча за мінімальну для ринку."
 "$perps_minimum_amount": "Мінімальна сума: %amount% USDC."
@@ -2371,7 +2374,6 @@ Could not save the image. Please try again.: Не вдалося зберегт�
 "$perps_activity_closed": "Закриття %asset%"
 "$perps_activity_liquidated": "Ліквідація %asset%"
 
-# Perps
 "PerpsInsufficientGas": "Недостатньо ETH в Arbitrum для комісії мережі. USDC для позиції не покривають цю комісію."
 "PerpsFundingMissingTitle": "Немає USDC або ETH в Arbitrum"
 "$perps_funding_missing": "Отримайте щонайменше %minUSDC% USDC і %feeETH% ETH для оплати комісій."
@@ -2487,9 +2489,13 @@ Unlink Wallet: Відвʼязати гаманець
 Confirm Unlinking: Підтвердити відвʼязування
 Domain Unlinked: Домен відвʼязано
 Drag here to add to the toolbar: Перетягніть сюди, щоб додати на панель
+$toolbar_settings_hint: Утримуйте кнопку й перетягніть її, щоб змінити порядок на панелях. Кнопка, перетягнута з панелі, прибирається; кнопка акаунта переходить на верхню панель.
+$toolbar_full_title: Панель заповнена
+$toolbar_full_hint: Приберіть кнопку, щоб додати іншу
 $send_only_chain_and_token: Надсилайте на цю адресу лише %symbol%, %tokenSymbol% або інші активи мережі %chain%. Надсилання інших токенів призведе до їх втрати.
 $agent_digest_unavailable: "Це зведення більше недоступне"
 $agent_digest_title: "Головне за добу"
+$agent_digest_discussion_title: "Новини %date%"
 $agent_digest_meta:
   oneValue: "%count% новина"
   fewValue: "%count% новини"
@@ -2535,3 +2541,11 @@ $agent_digest_minutes: "Хвилини"
 $swap_one_to_one: Вигідніший курс (1:1) доступний від %value%.
 $swap_better_rate_minimum: "Вигідніший курс доступний від %value%."
 $agent_daily_limit_resets_at: "Денний ліміт агента вичерпано. Оновиться о %time%."
+$biometric_recovery_title: "Налаштуйте біометрію знову"
+$biometric_recovery_passcode: "Можливо, налаштування біометрії змінилися. Введіть код-пароль гаманця, щоб продовжити."
+$biometric_recovery_offer: "Код-пароль підтверджено. Бажаєте налаштувати біометрію знову?"
+$biometric_recovery_enable: "Увімкнути біометрію"
+$biometric_recovery_failed: "Не вдалося налаштувати біометрію. Спробуйте ще раз у розділі «Налаштування > Безпека»."
+"$perps_leverage_value": "Плече %value%"
+"$perps_edit_action": "Змінити"
+"PerpsRequiresOwnWallet": "Перейдіть на свій гаманець або створіть новий, щоб почати торгувати."

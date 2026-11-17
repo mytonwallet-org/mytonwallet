@@ -24,6 +24,12 @@ const TRON_HEX_SEND_PATH = /\/wallet\/broadcasthex$/i;
 const UTXO_SEND_PATH = /\/api\/v2\/sendtx$/i;
 const UTXO_GET_SEND_PATH = /\/api\/(v\d+\/)?sendtx\//i;
 const JETTON_TRANSFER_OP = 0x0f8a7ea5;
+const JETTON_BURN_OP = 0x595f07bc;
+const W5_SIGNED_EXTERNAL_OP = 0x7369676e;
+const W5_SEND_MESSAGE_ACTION = 0x0ec3c86d;
+const WALLET_SIGNATURE_BITS = 512;
+// Paying fees apart and ignoring errors; modes 32, 64 and 128 move value or destroy the wallet beyond the message
+const PASSABLE_SEND_MODES = 0b11;
 const DIESEL_SEND_PATH = /\/diesel(\/w5)?\/sendBoc$/i;
 // Relayed sends the guard cannot answer convincingly, so they are recorded and refused instead of reaching the chain
 const BLOCKED_BACKEND_PATHS = [
@@ -89,10 +95,14 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.incl
     recordDir: process.env.BROADCAST_GUARD_RECORD_DIR,
     recordPaths: process.env.BROADCAST_GUARD_RECORD_PATHS,
     readCacheMs: Number(process.env.BROADCAST_GUARD_READ_CACHE_MS || DEFAULT_READ_CACHE_MS),
+    passTon: getPassTonPolicy(process.env),
   });
   console.log('Build the app with:\n');
   console.log(guard.envLines.join('\n'));
   console.log(`\nIntercepted broadcasts: http://${HOST}:${guard.controlPort}/ (JSON: /broadcasts)`);
+  if (guard.passTon) {
+    console.log(`Passes to mainnet at most ${guard.passTon.maxCount} TON broadcasts of one wallet`);
+  }
 }
 
 /**
@@ -105,9 +115,11 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.incl
  * answers to `recordPaths` are saved there to start fixtures from.
  * With `readCacheMs`, identical chain reads in flight or answered successfully within that time reach the upstream
  * once, with the exceptions listed in `maestro/WRITING_FLOWS.md`; a cache hit saves no recording.
+ * With `passTon`, a TON broadcast from `passTon.from` within its limits reaches mainnet instead, see
+ * "Real mainnet operations" in `maestro/WRITING_FLOWS.md`.
  */
 export async function startBroadcastGuard({
-  upstreams, controlPort, logPath, tonEmulatorUrl, fixturesDir, recordDir, recordPaths, readCacheMs,
+  upstreams, controlPort, logPath, tonEmulatorUrl, fixturesDir, recordDir, recordPaths, readCacheMs, passTon,
 }) {
   const broadcasts = [];
   const proxiedCounts = {};
@@ -115,6 +127,7 @@ export async function startBroadcastGuard({
   const recordPattern = recordDir && new RegExp(recordPaths || '.');
   if (recordDir) fs.mkdirSync(recordDir, { recursive: true });
   const servers = [];
+  const passedTonHashes = new Set();
 
   function log(entry) {
     if (logPath) fs.appendFileSync(logPath, `${JSON.stringify(entry)}\n`);
@@ -127,6 +140,11 @@ export async function startBroadcastGuard({
     console.log(`Intercepted ${entry.chain} broadcast ${entry.hash}`);
 
     if (entry.chain !== 'ton' || !tonEmulatorUrl) return;
+    if (entry.details.isPassed && !entry.details.isDry) {
+      // The chain has taken the wallet's seqno by the time an emulation would run
+      entry.emulation = { status: 'skipped', error: 'passed to mainnet' };
+      return;
+    }
     if (entry.details.isGasless) {
       // A W5 gasless body is signed for the relayer's internal message, which the wallet rejects as an external one
       entry.emulation = { status: 'skipped', error: 'gasless, relayed by the backend' };
@@ -138,6 +156,34 @@ export async function startBroadcastGuard({
       log({ hash: entry.hash, emulation });
       console.log(`Emulated ${entry.hash}: ${emulation.isAccepted ? 'accepted' : `rejected (${emulation.error})`}`);
     });
+  }
+
+  // `pass` sends it to mainnet, `dry` answers it as usual although it would have passed, `refuse` fails it, `intercept`
+  // answers it as usual. Counted when decided rather than when sent, so broadcasts in flight together cannot exceed
+  // `maxCount`; a resent message takes no second slot.
+  function decideTonBroadcast(boc, details) {
+    if (!passTon?.from || !Address.parseRaw(details.from).equals(passTon.from)) return 'intercept';
+    if (passedTonHashes.has(details.hash)) return passTon.isDry ? 'dry' : 'pass';
+    if (passedTonHashes.size >= passTon.maxCount) return 'refuse';
+
+    const sends = readTonWalletSends(loadMessage(Cell.fromBase64(boc).beginParse()).body);
+    const isPassable = sends?.length && sends.every(({ mode, message }) => (
+      (mode & ~PASSABLE_SEND_MODES) === 0 && message.info.type === 'internal' && !message.info.value.other?.size
+    ));
+    if (!isPassable) return 'refuse';
+
+    const nanotons = sends.reduce((sum, { message }) => sum + message.info.value.coins, 0n);
+    const isJettonWithinLimit = sends.every(({ message }) => {
+      const jettonUnits = readJettonUnits(message.body);
+      if (!jettonUnits) return true;
+      return jettonUnits.amount !== undefined && jettonUnits.amount <= (jettonUnits.op === JETTON_BURN_OP
+        ? passTon.maxBurnUnits
+        : passTon.maxJettonUnits);
+    });
+    if (nanotons > passTon.maxNanoton || !isJettonWithinLimit) return 'refuse';
+
+    passedTonHashes.add(details.hash);
+    return passTon.isDry ? 'dry' : 'pass';
   }
 
   function saveResponse(upstream, req, url, status, body) {
@@ -160,14 +206,16 @@ export async function startBroadcastGuard({
     const readCache = readCacheMs > 0 ? createReadCache(readCacheMs) : undefined;
     const server = await listen(upstream.port, (req, res) => {
       proxiedCounts[upstream.chain] = (proxiedCounts[upstream.chain] ?? 0) + 1;
-      void handleProxyRequest(upstream, req, res, { record, fixtures, saveResponse, readCache });
+      void handleProxyRequest(upstream, req, res, {
+        record, fixtures, saveResponse, readCache, decideTonBroadcast,
+      });
     });
     servers.push(server);
     envLines.push(...getEnvLines([{ ...upstream, port: server.address().port }]));
   }
 
   const control = await listen(controlPort, (req, res) => {
-    handleControlRequest(req, res, broadcasts, proxiedCounts, { fixtures, fixturesDir }).catch((err) => {
+    handleControlRequest(req, res, broadcasts, proxiedCounts, { fixtures, fixturesDir, passTon }).catch((err) => {
       if (!res.headersSent) sendJson(res, { error: String(err) }, 400);
     });
   });
@@ -176,13 +224,16 @@ export async function startBroadcastGuard({
   return {
     broadcasts,
     envLines,
+    passTon,
     controlPort: control.address().port,
     ports: servers.slice(0, -1).map((server) => server.address().port),
     close: () => Promise.all(servers.map((server) => new Promise((resolve) => server.close(resolve)))),
   };
 }
 
-async function handleProxyRequest(upstream, req, res, { record, fixtures, saveResponse, readCache }) {
+async function handleProxyRequest(upstream, req, res, {
+  record, fixtures, saveResponse, readCache, decideTonBroadcast,
+}) {
   try {
     // A browser app is served from another local port, and an upstream allows CORS only for its own origins
     if (req.method === 'OPTIONS' && getIsLocalOrigin(req.headers.origin)) {
@@ -229,7 +280,20 @@ async function handleProxyRequest(upstream, req, res, { record, fixtures, saveRe
     if (req.method === 'POST' && upstream.chain === 'ton' && TON_SEND_PATH.test(sendPath)) {
       const { boc } = JSON.parse(body.toString());
       const details = describeTonBoc(boc);
-      record({ chain: 'ton', hash: details.hash, details, boc });
+      const decision = decideTonBroadcast(boc, details);
+      if (decision === 'pass') {
+        record({ chain: 'ton', hash: details.hash, details: { ...details, isPassed: true }, boc });
+        // Only the inspected message goes on: a tonapi body may carry a `batch` of others, the query anything
+        await forward(new URL(url.pathname, url.origin), req, res, Buffer.from(JSON.stringify({ boc })), { canRetry: false });
+        return;
+      }
+      if (decision === 'refuse') {
+        record({ chain: 'ton', hash: details.hash, details: { ...details, isBlocked: true }, boc });
+        sendJson(res, { error: BLOCKED_ERROR }, 503);
+        return;
+      }
+      const dryDetails = decision === 'dry' ? { isPassed: true, isDry: true } : {};
+      record({ chain: 'ton', hash: details.hash, details: { ...details, ...dryDetails }, boc });
       sendJson(res, { message_hash: details.hash });
       return;
     }
@@ -283,7 +347,9 @@ async function handleProxyRequest(upstream, req, res, { record, fixtures, saveRe
       && !UNCACHED_READ.test(sendPath) && ![].concat(rpc ?? []).some((call) => UNCACHED_READ.test(call?.method));
     const cache = isCacheableRead ? readCache : undefined;
     if (rpc) {
-      await handleJsonRpc(upstream, url, req, res, body, rpc, record, { onResponse, canRetry, readCache: cache });
+      await handleJsonRpc(upstream, url, req, res, body, rpc, { record, decideTonBroadcast }, {
+        onResponse, canRetry, readCache: cache,
+      });
       return;
     }
 
@@ -296,26 +362,45 @@ async function handleProxyRequest(upstream, req, res, { record, fixtures, saveRe
   }
 }
 
-async function handleJsonRpc(upstream, url, req, res, body, rpc, record, forwardOptions) {
+async function handleJsonRpc(upstream, url, req, res, body, rpc, { record, decideTonBroadcast }, forwardOptions) {
   const calls = Array.isArray(rpc) ? rpc : [rpc];
   const answers = new Map();
+  // A passed send goes on with only the method and message it was checked for
+  const passedCalls = new Map();
 
   for (const call of calls) {
     const broadcast = interceptJsonRpcCall(upstream.chain, call);
     if (!broadcast) continue;
 
-    record({ chain: upstream.chain, hash: broadcast.hash, details: broadcast.details, boc: broadcast.boc });
+    const decision = upstream.chain === 'ton' && broadcast.boc
+      ? decideTonBroadcast(broadcast.boc, broadcast.details)
+      : 'intercept';
+    if (decision === 'pass') {
+      passedCalls.set(call, { jsonrpc: '2.0', id: call.id, method: call.method, params: { boc: broadcast.boc } });
+      record({ chain: 'ton', hash: broadcast.hash, details: { ...broadcast.details, isPassed: true }, boc: broadcast.boc });
+      continue;
+    }
+    if (decision === 'refuse') {
+      record({ chain: 'ton', hash: broadcast.hash, details: { ...broadcast.details, isBlocked: true }, boc: broadcast.boc });
+      answers.set(call, { jsonrpc: '2.0', id: call.id, error: { code: -32000, message: BLOCKED_ERROR } });
+      continue;
+    }
+
+    const dryDetails = decision === 'dry' ? { isPassed: true, isDry: true } : {};
+    record({ chain: upstream.chain, hash: broadcast.hash, details: { ...broadcast.details, ...dryDetails }, boc: broadcast.boc });
     answers.set(call, broadcast.error
       ? { jsonrpc: '2.0', id: call.id, error: broadcast.error }
       : { jsonrpc: '2.0', id: call.id, result: broadcast.result });
   }
 
-  if (!answers.size) {
+  if (!answers.size && !passedCalls.size) {
     await forward(url, req, res, body, forwardOptions);
     return;
   }
 
-  const rest = calls.filter((call) => !answers.has(call));
+  // A send that reached the chain is never repeated, and its reply is never cached
+  const options = passedCalls.size ? { ...forwardOptions, canRetry: false, readCache: undefined } : forwardOptions;
+  const rest = calls.filter((call) => !answers.has(call)).map((call) => passedCalls.get(call) ?? call);
   let forwarded = [];
   if (rest.length) {
     const response = await fetchUpstream(url, {
@@ -323,7 +408,7 @@ async function handleJsonRpc(upstream, url, req, res, body, rpc, record, forward
       headers: buildForwardHeaders(req.headers),
       body: JSON.stringify(Array.isArray(rpc) ? rest : rest[0]),
       redirect: 'manual',
-    }, forwardOptions.canRetry);
+    }, options.canRetry);
     if (response.status >= 400) console.error(`${upstream.chain} ${req.method} ${url.pathname.slice(0, 80)}: HTTP ${response.status}`);
     // Following a redirect would hand the rest of the batch to a host the guard does not see
     if (response.status >= 300 && response.status < 400) {
@@ -542,6 +627,67 @@ function describeTonBoc(boc) {
   };
 }
 
+/**
+ * The op and amount of a jetton transfer or burn, with `amount` left out when the body does not read as one; `undefined`
+ * for any other body
+ */
+function readJettonUnits(body) {
+  const slice = body.beginParse();
+  if (slice.remainingBits < 32) return undefined;
+  const op = slice.loadUint(32);
+  if (op !== JETTON_TRANSFER_OP && op !== JETTON_BURN_OP) return undefined;
+  try {
+    slice.skip(64);
+    return { op, amount: slice.loadCoins() };
+  } catch {
+    return { op };
+  }
+}
+
+/**
+ * The sends a W5 or v4 wallet body asks for, in order and with repeats, or `undefined` for any other layout or action,
+ * such as a W5 extension or a v4 plugin call.
+ */
+function readTonWalletSends(body) {
+  try {
+    const slice = body.beginParse();
+    return slice.remainingBits >= 32 && slice.preloadUint(32) === W5_SIGNED_EXTERNAL_OP
+      ? readW5Sends(slice)
+      : readV4Sends(slice);
+  } catch {
+    return undefined;
+  }
+}
+
+function readW5Sends(slice) {
+  slice.skip(32 + 32 + 32 + 32); // Op, wallet id, valid until, seqno
+  let actionCell = slice.loadMaybeRef();
+  const hasOtherActions = slice.loadBit();
+  if (hasOtherActions || slice.remainingBits !== WALLET_SIGNATURE_BITS || slice.remainingRefs) return undefined;
+
+  const sends = [];
+  while (actionCell && (actionCell.bits.length || actionCell.refs.length)) {
+    const action = actionCell.beginParse();
+    actionCell = action.loadRef();
+    if (action.loadUint(32) !== W5_SEND_MESSAGE_ACTION) return undefined;
+    sends.unshift({ mode: action.loadUint(8), message: loadMessageRelaxed(action.loadRef().beginParse()) });
+    if (action.remainingBits || action.remainingRefs) return undefined;
+  }
+  return sends;
+}
+
+function readV4Sends(slice) {
+  slice.skip(WALLET_SIGNATURE_BITS + 32 + 32 + 32); // Signature, subwallet id, valid until, seqno
+  const isSimpleSend = slice.loadUint(8) === 0;
+  if (!isSimpleSend || slice.remainingBits !== slice.remainingRefs * 8) return undefined;
+
+  const sends = [];
+  while (slice.remainingRefs) {
+    sends.push({ mode: slice.loadUint(8), message: loadMessageRelaxed(slice.loadRef().beginParse()) });
+  }
+  return sends;
+}
+
 // Wallet versions lay out out-actions differently, so every cell is tried as a message rather than parsed per version
 function findTonInternalMessages(body) {
   const messages = new Map();
@@ -615,10 +761,15 @@ function getSolanaSignature(encoded, encoding = 'base58') {
   return getBase58Decoder().decode(bytes.subarray(1, 65));
 }
 
-async function handleControlRequest(req, res, broadcasts, proxiedCounts, { fixtures, fixturesDir }) {
+async function handleControlRequest(req, res, broadcasts, proxiedCounts, { fixtures, fixturesDir, passTon }) {
   const url = new URL(req.url, `http://${HOST}`);
   if (url.pathname === '/fixtures') {
     await handleFixturesRequest(req, res, url, fixtures, fixturesDir);
+    return;
+  }
+
+  if (url.pathname === '/pass') {
+    await handlePassRequest(req, res, passTon);
     return;
   }
 
@@ -801,6 +952,23 @@ function getRateLimitWait(response, attempt) {
   return Math.min(wait, RATE_LIMIT_MAX_WAIT_MS) + Math.random() * 250;
 }
 
+// The wallet whose sends may pass is set once, by the first case that reads it from the app; it never changes after
+async function handlePassRequest(req, res, passTon) {
+  if (!passTon) {
+    sendJson(res, { error: 'The guard passes nothing to mainnet' }, 409);
+    return;
+  }
+  if (req.method === 'POST') {
+    const from = Address.parse(JSON.parse((await readBody(req)).toString()).from);
+    if (passTon.from && !passTon.from.equals(from)) {
+      sendJson(res, { error: 'Another wallet is already set' }, 409);
+      return;
+    }
+    passTon.from = from;
+  }
+  sendJson(res, { from: passTon.from?.toRawString(), isDry: passTon.isDry });
+}
+
 async function handleFixturesRequest(req, res, url, fixtures, fixturesDir) {
   if (req.method === 'DELETE') fixtures.length = 0;
   if (req.method === 'POST' || req.method === 'PUT') {
@@ -882,6 +1050,39 @@ function listen(port, handler) {
     server.once('error', reject);
     server.listen(port, HOST, () => resolve(server));
   });
+}
+
+/**
+ * Reads the limits under which TON broadcasts from one wallet reach mainnet, or `undefined` when nothing may pass.
+ * The wallet comes from `BROADCAST_GUARD_PASS_TON_FROM` or, with `BROADCAST_GUARD_PASS_TON=1`, from the first
+ * `POST /pass`; until then, nothing passes. With `BROADCAST_GUARD_PASS_TON_DRY=1` it decides as usual but sends nothing,
+ * recording what would have passed with `isDry`.
+ * `maxJettonUnits` caps each jetton transfer and `maxBurnUnits` each burn, in the jetton's own smallest units; an unset
+ * one allows none.
+ */
+export function getPassTonPolicy(env) {
+  if (!env.BROADCAST_GUARD_PASS_TON_FROM && env.BROADCAST_GUARD_PASS_TON !== '1') return undefined;
+
+  const maxCount = Number(env.BROADCAST_GUARD_PASS_TON_MAX_COUNT);
+  if (!Number.isInteger(maxCount) || maxCount < 1) {
+    throw new Error('BROADCAST_GUARD_PASS_TON_MAX_COUNT must be a positive integer');
+  }
+  if (!/^\d+$/.test(env.BROADCAST_GUARD_PASS_TON_MAX_NANOTON ?? '')) {
+    throw new Error('BROADCAST_GUARD_PASS_TON_MAX_NANOTON must be a number of nanotons');
+  }
+
+  return {
+    from: env.BROADCAST_GUARD_PASS_TON_FROM ? Address.parse(env.BROADCAST_GUARD_PASS_TON_FROM) : undefined,
+    maxNanoton: BigInt(env.BROADCAST_GUARD_PASS_TON_MAX_NANOTON),
+    maxJettonUnits: readUnits(env.BROADCAST_GUARD_PASS_TON_MAX_JETTON_UNITS),
+    maxBurnUnits: readUnits(env.BROADCAST_GUARD_PASS_TON_MAX_BURN_UNITS),
+    maxCount,
+    isDry: env.BROADCAST_GUARD_PASS_TON_DRY === '1',
+  };
+}
+
+function readUnits(value) {
+  return BigInt(/^\d+$/.test(value ?? '') ? value : 0);
 }
 
 export function getDefaultUpstreams(env) {

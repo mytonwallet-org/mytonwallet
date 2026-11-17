@@ -1001,6 +1001,7 @@ describe('Agent chat state across mounts', () => {
     { kind, threadId: 'news-thread', isListed: false },
   ]))('defers only a feed item without a discussion: %o', async ({ kind, threadId, isListed }) => {
     const discussionNaming = { title: 'Discuss TON news', icon: '💎', followups: ['What does this mean?'] };
+    const discussionFollowups = ['What changed in the TON network?'];
     const discussion = threadId ? { discussion: { threadId } } : undefined;
     const item = {
       eventId: 7, deliveredAt: TIMESTAMP, headline: 'News', body: 'Body', sources: [], discussionNaming, ...discussion,
@@ -1008,7 +1009,7 @@ describe('Agent chat state across mounts', () => {
     if (kind === 'digest') {
       mockFeedItems = [{
         kind: 'digest', id: 'digest-1', deliveredAt: TIMESTAMP, total: 1,
-        top: [{ eventId: 7, headline: 'News' }], discussionNaming, ...discussion,
+        top: [{ eventId: 7, headline: 'News' }], discussionFollowups, ...discussion,
       }];
     }
     if (threadId && isListed) mockThreadListItems = [buildListItem(threadId)];
@@ -1030,7 +1031,10 @@ describe('Agent chat state across mounts', () => {
       expect(chatProps.target).not.toHaveProperty('shouldDeferCreation');
       return;
     }
-    expect(chatProps.target).toMatchObject({ shouldDeferCreation: true, discussionNaming });
+    expect(chatProps.target).toMatchObject(kind === 'digest'
+      ? { shouldDeferCreation: true, discussionFollowups }
+      : { shouldDeferCreation: true, discussionNaming });
+    if (kind === 'digest') expect(chatProps.target).not.toHaveProperty('discussionNaming');
     chatProps.onBack!();
     expect(await waitFor(() => ChatMock.mock.calls.at(-1)?.[0].isActive === false, 10, 300)).toBe(true);
     await rafPromise();

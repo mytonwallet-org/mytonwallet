@@ -368,6 +368,17 @@ describe('alignment with the current account', () => {
     expect(onSettle).toHaveBeenCalledWith('fifth');
   });
 
+  it('settles on the aligned card while the viewport is hidden', async () => {
+    startCarousel(['first', 'second', 'third']);
+    // A viewport under `display: none` has no width and reads its scroll position as zero
+    jest.spyOn(viewport, 'clientWidth', 'get').mockReturnValue(0);
+    jest.spyOn(viewport, 'scrollLeft', 'get').mockReturnValue(0);
+    carousel.alignToAccount('second');
+    await jest.advanceTimersByTimeAsync(500);
+
+    expect(onSettle).toHaveBeenLastCalledWith('second');
+  });
+
   it('does not take the card away from the finger', () => {
     startCarousel(['first', 'second', 'third']);
     dispatchTouch('touchstart', [{}]);

@@ -207,6 +207,39 @@ struct UniversalSearchIndexServiceTests {
     }
 
     @Test
+    func `agent suggestions refresh when the wallet state they were picked for changes`() async throws {
+        let suggestions = CountingSource(sourceID: UniversalSearchAgentSuggestionSource.id, scoping: .account)
+        let tokens = CountingSource(sourceID: WalletCoreTokenSearchSource.id, scoping: .account)
+        let coordinator = UniversalSearchCoordinator(sources: [suggestions, tokens])
+        let wallet = WalletState()
+        let service = UniversalSearchIndexService(
+            coordinator: coordinator,
+            contextProvider: { context("account-a") },
+            timing: .init(debounce: .zero, maxPostpone: .zero, loopPacing: .zero),
+            getSuggestionsWalletState: { wallet.state }
+        )
+        service.start()
+        service.setWalletReady(true)
+        defer { service.stop() }
+        try await waitUntil { await suggestions.count == 1 }
+
+        // Balances that load, then the first funds, each give a new pick
+        wallet.state = .empty
+        service.walletCore(event: .balanceChanged(accountId: "account-a"))
+        try await waitUntil { await suggestions.count == 2 }
+        wallet.state = .funded
+        service.walletCore(event: .balanceChanged(accountId: "account-a"))
+        try await waitUntil { await suggestions.count == 3 }
+
+        // A balance update that keeps the state keeps the pick
+        service.walletCore(event: .balanceChanged(accountId: "account-a"))
+        service.walletCore(event: .tokensChanged)
+        try await waitUntil { await tokens.count >= 2 }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await suggestions.count == 3)
+    }
+
+    @Test
     func `shown futures rows follow their price and position without reindexing`() async throws {
         let feed = MarketFeed()
         var client = PerpsClient()
@@ -362,6 +395,11 @@ private actor CountingSource: UniversalSearchSource {
 @MainActor
 private final class Selection {
     var accountID = "account-a"
+}
+
+@MainActor
+private final class WalletState {
+    var state: ApiAgentV2HintWalletState?
 }
 
 private func context(_ accountID: String) -> UniversalSearchContext {

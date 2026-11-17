@@ -104,6 +104,23 @@ test('a gas reserve adds to the deposit USDC requirement and nothing else', () =
     .toMatchObject({ requiredGasUsdc: '0', requiredEth: '0', needsEth: false });
 });
 
+test('a gasless reserve shrinks available collateral so a 100% fraction still fits the wallet', () => {
+  const availableUsdc = '27.87';
+  const requiredGasUsdc = '0.0264';
+  const funding = getPerpsFundingRequirements({
+    ...params, availableUsdc, availableEth: '0', requiredGasUsdc,
+  });
+  expect(funding.availableCollateral).toBe('27.6436');
+  const maximum = resolvePerpsDraft({
+    ...params, availableUsdc, reservedUsdc: requiredGasUsdc, draft: { ...params.draft, fraction: 100 },
+  });
+  expect(funding.availableCollateral).toBe(maximum.inputAmount);
+  expect(maximum.paymentAmount).toBe('27.8436');
+  expect(getPerpsFundingRequirements({
+    ...params, availableUsdc, availableEth: '0', requiredGasUsdc, draft: { ...params.draft, fraction: 100 },
+  })).toMatchObject({ requiredUsdc: '27.8436', requiredGasUsdc, needsUsdc: false });
+});
+
 test('funding checks honor backend minimums, the current draft and exact boundary balances', () => {
   const limits = { minOpenDepositUsdc: '12.2', minIncreaseDepositUsdc: '15.2' };
   const empty = {

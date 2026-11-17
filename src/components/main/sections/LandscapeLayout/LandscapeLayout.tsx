@@ -8,6 +8,7 @@ import buildClassName from '../../../../util/buildClassName';
 
 import Agent from '../../../agent/AgentRuntime';
 import Explore from '../../../explore/Explore';
+import Futures from '../../../futures/LazyFutures';
 import Market from '../../../market/Market';
 import Portfolio from '../../../portfolio/Portfolio';
 import Settings from '../../../settings/Settings';
@@ -26,11 +27,19 @@ interface StateProps {
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
+  isFuturesOpen?: boolean;
   isPortfolioOpen?: boolean;
 }
 
 function LandscapeLayout({
-  accountId, onStakedTokenClick, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
+  accountId,
+  onStakedTokenClick,
+  areSettingsOpen,
+  isAgentOpen,
+  isExploreOpen,
+  isMarketOpen,
+  isFuturesOpen,
+  isPortfolioOpen,
 }: OwnProps & StateProps) {
   function renderSlide(isActive: boolean, _isFrom: boolean, currentKey: ContentTab) {
     switch (currentKey) {
@@ -50,6 +59,12 @@ function LandscapeLayout({
         return (
           <div className={buildClassName(styles.standaloneWrapper, styles.marketWrapper)}>
             <Market key={accountId} isActive={isActive} />
+          </div>
+        );
+      case ContentTab.Futures:
+        return (
+          <div className={styles.standaloneWrapper}>
+            <Futures key={accountId} isActive={isActive} />
           </div>
         );
       case ContentTab.Settings:
@@ -74,6 +89,7 @@ function LandscapeLayout({
     if (isAgentOpen) return ContentTab.Agent;
     if (isExploreOpen) return ContentTab.Explore;
     if (isMarketOpen) return ContentTab.Market;
+    if (isFuturesOpen) return ContentTab.Futures;
     if (isPortfolioOpen) return ContentTab.Portfolio;
 
     return ContentTab.Overview;
@@ -97,12 +113,12 @@ export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
       const {
-        areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
+        areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, isPortfolioOpen,
       } = global;
 
       return {
         accountId: selectCurrentAccountId(global),
-        areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
+        areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, isPortfolioOpen,
       };
     },
   )(LandscapeLayout),

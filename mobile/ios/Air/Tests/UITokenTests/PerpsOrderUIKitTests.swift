@@ -326,6 +326,32 @@ struct PerpsOrderUIKitTests {
         #expect(requests.last?.input.amount.text == "")
     }
 
+    @Test(arguments: [CGFloat(320), 402], [
+        ("Not enough USDC", "You need at least 10.3 USDC on Arbitrum to open a position.", "Buy USDC"),
+        ("Недостаточно USDC", "Чтобы открыть позицию, нужно не менее 10.3 USDC в Arbitrum.", "Купить USDC"),
+    ])
+    func fitSimplifiedFundingHintAndBuyAction(width: CGFloat, copy: (title: String, message: String, action: String)) throws {
+        let requirement = PerpsOrderDisplayData.FundingRequirement(title: copy.title, message: copy.message,
+            buttonTitle: copy.title, actionTitle: copy.action, action: .buyUsdc)
+        var data = order()
+        data.fundingRequirement = requirement
+        let content = PerpsOrderView(state: .init(data: data, onRequest: { _ in }), selectLeverage: {})
+        content.frame = CGRect(x: 0, y: 0, width: width, height: 844)
+        content.layoutIfNeeded()
+        let notice = try #require(descendants(content).first { $0.accessibilityIdentifier == "perps.order.unavailable" } as? NativeTradeNoticeView)
+        notice.superview?.layoutIfNeeded()
+        #expect(notice.configuration?.message == requirement.message)
+        #expect(notice.bounds.height >= notice.sizeThatFits(CGSize(width: notice.bounds.width, height: .greatestFiniteMagnitude)).height)
+        let label = try #require(descendants(notice).first { $0.accessibilityLabel?.contains(requirement.message) == true } as? UILabel)
+        let action = try #require(descendants(notice).first { $0.accessibilityLabel == requirement.actionTitle } as? UIButton)
+        let textFrame = label.convert(label.bounds, to: notice)
+        let actionFrame = action.convert(action.bounds, to: notice)
+        #expect(notice.bounds.contains(textFrame))
+        #expect(notice.bounds.contains(actionFrame))
+        #expect(!textFrame.intersects(actionFrame))
+        #expect(label.bounds.height >= label.sizeThatFits(CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)).height)
+    }
+
     @Test func returningToTheOrderRefreshesFundingWithTheUnchangedDraft() throws {
         var data = order(amount: "15")
         data.fundingRequirement = fundingRequirement("usdc")

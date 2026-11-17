@@ -3,7 +3,6 @@ import { getActions } from '../../global';
 
 import { DEFAULT_SLIPPAGE_VALUE } from '../../config';
 import buildClassName from '../../util/buildClassName';
-import buildStyle from '../../util/buildStyle';
 import {
   isSlippageValid,
   MAX_SLIPPAGE_VALUE,
@@ -18,8 +17,9 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
 import Button from '../ui/Button';
-import Modal from '../ui/Modal';
+import RangeSlider from '../ui/RangeSlider';
 import RichNumberInput from '../ui/RichNumberInput';
+import TradeSheetModal from './TradeSheetModal';
 
 import styles from './TokenTradeSlippageModal.module.scss';
 
@@ -29,27 +29,16 @@ interface OwnProps {
   onClose: NoneToVoidFunction;
 }
 
-const SLIDER_STEPS = 1000;
-/** A thumb dragged this close to a tick, in pixels, lands on the tick */
-const TICK_SNAP_DISTANCE_PX = 8;
+const TICK_POSITIONS = SLIPPAGE_TICKS.map(slippageToPosition);
 
 function TokenTradeSlippageModal({ isOpen, slippage, onClose }: OwnProps) {
   const lang = useLang();
   const { isPortrait } = useDeviceScreen();
 
   return (
-    <Modal
-      isOpen={isOpen}
-      isCompact={!isPortrait}
-      noBackdrop={isPortrait}
-      className={isPortrait ? styles.sheet : undefined}
-      dialogClassName={styles.dialog}
-      title={lang('Slippage')}
-      hasCloseButton
-      onClose={onClose}
-    >
+    <TradeSheetModal isOpen={isOpen} title={lang('Slippage')} onClose={onClose}>
       <SlippageForm slippage={slippage} isSheet={isPortrait} onClose={onClose} />
-    </Modal>
+    </TradeSheetModal>
   );
 }
 
@@ -66,7 +55,8 @@ const SlippageForm = memo(({ slippage, isSheet, onClose }: SlippageFormProps) =>
 
   const [value, setValue] = useState<number | undefined>(slippage);
   const isValid = isSlippageValid(value);
-  const position = slippageToPosition(isValid ? value : DEFAULT_SLIPPAGE_VALUE);
+  const sliderValue = isValid ? value : DEFAULT_SLIPPAGE_VALUE;
+  const position = slippageToPosition(sliderValue);
 
   const handleInputChange = useLastCallback((stringValue?: string) => {
     setValue(stringValue ? Number(stringValue) : undefined);
@@ -79,18 +69,16 @@ const SlippageForm = memo(({ slippage, isSheet, onClose }: SlippageFormProps) =>
       : Math.min(MAX_SLIPPAGE_VALUE, Math.max(MIN_SLIPPAGE_VALUE, value)));
   });
 
-  const handleSliderChange = useLastCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const slider = e.currentTarget;
-    let nextPosition = Number(slider.value) / SLIDER_STEPS;
-
-    const nearestTick = SLIPPAGE_TICKS.find((tick) => (
-      Math.abs(slippageToPosition(tick) - nextPosition) * slider.offsetWidth < TICK_SNAP_DISTANCE_PX
-    ));
-    if (nearestTick !== undefined) {
-      nextPosition = slippageToPosition(nearestTick);
-    }
-
+  const handleSliderChange = useLastCallback((nextPosition: number) => {
     setValue(positionToSlippage(nextPosition));
+  });
+
+  const handleMinClick = useLastCallback(() => {
+    setValue(MIN_SLIPPAGE_VALUE);
+  });
+
+  const handleMaxClick = useLastCallback(() => {
+    setValue(MAX_SLIPPAGE_VALUE);
   });
 
   const handleDone = useLastCallback(() => {
@@ -100,10 +88,15 @@ const SlippageForm = memo(({ slippage, isSheet, onClose }: SlippageFormProps) =>
 
   return (
     <div className={buildClassName(styles.form, isSheet && styles.formSheet)}>
-      <div className={styles.controls}>
-        <button type="button" className={styles.boundButton} onClick={() => setValue(MIN_SLIPPAGE_VALUE)}>
-          {lang('Min')}
-        </button>
+      <RangeSlider
+        position={position}
+        tickPositions={TICK_POSITIONS}
+        ariaLabel={lang('Slippage')}
+        ariaValueText={`${sliderValue}%`}
+        onChange={handleSliderChange}
+        onMinClick={handleMinClick}
+        onMaxClick={handleMaxClick}
+      >
         <RichNumberInput
           value={value?.toString()}
           suffix="%"
@@ -116,33 +109,7 @@ const SlippageForm = memo(({ slippage, isSheet, onClose }: SlippageFormProps) =>
           onChange={handleInputChange}
           onBlur={handleInputBlur}
         />
-        <button type="button" className={styles.boundButton} onClick={() => setValue(MAX_SLIPPAGE_VALUE)}>
-          {lang('Max')}
-        </button>
-      </div>
-
-      <div className={styles.sliderArea} style={buildStyle(`--fill: ${position}`)}>
-        <div className={styles.track} />
-        <div className={styles.ticks} aria-hidden>
-          {SLIPPAGE_TICKS.map((tick) => (
-            <i
-              key={tick}
-              className={styles.tick}
-              style={buildStyle(`--position: ${slippageToPosition(tick) * 100}%`)}
-            />
-          ))}
-        </div>
-        <input
-          type="range"
-          min="0"
-          max={SLIDER_STEPS}
-          step="1"
-          value={Math.round(position * SLIDER_STEPS)}
-          className={styles.slider}
-          aria-label={lang('Slippage')}
-          onChange={handleSliderChange}
-        />
-      </div>
+      </RangeSlider>
 
       <Button
         isPrimary

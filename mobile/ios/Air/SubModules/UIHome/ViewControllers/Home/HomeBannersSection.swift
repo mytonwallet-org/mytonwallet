@@ -35,8 +35,11 @@ public final class HomeBannersSection {
         _ = registration
     }
 
-    public func update(accountContext: AccountContext) -> Bool {
-        let isVisible = !accountContext.config.banners.home.isEmpty
+    /// `canFloat` is whether this Home follows the current account, whose banners float above the toolbar instead
+    /// while `HomePromotionPlacement.isOverlay` is set
+    public func update(accountContext: AccountContext, canFloat: Bool) -> Bool {
+        let isFloating = canFloat && HomePromotionPlacement.shared.isOverlay
+        let isVisible = !isFloating && !accountContext.config.banners.home.isEmpty
         let changed = self.accountContext?.accountId != accountContext.accountId || self.isVisible != isVisible
         if self.accountContext?.accountId != accountContext.accountId { self.accountContext = accountContext }
         if self.isVisible != isVisible { self.isVisible = isVisible }
@@ -46,9 +49,11 @@ public final class HomeBannersSection {
 
 public struct HomeAccountBannersView: View {
     private let accountContext: AccountContext
+    private let style: HomePromotionStackStyle
 
-    public init(accountContext: AccountContext) {
+    public init(accountContext: AccountContext, style: HomePromotionStackStyle = .inline) {
         self.accountContext = accountContext
+        self.style = style
     }
 
     public var body: some View {
@@ -56,6 +61,8 @@ public struct HomeAccountBannersView: View {
             let banners = accountContext.config.banners
             HomePromotionStack(
                 promotions: banners.home,
+                style: style,
+                transition: style == .overlay ? HomePromotionStack.overlayTransition : HomePromotionStack.defaultTransition,
                 onAction: { promotion in
                     guard banners.home.first?.id == promotion.id else { return }
                     AppActions.showAddStake(accountContext: accountContext, tokenSlug: TONCOIN_SLUG)
@@ -63,7 +70,7 @@ public struct HomeAccountBannersView: View {
                 onDismiss: { banners.dismissHome(id: $0.id) }
             )
             // Keep the same spacing to assets when the final backplate disappears.
-            .padding(.bottom, banners.home.count == 1 ? 8 : 0)
+            .padding(.bottom, style == .inline && banners.home.count == 1 ? 8 : 0)
         }
     }
 }

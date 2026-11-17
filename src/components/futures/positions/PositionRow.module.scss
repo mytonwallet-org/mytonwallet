@@ -1,0 +1,96 @@
+@use "../../../styles/mixins";
+
+@use "row";
+
+.root {
+  @include row.root;
+
+  cursor: var(--custom-cursor, pointer);
+
+  position: relative;
+
+  border: none;
+
+  text-align: start;
+
+  outline: none;
+
+  @include mixins.transition(background-color 150ms);
+
+  @include mixins.active-transition-optimization();
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  &:active {
+    background-color: var(--color-interactive-item-hover);
+  }
+
+  &:not(:last-child)::after {
+    @include mixins.separator-list-base('bottom', 4rem);
+
+    @include mixins.respond-above(xs) {
+      inset-inline-start: 3.875rem;
+    }
+  }
+}
+
+.primary,
+.secondary {
+  @include row.column;
+}
+
+.primary {
+  @include row.primary;
+}
+
+.secondary {
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.name,
+.value {
+  @include row.value;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle {
+  @include row.subtitle;
+}
+
+.pnlRow {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.pnl {
+  @include row.caption;
+
+  unicode-bidi: plaintext;
+  color: var(--color-gray-2);
+  white-space: nowrap;
+}
+
+.pnlPositive {
+  color: var(--color-activity-green-text);
+}
+
+.pnlNegative {
+  color: var(--color-activity-red-text);
+}
+
+.warning {
+  font-size: 0.75rem;
+  color: var(--color-red);
+}

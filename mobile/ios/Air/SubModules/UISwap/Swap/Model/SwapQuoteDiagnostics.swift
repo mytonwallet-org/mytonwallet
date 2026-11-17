@@ -112,6 +112,11 @@ private let log = Log("SwapQuote")
         }
     }
 
+    static func receivedNetworkFee(_ draft: ApiCheckTransactionDraftResult) {
+        let error = draft.error?.rawValue ?? "none"
+        attempt?.record("networkFee error=\(error) hasFee=\(draft.fullNativeFee != nil) isZeroFee=\(draft.fullNativeFee == 0)")
+    }
+
     @MainActor final class Attempt {
         let session: String
         let request: Int

@@ -62,6 +62,15 @@
   }
 }
 
+// The sticky header of this screen reserves the top inset itself, because it stays under the notch while scrolling
+.appSlideContentWithOwnInset {
+  padding-top: 0;
+}
+
+.mainTab {
+  @include mixins.belowHomeToolbar();
+}
+
 :global(html.is-electron) .transitionContainer {
   height: calc(100% - var(--electron-header-height));
 }

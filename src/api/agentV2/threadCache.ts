@@ -1,6 +1,11 @@
 import * as idb from 'idb-keyval';
 
-import type { AgentThreadListItemV2, AgentThreadSummaryV2 } from './protocol/types';
+import type {
+  AgentNewsFeedPageV2,
+  AgentNewsFeedRequestV2,
+  AgentThreadListItemV2,
+  AgentThreadSummaryV2,
+} from './protocol/types';
 import type { AgentV2ThreadHydration } from './types';
 
 import { INDEXED_DB_NAME } from '../../config';
@@ -19,12 +24,18 @@ interface CachedMessages {
   hasOlder: boolean;
 }
 
+interface CachedNewsFeed {
+  request: string;
+  page: Omit<AgentNewsFeedPageV2, 'protocolVersion'>;
+}
+
 const SCHEMA_VERSION = 1;
 const THREADS_KEY = 'threads';
 const INDEX_KEY = 'index';
 export const THREAD_CACHE_MESSAGE_LIMIT = 50;
 const THREAD_LIMIT = 10;
 const THREAD_BYTE_LIMIT = 256 * 1024;
+const NEWS_BYTE_LIMIT = 512 * 1024;
 const ENCODER = new TextEncoder();
 
 let cacheStore: ReturnType<typeof idb.createStore> | undefined;
@@ -44,6 +55,38 @@ export function beginThreadListCacheRequest() {
 
 export function beginThreadMessagesCacheRequest(threadId: string) {
   return beginThreadCacheRequest(getMessagesKey(threadId));
+}
+
+export function beginNewsFeedCacheRequest(view: AgentNewsFeedRequestV2['view'] = 'all') {
+  const key = `news:${view}`;
+  if (!requestGenerations.has(key)) return beginThreadCacheRequest(key);
+  return ++requestGeneration;
+}
+
+export function getCachedNewsFeed(deviceId: string, request: string, view: AgentNewsFeedRequestV2['view'] = 'all') {
+  return runCacheOperation(async () => {
+    const record = await readRecord<CachedNewsFeed>(deviceId, `news:${view}`);
+    return record?.value.request === request ? record.value.page : undefined;
+  });
+}
+
+export function cacheNewsFeed(
+  deviceId: string, value: CachedNewsFeed, generation: number, view: AgentNewsFeedRequestV2['view'] = 'all',
+) {
+  return runCacheOperation(async () => {
+    await readIndex(deviceId);
+    const key = `news:${view}`;
+    const currentGeneration = requestGenerations.get(key);
+    if (currentGeneration === undefined || currentGeneration > generation) return;
+    requestGenerations.set(key, generation);
+
+    const record = createRecord(deviceId, value);
+    if (ENCODER.encode(JSON.stringify(record)).byteLength > NEWS_BYTE_LIMIT) {
+      await idb.del(key, getStore());
+      return;
+    }
+    await idb.set(key, record, getStore());
+  });
 }
 
 export function getCachedThreads(deviceId: string) {

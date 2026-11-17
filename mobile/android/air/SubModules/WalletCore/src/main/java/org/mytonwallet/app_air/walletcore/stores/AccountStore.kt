@@ -89,6 +89,12 @@ object AccountStore : IStore {
         }
     }
 
+    // Home banners less the ones the user has dismissed for good
+    fun getVisibleHomeBanners(accountId: String): List<ApiPromotion> {
+        val dismissedIds = WGlobalStorage.getDismissedHomeBannerIds(accountId)
+        return getHomeBanners(accountId).filter { it.id !in dismissedIds }
+    }
+
     private val updatingActivitiesAccountIds = mutableSetOf<String>()
     private val updatingBalanceAccountIds = mutableSetOf<String>()
     val updatingActivities: Boolean

@@ -1,4 +1,4 @@
-import { beginCell } from '@ton/core';
+import { Address, beginCell } from '@ton/core';
 import nacl from 'tweetnacl';
 
 import { ApiCommonError, type ApiUpdate, type ApiUpdateDappSendTransactions } from '../../../types';
@@ -477,6 +477,40 @@ describe('TonConnectAdapter.sendTransaction', () => {
       promise: new Promise(() => {}),
     });
     mockSetSseDelivery.mockResolvedValue(undefined);
+  });
+
+  it('shows one full refill before multi-recipient consent without counting it as network fee', async () => {
+    const firstAddress = new Address(0, Buffer.alloc(32, 1)).toString();
+    const secondAddress = new Address(0, Buffer.alloc(32, 2)).toString();
+    const refillAddress = new Address(0, Buffer.alloc(32, 3)).toString();
+    mockCheckMultiTransactionDraft.mockResolvedValue({
+      emulation: { isFallback: true, networkFee: 103_000_009n },
+      mfaRefill: { toAddress: refillAddress, amount: 103_000_002n },
+    });
+    let resolveUpdate!: (update: ApiUpdateDappSendTransactions) => void;
+    const consent = new Promise<ApiUpdateDappSendTransactions>((resolve) => {
+      resolveUpdate = resolve;
+    });
+    const adapter = createTonConnectAdapter();
+    await adapter.init({
+      onUpdate: (update) => { if (update.type === 'dappSendTransactions') resolveUpdate(update); },
+      env: {
+        agentOverride: 'v1', isAgentV2Enabled: false, isSseSupported: false, byNetwork: { mainnet: {}, testnet: {} },
+      },
+      chainDappSupports: {},
+    });
+    const messages = [{ address: firstAddress, amount: '10' }, { address: secondAddress, amount: '20' }];
+    void adapter.sendTransaction({ url: 'https://example.com', accountId }, {
+      id: 'refill-request', chain: 'ton', payload: { messages },
+    });
+    const update = await consent;
+    expect(update.transactions.map(({ toAddress, amount, networkFee }) => ({ toAddress, amount, networkFee })))
+      .toEqual([
+        { toAddress: firstAddress, amount: 10n, networkFee: 2n },
+        { toAddress: secondAddress, amount: 20n, networkFee: 2n },
+        { toAddress: refillAddress, amount: 103_000_002n, networkFee: 3n },
+      ]);
+    expect(messages).toHaveLength(2);
   });
 
   it('revalidates the raw payload and keeps the message destination as the primary address', async () => {

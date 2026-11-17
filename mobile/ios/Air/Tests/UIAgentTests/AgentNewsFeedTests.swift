@@ -6,6 +6,50 @@ import WalletContext
 
 @MainActor
 final class AgentNewsFeedTests: XCTestCase {
+    func testPersistentNewsAndDigestsSurviveOfflineAndAreReplacedByLivePages() async throws {
+        for view: ApiAgentV2NewsFeedView in [.all, .digests] {
+            for hasCachedContent in [false, true] {
+                let client = NewsFeedTestClient()
+                let settings = AgentNewsNotificationSettings(userDefaults: makeDefaults())
+                settings.setNewsFeedView(view)
+                let digest = try makeDigest(day: 20)
+                client.cachedPage = page(
+                    hasCachedContent && view == .all ? [item(1, hour: 12)] : [],
+                    digests: hasCachedContent ? [digest] : []
+                )
+                client.pages = [.failure(URLError(.notConnectedToInternet)), .success(page([]))]
+                let model = AgentNewsFeedModel(
+                    client: client, readState: makeReadState(), language: { "en" }, digestSettings: settings, timeZone: { "UTC" }
+                )
+                await model.refresh()
+                XCTAssertTrue(model.hasLoaded)
+                XCTAssertEqual(model.entries.isEmpty, !hasCachedContent)
+                XCTAssertEqual(AgentNewsFeedVC.errorText(try XCTUnwrap(model.error)), AgentV2Copy.error(.networkError))
+                XCTAssertEqual(client.cachedRequests.map(\.view), [view == .digests ? .digests : nil])
+                await model.refresh()
+                XCTAssertNil(model.error)
+                XCTAssertTrue(model.entries.isEmpty)
+                XCTAssertEqual(client.cachedRequests.count, 1)
+            }
+        }
+    }
+
+    func testPersistentNewsCannotOverwriteAnotherViewOrSuccessfulRefresh() async throws {
+        let client = NewsFeedTestClient()
+        client.cachedPage = page([item(1, hour: 12)])
+        client.shouldHoldCache = true
+        let settings = AgentNewsNotificationSettings(userDefaults: makeDefaults())
+        let model = AgentNewsFeedModel(client: client, readState: makeReadState(), digestSettings: settings)
+        let first = Task { await model.refresh() }
+        try await waitUntil { client.pendingCache != nil }
+        model.setView(.digests)
+        client.pendingCache?.resume()
+        client.pendingCache = nil
+        await first.value
+        XCTAssertTrue(model.items.isEmpty)
+        XCTAssertTrue(client.requests.isEmpty)
+    }
+
     func testPagesMergeByEventIdKeepingNewerDeliveryAndChronologicalOrder() async {
         let client = NewsFeedTestClient()
         let state = makeReadState()
@@ -1379,6 +1423,19 @@ private enum NewsFeedTestError: Error {
 
 @MainActor
 private final class NewsFeedTestClient: AgentNewsFeedClient {
+    var cachedPage: ApiAgentV2NewsFeedPage?
+    var cachedRequests: [ApiAgentV2NewsFeedRequest] = []
+    var shouldHoldCache = false
+    var pendingCache: CheckedContinuation<Void, Never>?
+
+    func getCachedNewsFeed(lang: String, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView) async -> ApiAgentV2NewsFeedPage? {
+        cachedRequests.append(.init(
+            lang: lang, cursor: nil, digestHour: schedule.hour, digestMinute: schedule.minute, timeZone: schedule.timeZone, view: view
+        ))
+        if shouldHoldCache { await withCheckedContinuation { pendingCache = $0 } }
+        return cachedPage
+    }
+
     var pages: [Result<ApiAgentV2NewsFeedPage, Error>] = []
     var requests: [ApiAgentV2NewsFeedRequest] = []
     var shouldSuspend = false

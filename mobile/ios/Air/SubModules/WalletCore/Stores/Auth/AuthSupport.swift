@@ -41,12 +41,15 @@ public struct AuthStatus: Sendable {
 
 public protocol AuthSupportProtocol {
     static var status: AuthStatus { get }
+    static var isBiometricRecoveryRequired: Bool { get }
+    static var shouldOfferBiometricRecovery: Bool { get }
     static func rememberedToken() async -> EnclaveToken?
     static func invalidateSessions() async
     static func setPasscode(_ passcode: String) async throws -> EnclaveToken
     static func changePasscode(to newPasscode: String, using authorizationToken: EnclaveToken) async throws
     static func enableBiometrics(using authorizationToken: EnclaveToken) async throws -> EnclaveToken
     static func disableBiometrics(using authorizationToken: EnclaveToken) async throws
+    static func recoverBiometrics(using authorizationToken: EnclaveToken, shouldEnable: Bool) async throws
     static func authorizeWithPasscode(
         _ passcode: String,
         sessionKind: AuthSessionKind,
@@ -95,6 +98,7 @@ public enum AuthSupportBiometricsError: LocalizedError {
     case canceled
     case userDeniedBiometrics
     case notAvailable
+    case passcodeRequired
 
     public var errorDescription: String? {
         switch self {
@@ -104,11 +108,28 @@ public enum AuthSupportBiometricsError: LocalizedError {
             return lang("To use this feature, first enable biometrics in your phone settings.")
         case .notAvailable:
             return lang("Biometric authentication not available.")
+        case .passcodeRequired:
+            return lang("$biometric_recovery_passcode")
         }
     }
 }
 
 final class AuthSupportImpl: AuthSupportProtocol {
+    private struct BiometricRecoveryState {
+        var isRequired = false
+        var isOfferDeclined = false
+    }
+
+    private static let biometricRecovery = UnfairLock(initialState: BiometricRecoveryState())
+
+    static var isBiometricRecoveryRequired: Bool {
+        biometricRecovery.withLock { $0.isRequired }
+    }
+
+    static var shouldOfferBiometricRecovery: Bool {
+        biometricRecovery.withLock { $0.isRequired && !$0.isOfferDeclined }
+    }
+
     static var shouldRememberAuthentication: Bool {
         @Dependency(\.settingsStore) var settingsStore
         return settingsStore.isAutoConfirmEnabled
@@ -134,7 +155,7 @@ final class AuthSupportImpl: AuthSupportProtocol {
         if configuredMethods.contains(.passcode) {
             authorizableMethods.insert(.passcode)
         }
-        if configuredMethods.contains(.biometrics), biometricsAvailable {
+        if configuredMethods.contains(.biometrics), biometricsAvailable, !isBiometricRecoveryRequired {
             authorizableMethods.insert(.biometrics)
         }
 
@@ -205,6 +226,7 @@ final class AuthSupportImpl: AuthSupportProtocol {
             loadStoredAccounts: { try KeychainHelper.loadAccounts() }
         )
         let session = try await setupAuth(authType: .passcode, passcode: passcode)
+        biometricRecovery.withLock { $0 = BiometricRecoveryState() }
         failedLoginAttempts = 0
         lastFailedAttempt = .distantPast
         AuthSupportLegacy.clearBiometricArtifacts()
@@ -248,6 +270,7 @@ final class AuthSupportImpl: AuthSupportProtocol {
                 shouldReplace: false
             )
             AuthSupportLegacy.clearBiometricArtifacts()
+            biometricRecovery.withLock { $0 = BiometricRecoveryState() }
             return session.token
         } catch EnclaveError.biometricAuthenticationCanceled {
             throw AuthSupportBiometricsError.canceled
@@ -264,10 +287,38 @@ final class AuthSupportImpl: AuthSupportProtocol {
             consumeIfNeeded: true
         )
         await EnclaveManager.shared.removeAuth(authType: .biometric)
+        biometricRecovery.withLock { $0 = BiometricRecoveryState() }
         AuthSupportLegacy.clearBiometricArtifacts()
     }
 
+    static func recoverBiometrics(using authorizationToken: EnclaveToken, shouldEnable: Bool) async throws {
+        do {
+            try await EnclaveManager.shared.recoverBiometrics(currentToken: authorizationToken, shouldEnable: shouldEnable)
+        } catch EnclaveError.biometricAuthenticationCanceled {
+            declineBiometricRecoveryOffer()
+            throw AuthSupportBiometricsError.canceled
+        } catch EnclaveError.invalidSessionToken, EnclaveError.sessionExpired, EnclaveError.passcodeRequired,
+                EnclaveError.enclaveNotConfigured {
+            throw AuthSupportBiometricsError.passcodeRequired
+        } catch {
+            declineBiometricRecoveryOffer()
+            authSupportLog.error("biometric recovery failed: \(error, .public)")
+            throw error
+        }
+        guard shouldEnable else {
+            declineBiometricRecoveryOffer()
+            return
+        }
+        biometricRecovery.withLock { $0 = BiometricRecoveryState() }
+        AuthSupportLegacy.clearBiometricArtifacts()
+    }
+
+    private static func declineBiometricRecoveryOffer() {
+        biometricRecovery.withLock { $0.isOfferDeclined = true }
+    }
+
     static func clearAllAuth() async {
+        biometricRecovery.withLock { $0 = BiometricRecoveryState() }
         failedLoginAttempts = 0
         lastFailedAttempt = .distantPast
         await EnclaveManager.shared.reset()
@@ -316,6 +367,27 @@ final class AuthSupportImpl: AuthSupportProtocol {
     }
 
     static func authorizeWithBiometrics(
+        sessionKind: AuthSessionKind,
+        extraUsages: Int
+    ) async throws -> EnclaveToken? {
+        guard !isBiometricRecoveryRequired else {
+            throw EnclaveError.biometricKeyInvalidated
+        }
+        do {
+            return try await authorizeWithConfiguredBiometrics(sessionKind: sessionKind, extraUsages: extraUsages)
+        } catch EnclaveError.biometricKeyInvalidated {
+            biometricRecovery.withLock { $0 = BiometricRecoveryState(isRequired: true) }
+            authSupportLog.error("biometric key is unavailable; wallet passcode is required")
+            throw EnclaveError.biometricKeyInvalidated
+        } catch EnclaveError.biometricAuthenticationCanceled {
+            throw AuthSupportBiometricsError.canceled
+        } catch {
+            authSupportLog.error("biometric authorization failed: \(error, .public)")
+            throw error
+        }
+    }
+
+    private static func authorizeWithConfiguredBiometrics(
         sessionKind: AuthSessionKind,
         extraUsages: Int
     ) async throws -> EnclaveToken? {

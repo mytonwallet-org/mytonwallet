@@ -11,13 +11,15 @@ import styles from './AccountSwitcherPill.module.scss';
 interface OwnProps {
   accountId: string;
   title?: string;
+  /** The pill only names the account, which the screen does not let change */
+  isReadOnly?: boolean;
   className?: string;
   testId?: string;
   onClick?: NoneToVoidFunction;
 }
 
 function AccountSwitcherPill({
-  accountId, title, className, testId, onClick,
+  accountId, title, isReadOnly, className, testId, onClick,
 }: OwnProps) {
   const lang = useLang();
 
@@ -28,13 +30,13 @@ function AccountSwitcherPill({
         accountId={accountId}
         className={styles.pillAvatar}
       />
-      <i className={buildClassName(styles.pillCaret, 'icon-expand')} aria-hidden />
+      {!isReadOnly && <i className={buildClassName(styles.pillCaret, 'icon-expand')} aria-hidden />}
     </>
   );
 
   if (!onClick) {
     return (
-      <div className={buildClassName(styles.pill, styles.pill_disabled, className)}>
+      <div className={buildClassName(styles.pill, styles.pill_disabled, isReadOnly && styles.pill_readOnly, className)}>
         {content}
       </div>
     );

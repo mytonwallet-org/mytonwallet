@@ -166,6 +166,18 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         self.presentedSession?.dismiss()
     }
 
+    /// Ends the hold that opened the menu without acting on the row under the finger, for a host that takes the
+    /// touch for something else
+    public func cancelActivationGesture() {
+        for recognizer in [self.longPressGestureRecognizer, self.pressAnimationGestureRecognizer] as [UIGestureRecognizer?] {
+            guard let recognizer, recognizer.isEnabled else {
+                continue
+            }
+            recognizer.isEnabled = false
+            recognizer.isEnabled = true
+        }
+    }
+
     @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
         self.handleLongPressState(recognizer)
     }

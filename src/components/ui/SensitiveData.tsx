@@ -4,6 +4,7 @@ import type { SensitiveDataMaskSkin } from '../common/SensitiveDataMask';
 
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
+import { CONCEAL_DURATION_MS } from '../../util/card/privacy';
 import { stopEvent } from '../../util/domEvents';
 import getDeterministicRandom from '../../util/getDeterministicRandom';
 import { vibrate } from '../../util/haptics';
@@ -11,6 +12,7 @@ import { vibrate } from '../../util/haptics';
 import useShowTransition from '../../hooks/useShowTransition';
 import useTimeout from '../../hooks/useTimeout';
 
+import SensitiveDataDust from '../common/SensitiveDataDust';
 import SensitiveDataMask from '../common/SensitiveDataMask';
 
 import styles from './SensitiveData.module.scss';
@@ -28,6 +30,8 @@ type OwnProps = ColsProps & {
   cellSize: number;
   align?: 'left' | 'center' | 'right';
   maskSkin?: SensitiveDataMaskSkin;
+  /** Covers the content with the dust of the wallet card instead of the mask, as the large amounts on iOS do */
+  withDust?: boolean;
   shouldHoldSize?: boolean;
   className?: string;
   maskClassName?: string;
@@ -48,6 +52,7 @@ function SensitiveData({
   cellSize = 0,
   align = 'left',
   maskSkin,
+  withDust,
   shouldHoldSize,
   className,
   maskClassName,
@@ -77,6 +82,9 @@ function SensitiveData({
   } = useShowTransition<HTMLDivElement>({
     isOpen: !isMaskActive,
     noMountTransition: !isMaskActive,
+    // The consumer may change the text in `onContentHidden`, as `useFullAmountToggle` shortens the amount there. A
+    // text change stops the dust animation, so with the dust the callback waits until the dust covers the text.
+    closeDuration: withDust ? CONCEAL_DURATION_MS : undefined,
     className: 'slow',
     onCloseAnimationEnd: onContentHidden,
   });
@@ -85,7 +93,7 @@ function SensitiveData({
     shouldRender: shouldRenderSpoiler,
     ref: spoilerRef,
   } = useShowTransition<HTMLCanvasElement>({
-    isOpen: isMaskActive,
+    isOpen: isMaskActive && !withDust,
     withShouldRender: true,
     className: 'slow',
   });
@@ -147,9 +155,20 @@ function SensitiveData({
           className={spoilerClassName}
         />
       )}
-      <div ref={contentRef} className={contentFullClassName}>
-        {children}
-      </div>
+      {withDust ? (
+        <SensitiveDataDust
+          isHidden={Boolean(isMaskActive)}
+          width={cellSize * resolvedCols}
+          height={cellSize * rows}
+          className={contentClassName}
+        >
+          {children}
+        </SensitiveDataDust>
+      ) : (
+        <div ref={contentRef} className={contentFullClassName}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

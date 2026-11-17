@@ -40,6 +40,7 @@ import org.mytonwallet.app_air.uiagent.agentV2.hasPost
 import org.mytonwallet.app_air.uiagent.agentV2.hasVisibleFailure
 import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
 import org.mytonwallet.app_air.uiagent.agentV2.isAgentV2ThreadStarted
+import org.mytonwallet.app_air.uiagent.agentV2.loadAgentV2StarterHints
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
 import org.mytonwallet.app_air.uiagent.agentV2.mapAgentV2Message
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
@@ -236,7 +237,7 @@ class AgentVM internal constructor(
         .firstOrNull { it.role == AgentMessageRole.ASSISTANT }?.id
     private var availableHints = emptyList<AgentHint>()
     private var hasLoadedHints = false
-    private var hintsCatalogVersion: String? = null
+    private var areStarterHintsShown = false
     private var followupsAndHintsNotificationJob: Job? = null
     private var startupJob: Job? = null
     private var hintsJob: Job? = null
@@ -382,11 +383,12 @@ class AgentVM internal constructor(
         private set
     var scrollPosition: ScrollPosition? = initialScrollPosition
         private set
+    private val canShowStarterHints: Boolean
+        get() = !isChatWithSupport && state == State.READY && clearIntent == null &&
+            _messages.isEmpty() && !thread.hasPost
+
     val visibleHints: List<AgentHint>
-        get() = if (!isChatWithSupport && state == State.READY && clearIntent == null &&
-            _messages.isEmpty() &&
-            !thread.hasPost
-        ) {
+        get() = if (canShowStarterHints) {
             // Contact Support follows the server's hints once they have loaded or failed to
             if (hasLoadedHints && isSupportRequestVisible) {
                 availableHints + makeAgentSupportHint()
@@ -592,6 +594,7 @@ class AgentVM internal constructor(
             }
         }
         chatActivity.setVisible(isActive)
+        if (isActive) notifyHints() else updateStarterHintsVisibility()
         if (!wasVisible && isSupportChatVisible && (isChatWithSupport || hasFailedSupportRefresh)) {
             shouldRefreshSupportHistory = true
         }
@@ -936,8 +939,6 @@ class AgentVM internal constructor(
                 setState(State.READY)
                 enqueueInitialOpeningPrompt()
                 sendNextPending()
-                hintsJob?.cancel()
-                hintsJob = scope.launch { loadHints() }
             } else {
                 finishClearFailure()
             }
@@ -1437,7 +1438,7 @@ class AgentVM internal constructor(
         kind = "emptyState",
         surface = "agentTab",
         hintId = hint.id,
-        catalogVersion = hintsCatalogVersion
+        catalogVersion = hint.catalogVersion
     )
 
     /** Reads the consent again, which the user may have given elsewhere since the chat read it; a failed read is none */
@@ -1721,8 +1722,6 @@ class AgentVM internal constructor(
         }
         setState(State.READY)
         enqueueInitialOpeningPrompt()
-        hintsJob?.cancel()
-        hintsJob = scope.launch { loadHints() }
         sendNextPending()
         notifySessionIdle()
     }
@@ -1926,20 +1925,22 @@ class AgentVM internal constructor(
     }
 
     private suspend fun loadHints() {
-        if (thread.hasPost) return
         loadSupportThreads()
-        availableHints = try {
-            val response = client.hints(LocaleController.activeLanguage.langCode)
-            hintsCatalogVersion = response.catalogVersion
+        val hints = try {
+            val response = loadAgentV2StarterHints(
+                client::getStarterHints,
+                hostContextProvider::makeSnapshot
+            )
             response.items.mapNotNull { hint ->
-                localizedAgentV2Hint(hint.id)
+                localizedAgentV2Hint(hint.id)?.copy(catalogVersion = response.catalogVersion)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Throwable) {
-            hintsCatalogVersion = null
             emptyList()
         }
+        currentCoroutineContext().ensureActive()
+        availableHints = hints
         hasLoadedHints = true
         notifyHints()
     }
@@ -3329,7 +3330,19 @@ class AgentVM internal constructor(
     }
 
     private fun notifyHints() {
+        updateStarterHintsVisibility()
         notifyDelegates { it.onHintsUpdated(visibleHints) }
+    }
+
+    private fun updateStarterHintsVisibility() {
+        val shouldShow = canShowStarterHints && liveDelegates(activeDelegates).isNotEmpty()
+        if (shouldShow == areStarterHintsShown) return
+        areStarterHintsShown = shouldShow
+        hintsJob?.cancel()
+        hintsJob = null
+        availableHints = emptyList()
+        hasLoadedHints = false
+        if (shouldShow) hintsJob = scope.launch { loadHints() }
     }
 
     private fun notifyErrorEvent() {

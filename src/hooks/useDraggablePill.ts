@@ -65,6 +65,8 @@ export default function useDraggablePill({
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (!capsuleRef.current) return;
     if (dragStateRef.current) return;
+    // A section without a tab, such as Settings in the wallet, leaves no pill to drag
+    if (activeIndex === -1) return;
 
     const rect = capsuleRef.current.getBoundingClientRect();
     const tabWidth = (rect.width - CAPSULE_PADDING_PX * 2) / tabCount;

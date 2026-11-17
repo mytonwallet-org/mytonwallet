@@ -20,8 +20,12 @@ extension Api {
         return try requireAgentV2OperationValue(result, methodName: "updateAgentV2HostContext")
     }
 
-    @concurrent public static func getAgentV2Hints(langCode: String?) async throws -> ApiAgentV2HintsResponse {
-        try await bridge.callApi("getAgentV2Hints", langCode, decoding: ApiAgentV2HintsResponse.self)
+    /// An unknown `walletState` goes as `null`, which keeps `host` the second argument
+    @concurrent public static func getAgentV2StarterHints(
+        walletState: ApiAgentV2HintWalletState?,
+        host: ApiAgentV2HostContext?
+    ) async throws -> ApiAgentV2StarterHints {
+        try await bridge.callApi("getAgentV2StarterHints", walletState, host, decoding: ApiAgentV2StarterHints.self)
     }
 
     @concurrent public static func getAgentV2Availability() async throws {
@@ -111,6 +115,22 @@ extension Api {
             decoding: ApiAgentV2MutationResult<ApiAgentV2NewsFeedPage>.self
         )
         return try requireAgentV2OperationValue(result, methodName: "getAgentV2NewsFeed")
+    }
+
+    @concurrent public static func getAgentV2CachedNewsFeed(
+        lang: String,
+        digestHour: Int,
+        digestMinute: Int,
+        timeZone: String,
+        view: ApiAgentV2NewsFeedView
+    ) async -> ApiAgentV2NewsFeedPage? {
+        try? await bridge.callApiOptional(
+            "getAgentV2CachedNewsFeed",
+            ApiAgentV2NewsFeedRequest(
+                lang: lang, cursor: nil, digestHour: digestHour, digestMinute: digestMinute, timeZone: timeZone, view: view
+            ),
+            decodingOptional: ApiAgentV2NewsFeedPage.self
+        )
     }
 
     @concurrent public static func createAgentV2Thread(

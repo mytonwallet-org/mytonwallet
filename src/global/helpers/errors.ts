@@ -1,5 +1,6 @@
 import {
   type ApiAnyDisplayError,
+  ApiAuthError,
   ApiCommonError,
   ApiHardwareError,
   ApiSwapError,
@@ -10,6 +11,22 @@ import {
 } from '../../api/types';
 
 import { getDoesUsePinPad } from '../../util/biometrics';
+
+const DISPLAY_ERRORS = new Set<string>([
+  ...Object.values(ApiCommonError),
+  ...Object.values(ApiAuthError),
+  ...Object.values(ApiTransactionDraftError),
+  ...Object.values(ApiTransactionError),
+  ...Object.values(ApiHardwareError),
+  ...Object.values(ApiTokenImportError),
+  ...Object.values(ApiSwapError),
+  ...Object.values(EvmSmartAccountError),
+]);
+
+/** The error is one of the API codes that `errorCodeToMessage` explains */
+export function isApiDisplayError(error: string): error is ApiAnyDisplayError {
+  return DISPLAY_ERRORS.has(error);
+}
 
 /**
  * Returns `true` if the error should be shown in the `<PasswordForm />` or `<LedgerConfirmOperation />` screen instead

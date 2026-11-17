@@ -1,3 +1,4 @@
+import BigInt
 @preconcurrency import Combine
 import Foundation
 import WalletContext
@@ -19,17 +20,9 @@ public struct AgentSuggestion: Hashable, Sendable {
 
 @MainActor
 public final class AgentSearchProvider {
-    private struct SuggestionCacheEntry {
-        let suggestions: [AgentSuggestion]
-        let loadedAt: Date
-    }
-
     public static let shared = AgentSearchProvider()
 
-    private static let suggestionCacheLifetime: TimeInterval = 10 * 60
-
     private let conversationChangedSubject = PassthroughSubject<Void, Never>()
-    private var suggestionCacheByLanguage: [String: SuggestionCacheEntry] = [:]
 
     public var conversationChanged: AnyPublisher<Void, Never> {
         conversationChangedSubject.eraseToAnyPublisher()
@@ -37,15 +30,20 @@ public final class AgentSearchProvider {
 
     private init() {}
 
-    public func loadSuggestions(langCode: String) async throws -> [AgentSuggestion] {
-        let langCode = langCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let cached = suggestionCacheByLanguage[langCode],
-           Date().timeIntervalSince(cached.loadedAt) < Self.suggestionCacheLifetime {
-            return cached.suggestions
-        }
+    /// A new pick of starter hints for the account on every call
+    public func loadSuggestions(accountId: String?) async throws -> [AgentSuggestion] {
+        let account = accountId.flatMap { AccountStore.accountsById[$0] }
+        return try await loadSuggestions(client: AgentPreloader.shared.client, activeAccount: account)
+    }
 
-        let response = try await Api.getAgentV2Hints(langCode: langCode.isEmpty ? nil : langCode)
-        let suggestions = response.items.map { item in
+    /// The wallet state the active account's suggestions are picked for
+    public func getActiveWalletState() -> ApiAgentV2HintWalletState? {
+        AccountStore.account.flatMap { AgentPreloader.shared.client.hintWalletState(of: $0) }
+    }
+
+    func loadSuggestions(client: AgentV2Client, activeAccount: MAccount?) async throws -> [AgentSuggestion] {
+        let response = try await client.loadStarterHints(for: activeAccount)
+        return response.items.map { item in
             let prompt = AgentV2Copy.hint(item.id)
             return AgentSuggestion(
                 id: item.id.rawValue,
@@ -54,14 +52,23 @@ public final class AgentSearchProvider {
                 prompt: prompt.prompt
             )
         }
-        suggestionCacheByLanguage[langCode] = SuggestionCacheEntry(
-            suggestions: suggestions,
-            loadedAt: Date()
-        )
-        return suggestions
     }
 
     func notifyConversationChanged() {
         conversationChangedSubject.send()
+    }
+}
+
+extension ApiAgentV2HintWalletState {
+    /// The state of a known total balance. A positive total is funded even while some chains are still loading, as
+    /// loading more cannot empty it; a zero total is empty only once every chain has loaded, and unknown until then.
+    init?(balance: BigInt?, hasLoadedBalances: Bool) {
+        guard let balance else { return nil }
+        if balance > 0 {
+            self = .funded
+            return
+        }
+        guard hasLoadedBalances else { return nil }
+        self = .empty
     }
 }

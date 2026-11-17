@@ -59,13 +59,10 @@ import org.mytonwallet.app_air.uiagent.agentV2.AndroidAgentDictationRecorder
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
-import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
-import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_SUPPORT_HINT_ID
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentConsentGate
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentConsentSheetVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHeldDictation
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewChatVC
@@ -76,7 +73,6 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.holdDictationForConsent
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.makeAgentSupportHint
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.showMicrophoneDeniedAlert
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentDustEffect
@@ -374,7 +370,8 @@ class AgentThreadListVC(context: Context) :
             if (hint.id == AGENT_SUPPORT_HINT_ID) {
                 presentSupportRequest()
             } else {
-                sendComposed(hint.prompt, card)
+                val request = model.makeHintChatRequest(hint)
+                sendComposed(request.prompt, card, request.entryPoint)
             }
         }
     }
@@ -416,7 +413,6 @@ class AgentThreadListVC(context: Context) :
         if ((navigationController?.imeInsetBottom ?: 0) > 0 || isFloatingKeyboardShown()) return
         composer.post { composer.showInputKeyboard() }
     }
-    private var composeHintsJob: Job? = null
 
     override fun setupViews() {
         super.setupViews()
@@ -478,6 +474,9 @@ class AgentThreadListVC(context: Context) :
         }
         model.onChange = ::updateRows
         model.onError = ::showOperationError
+        model.onStarterHintsChange = {
+            updateComposeSuggestions(WGlobalStorage.getAreAnimationsActive())
+        }
         model.onActivityChange = ::updateActivities
         newsModel.onChange = { updateRows(AgentThreadListChange.DATA) }
         observeNewsView()
@@ -509,6 +508,7 @@ class AgentThreadListVC(context: Context) :
         }
         if (hasConsent) refresh() else checkConsent()
         startRefreshTimer()
+        updateComposeState()
     }
 
     override fun viewWillDisappear() {
@@ -517,6 +517,7 @@ class AgentThreadListVC(context: Context) :
         closeSwipes(except = null)
         refreshJob?.cancel()
         super.viewWillDisappear()
+        model.updateStarterHintsVisibility(false)
         // A swipe back that gives up leaves the chat over the list, with its own composer
         if (isChatTakingOver) {
             isChatTakingOver = false
@@ -557,9 +558,13 @@ class AgentThreadListVC(context: Context) :
     }
 
     /** Sends [prompt], the field's question, or the question of [card], one of the suggestions */
-    private fun sendComposed(prompt: String, card: WAgentHintView? = null): Boolean {
+    private fun sendComposed(
+        prompt: String,
+        card: WAgentHintView? = null,
+        entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()
+    ): Boolean {
         if (!hasConsent) {
-            requestConsent { sendComposed(prompt, card) }
+            requestConsent { sendComposed(prompt, card, entryPoint) }
             return false
         }
         // The question grows into the new chat's first bubble as the chat comes in, out of the
@@ -584,9 +589,9 @@ class AgentThreadListVC(context: Context) :
         if (shouldContinueInPlace) isComposedChatPending = true
         composer.hideKeyboard()
         if (shouldContinueInPlace) {
-            continueComposedChat(prompt, sentSource, suggestionsRipple)
+            continueComposedChat(prompt, entryPoint, sentSource, suggestionsRipple)
         } else {
-            pushNewChat(prompt, AgentV2EntryPoint(), sentSource)
+            pushNewChat(prompt, entryPoint, sentSource)
         }
         return true
     }
@@ -646,6 +651,7 @@ class AgentThreadListVC(context: Context) :
      */
     private fun continueComposedChat(
         prompt: String,
+        entryPoint: AgentV2EntryPoint,
         sentSource: AgentSentMessageSource?,
         suggestionsRipple: AgentSuggestionRipple?
     ) {
@@ -656,7 +662,7 @@ class AgentThreadListVC(context: Context) :
             updateComposeState()
             return
         }
-        val chat = AgentVC(context, prompt = AgentPromptChatRequest(prompt, AgentV2EntryPoint()))
+        val chat = AgentVC(context, prompt = AgentPromptChatRequest(prompt, entryPoint))
         sentSource?.let {
             handOverSentSource(chat, it, transitionMs = 0L, suggestionsRipple = suggestionsRipple)
         }
@@ -698,7 +704,10 @@ class AgentThreadListVC(context: Context) :
     private fun updateComposeState() {
         val shouldShowCompose = isComposing && hasConsentResult
         val shouldAnimate = WGlobalStorage.getAreAnimationsActive()
-        if (shouldShowCompose || shouldShowEmptySuggestions) loadComposeHints()
+        model.updateStarterHintsVisibility(
+            !isDisappeared && !isAgentSearchOpen &&
+                (shouldShowCompose || shouldShowEmptySuggestions)
+        )
         if (isComposeShown == shouldShowCompose) {
             updateComposeSuggestions(shouldAnimate)
             return
@@ -778,7 +787,7 @@ class AgentThreadListVC(context: Context) :
     }
 
     private fun updateComposeSuggestions(isAnimated: Boolean) {
-        val hints = shownComposeHints
+        val hints = model.shownStarterHints
         val shouldShow = (isComposeShown || shouldShowEmptySuggestions) && hints.isNotEmpty()
         composeSuggestions.animate().cancel()
         val isCoverAnimating = composeCoverAnimator?.isRunning == true
@@ -829,55 +838,9 @@ class AgentThreadListVC(context: Context) :
         }
     }
 
-    // Up to five suggestions, cached for a while per language
-    private var composeSuggestionsHints: List<AgentHint> = emptyList()
-
-    // Whether the server's suggestions have loaded or failed to, after which Contact Support shows
-    private var hasComposeHintsSettled = false
-
-    // The server's suggestions, then Contact Support, which the client offers outside their limit
-    private val shownComposeHints: List<AgentHint>
-        get() = if (isAgentSupportHandoffDeclared && hasComposeHintsSettled) {
-            composeSuggestionsHints + makeAgentSupportHint()
-        } else {
-            composeSuggestionsHints
-        }
-
     // Contact Support waits until the list knows the consent and, with consent, until the chats have loaded
     private val canRequestSupportFromList: Boolean
         get() = hasConsentResult && (!hasConsent || (model.hasLoaded && !model.hasLoadFailed))
-
-    private fun loadComposeHints() {
-        val language = LocaleController.activeLanguage.langCode
-        composeHintsCache?.takeIf {
-            it.language == language &&
-                SystemClock.elapsedRealtime() - it.loadedAtMs < COMPOSE_HINTS_TTL_MS
-        }?.let {
-            composeSuggestionsHints = it.hints
-            hasComposeHintsSettled = true
-            return
-        }
-        if (composeHintsJob?.isActive == true) return
-        composeHintsJob = scope.launch {
-            val hints = try {
-                client.hints(language).items.mapNotNull { localizedAgentV2Hint(it.id) }
-                    .take(COMPOSE_HINTS_LIMIT)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Throwable) {
-                // Contact Support shows without the suggestions
-                if (!hasComposeHintsSettled) {
-                    hasComposeHintsSettled = true
-                    updateComposeSuggestions(WGlobalStorage.getAreAnimationsActive())
-                }
-                return@launch
-            }
-            composeHintsCache = ComposeHints(language, hints, SystemClock.elapsedRealtime())
-            composeSuggestionsHints = hints
-            hasComposeHintsSettled = true
-            updateComposeSuggestions(WGlobalStorage.getAreAnimationsActive())
-        }
-    }
 
     private var isComposeHeaderShown = false
 
@@ -1139,8 +1102,10 @@ class AgentThreadListVC(context: Context) :
         isAgentSearchOpen = tabs.openAgentSearch {
             isAgentSearchOpen = false
             updateBarVisibility()
+            updateComposeState()
         }
         updateBarVisibility()
+        updateComposeState()
     }
 
     private fun checkConsent() {
@@ -2026,11 +1991,5 @@ class AgentThreadListVC(context: Context) :
         const val COMPOSE_SUGGESTIONS_GAP = 26f
         const val COMPOSER_TOP_PADDING = 8f
         const val COMPOSE_TITLE_SIZE = 20f
-        const val COMPOSE_HINTS_LIMIT = 5
-        const val COMPOSE_HINTS_TTL_MS = 10 * 60 * 1000L
-
-        class ComposeHints(val language: String?, val hints: List<AgentHint>, val loadedAtMs: Long)
-
-        var composeHintsCache: ComposeHints? = null
     }
 }

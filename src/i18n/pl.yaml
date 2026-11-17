@@ -1418,22 +1418,33 @@ $agent_hint_swap_title: Jak działają wymiany?
 $agent_hint_swap_prompt: Wyjaśnij, jak działają wymiany tokenów.
 $agent_hint_staking_title: Czym jest staking?
 $agent_hint_staking_prompt: Wyjaśnij staking od podstaw, tak jakbym nigdy wcześniej nie używał kryptowalut.
-$agent_hint_security_title: Jak chronić portfel?
-$agent_hint_security_prompt: Pokaż mi, jak chronić mój portfel.
+$agent_hint_security_title: Ochrona portfela
+$agent_hint_security_prompt: Jak chronić portfel?
 $agent_hint_receive_title: Odbierz tokeny
 $agent_hint_receive_prompt: Pomóż mi odebrać tokeny.
-$agent_hint_assets_title: Pokaż moje aktywa
-$agent_hint_total_title: Ile mam łącznie?
-$agent_hint_spending_title: Na co wydałem w tym tygodniu?
-$agent_hint_last_transfer_title: Pokaż mój ostatni przelew
-$agent_hint_fund_title: Jak doładować portfel?
-$agent_hint_market_today_title: Co dziś dzieje się na rynku?
-$agent_hint_news_today_title: Najważniejsze wiadomości dnia
-$agent_hint_bitcoin_title: Co się dzieje z bitcoinem?
+$agent_hint_assets_title: Moje aktywa
+$agent_hint_assets_prompt: Pokaż moje aktywa
+$agent_hint_total_title: Łączne saldo
+$agent_hint_total_prompt: Ile mam łącznie?
+$agent_hint_spending_title: Wydatki z tygodnia
+$agent_hint_spending_prompt: Na co poszły pieniądze w tym tygodniu?
+$agent_hint_last_transfer_title: Ostatni przelew
+$agent_hint_last_transfer_prompt: Pokaż mój ostatni przelew
+$agent_hint_fund_title: Doładuj portfel
+$agent_hint_fund_prompt: Jak doładować portfel?
+$agent_hint_market_today_title: Rynek dziś
+$agent_hint_market_today_prompt: Co dziś dzieje się na rynku?
+$agent_hint_news_today_title: Wiadomości dnia
+$agent_hint_news_today_prompt: Najważniejsze wiadomości dnia
+$agent_hint_bitcoin_title: Bitcoin dziś
+$agent_hint_bitcoin_prompt: Co się dzieje z bitcoinem?
 $agent_hint_price_title: Ile kosztuje 0,5 ETH?
-$agent_hint_staking_yield_title: Gdzie jest wyższy zysk?
-$agent_hint_staking_options_title: Jakie są opcje stakingu?
-$agent_hint_multisend_title: Jak wysłać do kilku osób?
+$agent_hint_staking_yield_title: Zysk ze stakingu
+$agent_hint_staking_yield_prompt: Gdzie jest wyższy zysk?
+$agent_hint_staking_options_title: Opcje stakingu
+$agent_hint_staking_options_prompt: Jakie są opcje stakingu?
+$agent_hint_multisend_title: Wyślij do kilku osób
+$agent_hint_multisend_prompt: Jak wysłać do kilku osób?
 $agent_hint_action_swap_title: Wymień tokeny
 $agent_hint_action_send_title: Wyślij kryptowaluty
 $agent_hint_action_stake_title: Rozpocznij staking
@@ -1650,6 +1661,7 @@ Wallet Name: Nazwa portfela
 App Icon: Ikona aplikacji
 Rounded Toolbars: Zaokrąglone paski narzędzi
 Toolbar: Pasek narzędzi
+Toolbars: Paski
 Shared Background: Wspólne tło
 Side Gutters: Boczne marginesy
 Gradient Navigation Bar: Gradientowy pasek nawigacji
@@ -2217,7 +2229,6 @@ $agent_news_unread_digests_count:
 Explorer mode: Tryb eksplorera
 Open a link to a wallet, transfer, token or collectible to see its details here.: Otwórz link do portfela, transferu, tokena lub przedmiotu kolekcjonerskiego, aby zobaczyć tutaj szczegóły.
 
-# Perps
 Long: Long
 Short: Short
 Funding Rate: "Stopa finansowania"
@@ -2229,7 +2240,6 @@ $perps_max_leverage_hint: "Najwyższa dźwignia dostępna na tym rynku."
 $perps_volume_24h_hint: "Łączna wartość transakcji na tym rynku futures w ciągu ostatnich 24 godzin. Obejmuje transakcje zarówno otwierające, jak i zamykające pozycje."
 $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie otwarte na tym rynku futures. W przeciwieństwie do wolumenu z 24 godzin nie obejmuje pozycji, które zostały już zamknięte."
 
-# Perps order entry
 "Leverage": "Dźwignia"
 "Position Size": "Wielkość pozycji"
 "Liquidation Price": "Cena likwidacji"
@@ -2250,18 +2260,15 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "$perps_liquidation_price_hint": "Szacowana cena, przy której Twoja pozycja może zostać automatycznie zamknięta z powodu niewystarczających środków do jej utrzymania."
 "$perps_leverage_disclaimer": "Wyższa dźwignia zwiększa potencjalne zyski i straty. Nawet niewielka zmiana ceny na niekorzyść Twojej pozycji może spowodować jej automatyczne zamknięcie."
 
-# Perps order review
 "Open Position": "Otwórz pozycję"
 "$perps_asset_price": "Cena %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
 "$perps_liquidation_acknowledgment": "Potwierdzając, rozumiem, że pozycja może zostać zlikwidowana i mogę stracić zainwestowane środki."
 
-# Perps position receipt
 "Position Opened": "Pozycja otwarta"
 "Fees": "Opłaty"
 "Transfer ID": "ID przelewu"
 
-# Perps active position
 "Equity": "Wartość pozycji"
 "Profit and Loss": "Zysk i strata"
 "Invested": "Zainwestowano"
@@ -2274,7 +2281,6 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "$perps_entry_price_hint": "Średnia cena, po której otwarto tę pozycję."
 "$perps_funding_payments_hint": "Okresowe płatności między traderami z pozycjami długimi i krótkimi. W zależności od stawki finansowania możesz płacić lub otrzymywać finansowanie, gdy Twoja pozycja jest otwarta."
 
-# Perps edit position
 "$perps_edit_long": "Edytuj %asset% Long"
 "$perps_edit_short": "Edytuj %asset% Short"
 "Current:": "Obecnie:"
@@ -2285,7 +2291,6 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "$perps_network_fee_hint": "Opłata za przetworzenie tej transakcji w blockchainie."
 "$perps_edit_liquidation_hint": "Likwidacja — cena, przy której pozycja jest automatycznie zamykana."
 
-# Perps position lifecycle
 "Increase Position": "Zwiększ pozycję"
 "Reduce Position": "Zmniejsz pozycję"
 "Current Value": "Bieżąca wartość"
@@ -2307,7 +2312,6 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "$perps_liquidated_title": "Pozycja została automatycznie zamknięta."
 "$perps_liquidated_message": "Cena rynkowa osiągnęła cenę likwidacji, powodując stratę."
 
-# Perps home
 "Open Positions": "Otwarte pozycje"
 "Show All Positions": "Pokaż wszystkie pozycje"
 "Futures": "Futures"
@@ -2321,14 +2325,13 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "$perps_explore_futures": "Otwieraj pozycje krótkie i długie"
 "$perps_explore_apps": "Odkrywaj zdecentralizowany internet"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "Ceny lub pozycja uległy zmianie. Wróć i ponownie sprawdź zlecenie."
 "PerpsReviewChanged": "Zlecenie uległo zmianie. Wróć i sprawdź je ponownie."
 "PerpsInsufficientUsdc": "Za mało USDC w Arbitrum, z uwzględnieniem opłaty za most."
 "EvmUserOperationMismatch": "Płatność za gaz nie zgadza się z tą transakcją."
 "PerpsInsufficientBalance": "Za mało USDC na saldzie Hyperliquid, z uwzględnieniem opłat transakcyjnych."
 "PerpsMarketNeedsUnifiedAccount": "Tego rynku nie można zasilić z portfela przy obecnym typie konta Hyperliquid."
-"PerpsRequiresMultichainWallet": "Futures wymagają portfela multichain. Przełącz się na taki portfel lub utwórz nowy, aby zacząć handlować."
+"PerpsRequiresMultichainWallet": "Przełącz się na portfel multichain lub utwórz nowy, aby zacząć handlować."
 "PerpsSwitchesToUnifiedAccount": "To zlecenie przełącza też Twoje konto Hyperliquid na Unified, więc jedno saldo USDC obejmuje wszystkie rynki."
 "PerpsAmountTooSmall": "Ta kwota jest niższa niż minimum rynkowe."
 "$perps_minimum_amount": "Minimalna kwota: %amount% USDC."
@@ -2373,7 +2376,6 @@ Could not save the image. Please try again.: Nie udało się zapisać obrazu. Sp
 "$perps_activity_closed": "Zamknięcie %asset%"
 "$perps_activity_liquidated": "Likwidacja %asset%"
 
-# Perps
 "PerpsInsufficientGas": "Za mało ETH w Arbitrum na opłatę sieciową. USDC przeznaczone na pozycję nie pokrywają tej opłaty."
 "PerpsFundingMissingTitle": "Brak USDC lub ETH w Arbitrum"
 "$perps_funding_missing": "Odbierz co najmniej %minUSDC% USDC i %feeETH% ETH na opłaty."
@@ -2489,9 +2491,13 @@ Unlink Wallet: Odłącz portfel
 Confirm Unlinking: Potwierdź odłączenie
 Domain Unlinked: Domena została odłączona
 Drag here to add to the toolbar: Przeciągnij tutaj, aby dodać do paska
+$toolbar_settings_hint: Przytrzymaj przycisk i przeciągnij go, aby zmienić układ pasków. Przycisk przeciągnięty poza pasek zostaje usunięty; przycisk konta przenosi się na górny pasek.
+$toolbar_full_title: Pasek jest pełny
+$toolbar_full_hint: Usuń przycisk, aby dodać kolejny
 $send_only_chain_and_token: Wysyłaj na ten adres wyłącznie %symbol%, %tokenSymbol% lub inne aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
 $agent_digest_unavailable: "To podsumowanie nie jest już dostępne"
 $agent_digest_title: "Najważniejsze z dnia"
+$agent_digest_discussion_title: "Wiadomości z %date%"
 $agent_digest_meta:
   oneValue: "%count% wiadomość"
   fewValue: "%count% wiadomości"
@@ -2537,3 +2543,11 @@ $agent_digest_minutes: "Minuty"
 $swap_one_to_one: Lepszy kurs (1:1) jest dostępny od %value%.
 $swap_better_rate_minimum: "Lepszy kurs jest dostępny od %value%."
 $agent_daily_limit_resets_at: "Dzienny limit agenta został osiągnięty. Odnowi się o %time%."
+$biometric_recovery_title: "Skonfiguruj biometrię ponownie"
+$biometric_recovery_passcode: "Ustawienia biometrii mogły się zmienić. Wpisz kod portfela, aby kontynuować."
+$biometric_recovery_offer: "Kod został potwierdzony. Czy chcesz ponownie skonfigurować biometrię?"
+$biometric_recovery_enable: "Włącz biometrię"
+$biometric_recovery_failed: "Nie udało się skonfigurować biometrii. Spróbuj ponownie w Ustawienia > Bezpieczeństwo."
+"$perps_leverage_value": "Dźwignia %value%"
+"$perps_edit_action": "Edytuj"
+"PerpsRequiresOwnWallet": "Przełącz się na swój portfel lub utwórz nowy, aby zacząć handlować."

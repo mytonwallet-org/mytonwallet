@@ -28,6 +28,7 @@ public struct TokenAmountEntrySection: View {
     public var onUseAll: () -> ()
     public var amountIdentifier: String?
     public var tokenPickerIdentifier: String?
+    public var useAllIdentifier: String?
     
     public init(
         amount: Binding<BigInt?>,
@@ -45,7 +46,8 @@ public struct TokenAmountEntrySection: View {
         onTokenSelect: (() -> Void)?,
         onUseAll: @escaping () -> Void,
         amountIdentifier: String? = nil,
-        tokenPickerIdentifier: String? = nil
+        tokenPickerIdentifier: String? = nil,
+        useAllIdentifier: String? = nil
     ) {
         self._amount = amount
         self.token = token
@@ -63,6 +65,7 @@ public struct TokenAmountEntrySection: View {
         self.onUseAll = onUseAll
         self.amountIdentifier = amountIdentifier
         self.tokenPickerIdentifier = tokenPickerIdentifier
+        self.useAllIdentifier = useAllIdentifier
     }
 
     public init(
@@ -87,7 +90,8 @@ public struct TokenAmountEntrySection: View {
         onTokenSelect: (() -> Void)?,
         onUseAll: @escaping () -> Void,
         amountIdentifier: String? = nil,
-        tokenPickerIdentifier: String? = nil
+        tokenPickerIdentifier: String? = nil,
+        useAllIdentifier: String? = nil
     ) {
         self.init(
             amount: Binding(
@@ -127,7 +131,8 @@ public struct TokenAmountEntrySection: View {
             onTokenSelect: onTokenSelect,
             onUseAll: onUseAll,
             amountIdentifier: amountIdentifier,
-            tokenPickerIdentifier: tokenPickerIdentifier
+            tokenPickerIdentifier: tokenPickerIdentifier,
+            useAllIdentifier: useAllIdentifier
         )
     }
     
@@ -167,6 +172,7 @@ public struct TokenAmountEntrySection: View {
                             isFocused = false
                             onUseAll()
                         })
+                    .accessibilityIdentifier(ifPresent: useAllIdentifier)
                 }
             }
         } footer: {

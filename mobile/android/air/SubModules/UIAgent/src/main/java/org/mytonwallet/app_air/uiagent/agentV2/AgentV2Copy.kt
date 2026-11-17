@@ -47,11 +47,47 @@ internal fun localizedAgentV2Hint(id: String): AgentHint? {
         "learn.staking" -> "staking"
         "learn.security" -> "security"
         "receive.tokens" -> "receive"
+        "wallet.assets" -> "assets"
+        "wallet.total" -> "total"
+        "wallet.spending" -> "spending"
+        "wallet.last_transfer" -> "last_transfer"
+        "wallet.fund" -> "fund"
+        "market.today" -> "market_today"
+        "news.today" -> "news_today"
+        "market.bitcoin" -> "bitcoin"
+        "market.price" -> "price"
+        "staking.yield" -> "staking_yield"
+        "staking.options" -> "staking_options"
+        "learn.multisend" -> "multisend"
+        "action.swap" -> "action_swap"
+        "action.send" -> "action_send"
+        "action.stake" -> "action_stake"
         else -> return null
     }
     val title = LocaleController.getString("\$agent_hint_${prefix}_title")
-    return AgentHint(id = id, title = title, subtitle = title, prompt = title)
+    val prompt = if (prefix in HINTS_WITH_PROMPT) {
+        LocaleController.getString("\$agent_hint_${prefix}_prompt")
+    } else {
+        title
+    }
+    return AgentHint(id = id, title = title, subtitle = title, prompt = prompt)
 }
+
+/** Hints whose chip shows a short title while the agent gets the full question */
+private val HINTS_WITH_PROMPT = setOf(
+    "security",
+    "assets",
+    "total",
+    "spending",
+    "last_transfer",
+    "fund",
+    "market_today",
+    "news_today",
+    "bitcoin",
+    "staking_yield",
+    "staking_options",
+    "multisend"
+)
 
 internal fun agentUnavailableText(): String = LocaleController.getString("\$agent_error_generic")
 

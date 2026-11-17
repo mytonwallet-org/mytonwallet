@@ -257,10 +257,23 @@ final class AgentNewsFeedUITests: XCTestCase {
             ("tc://connect", "unsupported"),
             ("https://user:password@example.com/article", "unsupported"),
             ("https://example.com/article", "browser"),
+            ("https://x.com/ton_blockchain/status/123?s=20", "external"),
+            ("https://www.x.com/ton_blockchain/status/123", "external"),
+            ("https://redirect.x.com/", "external"),
+            ("https://twitter.com/ton_blockchain/status/123", "external"),
+            ("http://mobile.twitter.com/ton_blockchain/status/123", "external"),
+            ("https://X.COM/ton_blockchain/status/123", "external"),
+            ("https://notx.com/article", "browser"),
+            ("https://x.com.example.com/article", "browser"),
+            ("https://twitter.com.example.com/article", "browser"),
+            ("https://example.com/article?source=https://x.com", "browser"),
+            ("https://user:password@x.com/article", "unsupported"),
+            ("twitter://status?id=123", "unsupported"),
+            ("javascript:alert(1)", "unsupported"),
             ("http://example.com/article", "browser"),
             ("\(SHORT_UNIVERSAL_URL)transfer?amount=1", "browser"),
-            ("https://t.me/news/123", "telegram"),
-            ("tg://resolve?domain=news", "telegram"),
+            ("https://t.me/news/123", "external"),
+            ("tg://resolve?domain=news", "external"),
             ("\(SELF_PROTOCOL)settings/appearance", "screen")
         ]
         for (rawURL, expected) in cases {
@@ -275,12 +288,12 @@ final class AgentNewsFeedUITests: XCTestCase {
             let client = NewsFeedUIClient(first: .success(.init(locale: "en", items: [item])))
             let model = AgentNewsFeedModel(client: client, readState: AgentNewsReadState(userDefaults: makeDefaults()))
             var browserURLs: [URL] = []
-            var telegramURLs: [URL] = []
+            var externalUrls: [URL] = []
             var errors: [DisplayError] = []
             let controller = AgentNewsFeedVC(
                 model: model,
                 openInBrowser: { browserURLs.append($0) },
-                openTelegramURL: { telegramURLs.append($0) },
+                openExternalUrl: { externalUrls.append($0) },
                 showLinkError: { errors.append($0) }
             )
             let window = present(controller)
@@ -296,7 +309,7 @@ final class AgentNewsFeedUITests: XCTestCase {
 
             XCTAssertEqual(delegate.openedURLs, expected == "screen" ? [url] : [], rawURL)
             XCTAssertEqual(browserURLs, expected == "browser" ? [url] : [], rawURL)
-            XCTAssertEqual(telegramURLs, expected == "telegram" ? [url] : [], rawURL)
+            XCTAssertEqual(externalUrls, expected == "external" ? [url] : [], rawURL)
             XCTAssertEqual(errors.map(\.text), expected == "unsupported" ? [lang("Unsupported link")] : [], rawURL)
         }
     }
@@ -490,6 +503,18 @@ final class AgentNewsFeedUITests: XCTestCase {
         XCTAssertEqual(client.cursors, [nil, "older"])
     }
 
+    func testConnectionErrorsUseOfflineCopyWithoutMaskingServerErrors() {
+        let offlineText = lang("No internet connection. Please check your connection and try again.")
+        for error: Error in [URLError(.notConnectedToInternet), URLError(.networkConnectionLost), ApiAgentV2MutationError(code: .networkError, retryable: true)] {
+            XCTAssertEqual(AgentNewsFeedVC.errorText(error), offlineText)
+            XCTAssertEqual(AgentV2Copy.displayError(error)?.text, offlineText)
+        }
+        XCTAssertEqual(AgentNewsFeedVC.errorText(ApiAgentV2MutationError(code: .internalError, retryable: true)), lang("$agent_error_generic"))
+        XCTAssertEqual(AgentNewsFeedVC.errorText(ApiAgentV2MutationError(code: .newsUnavailable, retryable: true)), lang("$agent_news_unavailable"))
+        XCTAssertEqual(AgentNewsFeedVC.errorText(URLError(.badServerResponse)), lang("$agent_error_generic"))
+        XCTAssertNil(AgentV2Copy.displayError(CancellationError()))
+    }
+
     func testInitialNewsUnavailableOffersRetryAndRecovers() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let client = NewsFeedUIClient(first: .failure(SdkError.apiReturnedError(error: "news_unavailable", data: nil)))
@@ -510,6 +535,14 @@ final class AgentNewsFeedUITests: XCTestCase {
         XCTAssertTrue(retry.superview?.isHidden == true)
         XCTAssertEqual(client.cursors.count, 2)
         XCTAssertEqual(AgentNewsFeedVC.errorText(SdkError.unexpected(message: "Failure")), lang("$agent_error_generic"))
+    }
+
+    func testNewsRetryKeepsErrorVisibleUntilTheRequestFinishes() async throws {
+        try await checkRetryTransition(view: .all)
+    }
+
+    func testDigestsRetryKeepsErrorVisibleUntilTheRequestFinishes() async throws {
+        try await checkRetryTransition(view: .digests)
     }
 
     /// A feed that loads without news says so in the middle of its column, without Retry, in place of its placeholder,
@@ -955,6 +988,64 @@ final class AgentNewsFeedUITests: XCTestCase {
         XCTAssertEqual(digestChats, 1)
         XCTAssertEqual(loads, 1)
         XCTAssertEqual(navigationController.viewControllers.count, 2)
+    }
+
+    private func checkRetryTransition(view: ApiAgentV2NewsFeedView) async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let settings = AgentNewsNotificationSettings(userDefaults: makeDefaults())
+        settings.setNewsFeedView(view)
+        let client = NewsFeedUIClient(first: .failure(URLError(.notConnectedToInternet)))
+        var pendingPage: CheckedContinuation<Void, Never>?
+        client.beforeFirstPage = { await withCheckedContinuation { pendingPage = $0 } }
+        let model = AgentNewsFeedModel(
+            client: client, readState: AgentNewsReadState(userDefaults: makeDefaults()), digestSettings: settings
+        )
+        let controller = AgentNewsFeedVC(model: model)
+        let window = present(controller)
+        defer { window.isHidden = true }
+        let skeleton = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentMessagesSkeletonView }.first)
+        let errorView = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentLoadErrorView }.first)
+        try await waitUntil { pendingPage != nil }
+        XCTAssertTrue(skeleton.isShowing)
+        XCTAssertTrue(errorView.isHidden)
+        pendingPage?.resume()
+        pendingPage = nil
+        try await waitUntil { model.error != nil && !model.isLoading }
+        try await Task.sleep(for: .milliseconds(300))
+        window.layoutIfNeeded()
+        let errorFrame = errorView.frame
+
+        let retryAction = try XCTUnwrap(errorView.retryButton.actions(forTarget: errorView, forControlEvent: .touchUpInside)?.first)
+        for attempt in 1...3 {
+            errorView.perform(NSSelectorFromString(retryAction), with: errorView.retryButton)
+            try await waitUntil { pendingPage != nil }
+            try await Task.sleep(for: .milliseconds(300))
+            window.layoutIfNeeded()
+            XCTAssertTrue(model.isLoading)
+            XCTAssertFalse(skeleton.isShowing)
+            XCTAssertFalse(errorView.isHidden)
+            XCTAssertEqual(errorView.label.text, lang("No internet connection. Please check your connection and try again."))
+            XCTAssertEqual(errorView.frame, errorFrame)
+            XCTAssertFalse(errorView.retryButton.isEnabled)
+            XCTAssertTrue(descendants(errorView).compactMap { $0 as? UIActivityIndicatorView }.contains { $0.isAnimating })
+
+            XCTAssertEqual(client.cursors.count, attempt + 1)
+            if attempt == 3 {
+                client.first = .success(.init(locale: "en", items: []))
+            }
+            pendingPage?.resume()
+            pendingPage = nil
+            try await waitUntil { !model.isLoading }
+            XCTAssertFalse(skeleton.isShowing)
+            XCTAssertFalse(descendants(errorView).compactMap { $0 as? UIActivityIndicatorView }.contains { $0.isAnimating })
+            XCTAssertTrue(errorView.retryButton.isEnabled)
+        }
+
+        XCTAssertNil(model.error)
+        XCTAssertTrue(model.hasLoaded)
+        XCTAssertFalse(errorView.isHidden)
+        XCTAssertTrue(errorView.retryButton.isHidden)
+        XCTAssertEqual(errorView.label.text, lang(view == .all ? "$agent_news_empty" : "$agent_news_digests_empty"))
     }
 
     private func makeDigest(id: String, headlines: [Int], discussion: String? = nil) throws -> ApiAgentV2NewsFeedDigest {

@@ -692,6 +692,28 @@ describe('backend config polling', () => {
       jest.useRealTimers();
     });
 
+    it('sends account config the type and chain addresses and none of the stored secrets', async () => {
+      mockAccount.mockResolvedValue({
+        type: 'bip39',
+        mnemonicEncrypted: 'legacy-ciphertext',
+        byChain: {
+          ton: { address: 'UQ-ton', publicKey: 'pk', authToken: 'bearer' },
+          ethereum: { address: '0xeth' },
+        },
+      });
+      const { setActivePollingAccount } = await import('./polling');
+      await setActivePollingAccount('0-mainnet', {});
+      await jest.advanceTimersByTimeAsync(0);
+
+      const [, body] = mockCallBackendPost.mock.calls.find(([path]) => path === '/account-config')!;
+      const { langCode, ...rest } = body;
+      expect(Object.keys(body).sort()).toEqual(['byChain', 'langCode', 'type']);
+      expect(rest).toStrictEqual({
+        type: 'bip39',
+        byChain: { ton: { address: 'UQ-ton' }, ethereum: { address: '0xeth' } },
+      });
+    });
+
     it.each([
       { isFocused: true, period: 5 * MINUTE },
       { isFocused: false, period: 10 * MINUTE },

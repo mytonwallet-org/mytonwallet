@@ -4,6 +4,7 @@ import GRDB
 import UIKit
 import XCTest
 import UIAgent
+import UISettings
 @testable import UIComponents
 import WalletContext
 @testable import WalletCore
@@ -53,6 +54,136 @@ final class TopTabsRestorationTests: XCTestCase {
 
             XCTAssertTrue(root.isViewLoaded)
             XCTAssertEqual(root.currentTabId, id)
+        }
+    }
+
+    func testAccountSwitchKeepsEachSelectedTabAndClearsItsDetails() {
+        AppTabManager.shared.reorderTabs([.futures, .wallet, .market, .agent, .explore])
+        for tabId in [AppTabId.wallet, .market, .futures, .agent, .explore] {
+            let root = TopTabsRootViewController()
+            let navigation = WNavigationController(rootViewController: root)
+            XCTAssertTrue(root.selectTab(tabId, animated: false))
+            navigation.pushViewController(UIViewController(), animated: false)
+
+            root.switchToHome(popToRoot: true, shouldPreserveSelectedTab: true)
+
+            XCTAssertEqual(root.currentTabId, tabId)
+            XCTAssertEqual(navigation.viewControllers, [root])
+        }
+    }
+
+    func testAccountSwitchFromSettingsReturnsToConfiguredDefaultTab() {
+        for tabId in [AppTabId.wallet, .market, .futures, .agent, .explore] {
+            AppTabManager.shared.reorderTabs([tabId] + AppTabManager.shared.toolbarTabIds.filter { $0 != tabId })
+            let root = TopTabsRootViewController()
+            let navigation = WNavigationController(rootViewController: root)
+            XCTAssertTrue(root.selectTab(.wallet, animated: false))
+            XCTAssertTrue(root.selectTab(.settings, animated: false))
+
+            root.switchToHome(popToRoot: true, shouldPreserveSelectedTab: true)
+
+            XCTAssertEqual(root.currentTabId, tabId)
+            XCTAssertEqual(navigation.viewControllers, [root])
+        }
+    }
+
+    func testAccountSwitchDefaultSkipsTabsUnavailableInTopNavigation() {
+        AppTabManager.shared.setTabIds([.settings, .portfolio, .futures, .wallet])
+        let root = TopTabsRootViewController()
+        let navigation = WNavigationController(rootViewController: root)
+        XCTAssertTrue(root.selectTab(.settings, animated: false))
+
+        root.switchToHome(popToRoot: true, shouldPreserveSelectedTab: true)
+
+        XCTAssertEqual(root.currentTabId, .futures)
+        XCTAssertEqual(navigation.viewControllers, [root])
+    }
+
+    func testAccountSwitchClearsWalletDetailsWhenReturningToAnotherTab() {
+        AppTabManager.shared.reorderTabs([.futures, .wallet, .market, .agent, .explore])
+        for sourceTab in [AppTabId.market, .settings] {
+            let root = TopTabsRootViewController()
+            let navigation = WNavigationController(rootViewController: root)
+            XCTAssertTrue(root.selectTab(.wallet, animated: false))
+            navigation.pushViewController(UIViewController(), animated: false)
+            XCTAssertTrue(root.selectTab(sourceTab, animated: false))
+
+            root.switchToHome(popToRoot: true, shouldPreserveSelectedTab: true)
+
+            XCTAssertEqual(root.currentTabId, sourceTab == .settings ? .futures : sourceTab)
+            XCTAssertTrue(root.selectTab(.wallet, animated: false))
+            XCTAssertEqual(navigation.viewControllers, [root])
+        }
+    }
+
+    func testAccountSwitchReturnsToDefaultDuringDelayedSettingsRefresh() async throws {
+        let tabs = AppTabManager.shared
+        tabs.setTabIds([.futures, .wallet, .market, .agent, .explore, .settings])
+        let root = TopTabsRootViewController()
+        let navigation = WNavigationController(rootViewController: root)
+        XCTAssertTrue(root.selectTab(.settings))
+        let settings = try XCTUnwrap(navigation.topViewController as? SettingsVC)
+        settings.loadViewIfNeeded()
+        defer { WalletCoreData.remove(observer: settings) }
+
+        settings.walletCore(event: .accountChanged(accountId: "1-mainnet", isNew: false))
+        root.switchToHome(popToRoot: true, shouldPreserveSelectedTab: true)
+        try await Task.sleep(for: .milliseconds(500))
+
+        XCTAssertEqual(root.currentTabId, .futures)
+        XCTAssertEqual(navigation.viewControllers, [root])
+    }
+
+    func testExplicitHomeNavigationStillSelectsWallet() {
+        AppTabManager.shared.reorderTabs([.futures, .wallet, .market, .agent, .explore])
+        let root = TopTabsRootViewController()
+        let navigation = WNavigationController(rootViewController: root)
+        XCTAssertTrue(root.selectTab(.futures, animated: false))
+
+        root.switchToHome(popToRoot: true)
+
+        XCTAssertEqual(root.currentTabId, .wallet)
+        XCTAssertEqual(navigation.viewControllers, [root])
+    }
+
+    func testSplitAccountSwitchKeepsTabsAndReturnsFromSettingsToDefault() {
+        let tabs = AppTabManager.shared
+        tabs.reorderTabs([.futures, .wallet, .market, .agent, .explore])
+        let root = SplitRootViewController()
+        root.loadViewIfNeeded()
+        root.applyTabConfiguration(tabs.orderedTabIds)
+        for tabId in [AppTabId.wallet, .market, .futures, .agent, .explore] {
+            root.select(tab: tabId)
+            root.setNavigationPath([UIViewController()], for: tabId)
+
+            root.showHome(popToRoot: true, shouldPreserveSelectedTab: true)
+
+            XCTAssertEqual(root.currentTabId, tabId)
+            XCTAssertEqual(root.takeNavigationStack(for: tabId, keepingRoot: true)?.count, 1, tabId.rawValue)
+        }
+        root.select(tab: .settings)
+        root.showHome(popToRoot: true, shouldPreserveSelectedTab: true)
+        XCTAssertEqual(root.currentTabId, .futures)
+
+        root.showHome(popToRoot: true)
+        XCTAssertEqual(root.currentTabId, .wallet)
+    }
+
+    func testSplitAccountSwitchClearsWalletDetailsWhenReturningToAnotherTab() {
+        let tabs = AppTabManager.shared
+        tabs.reorderTabs([.futures, .wallet, .market, .agent, .explore])
+        for sourceTab in [AppTabId.market, .settings] {
+            let root = SplitRootViewController()
+            root.loadViewIfNeeded()
+            root.applyTabConfiguration(tabs.orderedTabIds)
+            root.setNavigationPath([UIViewController()], for: .wallet)
+            root.select(tab: sourceTab)
+
+            root.showHome(popToRoot: true, shouldPreserveSelectedTab: true)
+
+            XCTAssertEqual(root.currentTabId, sourceTab == .settings ? .futures : sourceTab)
+            root.select(tab: .wallet)
+            XCTAssertEqual(root.takeNavigationStack(for: .wallet, keepingRoot: true)?.count, 1)
         }
     }
 

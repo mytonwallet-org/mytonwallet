@@ -3,6 +3,7 @@ import {
   getAgentNewsShareUrl,
   getExplorerAddressUrl,
   getExplorerTransactionUrl,
+  getPerpsExplorerTransactionUrl,
   getViewAccountUrl,
   getViewTokenUrl,
   isInIframeWhitelist,
@@ -347,6 +348,14 @@ describe('explorer URLs of the selected explorer', () => {
       .toBe(`https://actonscan.com/address/${TEST_TON_ADDRESS}?network=testnet`);
     expect(getExplorerTransactionUrl('ton', { traceId: base64Hash }, false, 'actonscan'))
       .toBe(`https://actonscan.com/tx/${TEST_TON_HASH}?network=mainnet`);
+  });
+});
+
+describe('getPerpsExplorerTransactionUrl', () => {
+  it('builds the trade URL only for a chain with a perps explorer', () => {
+    expect(getPerpsExplorerTransactionUrl('hyperliquid', TEST_EVM_HASH))
+      .toBe(`https://app.hyperliquid.xyz/explorer/tx/${TEST_EVM_HASH}`);
+    expect(getPerpsExplorerTransactionUrl('ethereum', TEST_EVM_HASH)).toBeUndefined();
   });
 });
 

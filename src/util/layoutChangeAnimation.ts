@@ -2,6 +2,9 @@ import { getGlobal } from '../global';
 
 import { ANIMATION_LEVEL_MIN } from '../config';
 
+// Larger than half of any capsule height, so the clip keeps the fully rounded ends at every width
+const CAPSULE_CLIP_RADIUS = '6.25rem';
+
 // Layout properties are not animated (see `plugin/no-low-performance-animation-properties` and
 // `plugin/no-layout-animation-properties` in `.stylelintrc.json`), so the layout jumps to its final state
 // and `clip-path` and `transform` play the change out
@@ -15,6 +18,12 @@ export function animateHeightReveal(element: HTMLElement, fromHeight: number, to
     { clipPath: `inset(0 0 ${toHeight - fromHeight}px round ${borderRadius})` },
     { clipPath: `inset(0 round ${borderRadius})` },
   ], getSlideTiming(element));
+}
+
+export function animateFadeIn(element: HTMLElement) {
+  if (getIsAnimationDisabled()) return;
+
+  element.animate([{ opacity: 0 }, { opacity: 1 }], getSlideTiming(element));
 }
 
 export function animateContentShift(element: HTMLElement, scrollContainerSelector: string, offset: number) {
@@ -42,6 +51,31 @@ export function animateShift(element: HTMLElement, x: number, y: number, duratio
     // A shift that starts while another one runs continues from where the element is, without a jump
     composite: 'add',
   });
+}
+
+// Plays out a width change of a capsule whose fill is its `::before` layer. The element already has its new width
+// and only one `edge` moved. A capsule that became narrower must start wider than its own box, so the layer is
+// extended by that difference for the duration of the animation.
+export function animateCapsuleWidth(
+  element: HTMLElement,
+  edge: 'start' | 'end',
+  widthChange: number,
+  duration: number,
+  isRtl?: boolean,
+) {
+  if (getIsAnimationDisabled()) return;
+
+  const overflow = Math.max(0, -widthChange);
+  const isLeftEdge = (edge === 'start') !== Boolean(isRtl);
+  const buildClipPath = (inset: number) => (
+    `inset(${isLeftEdge ? `0 0 0 ${inset}px` : `0 ${inset}px 0 0`} round ${CAPSULE_CLIP_RADIUS})`
+  );
+  const position = { [edge === 'start' ? 'insetInlineStart' : 'insetInlineEnd']: `${-overflow}px` };
+
+  element.animate([
+    { ...position, clipPath: buildClipPath(Math.max(0, widthChange)) },
+    { ...position, clipPath: buildClipPath(overflow) },
+  ], { duration, easing: 'ease', pseudoElement: '::before' });
 }
 
 function getIsAnimationDisabled() {

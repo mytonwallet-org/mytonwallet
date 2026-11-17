@@ -590,7 +590,14 @@ import UIToken
         })
     }
 
-    private func showFill(_ id: String, from origin: UIViewController) {
+    func showFill(_ id: String, from origin: UIViewController) {
+        if origin is PerpsOperationVC, let navigation = origin.navigationController {
+            guard navigation.topViewController === origin, navigation.transitionCoordinator == nil else { return }
+            if navigation.viewControllers.dropLast().last is PerpsPositionReceiptVC {
+                navigation.popViewController(animated: true)
+                return
+            }
+        }
         let controller: PerpsPositionReceiptVC
         if let operationId = PerpsTradeActivity.failedOrderOperationID(activityID: id) {
             guard let operation = store.operations[operationId], operation.accountId == context.accountId,
@@ -607,6 +614,11 @@ import UIToken
             } else {
                 controller = makeReceipt(data: PerpsSDKAdapter.receipt(fill: fill, asset: asset))
             }
+        }
+        if origin is PerpsOperationVC, let navigation = origin.navigationController {
+            controller.prepareForPresentation(from: origin)
+            navigation.pushViewController(controller, animated: true)
+            return
         }
         let navigation = WNavigationController(rootViewController: controller)
         controller.prepareForPresentation(from: origin)
@@ -692,7 +704,16 @@ import UIToken
         return controller
     }
 
-    private func showOperation(_ operation: ApiPerpsOperation, from origin: UIViewController, replacingOrder: Bool = false) {
+    func showOperation(_ operation: ApiPerpsOperation, from origin: UIViewController, replacingOrder: Bool = false) {
+        if origin is PerpsPositionReceiptVC, let navigation = origin.navigationController {
+            guard navigation.topViewController === origin, navigation.transitionCoordinator == nil else { return }
+            if navigation.viewControllers.dropLast().last is PerpsOperationVC {
+                navigation.popViewController(animated: true)
+            } else {
+                navigation.pushViewController(makeOperationStatus(operation), animated: true)
+            }
+            return
+        }
         let controller = makeOperationStatus(operation)
         if replacingOrder, let navigation = origin.navigationController, navigation.presentingViewController != nil {
             navigation.setViewControllers([controller], animated: true)

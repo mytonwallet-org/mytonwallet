@@ -58,6 +58,79 @@ struct UniversalSearchToolbarTransitionTests {
         #expect(hit === control || hit.isDescendant(of: control), "Tap on \(type(of: control)) was intercepted by \(type(of: hit))")
     }
 
+    @Test(arguments: [false, true])
+    func `a drag makes room where its button would drop and lands it there`(isRTL: Bool) throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL)
+        defer { window.isHidden = true }
+        var configuration = HomeToolbarConfiguration()
+        toolbar.setHomeConfiguration(configuration, animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.layoutIfNeeded()
+        let width = toolbar.bounds.width
+        #expect(toolbar.getHomeItemFrame(.send) == nil)
+
+        // An action dragged out of the actions menu to the toolbar's leading end
+        let order = toolbar.getHomeOrder(moving: .send, toward: isRTL ? width - 10 : 10)
+        #expect(order.first == .send)
+        toolbar.setHomeEdit(.init(item: .send, order: order, reservesSlot: true), animated: false)
+        let slot = try #require(toolbar.getHomeItemFrame(.send))
+        #expect(slot == CGRect(x: isRTL ? width - 48 : 0, y: 0, width: 48, height: 48))
+        let field = try #require(toolbar.getHomeItemFrame(.search))
+        #expect(isRTL ? field.maxX == width - 60 : field.minX == 60)
+        #expect(toolbar.getHomeItem(at: CGPoint(x: slot.midX, y: slot.midY)) == .send)
+        #expect(toolbar.scanButtonPresentationSourceView?.isUserInteractionEnabled == false)
+
+        // Carried away from the toolbar, it leaves no gap
+        toolbar.setHomeEdit(.init(item: .send, order: order, reservesSlot: false), animated: false)
+        #expect(toolbar.getHomeItemFrame(.send) == nil)
+        #expect(toolbar.getHomeItemFrame(.search).map { isRTL ? $0.maxX == width : $0.minX == 0 } == true)
+
+        configuration.order = order
+        configuration.setShown(true, .send)
+        toolbar.endHomeEdit(with: configuration, landingItem: .send, animated: false)
+        toolbar.finishHomeItemLanding()
+        toolbar.layoutIfNeeded()
+        #expect(toolbar.homeEdit == nil)
+        #expect(toolbar.homeConfiguration == configuration)
+        let button = try #require(toolbar.getHomeItemSourceView(for: .send))
+        #expect(button.convert(button.bounds, to: toolbar) == slot)
+        try expectTapReaches(button, in: window)
+        try expectTapReaches(try #require(toolbar.scanButtonPresentationSourceView), in: window)
+    }
+
+    @Test
+    func `the toolbar refuses a button that would leave no room for search`() {
+        let (window, toolbar) = makeToolbar(panelWidth: 320)
+        defer { window.isHidden = true }
+        var configuration = HomeToolbarConfiguration()
+        for item in [HomeToolbarItem.accounts, .buy] { configuration.setShown(true, item) }
+        toolbar.setHomeConfiguration(configuration, animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.layoutIfNeeded()
+        #expect(!toolbar.canHoldHomeItem(.send))
+        #expect(toolbar.canHoldHomeItem(.buy))
+        // A stored arrangement counts in full, with the buttons this account does not show
+        #expect(toolbar.canHoldHomeItem(.send, in: HomeToolbarConfiguration()))
+    }
+
+    @Test
+    func `a toolbar too narrow for its arrangement shows the buttons that fit`() throws {
+        let (window, toolbar) = makeToolbar(panelWidth: 320)
+        defer { window.isHidden = true }
+        var configuration = HomeToolbarConfiguration()
+        for item in [HomeToolbarItem.accounts, .buy, .fund, .trade] { configuration.setShown(true, item) }
+        toolbar.setHomeConfiguration(configuration, animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.layoutIfNeeded()
+        let field = try #require(toolbar.getHomeItemFrame(.search))
+        #expect(field.width >= 64)
+        #expect(toolbar.getHomeItemFrame(.accounts) != nil)
+        #expect(toolbar.getHomeItemFrame(.actions) != nil)
+        #expect(toolbar.getHomeItemFrame(.trade) == nil)
+        #expect(toolbar.homeConfiguration == configuration)
+        try expectTapReaches(toolbar.trailingButtonView, in: window)
+    }
+
     @Test(arguments: [false, true], [false, true])
     func `vertical toolbar lays out every optional button configuration`(shared: Bool, isRTL: Bool) throws {
         let (window, toolbar) = makeSideToolbar(isRTL: isRTL)
@@ -97,16 +170,17 @@ struct UniversalSearchToolbarTransitionTests {
             toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: shared), animated: true)
             let scan = try #require(toolbar.scanButtonPresentationSourceView)
             let controls = [toolbar.accountsButton, scan, toolbar.trailingButtonView]
-            let groupFrame = controls.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: toolbar)) }
-            let glass = transitionGlassViews(in: toolbar)
-            #expect(glass.count == 3)
-            for (background, control) in zip(glass, controls) {
-                #expect(background.convert(background.bounds, to: toolbar) == (shared ? groupFrame : control.convert(control.bounds, to: toolbar)))
-                #expect(background.alpha == 1)
+            let frames = controls.map { $0.convert($0.bounds, to: toolbar) }
+            // A shared background is one piece of glass around the column's buttons
+            let groupFrame = frames.reduce(CGRect.null) { $0.union($1) }
+            let glasses = try controls.map { try #require(glassView(of: $0)) }
+            for (glass, frame) in zip(glasses, frames) {
+                #expect(glass.convert(glass.bounds, to: toolbar) == (shared ? groupFrame : frame))
             }
+            #expect(Set(glasses.map(ObjectIdentifier.init)).count == (shared ? 1 : 3))
             #expect(toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: window).maxY == actionBottom)
             try await Task.sleep(for: .milliseconds(500))
-            #expect(transitionGlassViews(in: toolbar).isEmpty)
+            #expect(glassEffects(in: toolbar).count == (shared ? 2 : 4))
         }
     }
 
@@ -261,32 +335,33 @@ struct UniversalSearchToolbarTransitionTests {
         toolbar.setPresentation(.homeToolbar, animated: false)
         let scan = try #require(toolbar.scanButtonPresentationSourceView)
 
+        let controls = [toolbar.accountsButton, scan, toolbar.trailingButtonView]
         toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: true), animated: true)
-        let merged = transitionGlassViews(in: toolbar)
-        #expect(merged.count == 3)
-        let groupFrame = [toolbar.accountsButton, scan, toolbar.trailingButtonView].reduce(CGRect.null) {
-            $0.union($1.convert($1.bounds, to: toolbar))
-        }
-        for glass in merged {
-            #expect(glass.convert(glass.bounds, to: toolbar) == groupFrame)
-            #expect(glass.effect is UIGlassEffect)
-            #expect(glass.alpha == 1)
+        // The buttons touch inside one piece of glass, a capsule that reacts to a touch as a whole
+        let frames = controls.map { $0.convert($0.bounds, to: toolbar) }
+        let groupFrame = frames.reduce(CGRect.null) { $0.union($1) }
+        #expect(groupFrame.width == 144)
+        let glasses = try controls.map { try #require(glassView(of: $0)) }
+        #expect(Set(glasses.map(ObjectIdentifier.init)).count == 1)
+        #expect(glasses[0].convert(glasses[0].bounds, to: toolbar) == groupFrame)
+        // A zoom grows out of a button's place from outside the glass, which it would take over
+        let zoomSources = [try #require(toolbar.getHomeItemZoomSourceView(for: .scan)), toolbar.trailingButtonPresentationSourceView]
+        for (source, frame) in zip(zoomSources, frames.dropFirst()) {
+            #expect(source.convert(source.bounds, to: toolbar) == frame)
+            #expect(glassView(of: source) == nil)
         }
         try await Task.sleep(for: .milliseconds(500))
-        #expect(merged.allSatisfy { $0.superview == nil })
         #expect(glassEffects(in: toolbar).count == 2)
         #expect(glassEffects(in: toolbar).allSatisfy { $0.isInteractive })
+        #expect(try controls.map { try #require(glassView(of: $0)) } == glasses)
 
         toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: true)
-        let split = transitionGlassViews(in: toolbar)
-        #expect(split.count == 3)
-        for (glass, button) in zip(split, [toolbar.accountsButton, scan, toolbar.trailingButtonView]) {
-            #expect(glass.convert(glass.bounds, to: toolbar) == button.convert(button.bounds, to: toolbar))
+        for control in controls {
+            let glass = try #require(glassView(of: control))
+            #expect(glass.convert(glass.bounds, to: toolbar) == control.convert(control.bounds, to: toolbar))
             #expect(glass.effect is UIGlassEffect)
-            #expect(glass.alpha == 1)
         }
         try await Task.sleep(for: .milliseconds(500))
-        #expect(split.allSatisfy { $0.superview == nil })
         #expect(glassEffects(in: toolbar).count == 4)
     }
 
@@ -297,22 +372,72 @@ struct UniversalSearchToolbarTransitionTests {
         defer { window.isHidden = true }
         toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: false)
         toolbar.setPresentation(.homeToolbar, animated: false)
+        let scan = try #require(toolbar.scanButtonPresentationSourceView)
         toolbar.setHomeConfiguration(.init(showsAccounts: false, showsScan: false, sharesBackground: false), animated: true)
-        let backgrounds = transitionGlassViews(in: toolbar)
-        #expect(backgrounds.count == 3)
         let finalFrame = toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: toolbar)
-        for glass in backgrounds {
+        for control in [toolbar.accountsButton, scan] {
+            let glass = try #require(glassView(of: control))
+            #expect(!control.isHidden)
             #expect(glass.convert(glass.bounds, to: toolbar) == finalFrame)
             #expect(glass.effect is UIGlassEffect)
-            #expect(glass.alpha == 1)
         }
         try await Task.sleep(for: .milliseconds(500))
-        #expect(backgrounds.allSatisfy { $0.superview == nil })
+        #expect(toolbar.accountsButton.isHidden)
+        #expect(scan.isHidden)
         #expect(glassEffects(in: toolbar).count == 2)
     }
 
-    private func transitionGlassViews(in view: UIView) -> [UIVisualEffectView] {
-        effectViews(in: view).filter { $0.accessibilityIdentifier?.hasPrefix("home_toolbar_transition_glass_") == true }
+    @Test(arguments: [
+        [HomeToolbarItem.search, .accounts, .scan, .actions],
+        [.accounts, .search, .scan, .actions],
+        [.accounts, .scan, .actions, .search],
+    ], [UniversalSearchFieldPresentation.compactToolbar, .search])
+    func `shared glass goes where its buttons gather and takes the trailing button back`(
+        order: [HomeToolbarItem],
+        target: UniversalSearchFieldPresentation
+    ) throws {
+        guard #available(iOS 26, *), IOS_26_MODE_ENABLED else { return }
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        let configuration = HomeToolbarConfiguration(
+            order: order,
+            hiddenItems: HomeToolbarConfiguration.defaultHiddenItems.subtracting([.accounts])
+        )
+        toolbar.setHomeConfiguration(configuration, animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        let scan = try #require(toolbar.scanButtonPresentationSourceView)
+        let controls = [toolbar.accountsButton, scan, toolbar.trailingButtonView]
+
+        let push = try #require(toolbar.preparePresentationTransition(to: target))
+        toolbar.applyPreparedPresentationTransition(push)
+        // Where the change ends, every piece of glass lies on the buttons it carries, merged into what they gather under
+        for control in controls {
+            let glass = try #require(glassView(of: control))
+            #expect(glass.convert(glass.bounds, to: toolbar) == control.convert(control.bounds, to: toolbar))
+        }
+        toolbar.finishPreparedPresentationTransition(push, isCancelled: false)
+
+        let pop = try #require(toolbar.preparePresentationTransition(to: .homeToolbar, navigationOperation: .pop))
+        toolbar.applyPreparedPresentationTransition(pop)
+        toolbar.finishPreparedPresentationTransition(pop, isCancelled: false)
+        let sharedGlass = try #require(glassView(of: scan))
+        #expect(glassView(of: toolbar.trailingButtonView) === sharedGlass)
+        // The field's glass and the shared glass, and the accounts button's own when it is alone before the field
+        let isAccountsAlone = order.firstIndex(of: .search) == 1
+        #expect(glassEffects(in: toolbar).count == (isAccountsAlone ? 3 : 2))
+    }
+
+    /// The glass behind a toolbar button: inside it, around the part of it that takes the taps, or shared with the
+    /// buttons beside it
+    @available(iOS 26, *)
+    private func glassView(of control: UIView) -> UIVisualEffectView? {
+        if let glass = effectViews(in: control).first(where: { $0.effect is UIGlassEffect }) { return glass }
+        var ancestor = control.superview
+        while let view = ancestor {
+            if let glass = view as? UIVisualEffectView, glass.effect is UIGlassEffect { return glass }
+            ancestor = view.superview
+        }
+        return nil
     }
 
     @Test
@@ -325,9 +450,10 @@ struct UniversalSearchToolbarTransitionTests {
         toolbar.applyPreparedPresentationTransition(transition)
         toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: false, sharesBackground: false), animated: true)
         toolbar.finishPreparedPresentationTransition(transition, isCancelled: true)
-        #expect(transitionGlassViews(in: toolbar).count == 3)
+        // The queued change animates: the accounts button is on its way out of the trailing button
+        #expect(!toolbar.accountsButton.isHidden)
+        #expect(toolbar.accountsButton.layer.animationKeys()?.isEmpty == false)
         try await Task.sleep(for: .milliseconds(500))
-        #expect(transitionGlassViews(in: toolbar).isEmpty)
         #expect(!toolbar.accountsButton.isHidden)
         #expect(toolbar.scanButtonPresentationSourceView == nil)
     }
@@ -425,7 +551,6 @@ struct UniversalSearchToolbarTransitionTests {
             #expect(toolbar.accountsButton.isUserInteractionEnabled == (target == .sideToolbar))
             #expect(effectViews(in: toolbar).allSatisfy { $0.alpha == 1 })
             toolbar.finishPreparedPresentationTransition(transition, isCancelled: cancelled)
-            #expect(transitionGlassViews(in: toolbar).isEmpty)
             if !cancelled {
                 let pop = try #require(toolbar.preparePresentationTransition(to: .homeToolbar, navigationOperation: .pop))
                 toolbar.applyPreparedPresentationTransition(pop)
@@ -525,7 +650,9 @@ struct UniversalSearchToolbarTransitionTests {
         toolbar.setOverlayAppearance(search: dark, actions: light, animated: true)
         let currentSearchAnimations = animations(in: toolbar.searchButtonPresentationSourceView.layer)
         #expect(currentSearchAnimations == previousSearchAnimations)
-        #expect(!animations(in: toolbar.trailingButtonPresentationSourceView.layer).isEmpty)
+        // The trailing button's content is what animates, beside the part of it that takes the taps
+        let trailingContent = try #require(toolbar.trailingButtonView.superview)
+        #expect(!animations(in: trailingContent.layer).isEmpty)
     }
 
     private func animations(in layer: CALayer, excluding excludedLayer: CALayer? = nil) -> [ObjectIdentifier: [String]] {
@@ -554,6 +681,7 @@ struct UniversalSearchToolbarTransitionTests {
         try await Task.sleep(for: .milliseconds(300))
         #expect(toolbar.trailingButtonView.traitCollection.userInterfaceStyle == .dark)
         #expect(toolbar.searchButtonPresentationSourceView.traitCollection.userInterfaceStyle == .dark)
+        // The search circle, and the glass the scan and actions buttons share
         let materials = glassEffects(in: toolbar)
         #expect(materials.count == 2)
         #expect(materials.allSatisfy { $0.isInteractive })

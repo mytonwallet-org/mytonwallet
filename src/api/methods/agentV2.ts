@@ -12,6 +12,7 @@ export {
   getAgentV2DefaultThread,
   getAgentV2CachedThreads,
   getAgentV2CachedMessages,
+  getAgentV2CachedNewsFeed,
   getAgentV2Hints,
   getAgentV2Messages,
   getAgentV2NewsFeed,

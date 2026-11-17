@@ -1,9 +1,32 @@
 import XCTest
 import UIKit
 @testable import UIAgent
+import WalletContext
+import WalletResources
 
 @MainActor
 final class AgentChatTitleTests: XCTestCase {
+    func testDigestDiscussionTitleUsesTheLocalizedDayAndIncludesPastYears() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 14)))
+        let cases = [
+            ("en", "2026-11-11T18:00:00Z", "News for November 11"),
+            ("ru", "2026-11-11T18:00:00Z", "Новости 11 ноября"),
+            ("en", "2025-11-11T18:00:00Z", "News for November 11, 2025"),
+            ("ru", "2025-11-11T18:00:00Z", "Новости 11 ноября 2025")
+        ]
+        for (language, windowEnd, expected) in cases {
+            let title = withMessageLanguage(language) {
+                AgentV2Model.formatDigestDiscussionTitle(
+                    windowEnd: windowEnd, relativeTo: now, calendar: calendar, locale: Locale(identifier: language)
+                )
+            }
+            XCTAssertEqual(title, expected)
+        }
+    }
+
     func testTitleIsSemiboldSeventeenBesideALargerEmoji() throws {
         let view = AgentChatTitleView(frame: CGRect(x: 0, y: 0, width: 300, height: 44))
         view.setTitle("Portfolio review", icon: "💼", animated: false)

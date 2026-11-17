@@ -45,6 +45,7 @@ public final class ExploreVC: WViewController {
 
         initialSetup()
         bind()
+        updateViewState(animated: false)
 
         exploreVM.refresh()
     }
@@ -53,9 +54,13 @@ public final class ExploreVC: WViewController {
         observedViewState.scrollToTop(animated: animated)
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        isVisible = true
+    }
+
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        isVisible = true
         observedViewState.setActive(true)
         exploreVM.setActive(true)
     }
@@ -113,6 +118,7 @@ public final class ExploreVC: WViewController {
 
     private func bindViewOutput() {
         cancelBag.formUnion([
+            viewOutput.retryDidTap.sink { [exploreVM] in exploreVM.refresh() },
             viewOutput.connectedDappDidTap.sink { [exploreVM] connectedDappURL in
                 if let connected = exploreVM.connectedDapps[connectedDappURL], let url = URL(string: connected.url) {
                     AppActions.openInBrowser(url, title: connected.name, injectDappConnect: true, historyTag: exploreHistoryTag)
@@ -176,7 +182,8 @@ public final class ExploreVC: WViewController {
             exploreSites: exploreVM.exploreSites.values.apply(Array.init),
             siteCategories: exploreVM.exploreCategories.values.apply(Array.init),
             shouldRestrictSites: shouldRestrictSites,
-            isLockdownModeEnabled: WalletCoreData.isLockdownModeEnabled
+            isLockdownModeEnabled: WalletCoreData.isLockdownModeEnabled,
+            loadingState: exploreVM.loadingState
         )
         observedViewState.updateBrowsing(
             sections: sections,

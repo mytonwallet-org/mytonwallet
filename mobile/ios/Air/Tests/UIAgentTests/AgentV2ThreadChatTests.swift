@@ -750,14 +750,20 @@ final class AgentV2ThreadChatTests: XCTestCase {
 
     @MainActor
     func testLoadingThreadTitleMatchesTheModelTitle() async throws {
-        let cases: [(String?, String?, String)] = [
-            ("  Large BTC transfer \n", " 🐳 \n", "🐳 Large BTC transfer"),
-            ("Large BTC transfer", " \n", "Large BTC transfer"),
-            (" \n", "🐳", "🐳 \(lang("New Chat"))"),
-            (nil, nil, lang("New Chat"))
+        let digest = ApiAgentV2ThreadDigestCard(
+            id: "en:2026-11-11T18:00:00Z", windowEnd: "2026-11-11T18:00:00Z", total: 0, top: []
+        )
+        let digestTitle = AgentV2Model.formatDigestDiscussionTitle(windowEnd: digest.windowEnd)
+        let cases: [(ThreadChatClient, String)] = [
+            (try ThreadChatClient(threadId: "selected-thread", title: "  Large BTC transfer \n", icon: " 🐳 \n"), "🐳 Large BTC transfer"),
+            (try ThreadChatClient(threadId: "selected-thread", title: "Large BTC transfer", icon: " \n"), "Large BTC transfer"),
+            (try ThreadChatClient(threadId: "selected-thread", title: " \n", icon: "🐳"), "🐳 \(lang("New Chat"))"),
+            (try ThreadChatClient(threadId: "selected-thread"), lang("New Chat")),
+            (try ThreadChatClient(threadId: "selected-thread", icon: "🗓", digest: digest), "🗓 \(digestTitle)"),
+            (try ThreadChatClient(threadId: "selected-thread", title: " \n", icon: "🗓", digest: digest), "🗓 \(digestTitle)"),
+            (try ThreadChatClient(threadId: "selected-thread", title: "My digest", icon: "📰", digest: digest), "📰 My digest")
         ]
-        for (title, icon, expected) in cases {
-            let client = try ThreadChatClient(threadId: "selected-thread", title: title, icon: icon)
+        for (client, expected) in cases {
             let preloader = AgentPreloader(client: client)
             let model = AgentV2Model(client: client, thread: client.hydration.thread)
             await model.waitForInitialLoad()
@@ -786,7 +792,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         XCTAssertFalse(composer.isHidden)
         XCTAssertFalse(composer.isUserInteractionEnabled)
         XCTAssertTrue(composer.accessibilityElementsHidden)
-        XCTAssertFalse(descendants(of: root.view).contains { $0 is UIActivityIndicatorView })
+        XCTAssertFalse(descendants(of: root.view).contains { ($0 as? UIActivityIndicatorView)?.isAnimating == true })
         let titleView = try XCTUnwrap(root.navigationItem.titleView)
         let chatTitle = try XCTUnwrap(descendants(of: titleView).compactMap { $0 as? AgentChatTitleView }.first)
         XCTAssertEqual(chatTitle.accessibilityLabel, "🐳 Large BTC transfer")
@@ -3176,6 +3182,173 @@ final class AgentV2ThreadChatTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testOfflineHistoryWaitsForPersistentCacheAndKeepsItInertUntilRetrySucceeds() async throws {
+        for isSummaryCached in [false, true] {
+            let client = try makeCachedHistoryClient(threadId: "offline-\(UUID().uuidString)")
+            client.blocksCachedHistory = true
+            client.messageFailure = URLError(.notConnectedToInternet)
+            client.messageFailuresRemaining = 1
+            let model = AgentV2Model(client: client, thread: client.hydration.thread, isSummaryCached: isSummaryCached)
+            defer {
+                model.stop()
+                client.releasePendingRequests()
+            }
+            try await waitUntil { client.cachedHistoryThreadIds.count == 1 && client.hydratedThreadIds.count == 1 }
+            XCTAssertNil(model.initialLoadError)
+            client.resumeCachedHistory()
+            try await waitUntil { self.failureLine(in: model) != nil }
+            XCTAssertTrue(model.isShowingCachedMessages)
+            XCTAssertNil(model.initialLoadError)
+            let answer = try XCTUnwrap(message(in: model, text: "Cached answer"))
+            XCTAssertFalse(answer.controls.contains { $0.kind == .action && $0.isEnabled })
+            XCTAssertFalse(answer.canRate)
+            XCTAssertFalse(model.canSendMessage(draftText: "Send"))
+            XCTAssertEqual(failureLine(in: model)?.text, AgentV2Copy.error(.networkError))
+            XCTAssertEqual(client.actionPresentationRequestCount, 0)
+            model.retryLoad()
+            try await waitUntil { model.isReadyForPresentation }
+            XCTAssertFalse(model.isShowingCachedMessages)
+            XCTAssertNotNil(message(in: model, text: "Fresh answer"))
+            XCTAssertNil(message(in: model, text: "Cached answer"))
+        }
+    }
+
+    @MainActor
+    func testOfflineCachedSummaryAndUnreadChatPresentCachedMessagesAfterLoading() async throws {
+        for isSummaryCached in [false, true] {
+            let client = try makeCachedHistoryClient(threadId: "offline-root-\(UUID().uuidString)")
+            let thread = client.hydration.thread
+            let readState = AgentThreadReadState.shared
+            readState.chatDidAppear(threadId: thread.id)
+            readState.chatDidDisappear(threadId: thread.id, seenMessageCount: 1)
+            client.messageFailure = try readFailure(.networkError)
+            client.messageFailuresRemaining = 1
+            let preloader = AgentPreloader(client: client)
+            let root = AgentRootVC(thread: thread, preloader: preloader, isSummaryCached: isSummaryCached)
+            let navigation = UINavigationController(rootViewController: root)
+            defer {
+                navigation.setViewControllers([], animated: false)
+                preloader.setWalletReady(false)
+                client.releasePendingRequests()
+                readState.remove(threadId: thread.id)
+            }
+            root.loadViewIfNeeded()
+            try await waitUntil { navigation.topViewController is AgentVC }
+            let controller = try XCTUnwrap(navigation.topViewController as? AgentVC)
+            let model = try XCTUnwrap(controller.model as? AgentV2Model)
+            try await waitUntil { self.failureLine(in: model) != nil }
+            XCTAssertTrue(model.isShowingCachedMessages)
+            XCTAssertNotNil(message(in: model, text: "Cached answer"))
+            XCTAssertEqual(failureLine(in: model)?.text, AgentV2Copy.error(.networkError))
+            XCTAssertFalse(model.canSendMessage(draftText: "Send"))
+            XCTAssertEqual(readState.getSeenMessageCount(ifUnread: thread), 1)
+        }
+    }
+
+    @MainActor
+    func testOfflineUnreadHistoryUsesCacheWithoutMarkingUnknownMessagesRead() async throws {
+        for isSummaryCached in [false, true] {
+            let threadId = "unread-offline-\(UUID().uuidString)"
+            let client = try makeCachedHistoryClient(threadId: threadId)
+            var liveMessages = makeConversation(threadId: threadId, answer: "Fresh answer")
+            liveMessages.append([
+                "id": "unseen", "threadId": threadId, "role": "assistant", "status": "complete",
+                "content": ["kind": "markdown", "text": "An answer absent from the cache"],
+                "createdAt": "2026-10-02T00:02:00.000Z",
+            ])
+            client.hydration = try ThreadChatClient(threadId: threadId, messages: liveMessages).hydration
+            let thread = client.hydration.thread
+            let readState = AgentThreadReadState.shared
+            readState.chatDidAppear(threadId: threadId)
+            readState.chatDidDisappear(threadId: threadId, seenMessageCount: 2)
+            readState.answerDidComplete(threadId: threadId)
+            client.messageFailure = try readFailure(.networkError)
+            client.messageFailuresRemaining = 1
+            let model = AgentV2Model(client: client, thread: thread, isSummaryCached: isSummaryCached)
+            let controller = AgentVC(model: model)
+            defer {
+                controller.viewWillDisappear(false)
+                model.stop()
+                readState.remove(threadId: threadId)
+            }
+            await model.waitForInitialLoad()
+            try await waitUntil { self.failureLine(in: model) != nil }
+            XCTAssertTrue(model.isShowingCachedMessages)
+            XCTAssertNil(model.seenMessageCount)
+            controller.loadViewIfNeeded()
+            controller.viewIsAppearing(false)
+            controller.viewDidAppear(false)
+            XCTAssertTrue(readState.isUnread(thread))
+            XCTAssertEqual(readState.getSeenMessageCount(ifUnread: thread), 2)
+
+            controller.viewWillDisappear(false)
+            readState.observe([thread], answeringThreadIds: [])
+            XCTAssertTrue(readState.isUnread(thread))
+            XCTAssertEqual(readState.getSeenMessageCount(ifUnread: thread), 2)
+
+            controller.viewIsAppearing(false)
+            controller.viewDidAppear(false)
+            model.retryLoad()
+            try await waitUntil { model.isReadyForPresentation && !readState.isUnread(thread) }
+            XCTAssertEqual(model.seenMessageCount, 3)
+            controller.viewWillDisappear(false)
+            readState.observe([thread], answeringThreadIds: [])
+            XCTAssertFalse(readState.isUnread(thread))
+            readState.answerDidComplete(threadId: threadId)
+            XCTAssertTrue(readState.isUnread(thread))
+        }
+    }
+
+    @MainActor
+    func testOfflineHistoryAfterWalletContextRetryStillRestoresCache() async throws {
+        let client = try makeCachedHistoryClient(threadId: "context-offline")
+        client.messageFailure = try readFailure(.walletContextChanged)
+        client.messageFailuresRemaining = 1
+        client.blocksMessages = true
+        let coordinator = AgentV2Coordinator(client: client, thread: client.hydration.thread, isSummaryCached: true)
+        defer { coordinator.stop(); client.releasePendingRequests() }
+        let hydration = Task { await coordinator.hydrate() }
+        try await waitUntil { client.pendingMessages != nil }
+        client.resumeMessages(with: .failure(try readFailure(.networkError)))
+        _ = await hydration.value
+        XCTAssertTrue(coordinator.isShowingCachedMessages)
+        XCTAssertEqual(coordinator.error, AgentV2Copy.error(.networkError))
+        XCTAssertNil(coordinator.seenMessageCount)
+    }
+
+    @MainActor
+    func testStoppedOfflineChatRejectsALateCachedHistory() async throws {
+        let client = try makeCachedHistoryClient(threadId: "retired-offline")
+        client.blocksCachedHistory = true
+        client.messageFailure = try readFailure(.networkError)
+        client.messageFailuresRemaining = 1
+        let coordinator = AgentV2Coordinator(client: client, thread: client.hydration.thread, isSummaryCached: true)
+        let hydration = Task { await coordinator.hydrate() }
+        try await waitUntil { client.cachedHistoryThreadIds.count == 1 }
+        coordinator.stop()
+        client.resumeCachedHistory()
+        _ = await hydration.value
+        XCTAssertTrue(coordinator.messages.isEmpty)
+        XCTAssertFalse(coordinator.isShowingCachedMessages)
+    }
+
+    @MainActor
+    func testOfflineEmptyOrForeignHistoryShowsConnectionErrorWithoutMessages() async throws {
+        for hasForeignHistory in [false, true] {
+            let client = try makeCachedHistoryClient(threadId: "offline-empty-\(UUID().uuidString)")
+            client.cachedHistory = hasForeignHistory
+                ? try makeCachedHistory(decodeThread(id: "other-thread", revision: 1), answer: "Private answer") : nil
+            client.messageFailure = try readFailure(.networkError)
+            client.messageFailuresRemaining = 1
+            let model = AgentV2Model(client: client, thread: client.hydration.thread, isSummaryCached: true)
+            defer { model.stop() }
+            await model.waitForInitialLoad()
+            XCTAssertFalse(model.hasMessages)
+            XCTAssertEqual(model.initialLoadError, AgentV2Copy.error(.networkError))
+        }
+    }
+
     /// The SDK's copy of the history shows while the history loads, with nothing in it to act on, and the history
     /// replaces it
     @MainActor
@@ -4180,8 +4353,8 @@ final class AgentV2ThreadChatTests: XCTestCase {
     func testEmptyChatsStarterHintsEndWithContactSupportThatOpensTheChatSupportHasOrAsksHere() async throws {
         let client = try ThreadChatClient(threadId: "new-thread", messages: [])
         client.blocksRuns = true
-        client.hintsResult = try JSONDecoder().decode(ApiAgentV2HintsResponse.self, from: Data("""
-        {"protocolVersion":3,"catalogVersion":"v1","items":[{"id":"agent.capabilities"},{"id":"learn.swap"}]}
+        client.hintsResult = try JSONDecoder().decode(ApiAgentV2StarterHints.self, from: Data("""
+        {"catalogVersion":"agent-starter-hints-v2","items":[{"id":"agent.capabilities","group":"learn"},{"id":"wallet.assets","group":"wallet"}]}
         """.utf8))
         client.blocksThreadList = true
         client.threadList = try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: JSONSerialization.data(withJSONObject: [
@@ -4337,8 +4510,8 @@ final class AgentV2ThreadChatTests: XCTestCase {
     func testStarterHintSupportRequestDropsOnceAQuestionGoesWhileTheChatsLoad() async throws {
         let client = try ThreadChatClient(threadId: "new-thread", messages: [])
         client.blocksRuns = true
-        client.hintsResult = try JSONDecoder().decode(ApiAgentV2HintsResponse.self, from: Data("""
-        {"protocolVersion":3,"catalogVersion":"v1","items":[{"id":"agent.capabilities"}]}
+        client.hintsResult = try JSONDecoder().decode(ApiAgentV2StarterHints.self, from: Data("""
+        {"catalogVersion":"agent-starter-hints-v2","items":[{"id":"agent.capabilities","group":"learn"}]}
         """.utf8))
         client.threadList = try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: JSONSerialization.data(withJSONObject: [
             "protocolVersion": 2,
@@ -4373,8 +4546,8 @@ final class AgentV2ThreadChatTests: XCTestCase {
 
     @MainActor
     func testStarterHintSupportRequestDropsOnceTheChatIsLeftWhileTheChatsLoad() async throws {
-        let hints = try JSONDecoder().decode(ApiAgentV2HintsResponse.self, from: Data("""
-        {"protocolVersion":3,"catalogVersion":"v1","items":[{"id":"agent.capabilities"}]}
+        let hints = try JSONDecoder().decode(ApiAgentV2StarterHints.self, from: Data("""
+        {"catalogVersion":"agent-starter-hints-v2","items":[{"id":"agent.capabilities","group":"learn"}]}
         """.utf8))
         let client = try ThreadChatClient(threadId: "new-thread", messages: [])
         client.blocksRuns = true
@@ -4843,7 +5016,14 @@ private final class ThreadChatClient: AgentV2Client, AgentThreadListClient, Wall
     private(set) var pendingRun: CheckedContinuation<ApiAgentV2RunResult, Error>?
     private(set) var pendingRetry: CheckedContinuation<ApiAgentV2RunResult?, Error>?
 
-    init(threadId: String, title: String? = nil, icon: String? = nil, messages: [[String: Any]]? = nil, news: ApiAgentV2ThreadNewsCard? = nil) throws {
+    init(
+        threadId: String,
+        title: String? = nil,
+        icon: String? = nil,
+        messages: [[String: Any]]? = nil,
+        news: ApiAgentV2ThreadNewsCard? = nil,
+        digest: ApiAgentV2ThreadDigestCard? = nil
+    ) throws {
         var thread: [String: Any] = [
             "id": threadId,
             "revision": 2,
@@ -4856,6 +5036,9 @@ private final class ThreadChatClient: AgentV2Client, AgentThreadListClient, Wall
         thread["icon"] = icon
         if let news {
             thread["news"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(news))
+        }
+        if let digest {
+            thread["digest"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(digest))
         }
         hydration = try JSONDecoder().decode(
             ApiAgentV2ThreadHydration.self,
@@ -4915,10 +5098,16 @@ private final class ThreadChatClient: AgentV2Client, AgentThreadListClient, Wall
         pendingHostContext = nil
         continuation?.resume(with: result)
     }
-    var hintsResult: ApiAgentV2HintsResponse?
-    func hints() async throws -> ApiAgentV2HintsResponse {
+    var hintsResult: ApiAgentV2StarterHints?
+    func starterHints(
+        walletState: ApiAgentV2HintWalletState?,
+        host: ApiAgentV2HostContext?
+    ) async throws -> ApiAgentV2StarterHints {
         guard let hintsResult else { throw ThreadChatClientError.unavailable }
         return hintsResult
+    }
+    func hintWalletState(of account: MAccount) -> ApiAgentV2HintWalletState? {
+        nil
     }
     func loadAvailability() async {
         availabilityRequestCount += 1

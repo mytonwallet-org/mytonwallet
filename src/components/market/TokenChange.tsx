@@ -9,12 +9,14 @@ import styles from './Market.module.scss';
 const ZERO_CHANGE_THRESHOLD = 0.05;
 
 interface OwnProps {
-  change: number;
+  change?: number;
   className?: string;
 }
 
 function TokenChange({ change, className }: OwnProps) {
-  // A zero change has no direction to show
+  // An unknown change shows a dash, unlike a zero one, which has no direction to show
+  if (change === undefined) return <span className={buildClassName(styles.change, className)}>—</span>;
+
   if (Math.abs(change) < ZERO_CHANGE_THRESHOLD) return undefined;
 
   const isPositive = change >= 0;

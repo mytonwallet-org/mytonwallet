@@ -115,7 +115,7 @@ function TransactionModal({
     closeActivityInfo,
     setIsPinAccepted,
     clearIsPinAccepted,
-    selectToken,
+    showTokenActivity,
   } = getActions();
 
   const { isPortrait } = useDeviceScreen();
@@ -260,7 +260,7 @@ function TransactionModal({
 
   const handleTokenClick = useLastCallback((tokenSlug: string) => {
     closeActivityInfo({ id: id! });
-    selectToken({ slug: tokenSlug });
+    showTokenActivity({ slug: tokenSlug });
   });
 
   const handleShareClick = useLastCallback(() => {

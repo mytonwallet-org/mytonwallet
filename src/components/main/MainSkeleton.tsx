@@ -1,7 +1,6 @@
 import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
-import { IS_EXPLORER } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import getDeterministicRandom from '../../util/getDeterministicRandom';
 
@@ -44,7 +43,7 @@ const ACTIVITY_ITEMS: ActivityItemData[][] = [
 
 const NAVIGATION_LINKS_COUNT = 4;
 const PORTRAIT_ACTIONS_COUNT = 4;
-const PORTRAIT_TOKENS_COUNT = 2;
+const PORTRAIT_TOKENS_COUNT = 4;
 // Sections of `BottomBar` in portrait and `LandscapeNavBar` in landscape
 const NAV_ITEMS_COUNT = 5;
 const TOP_ACTIONS_COUNT = 6;
@@ -245,21 +244,11 @@ function MainSkeleton({ isViewMode }: OwnProps) {
     );
   }
 
-  function renderTabs() {
-    return (
-      <div className={styles.tabs}>
-        <Skeleton className={styles.tab} />
-        <Skeleton className={styles.tab} />
-        {!isViewMode && <Skeleton className={styles.tab} />}
-      </div>
-    );
-  }
-
   if (isPortrait) {
     return (
       <div className={styles.portraitContainer}>
         <div className={styles.head}>
-          {renderHeader(IS_EXPLORER)}
+          {renderHeader(true)}
           {renderCard()}
           {!isViewMode && renderActions()}
         </div>
@@ -267,10 +256,7 @@ function MainSkeleton({ isViewMode }: OwnProps) {
           {renderTokens(PORTRAIT_TOKENS_COUNT)}
         </div>
         <div className={styles.content}>
-          <div className={styles.contentInner}>
-            {renderTabs()}
-            {renderActivityList()}
-          </div>
+          {renderActivityList()}
         </div>
         {renderBottomBar()}
       </div>
@@ -284,7 +270,7 @@ function MainSkeleton({ isViewMode }: OwnProps) {
         {renderCard()}
         {renderNavBar()}
         {renderAddWallet()}
-        {IS_EXPLORER && renderOpenInWallet()}
+        {renderOpenInWallet()}
       </div>
       <div className={mainStyles.main}>
         <div className={buildClassName(styles.overview, 'custom-scroll')}>

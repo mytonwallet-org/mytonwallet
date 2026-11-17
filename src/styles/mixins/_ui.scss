@@ -212,6 +212,40 @@
   }
 }
 
+// Rounded background of a home toolbar element. It is drawn on `::before`, not on the element itself,
+// so `animateCapsuleWidth` can resize it smoothly when the element width changes.
+
+@mixin homeToolbarCapsule() {
+  isolation: isolate;
+  position: relative;
+
+  &::before {
+    content: '';
+
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+
+    border-radius: calc(#{v.$homeToolbarHeight} / 2);
+
+    background-color: var(--home-toolbar-capsule, var(--color-background-first));
+
+    @include t.transition(background-color 200ms);
+  }
+}
+
+// Screens already pad their top by `--safe-area-top`, so adding the toolbar height to it moves them below the toolbar
+
+@mixin belowHomeToolbar() {
+  :global(html.with-home-toolbar) & {
+    --safe-area-top: calc(var(--device-safe-area-top) + #{v.$homeToolbarPortraitOffset});
+  }
+
+  :global(html.with-home-toolbar.is-windows.is-opera.is-extension) & {
+    --safe-area-top: calc(var(--device-safe-area-top) + #{v.$homeToolbarOperaExtensionOffset});
+  }
+}
+
 // Shared container for the draggable segmented "pill" controls (bottom bar, time-range selector).
 // Holds the glass capsule look + drag feedback; pair with `useDraggablePill` and the `Pill` component.
 // Per-component specifics (margin, max-width, responsive overrides) are added by the consumer -
@@ -351,4 +385,15 @@
   z-index: 1;
   top: 0.5625rem;
   inset-inline-start: 0.5625rem;
+}
+
+// The element and its content keep the default accent, whatever accent the account picks
+
+@mixin defaultAccent() {
+  --color-accent: var(--color-default-accent);
+  --color-accent-10o: var(--color-default-accent-10o);
+  --color-accent-button-background: var(--color-default-accent);
+  --color-accent-button-background-hover: var(--color-default-accent-button-background-hover);
+  --color-accent-button-text: #FFFFFF;
+  --color-accent-button-text-hover: #FFFFFF;
 }

@@ -21,11 +21,12 @@ export const GRID_MAX_ITEMS = 6 * 2;
 
 interface OwnProps {
   section: MarketSection;
+  showAllLabel?: string;
   onTokenClick: (slug: string) => void;
   onShowAllClick: (sectionId: string) => void;
 }
 
-function Section({ section, onTokenClick, onShowAllClick }: OwnProps) {
+function Section({ section, showAllLabel, onTokenClick, onShowAllClick }: OwnProps) {
   const { id, title, layout, visibleLimit, hasMore, tokens } = section;
 
   const lang = useLang();
@@ -85,7 +86,7 @@ function Section({ section, onTokenClick, onShowAllClick }: OwnProps) {
             data-testid={getTestId('market_see_all')}
             onClick={handleShowAllClick}
           >
-            {lang('Show All')}
+            {showAllLabel ?? lang('Show All')}
           </button>
         )}
       </div>

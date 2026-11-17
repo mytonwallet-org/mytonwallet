@@ -39,6 +39,46 @@ beforeEach(() => {
   mockBeforeWriteTransaction = undefined;
 });
 
+test('news survives a new cache context and matches identity, view and request parameters', async () => {
+  const cache = await loadCache();
+  const page = { locale: 'en' as const, items: [] };
+  const request = 'locale=en&digestHour=9&timeZone=UTC';
+  await cache.cacheNewsFeed(DEVICE_ID, { request, page }, cache.beginNewsFeedCacheRequest());
+  let reopened!: typeof import('./threadCache');
+  jest.isolateModules(() => {
+    reopened = jest.requireActual('./threadCache');
+  });
+  expect(await reopened.getCachedNewsFeed(DEVICE_ID, request)).toEqual(page);
+  expect(await reopened.getCachedNewsFeed(DEVICE_ID, request, 'digests')).toBeUndefined();
+  expect(await reopened.getCachedNewsFeed(DEVICE_ID, `${request}&digestMinute=15`)).toBeUndefined();
+  expect(await reopened.getCachedNewsFeed(DEVICE_ID, request.replace('en', 'ru'))).toBeUndefined();
+  expect(await reopened.getCachedNewsFeed('another-device', request)).toBeUndefined();
+  expect(mockStore.size).toBe(0);
+});
+
+test('news keeps at most one bounded page per view and rejects superseded or reset writes', async () => {
+  const cache = await loadCache();
+  const page = { locale: 'en' as const, items: [] };
+  const firstGeneration = cache.beginNewsFeedCacheRequest();
+  const latestGeneration = cache.beginNewsFeedCacheRequest();
+  await cache.cacheNewsFeed(DEVICE_ID, { request: 'latest', page }, latestGeneration);
+  await cache.cacheNewsFeed(DEVICE_ID, { request: 'stale', page }, firstGeneration);
+  await cache.cacheNewsFeed(
+    DEVICE_ID, { request: 'digests', page }, cache.beginNewsFeedCacheRequest('digests'), 'digests',
+  );
+  expect(await cache.getCachedNewsFeed(DEVICE_ID, 'latest')).toEqual(page);
+  expect([...mockStore.keys()].sort()).toEqual(['news:all', 'news:digests']);
+  await cache.cacheNewsFeed(DEVICE_ID, { request: 'x'.repeat(512 * 1024), page }, cache.beginNewsFeedCacheRequest());
+  expect(await cache.getCachedNewsFeed(DEVICE_ID, 'latest')).toBeUndefined();
+  const pendingGeneration = cache.beginNewsFeedCacheRequest();
+  await cache.clearThreadCache();
+  await cache.cacheNewsFeed(DEVICE_ID, { request: 'after-reset', page }, pendingGeneration);
+  expect(mockStore.size).toBe(0);
+  cache.beginNewsFeedCacheRequest();
+  await cache.cacheNewsFeed(DEVICE_ID, { request: 'after-new-request', page }, pendingGeneration);
+  expect(mockStore.size).toBe(0);
+});
+
 test('independent cache contexts keep fifteen parallel writes within the shared LRU limit', async () => {
   let first!: typeof import('./threadCache');
   let second!: typeof import('./threadCache');

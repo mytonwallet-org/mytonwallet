@@ -2,6 +2,8 @@ import XCTest
 import UIKit
 @testable import UIAgent
 import UIComponents
+import WalletContext
+import WalletCore
 import WalletResources
 
 @MainActor
@@ -30,6 +32,33 @@ final class AgentSuggestionTests: XCTestCase {
             .message(response())
         ], animated: false)
         XCTAssertTrue(model.visibleHints.isEmpty, "Opening chat history must not show the default suggestions")
+    }
+
+    func testStarterHintsAreAskedForTheKnownStateOfTheWallet() {
+        XCTAssertEqual(ApiAgentV2HintWalletState(balance: 0, hasLoadedBalances: true), .empty)
+        XCTAssertEqual(ApiAgentV2HintWalletState(balance: 1, hasLoadedBalances: true), .funded)
+        XCTAssertEqual(
+            ApiAgentV2HintWalletState(balance: 1, hasLoadedBalances: false),
+            .funded,
+            "A chain that never reports must not hide the wallet hints of a wallet that already holds funds"
+        )
+        XCTAssertNil(ApiAgentV2HintWalletState(balance: 0, hasLoadedBalances: false))
+        XCTAssertNil(ApiAgentV2HintWalletState(balance: nil, hasLoadedBalances: true))
+    }
+
+    func testStarterHintsOfAnIdOrGroupThisVersionDoesNotKnowAreLeftOut() throws {
+        let hints = try JSONDecoder().decode(ApiAgentV2StarterHints.self, from: Data("""
+        {"catalogVersion":"agent-starter-hints-v2","items":[
+          {"id":"wallet.assets","group":"wallet"},
+          {"id":"wallet.future","group":"wallet"},
+          {"id":"market.today","group":"future"},
+          {"id":"action.swap","group":"action"}
+        ]}
+        """.utf8))
+        XCTAssertEqual(hints, ApiAgentV2StarterHints(catalogVersion: "agent-starter-hints-v2", items: [
+            ApiAgentV2StarterHint(id: .walletAssets, group: .wallet),
+            ApiAgentV2StarterHint(id: .actionSwap, group: .action),
+        ]))
     }
 
     func testHistoryOnlyShowsFollowupsOnTheLastAssistantMessage() {

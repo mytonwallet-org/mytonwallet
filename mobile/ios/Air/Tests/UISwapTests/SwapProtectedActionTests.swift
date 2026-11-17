@@ -43,6 +43,20 @@ struct SwapProtectedActionTests {
         #expect(SwapExecutionResult.matches(activity: activity, receipt: receipt))
     }
 
+    @Test
+    func `mfa completion selects the swap instead of a refill in the same transaction`() throws {
+        let receipt = ActionSubmissionReceipt(
+            payload: SwapExecutionResult.submitted,
+            externalMessageHashes: ["mfa-external-message"]
+        )
+        let refill = transactionActivity(id: "refill-message:0", externalMsgHashNorm: "mfa-external-message")
+        #expect(!SwapExecutionResult.matches(activity: refill, receipt: receipt))
+        #expect(SwapExecutionResult.matches(
+            activity: try swapActivity(id: "mfa-external-message"),
+            receipt: receipt
+        ))
+    }
+
     private func swapActivity(id: String) throws -> ApiActivity {
         let json = """
         {
@@ -60,12 +74,12 @@ struct SwapProtectedActionTests {
         return try JSONDecoder().decode(ApiActivity.self, from: Data(json.utf8))
     }
 
-    private func transactionActivity(id: String) -> ApiActivity {
+    private func transactionActivity(id: String, externalMsgHashNorm: String? = nil) -> ApiActivity {
         .transaction(
             ApiTransactionActivity(
                 id: id,
                 kind: "transaction",
-                externalMsgHashNorm: nil,
+                externalMsgHashNorm: externalMsgHashNorm,
                 timestamp: 0,
                 amount: 0,
                 fromAddress: "from",

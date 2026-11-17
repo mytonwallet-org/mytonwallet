@@ -35,7 +35,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiagent.R as UIAgentR
-import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadTitle
+import org.mytonwallet.app_air.uiagent.agentV2.formatAgentDigestDiscussionTitle
+import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadListTexts
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportLabelStyle
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentSupportLabelStyle
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSpinningTopView
@@ -221,13 +222,16 @@ internal class AgentThreadCell(context: Context) :
             rowView.shouldHoldHighlight = false
             resetSwipe()
         }
-        val title = thread.title?.takeIf { it.isNotBlank() }
-        val preview = item.preview?.takeIf { it.isNotBlank() }
+        val texts = resolveAgentThreadListTexts(
+            item,
+            LocaleController.getString("New Chat"),
+            ::formatAgentDigestDiscussionTitle
+        )
         val isPinned = thread.isPinned == true
         avatarView.configure(thread.id, thread.icon)
         rowView.setTexts(
-            title = title ?: preview ?: resolveAgentThreadTitle(thread),
-            preview = if (title == null) null else preview,
+            title = texts.title,
+            preview = texts.preview,
             time = AgentThreadDateFormatting.formatRowTimestamp(
                 agentThreadActivityDate(thread),
                 Date(),

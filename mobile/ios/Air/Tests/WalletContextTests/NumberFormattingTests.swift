@@ -330,6 +330,19 @@ struct WalletContextNumberFormattingTests {
     }
 
     @Test
+    func `formatBigIntText leaves zero unsigned when signs are requested`() {
+        let formatted = formatBigIntText(
+            BigInt(0),
+            currency: "$",
+            negativeSign: true,
+            positiveSign: true,
+            tokenDecimals: 6
+        )
+
+        #expect(formatted == "$0")
+    }
+
+    @Test
     func `formatBigIntText applies positive and negative signs`() {
         let positive = formatBigIntText(
             BigInt(1_234),

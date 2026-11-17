@@ -1,0 +1,204 @@
+@use "../../../styles/mixins";
+
+.root {
+  position: fixed;
+  z-index: var(--z-media-viewer);
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  @include mixins.respond-above(xs) {
+    background-color: rgba(0, 0, 0, 0.9);
+  }
+}
+
+// A phone shows the stories on the whole screen, and a wider window shows them in a card over the backdrop
+.card {
+  position: relative;
+
+  overflow: hidden;
+
+  width: 100%;
+  height: 100%;
+
+  color: var(--color-white);
+
+  // The dialog takes the focus only to be announced, and its buttons show their own focus
+  outline: none;
+
+  @include mixins.respond-above(xs) {
+    aspect-ratio: 402 / 874;
+    width: auto;
+    height: min(54.625rem, calc(100% - 2rem));
+    border-radius: 1rem;
+  }
+}
+
+.tapArea {
+  user-select: none;
+  position: absolute;
+  inset: 0;
+
+  -webkit-tap-highlight-color: transparent;
+}
+
+// Taps pass through the page to the area under it, except for its button
+.pages {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+// The clip brings its own background, and the gradient shows until the clip arrives. A page is opaque, so the next
+// one fading in over it hides its text.
+.page {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #00B7FF 0%, #0A72F4 50%, #0068EE 100%);
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+}
+
+.content {
+  position: absolute;
+  bottom: max(calc(var(--safe-area-bottom) + 0.5rem), 2.625rem);
+  inset-inline: 1.5rem;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  min-height: 13.5rem;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 2.25rem;
+  white-space: pre-line;
+
+  @include mixins.respond-above(xs) {
+    font-size: 1.6875rem;
+  }
+}
+
+.body {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
+}
+
+.button {
+  pointer-events: auto;
+  cursor: var(--custom-cursor, pointer);
+
+  height: 3rem;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 1.5rem;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  // The stories look the same in both themes
+  color: #2C333E;
+
+  background-color: var(--color-white);
+
+  @include mixins.active-transition-optimization();
+}
+
+.progress {
+  pointer-events: none;
+
+  position: absolute;
+  top: calc(var(--safe-area-top) + 0.75rem);
+  inset-inline: 1.5rem;
+
+  display: flex;
+  gap: 0.25rem;
+
+  height: 0.1875rem;
+}
+
+.progressBar {
+  overflow: hidden;
+  flex: 1;
+  // Rounds the ends of the thin bar fully
+  border-radius: 1rem;
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.progressFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-white);
+}
+
+.progressFillActive {
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: progress var(--progress-duration) linear forwards;
+
+  :global(html[dir="rtl"]) & {
+    transform-origin: right;
+  }
+}
+
+.paused {
+  animation-play-state: paused;
+}
+
+.close {
+  cursor: var(--custom-cursor, pointer);
+
+  position: absolute;
+  top: calc(var(--safe-area-top) + 1.9375rem);
+  inset-inline-end: 1.5rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+
+  font-size: 1.5rem;
+  color: var(--color-white);
+
+  background: none;
+}
+
+@keyframes progress {
+  to {
+    transform: scaleX(1);
+  }
+}

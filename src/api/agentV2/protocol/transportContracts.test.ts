@@ -385,11 +385,24 @@ describe('Agent V2 news feed contracts', () => {
     { title: 'Network update', icon: '📰', followups: ['What changed?'] },
     { title: 'Network update', followups: [] },
     undefined,
-  ])('decodes optional discussion naming: %j', (discussionNaming) => {
+  ])('decodes optional news discussion naming: %j', (discussionNaming) => {
     const item = { ...newsFeedItem(), ...(discussionNaming !== undefined && { discussionNaming }) };
-    const digest = { ...newsFeedDigest(), ...(discussionNaming !== undefined && { discussionNaming }) };
-    const response = { protocolVersion: 3, locale: 'en', items: [item], digests: [digest] };
+    const response = { protocolVersion: 3, locale: 'en', items: [item], digests: [newsFeedDigest()] };
     expect(decodeAgentV2NewsFeed(response)).toEqual(response);
+  });
+
+  it.each([
+    ['What changed?'],
+    ['What changed?', 'Why did Bitcoin rise?', 'What does the release add?'],
+    ['x'.repeat(80)],
+    undefined,
+  ])('decodes optional digest discussion follow-ups and drops a digest\'s naming: %j', (discussionFollowups) => {
+    const digest = { ...newsFeedDigest(), ...(discussionFollowups !== undefined && { discussionFollowups }) };
+    const response = { protocolVersion: 3, locale: 'en', items: [], digests: [digest] };
+    expect(decodeAgentV2NewsFeed({
+      ...response,
+      digests: [{ ...digest, discussionNaming: { title: 'Network update', followups: [] }, futureField: true }],
+    })).toEqual(response);
   });
 
   it.each([
@@ -406,15 +419,13 @@ describe('Agent V2 news feed contracts', () => {
     { title: 'Network update', followups: ['One', 'Two', 'Three', 'Four'] },
     { title: 'Network update', followups: ['x'.repeat(81)] },
     { title: 'x'.repeat(81), followups: [] },
-  ])('discards malformed discussion naming and preserves the feed item, digest and page: %j', (discussionNaming) => {
+  ])('discards malformed discussion naming and preserves the feed item and page: %j', (discussionNaming) => {
     const item = newsFeedItem();
-    const digest = newsFeedDigest();
     expect(decodeAgentV2NewsFeed({
       protocolVersion: 3,
       locale: 'en',
       items: [{ ...item, discussionNaming }],
-      digests: [{ ...digest, discussionNaming }],
-    })).toEqual({ protocolVersion: 3, locale: 'en', items: [item], digests: [digest] });
+    })).toEqual({ protocolVersion: 3, locale: 'en', items: [item] });
   });
 
   it('decodes digests with and without a discussion, headlines with and without a picture, ignoring extensions', () => {
@@ -451,6 +462,9 @@ describe('Agent V2 news feed contracts', () => {
     { id: '' }, { id: 'x'.repeat(65) }, { deliveredAt: 'invalid' }, { total: 0 }, { total: 1.5 },
     JSON.parse('{"discussion": null}') as Record<string, unknown>,
     { discussion: { threadId: 'not-a-thread' } },
+    JSON.parse('{"discussionFollowups": null}') as Record<string, unknown>,
+    { discussionFollowups: [] }, { discussionFollowups: ['One', 'Two', 'Three', 'Four'] },
+    { discussionFollowups: [' '] }, { discussionFollowups: ['a\nb'] }, { discussionFollowups: ['x'.repeat(81)] },
   ])('rejects malformed digests: %j', (change) => {
     const digests = 'digests' in change ? change.digests : [{ ...newsFeedDigest(), ...change }];
     expect(() => decodeAgentV2NewsFeed({ protocolVersion: 3, locale: 'en', items: [], digests }))

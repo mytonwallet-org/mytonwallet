@@ -8,7 +8,7 @@ import { runInNewContext } from 'node:vm';
 
 import { settlePullRequest } from './ciSettle.mjs';
 
-const JOBS = ['ios', 'android', 'simpleTests'];
+const JOBS = ['ios', 'android', 'simpleTests', 'agentV2E2e'];
 const CONTEXT = {
   repo: { owner: 'mytonwallet-org', repo: 'mytonwallet-dev' },
   actor: 'pusher',

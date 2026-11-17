@@ -1,10 +1,10 @@
-import React, { memo, useRef } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../global';
+import React, { memo, useEffect, useLayoutEffect, useRef } from '../../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiNft, ApiNftCollection, ApiStakingState } from '../../../../api/types';
 import { type Account, ContentTab } from '../../../../global/types';
 
-import { requestMutation } from '../../../../lib/fasterdom/fasterdom';
+import { requestForcedReflow } from '../../../../lib/fasterdom/fasterdom';
 import {
   selectAccountStakingStates,
   selectCurrentAccount,
@@ -13,37 +13,36 @@ import {
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectEnabledTokensCountMemoizedFor,
+  selectIsContentListOpen,
+  selectShownContentTab,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { captureControlledSwipe } from '../../../../util/swipeController';
 import { calcVestingAmountByStatus } from '../../../../util/vesting';
-import { IS_TOUCH_ENV, REM, STICKY_CARD_INTERSECTION_THRESHOLD } from '../../../../util/windowEnvironment';
-import windowSize from '../../../../util/windowSize';
-import { calcSafeAreaTop } from '../../helpers/calcSafeAreaTop';
+import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
+import { openStaking } from '../../helpers/openStaking';
 import { getScrollableContainer } from '../../helpers/scrollableContainer';
 
-import useElementVisibility from '../../../../hooks/useElementVisibility';
+import useCurrentOrPrev from '../../../../hooks/useCurrentOrPrev';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
-import useLastCallback from '../../../../hooks/useLastCallback';
+import usePrevious from '../../../../hooks/usePrevious';
 import useScrolledState from '../../../../hooks/useScrolledState';
-import useContentSwipe from './hooks/useContentSwipe';
 import useContentTabs from './hooks/useContentTabs';
 
-import TabList from '../../../ui/TabList';
+import BackHeader from '../../../common/BackHeader';
 import Transition from '../../../ui/Transition';
 import HideNftModal from '../../modals/HideNftModal';
-import Assets from './Assets';
 import ContentSlide from './ContentSlide';
 import NftCollectionHeader from './NftCollectionHeader';
 import NftSelectionHeader from './NftSelectionHeader';
+import PortraitWalletOverview from './PortraitWalletOverview';
+import { OPEN_CONTEXT_MENU_CLASS_NAME } from './Token';
 
 import styles from './Content.module.scss';
 
-const INTERSECTION_APPROXIMATION_VALUE_PX = 3 * REM;
-
 interface OwnProps {
-  isActive?: boolean;
-  onTabsStuck?: (isStuck: boolean) => void;
-  onStakedTokenClick: NoneToVoidFunction;
+  /** Renders the full list screen instead of the wallet overview */
+  isListScreen?: boolean;
 }
 
 interface StateProps {
@@ -52,7 +51,7 @@ interface StateProps {
   nfts?: Record<string, ApiNft>;
   currentCollection?: ApiNftCollection;
   selectedNfts?: ApiNft[];
-  activeContentTab?: ContentTab;
+  shownContentTab?: ContentTab;
   currentTokenSlug?: string;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
@@ -65,12 +64,11 @@ interface StateProps {
     addresses: string[];
     isCollection: boolean;
   };
-  currentSiteCategoryId?: number;
   collectionTabs?: ApiNftCollection[];
+  isContentListOpen: boolean;
 }
 
 function PortraitContent({
-  isActive,
   byChain,
   tokensCount,
   nfts,
@@ -83,30 +81,39 @@ function PortraitContent({
   states,
   hasVesting,
   alwaysHiddenSlugs,
-  activeContentTab,
+  shownContentTab,
   activityReturnContentTab,
-  currentSiteCategoryId,
   collectionTabs,
   currentTokenSlug,
-  onStakedTokenClick,
-  onTabsStuck,
+  isContentListOpen,
+  isListScreen,
 }: OwnProps & StateProps) {
+  const { closeNftCollection } = getActions();
+
   const containerRef = useRef<HTMLDivElement>();
-  const tabsRef = useRef<HTMLDivElement>();
   const transitionRef = useRef<HTMLDivElement>();
 
   const hasNftSelection = Boolean(selectedNfts?.length);
+  const wasContentListOpen = usePrevious(isContentListOpen);
+
+  // The closing list screen fades out with the title and the list it showed
+  const lastList = useCurrentOrPrev(
+    isContentListOpen ? { tab: shownContentTab, collection: currentCollection } : undefined,
+    true,
+  );
+  const shownCollection = isListScreen ? lastList?.collection : currentCollection;
 
   const {
     tabs,
     mainContentTabsCount,
     activeTabIndex,
     contentTransitionKey,
+    collections,
     visibleCollectionTabs,
     totalTokensAmount,
-    shouldShowSeparateAssetsPanel,
+    backHeaderTitle,
     activeNftKey,
-    handleSwitchTab,
+    handleHeaderBackClick,
     handleClickAsset,
   } = useContentTabs({
     byChain,
@@ -115,113 +122,114 @@ function PortraitContent({
     whitelistedNftAddresses,
     areUnverifiedNftsHidden,
     collectionTabs,
-    activeContentTab,
+    activeContentTab: isListScreen ? lastList?.tab : shownContentTab,
     activityReturnContentTab,
-    currentCollection,
+    currentCollection: shownCollection,
     currentTokenSlug,
     states,
     hasVesting,
     alwaysHiddenSlugs,
     tokensCount,
-    isPortrait: true,
-    isLandscape: false,
   });
 
-  const { isScrolled } = useScrolledState();
+  const { isScrolled, update: updateScrolledState } = useScrolledState();
 
-  useContentSwipe({
-    transitionRef,
-    tabs,
-    activeTabIndex,
-    currentCollection,
-    currentSiteCategoryId,
-    onSwitchTab: handleSwitchTab,
-  });
+  // The list scrolls together with the whole app slide, which is outside of this component
+  useEffect(() => {
+    if (!isListScreen) return undefined;
+
+    const scrollContainer = getScrollableContainer(containerRef.current, true) as HTMLElement;
+
+    function handleScroll() {
+      updateScrolledState(scrollContainer);
+    }
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [isListScreen, containerRef, updateScrolledState]);
+
+  const isCollectionOpen = Boolean(currentCollection);
+
+  useEffect(() => {
+    if (!IS_TOUCH_ENV || !isListScreen || !isContentListOpen || hasNftSelection) return undefined;
+
+    return captureControlledSwipe(transitionRef.current!, {
+      onSwipeRightStart: () => {
+        // A long press on a row opens its menu, and moving the finger after it must not count as a swipe
+        if (transitionRef.current!.querySelector(`.${OPEN_CONTEXT_MENU_CLASS_NAME}`)) return;
+
+        if (isCollectionOpen) {
+          closeNftCollection();
+        } else {
+          handleHeaderBackClick();
+        }
+      },
+      // No `Transition` here follows the finger (`withSwipeControl`), so there is no swipe animation to undo
+      onCancel: () => undefined,
+      excludedSelector: '.no-swipe',
+    });
+  }, [closeNftCollection, handleHeaderBackClick, hasNftSelection, isCollectionOpen, isContentListOpen, isListScreen]);
 
   useHistoryBack({
-    isActive: activeTabIndex !== 0,
-    onBack: () => {
-      const returnTab = activeContentTab === ContentTab.Activity && activityReturnContentTab !== undefined
-        ? activityReturnContentTab
-        : ContentTab.Assets;
-      handleSwitchTab(returnTab);
-    },
+    // An open collection is closed by the history record of `NftCollectionHeader`
+    isActive: Boolean(isListScreen) && isContentListOpen && !currentCollection,
+    onBack: handleHeaderBackClick,
   });
 
-  const safeAreaTop = calcSafeAreaTop();
-  const intersectionRootMarginTop = STICKY_CARD_INTERSECTION_THRESHOLD - safeAreaTop - 1;
+  const shownListTab = lastList?.tab;
+  const shownCollectionAddress = shownCollection?.address;
 
-  const handleTabIntersection = useLastCallback((e: IntersectionObserverEntry) => {
-    const { intersectionRect: { bottom }, intersectionRatio } = e;
-    const isStuck = intersectionRatio < 1
-      // During fast scrolling with rubber effect, the values in `intersectionRect` are `0`
-      && bottom > 0
-      // Due to the overscroll effect in iOS, it is necessary to check the bottom position of the element.
-      // If the `bottom` value and `height` of the screen are approximately equal, this is overscroll, not sticking.
-      && Math.abs(bottom - windowSize.get().height) > INTERSECTION_APPROXIMATION_VALUE_PX;
+  // The app slide scrolls the list and outlives it, and every list opens from its top
+  useLayoutEffect(() => {
+    if (!isListScreen || !isContentListOpen) return;
 
-    onTabsStuck?.(isStuck);
-    requestMutation(() => {
-      containerRef.current?.classList.toggle(styles.portraitContainerIsStuck, isStuck);
+    requestForcedReflow(() => () => {
+      getScrollableContainer(containerRef.current, true)?.scrollTo({ top: 0, behavior: 'instant' });
     });
-  });
-
-  useElementVisibility({
-    targetRef: tabsRef,
-    rootMargin: `${intersectionRootMarginTop}px 0px 0px 0px`,
-    threshold: [1],
-    cb: handleTabIntersection,
-  });
-
-  const handleScrollToTop = useLastCallback(() => {
-    const scrollContainer = getScrollableContainer(transitionRef.current, true);
-    scrollContainer?.scrollTo(0, 0);
-  });
+  }, [isListScreen, isContentListOpen, shownListTab, shownCollectionAddress, containerRef]);
 
   const containerClassName = buildClassName(
     styles.container,
     IS_TOUCH_ENV && 'swipe-container',
     styles.portraitContainer,
+    isListScreen && styles.listContainer,
   );
 
   const activeTabId = tabs[activeTabIndex]?.id;
+  const nftTab = tabs.find(({ id }) => id === ContentTab.Nft);
 
   function renderHeader() {
     const isNftSelectionVisible = hasNftSelection
-      && (activeContentTab === ContentTab.Nft || Boolean(currentCollection));
-    const headerTransitionKey = isNftSelectionVisible ? 2 : (currentCollection ? 1 : 0);
+      && (shownContentTab === ContentTab.Nft || Boolean(shownCollection));
+    const headerTransitionKey = isNftSelectionVisible ? 2 : (shownCollection ? 1 : 0);
 
     let header;
     if (isNftSelectionVisible) {
       header = <NftSelectionHeader />;
-    } else if (currentCollection) {
-      header = <NftCollectionHeader collection={currentCollection} key={currentCollection.address} />;
-    } else {
+    } else if (shownCollection) {
       header = (
-        <TabList
-          isActive={isActive}
-          tabs={tabs}
-          activeTab={activeTabIndex}
-          onSwitchTab={handleSwitchTab}
-          onActiveTabClick={handleScrollToTop}
-          className={buildClassName(styles.tabs, 'content-tabslist')}
-          overlayClassName={styles.tabsOverlay}
+        <NftCollectionHeader
+          collection={shownCollection}
+          isHidden={!isContentListOpen}
+          key={shownCollection.address}
         />
       );
+    } else {
+      header = <BackHeader title={backHeaderTitle} onBackClick={handleHeaderBackClick} />;
     }
 
     return (
       <div
-        ref={tabsRef}
         className={buildClassName(
           styles.tabsContainer,
-          currentCollection && styles.tabsContainerForNftCollection,
+          shownCollection && styles.tabsContainerForNftCollection,
           'with-notch-on-scroll',
           isScrolled && 'is-scrolled',
         )}
       >
         <Transition
-          name="slideFade"
+          name={wasContentListOpen ? 'slideFade' : 'none'}
           className={styles.tabsContent}
           activeKey={headerTransitionKey}
           slideClassName={styles.tabsSlide}
@@ -237,38 +245,26 @@ function PortraitContent({
   function renderSlide(isSlideActive: boolean) {
     return (
       <ContentSlide
-        isActive={isSlideActive}
+        isActive={isSlideActive && isContentListOpen}
         isPortrait
-        activeTabIndex={activeTabIndex}
         activeTabId={activeTabId}
-        currentCollection={currentCollection}
-        shouldShowSeparateAssetsPanel={shouldShowSeparateAssetsPanel}
-        totalTokensAmount={totalTokensAmount}
+        currentCollection={shownCollection}
         activeNftKey={activeNftKey}
         onClickAsset={handleClickAsset}
-        onStakedTokenClick={onStakedTokenClick}
+        onStakedTokenClick={openStaking}
       />
     );
   }
 
-  return (
-    <>
+  if (isListScreen) {
+    return (
       <div ref={containerRef} className={containerClassName}>
-        {shouldShowSeparateAssetsPanel && (
-          <div className={styles.assetsPanel}>
-            <Assets
-              isActive
-              isSeparatePanel
-              onStakedTokenClick={onStakedTokenClick}
-              onTokenClick={handleClickAsset}
-            />
-          </div>
-        )}
         <div className={styles.contentPanel}>
           {renderHeader()}
           <Transition
             ref={transitionRef}
-            name="slide"
+            // The list behind the opening screen changes at the same moment, and only the screen transition should play
+            name={wasContentListOpen ? 'slide' : 'none'}
             activeKey={contentTransitionKey}
             renderCount={mainContentTabsCount + visibleCollectionTabs.length}
             className={buildClassName(styles.slides, 'content-transition')}
@@ -277,6 +273,21 @@ function PortraitContent({
             {renderSlide}
           </Transition>
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div ref={containerRef} className={containerClassName}>
+        <PortraitWalletOverview
+          totalTokensAmount={totalTokensAmount}
+          collections={collections}
+          visibleCollectionTabs={visibleCollectionTabs}
+          collectiblesMenuItems={nftTab?.menuItems}
+          onCollectiblesMenuItemClick={nftTab?.onMenuItemClick}
+          onStakedTokenClick={openStaking}
+        />
       </div>
       <HideNftModal
         isOpen={Boolean(selectedNftsToHide?.addresses.length)}
@@ -291,7 +302,6 @@ export default memo(
     (global): StateProps => {
       const accountId = selectCurrentAccountId(global);
       const {
-        activeContentTab,
         activityReturnContentTab,
         currentTokenSlug,
         blacklistedNftAddresses,
@@ -304,7 +314,6 @@ export default memo(
           selectedNfts,
           collectionTabs,
         } = {},
-        currentSiteCategoryId,
       } = selectCurrentAccountState(global) ?? {};
 
       const tokens = selectCurrentAccountTokens(global);
@@ -322,7 +331,7 @@ export default memo(
         currentCollection,
         selectedNfts,
         tokensCount,
-        activeContentTab,
+        shownContentTab: selectShownContentTab(global),
         activityReturnContentTab,
         currentTokenSlug,
         blacklistedNftAddresses,
@@ -332,8 +341,8 @@ export default memo(
         states,
         hasVesting,
         alwaysHiddenSlugs,
-        currentSiteCategoryId,
         collectionTabs,
+        isContentListOpen: selectIsContentListOpen(global),
       };
     },
   )(PortraitContent),

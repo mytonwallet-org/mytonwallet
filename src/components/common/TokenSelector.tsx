@@ -403,7 +403,7 @@ function TokenSelector({
     );
   }
 
-  function renderToken(currentToken: TokenType) {
+  function renderToken(currentToken: TokenType, isContentActive: boolean) {
     const isAvailable = Boolean(!shouldFilter || currentToken.canSwap);
     // The trade browser shows the chain as a label next to the name, so the network line is left out
     const descriptionText = !isAvailable
@@ -426,13 +426,15 @@ function TokenSelector({
         descriptionText={descriptionText}
         token={currentToken}
         valueText={valueText}
-        testId={isActive ? getTestId('token_selector_row') : undefined}
+        testId={isActive && isContentActive ? getTestId('token_selector_row') : undefined}
         onSelect={handleTokenClick}
       />
     );
   }
 
-  function renderTokenGroup(tokens: TokenType[], title: string, shouldShowSettings?: boolean) {
+  function renderTokenGroup(
+    tokens: TokenType[], isContentActive: boolean, title: string, shouldShowSettings?: boolean,
+  ) {
     return (
       <div className={buildClassName(styles.tokenGroupContainer, isTradeMode && styles.tokenGroupContainerTrade)}>
         <div className={buildClassName(styles.tokenGroupHeader, isTradeMode && styles.tokenGroupHeaderTrade)}>
@@ -448,15 +450,17 @@ function TokenSelector({
             </span>
           )}
         </div>
-        {tokens.map(renderToken)}
+        {tokens.map((currentToken) => renderToken(currentToken, isContentActive))}
       </div>
     );
   }
 
-  function renderTradeGroup(tokens: TokenType[], title?: string) {
+  function renderTradeGroup(tokens: TokenType[], isContentActive: boolean, title?: string) {
     if (!tokens.length) return undefined;
 
-    return title ? renderTokenGroup(tokens, title) : renderAllTokens(tokens);
+    return title
+      ? renderTokenGroup(tokens, isContentActive, title)
+      : renderAllTokens(tokens, isContentActive);
   }
 
   function renderFiatGroup() {
@@ -480,10 +484,10 @@ function TokenSelector({
     );
   }
 
-  function renderAllTokens(tokens: TokenType[]) {
+  function renderAllTokens(tokens: TokenType[], isContentActive: boolean) {
     return (
       <div className={buildClassName(styles.tokenGroupContainer, isTradeMode && styles.tokenGroupContainerTrade)}>
-        {tokens.map(renderToken)}
+        {tokens.map((currentToken) => renderToken(currentToken, isContentActive))}
       </div>
     );
   }
@@ -526,11 +530,11 @@ function TokenSelector({
     );
   }
 
-  function renderSearchResults(tokenToImport?: TokenType) {
+  function renderSearchResults(isContentActive: boolean, tokenToImport?: TokenType) {
     if (tokenToImport) {
       return (
         <div className={styles.tokenGroupContainer}>
-          {renderToken(tokenToImport)}
+          {renderToken(tokenToImport, isContentActive)}
         </div>
       );
     }
@@ -546,9 +550,9 @@ function TokenSelector({
     );
   }
 
-  function renderTokenGroups() {
+  function renderTokenGroups(isContentActive: boolean) {
     if (tradeSections) {
-      const myGroup = renderTradeGroup(tradeSections.my, lang('My'));
+      const myGroup = renderTradeGroup(tradeSections.my, isContentActive, lang('My'));
 
       if (tradeDirection === 'buy') {
         return (
@@ -563,17 +567,17 @@ function TokenSelector({
         <>
           {myGroup}
           {renderFiatGroup()}
-          {renderTradeGroup(tradeSections.stablecoins, lang('Stablecoins'))}
+          {renderTradeGroup(tradeSections.stablecoins, isContentActive, lang('Stablecoins'))}
           {/* The remaining search matches go without a title, as in the native apps */}
-          {renderTradeGroup(tradeSections.tokens, tradeQuery ? undefined : lang('Tokens'))}
+          {renderTradeGroup(tradeSections.tokens, isContentActive, tradeQuery ? undefined : lang('Tokens'))}
         </>
       );
     }
 
     return (
       <>
-        {!shouldHideMyTokens && renderTokenGroup(userTokensWithFilter, lang('MY'), true)}
-        {renderTokenGroup(popularTokensWithFilter, lang('Popular'))}
+        {!shouldHideMyTokens && renderTokenGroup(userTokensWithFilter, isContentActive, lang('MY'), true)}
+        {renderTokenGroup(popularTokensWithFilter, isContentActive, lang('Popular'))}
       </>
     );
   }
@@ -581,13 +585,13 @@ function TokenSelector({
   function renderContent(isContentActive: boolean, isFrom: boolean, currentKey: SearchState) {
     switch (currentKey) {
       case SearchState.Initial:
-        return renderTokenGroups();
+        return renderTokenGroups(isContentActive);
       case SearchState.Loading:
-        return renderSearchResults();
+        return renderSearchResults(isContentActive);
       case SearchState.Search:
-        return isTradeMode ? renderTokenGroups() : renderAllTokens(searchTokenList);
+        return isTradeMode ? renderTokenGroups(isContentActive) : renderAllTokens(searchTokenList, isContentActive);
       case SearchState.TokenByAddress:
-        return renderSearchResults(token);
+        return renderSearchResults(isContentActive, token);
       case SearchState.Empty:
         return renderNotFound(isContentActive);
     }

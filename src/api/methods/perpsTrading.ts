@@ -577,19 +577,46 @@ async function applyPerpsQuoteFunding(
   const leverageNeed = quote.kind === 'leverage'
     ? await estimatePerpsLeverageChange(quote, params.asset, availableUsdc ?? spendableUsdc)
     : undefined;
-  await estimatePerpsOrder(quote, params.asset);
   if (spendableUsdc !== undefined) {
+    await estimatePerpsOrder(quote, params.asset);
     assertPerpsBalanceCovers(quote, params.asset, spendableUsdc);
     quote.fundingRequirements = buildFundingRequirements({ ...params, spendableUsdc });
     return;
+  }
+  // A wallet fraction may shrink after the gasless reserve is known, so its order waits until then
+  const isWalletFraction = params.draft.fraction !== undefined && !params.draft.editing;
+  if (!isWalletFraction) {
+    await estimatePerpsOrder(quote, params.asset);
   }
   const balances = await readBalances();
   if (leverageNeed !== undefined && availableUsdc === undefined) {
     limitPerpsLeverageChangeDeposit(quote, leverageNeed, balances.availableUsdc);
   }
   const gas = await resolvePerpsDepositGas(
-    quote.accountId, address, balances.availableEth, quote.paymentAmount, nativeFeeEstimate,
+    quote.accountId,
+    address,
+    balances.availableEth,
+    // The whole wallet is the most a fraction can deposit; its paymaster quote sizes that upper bound
+    isWalletFraction ? balances.availableUsdc : quote.paymentAmount,
+    nativeFeeEstimate,
   );
+  if (isWalletFraction && gas.requiredGasUsdc !== undefined && Big(gas.requiredGasUsdc).gt(0)) {
+    Object.assign(quote, resolvePerpsDraft({
+      accountId: quote.accountId,
+      address,
+      asset: params.asset,
+      draft: params.draft,
+      position: params.position,
+      availableUsdc: balances.availableUsdc,
+      reservedUsdc: gas.requiredGasUsdc,
+      depositLimits: params.depositLimits,
+      now: quote.createdAt,
+      id: quote.id,
+    }));
+  }
+  if (isWalletFraction) {
+    await estimatePerpsOrder(quote, params.asset);
+  }
   applyPerpsDepositGas(quote, gas);
   quote.fundingRequirements = getPerpsFundingRequirements({
     ...params,

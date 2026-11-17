@@ -209,35 +209,6 @@ public extension ApiChain {
         default: false
         }
     }
-    
-    var usdtBadgeText: String {
-        switch self {
-        case .ton:
-            "TON"
-        case .tron:
-            "TRC-20"
-        case .solana:
-            "Solana"
-        case .bitcoin:
-            "BTC"
-        case .litecoin:
-            "LTC"
-        case .bitcoincash:
-            "BCH"
-        case .dogecoin:
-            "DOGE"
-        case .zcash:
-            "ZEC"
-        case .bnb:
-            "BEP-20"
-        case .ethereum, .base:
-            "ERC-20"
-        case .polygon, .arbitrum, .optimism, .monad, .avalanche, .hyperliquid, .robinhood, .arc:
-            "ERC-20"
-        case .other(let chain):
-            chain.uppercased()
-        }
-    }
 }
 
 // MARK: - Gas

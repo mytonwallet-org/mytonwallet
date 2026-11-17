@@ -26,7 +26,11 @@ struct SecurityView: View {
         @Dependency(\.settingsStore) var settingsStore
         // Biometric availability uses synchronous IPC; keep it out of toggle-driven body updates.
         biometryType = BiometricHelper.biometryType
-        _biometrics = State(initialValue: AuthSupport.status.configuredMethods.contains(.biometrics))
+        // A key invalidated by enrollment changes stays configured; switching it on sets it up again
+        _biometrics = State(
+            initialValue: AuthSupport.status.configuredMethods.contains(.biometrics)
+                && !AuthSupport.isBiometricRecoveryRequired
+        )
         _rememberPasscode = State(initialValue: settingsStore.isAutoConfirmEnabled)
     }
     

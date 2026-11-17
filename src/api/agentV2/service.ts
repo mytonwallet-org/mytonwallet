@@ -238,6 +238,10 @@ export function getAgentV2NewsFeed(params: AgentV2NewsFeedRequest) {
   return runSafeAgentV2Operation(() => getAgentV2Runtime().getNewsFeed(params));
 }
 
+export function getAgentV2CachedNewsFeed(request: AgentV2NewsFeedRequest) {
+  return runtime && isActiveRuntime(runtime) ? runtime.getCachedNewsFeed(request) : Promise.resolve(undefined);
+}
+
 /**
  * News and digest threads include a server-created post. Opening them does not require starting a run.
  */

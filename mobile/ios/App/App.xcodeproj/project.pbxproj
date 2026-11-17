@@ -97,7 +97,6 @@
 		59D100012F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		59D100032F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		59D100042F90000100FACE01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
-		59D100052F90000100FACE01 /* diamond.tgs in Resources */ = {isa = PBXBuildFile; fileRef = 59D1000A2F90000100FACE01 /* diamond.tgs */; };
 		59E000052FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000A2FA0000100BEEF01 /* WalletResources */; };
 		59E000072FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000C2FA0000100BEEF01 /* WalletResources */; };
 		59E000082FA0000100BEEF01 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = 59E0000D2FA0000100BEEF01 /* WalletResources */; };
@@ -367,7 +366,6 @@
 		59C200052FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MyTonWalletNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59C200082FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyTonWalletNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		59D100062F90000100FACE01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		59D1000A2F90000100FACE01 /* diamond.tgs */ = {isa = PBXFileReference; lastKnownFileType = file; path = diamond.tgs; sourceTree = "<group>"; };
 		59F100102FB0000100CAFE01 /* JS */ = {isa = PBXFileReference; lastKnownFileType = folder; path = JS; sourceTree = "<group>"; };
 		59F100112FB0000100CAFE01 /* JS */ = {isa = PBXFileReference; lastKnownFileType = folder; path = JS; sourceTree = "<group>"; };
 		CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "MyTonWallet_Preview-Info.plist"; sourceTree = "<group>"; };
@@ -725,14 +723,6 @@
 			path = NotificationServiceExtension;
 			sourceTree = "<group>";
 		};
-		59D100072F90000100FACE01 /* Animations */ = {
-			isa = PBXGroup;
-			children = (
-				59D1000A2F90000100FACE01 /* diamond.tgs */,
-			);
-			path = Animations;
-			sourceTree = "<group>";
-		};
 		59D100082F90000100FACE01 /* MyTonWallet */ = {
 			isa = PBXGroup;
 			children = (
@@ -753,7 +743,6 @@
 				59F100112FB0000100CAFE01 /* JS */,
 				59C0009A2F81000100ABCD01 /* Assets.xcassets */,
 				59C000272F81000100ABCD01 /* AppIcon.icon */,
-				59D100072F90000100FACE01 /* Animations */,
 				59C0003E2F81000100ABCD01 /* GoogleService-Info.plist */,
 				59C000262F81000100ABCD01 /* Info.plist */,
 			);
@@ -1222,7 +1211,6 @@
 				59C000112F81000100ABCD01 /* GoogleService-Info.plist in Resources */,
 				59F100052FB0000100CAFE01 /* JS in Resources */,
 				59C0009B2F81000100ABCD01 /* Assets.xcassets in Resources */,
-				59D100052F90000100FACE01 /* diamond.tgs in Resources */,
 				59C000122F81000100ABCD01 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

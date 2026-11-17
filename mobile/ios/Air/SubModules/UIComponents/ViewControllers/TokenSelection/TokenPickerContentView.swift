@@ -93,8 +93,6 @@ public final class TokenPickerContentView: UIView, WSegmentedController.Delegate
             controller = WSegmentedController(
                 items: items,
                 animationSpeed: .slow,
-                primaryTextColor: UIColor(hex: "#0088FF"),
-                secondaryTextColor: .label,
                 style: .tokenPicker,
                 delegate: self
             )

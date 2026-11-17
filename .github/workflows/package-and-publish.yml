@@ -119,7 +119,20 @@ jobs:
           SINCE_SHA: ${{ inputs.since_sha }}
           CADENCE: ${{ inputs.cadence }}
           GH_TOKEN: ${{ github.token }}
+          IOS_CADENCE_WORKFLOW: ${{ vars.IOS_CADENCE_WORKFLOW }}
         run: |
+          # With the cadence split, ios-cadence-build.yml builds Preview from master, and a second
+          # build from here would reach testers under a lower number than the one already there.
+          emit_ios_variants() {
+            local variants=$1
+            if [ "$IOS_CADENCE_WORKFLOW" = "split" ] && [ "$GITHUB_REF" = "refs/heads/master" ] && [ -z "$PUBLISH_REPO" ] \
+              && [[ "$variants" == *'"mytonwallet"'* ]]; then
+              variants=$(jq -c 'map(select(. != "mytonwallet"))' <<< "$variants")
+              echo "::notice::iOS Preview from master is built by ios-cadence-build.yml, so this run leaves it out"
+            fi
+            echo "ios-variants=$variants" >> "$GITHUB_OUTPUT"
+          }
+
           # The one place that decides what a range of commits ships, so a folded window and an
           # ordinary push cannot disagree about it.
           classify_range() {
@@ -162,16 +175,16 @@ jobs:
             case "${{ inputs.ios_variant }}" in
               none)
                 IOS_SELECTED=false
-                echo 'ios-variants=[]' >> "$GITHUB_OUTPUT"
+                emit_ios_variants '[]'
                 ;;
               mytonwallet)
-                echo 'ios-variants=["mytonwallet"]' >> "$GITHUB_OUTPUT"
+                emit_ios_variants '["mytonwallet"]'
                 ;;
               gram)
-                echo 'ios-variants=["gram"]' >> "$GITHUB_OUTPUT"
+                emit_ios_variants '["gram"]'
                 ;;
               *)
-                echo 'ios-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+                emit_ios_variants '["mytonwallet","gram"]'
                 ;;
             esac
 
@@ -228,7 +241,7 @@ jobs:
             echo "ios-only=false" >> "$GITHUB_OUTPUT"
             echo "electron-changed=true" >> "$GITHUB_OUTPUT"
             echo 'android-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
-            echo 'ios-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+            emit_ios_variants '["mytonwallet","gram"]'
             echo "Production release — building automatic platform variants"
             exit 0
           fi
@@ -249,7 +262,7 @@ jobs:
           echo "ios-only=$IOS_ONLY" >> "$GITHUB_OUTPUT"
           echo "electron-changed=$ELECTRON_CHANGED" >> "$GITHUB_OUTPUT"
           echo 'android-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
-          echo 'ios-variants=["mytonwallet","gram"]' >> "$GITHUB_OUTPUT"
+          emit_ios_variants '["mytonwallet","gram"]'
           echo "Changed files:"
           echo "$CHANGED"
           echo "android-only=$ANDROID_ONLY, ios-only=$IOS_ONLY, electron-changed=$ELECTRON_CHANGED"
@@ -264,12 +277,18 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.PUBLISH_REPO == '' && format('window {0}', vars.IOS_BUILD_WINDOW_MINUTES) != 'window 0'
         env:
           CADENCE_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/ios-cadence.yml
+          PREVIEW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/ios-cadence-build.yml
+          IOS_CADENCE_WORKFLOW: ${{ vars.IOS_CADENCE_WORKFLOW }}
         run: |
           {
             echo "### Android and iOS are not built by this run"
             echo
             echo "They are batched: the first commit after a quiet window starts a build and the rest fold into it, so the mobile jobs here are skipped by design rather than turned off. The Build cadence gate asks for that build, and it runs as a separate dispatch of this same workflow."
             echo
+            if [ "$IOS_CADENCE_WORKFLOW" = "split" ]; then
+              echo "iOS Preview is the exception: it is built by [its own workflow, ios-cadence-build.yml](${PREVIEW_URL})."
+              echo
+            fi
             echo "[The Build cadence workflow](${CADENCE_URL}) records each decision it makes, including which apps still owe this commit a build and where their windows stand. Its runs supersede one another, so read the newest one at or after this push."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -1346,6 +1365,8 @@ jobs:
           IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
           IOS_METADATA_PATH: ${{ vars.IOS_METADATA_PATH }}
           IOS_GRAM_METADATA_PATH: ${{ vars.IOS_GRAM_METADATA_PATH }}
+          GRAM_REVIEW_NOTES: ${{ secrets.GRAM_REVIEW_NOTES }}
+          GRAM_REVIEW_ATTACHMENT_BASE64: ${{ secrets.GRAM_REVIEW_ATTACHMENT_BASE64 }}
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
           IOS_UPLOAD_ON_LINUX: ${{ vars.IOS_UPLOAD_ON_LINUX }}
         run: |
@@ -1372,6 +1393,17 @@ jobs:
             ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
             ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
             METADATA_PATH="${IOS_GRAM_METADATA_PATH:-$METADATA_PATH}"
+            if [ -n "$PUBLISH_REPO" ]; then
+              export IOS_REVIEW_NOTES_APPENDIX="${GRAM_REVIEW_NOTES:-}"
+              if [ -n "${GRAM_REVIEW_ATTACHMENT_BASE64:-}" ]; then
+                mkdir -p "$RUNNER_TEMP/app-review"
+                echo -n "$GRAM_REVIEW_ATTACHMENT_BASE64" | base64 --decode -o "$RUNNER_TEMP/app-review/supplementary-3.1.5.pdf"
+                export IOS_REVIEW_ATTACHMENT_PATH="$RUNNER_TEMP/app-review/supplementary-3.1.5.pdf"
+              fi
+              if [ -z "$IOS_REVIEW_NOTES_APPENDIX" ] || [ -z "${IOS_REVIEW_ATTACHMENT_PATH:-}" ]; then
+                echo "::warning::Gram App Review notes or attachment secret is missing; the submission goes without them"
+              fi
+            fi
           fi
 
           if [ -z "$AUTH_KEY_BASE64" ]; then
@@ -1495,74 +1527,21 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
+      - name: Checkout the anchor
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: dev/cadenceAnchor.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Move the anchor tag
         uses: actions/github-script@v9
         env:
           ANCHOR_KEY: ${{ matrix.key }}
         with:
           script: |
-            // The gate reads this tag rather than reconstructing the same fact from run history:
-            // the commit it points at is what shipped, and the tagger date is when it shipped.
-            const tag = `cadence-anchor-${process.env.ANCHOR_KEY}`;
-            // Every commit master still holds answers this, and a rerun of a run whose commit the
-            // branch has since dropped does not, which is what separates the two refusals below.
-            const stillOnMaster = async (sha) => {
-              const tip = await github.rest.repos.getBranch({ ...context.repo, branch: 'master' });
-              const diff = await github.rest.repos.compareCommits({
-                ...context.repo,
-                base: sha,
-                head: tip.data.commit.sha,
-              });
-              return diff.data.status === 'ahead' || diff.data.status === 'identical';
-            };
-            // A rerun of an older run arrives with that run's own commit, and moving the anchor back
-            // would put already-built commits outside the next window and buy a second build.
-            try {
-              const ref = await github.rest.git.getRef({ ...context.repo, ref: `tags/${tag}` });
-              const current = await github.rest.git.getTag({ ...context.repo, tag_sha: ref.data.object.sha });
-              const diff = await github.rest.repos.compareCommits({
-                ...context.repo,
-                base: current.data.object.sha,
-                head: context.sha,
-              });
-              // A rewritten master leaves the anchor on a line of its own, where no later push can
-              // ever be ahead of it, so refusing on that alone would retire the window for good.
-              if (diff.data.status === 'diverged' && await stillOnMaster(context.sha)) {
-                core.warning(`anchor ${current.data.object.sha.slice(0, 10)} is not on master any more, adopting this run`);
-              } else if (diff.data.status !== 'ahead') {
-                core.warning(`anchor already at ${current.data.object.sha.slice(0, 10)}, which is not behind this run`);
-                return;
-              }
-            } catch (error) {
-              if (error.status !== 404) throw error;
-            }
-            const object = await github.rest.git.createTag({
-              ...context.repo,
-              tag,
-              message: `iOS build uploaded from ${context.sha}`,
-              object: context.sha,
-              type: 'commit',
-              tagger: {
-                name: 'github-actions[bot]',
-                email: '41898282+github-actions[bot]@users.noreply.github.com',
-                date: new Date().toISOString(),
-              },
-            });
-            try {
-              await github.rest.git.updateRef({
-                ...context.repo,
-                ref: `tags/${tag}`,
-                sha: object.data.sha,
-                force: true,
-              });
-            } catch (error) {
-              if (error.status !== 404 && error.status !== 422) throw error;
-              await github.rest.git.createRef({
-                ...context.repo,
-                ref: `refs/tags/${tag}`,
-                sha: object.data.sha,
-              });
-            }
+            const { moveAnchor } = await import(`${process.env.GITHUB_WORKSPACE}/dev/cadenceAnchor.mjs`);
+            await moveAnchor({ github, context, core, key: process.env.ANCHOR_KEY });
 
   ios-upload-plan:
     name: Find the iOS builds to upload
@@ -1640,41 +1619,15 @@ jobs:
           working-directory: mobile
 
       - name: "iOS: Upload to App Store Connect"
-        env:
-          IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
-          IOS_GRAM_AUTH_KEY_BASE64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
-          IOS_AUTH_KEY_ID: ${{ vars.IOS_AUTH_KEY_ID }}
-          IOS_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
-          IOS_GRAM_AUTH_KEY_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
-          IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-
-          cd mobile/ios/App
-          AUTH_KEY_BASE64="$IOS_AUTH_KEY_BASE64"
-          ASC_KEY_ID="${IOS_AUTH_KEY_ID:-}"
-          ASC_ISSUER_ID="${IOS_AUTH_KEY_ISSUER_ID:-}"
-
-          if [ "$APP_VARIANT" = "gram" ]; then
-            AUTH_KEY_BASE64="${IOS_GRAM_AUTH_KEY_BASE64:-$IOS_AUTH_KEY_BASE64}"
-            ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
-            ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
-          fi
-
-          if [ -z "$AUTH_KEY_BASE64" ]; then
-            echo "::error::Missing App Store Connect auth key for $APP_VARIANT"
-            exit 1
-          fi
-
-          echo -n "$AUTH_KEY_BASE64" | base64 --decode > ./AuthKey.p8
-          if [ -n "$ASC_KEY_ID" ]; then
-            export APP_STORE_CONNECT_KEY_ID="$ASC_KEY_ID"
-          fi
-          if [ -n "$ASC_ISSUER_ID" ]; then
-            export APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
-          fi
-
-          bundle exec fastlane upload_ipa
+        uses: ./.github/actions/ios-fastlane-asc
+        with:
+          lane: upload_ipa
+          auth-key-base64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          gram-auth-key-base64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
+          key-id: ${{ vars.IOS_AUTH_KEY_ID }}
+          issuer-id: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+          gram-key-id: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
+          gram-issuer-id: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
 
       - name: Upload the TestFlight distribution handoff
         uses: actions/upload-artifact@v4
@@ -1777,41 +1730,15 @@ jobs:
           working-directory: mobile
 
       - name: "iOS: Distribute to TestFlight"
-        env:
-          IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
-          IOS_GRAM_AUTH_KEY_BASE64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
-          IOS_AUTH_KEY_ID: ${{ vars.IOS_AUTH_KEY_ID }}
-          IOS_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
-          IOS_GRAM_AUTH_KEY_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
-          IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-
-          cd mobile/ios/App
-          AUTH_KEY_BASE64="$IOS_AUTH_KEY_BASE64"
-          ASC_KEY_ID="${IOS_AUTH_KEY_ID:-}"
-          ASC_ISSUER_ID="${IOS_AUTH_KEY_ISSUER_ID:-}"
-
-          if [ "$APP_VARIANT" = "gram" ]; then
-            AUTH_KEY_BASE64="${IOS_GRAM_AUTH_KEY_BASE64:-$IOS_AUTH_KEY_BASE64}"
-            ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
-            ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
-          fi
-
-          if [ -z "$AUTH_KEY_BASE64" ]; then
-            echo "::error::Missing App Store Connect auth key for $APP_VARIANT"
-            exit 1
-          fi
-
-          echo -n "$AUTH_KEY_BASE64" | base64 --decode > ./AuthKey.p8
-          if [ -n "$ASC_KEY_ID" ]; then
-            export APP_STORE_CONNECT_KEY_ID="$ASC_KEY_ID"
-          fi
-          if [ -n "$ASC_ISSUER_ID" ]; then
-            export APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
-          fi
-
-          bundle exec fastlane distribute
+        uses: ./.github/actions/ios-fastlane-asc
+        with:
+          lane: distribute
+          auth-key-base64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          gram-auth-key-base64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
+          key-id: ${{ vars.IOS_AUTH_KEY_ID }}
+          issuer-id: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+          gram-key-id: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
+          gram-issuer-id: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
 
   publish-release:
     name: Publish GitHub release

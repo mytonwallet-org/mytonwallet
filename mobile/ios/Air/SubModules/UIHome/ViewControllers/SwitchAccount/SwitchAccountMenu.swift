@@ -154,7 +154,7 @@ public enum SwitchAccountMenu {
         Task {
             do {
                 _ = try await AccountStore.activateAccount(accountId: account.id)
-                AppActions.showHome(popToRoot: true)
+                AppActions.showRootAfterAccountSwitch()
             } catch {
                 AppActions.showError(error: error)
             }

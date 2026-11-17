@@ -21,11 +21,13 @@ enum UniversalSearchFeatureAttributeKey {
 }
 
 struct UniversalSearchAgentSuggestionSource: UniversalSearchSource {
-    typealias Loader = @Sendable (String) async throws -> [AgentSuggestion]
+    /// Loads the suggestions of the account with the given id
+    typealias Loader = @Sendable (String?) async throws -> [AgentSuggestion]
 
     static let id = SearchSourceID("feature:agent-suggestions")
     let sourceID = Self.id
-    var scoping: UniversalSearchSourceScoping { .global }
+    /// The hints are picked for the active account
+    var scoping: UniversalSearchSourceScoping { .account }
     private let loader: Loader
 
     init(loader: @escaping Loader = Self.loadLiveSuggestions) {
@@ -35,7 +37,10 @@ struct UniversalSearchAgentSuggestionSource: UniversalSearchSource {
     func snapshot(
         for context: UniversalSearchContext
     ) async throws -> UniversalSearchSourceSnapshot {
-        let suggestions = try await loader(context.localeIdentifier)
+        // The suggestions belong to the account of the context they are indexed under. A failed load replaces the hints
+        // shown before with none.
+        let suggestions = (try? await loader(context.scopeID)) ?? []
+        try Task.checkCancellation()
         return UniversalSearchSourceSnapshot(
             sourceID: sourceID,
             authority: 100,
@@ -84,8 +89,8 @@ struct UniversalSearchAgentSuggestionSource: UniversalSearchSource {
         )
     }
 
-    private static func loadLiveSuggestions(langCode: String) async throws -> [AgentSuggestion] {
-        try await AgentSearchProvider.shared.loadSuggestions(langCode: langCode)
+    private static func loadLiveSuggestions(accountId: String?) async throws -> [AgentSuggestion] {
+        try await AgentSearchProvider.shared.loadSuggestions(accountId: accountId)
     }
 }
 

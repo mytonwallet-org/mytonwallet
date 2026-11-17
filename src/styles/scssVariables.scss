@@ -5,8 +5,20 @@ $landscapeAuthContentMaxWidth: 31.4375rem;
 $landscapeMainContentMaxWidth: 53.5rem;
 // Width cap of a landscape block that keeps its 1rem trailing gap outside, e.g. as a margin
 $landscapeBlockMaxWidth: calc(#{$landscapeMainContentMaxWidth} - 1rem);
+// The column scrollbar sits at the window edge and counts toward the 1rem trailing gap. The cap
+// shrinks by the same width, so a capped box keeps its content width.
+$landscapeScrollContentMaxWidth: calc(#{$landscapeMainContentMaxWidth} - var(--scrollbar-width));
 $portraitContentMaxWidth: 27rem;
 $portraitHeaderHeight: 3rem;
+$homeToolbarHeight: 2.75rem;
+$homeToolbarPortraitPadding: 0.75rem;
+$homeToolbarPortraitOffset: calc(#{$homeToolbarHeight} + #{$homeToolbarPortraitPadding} * 2);
+// Opera's extension window on Windows does not take clicks in its top 37 px
+$operaExtensionDeadZone: 2.3125rem;
+// There the toolbar starts below the dead zone instead of its top padding
+$homeToolbarOperaExtensionOffset: calc(
+  #{$homeToolbarPortraitOffset} + #{$operaExtensionDeadZone} - #{$homeToolbarPortraitPadding}
+);
 $defaultCardGradient: #27B1FA 0, #0874F8 100%;
 $gramCardGradient: #9C86E1 0, #6D92D9 100%;
 $silverCardGradient: #C4C3C5 0, #C4C3C5 100%;

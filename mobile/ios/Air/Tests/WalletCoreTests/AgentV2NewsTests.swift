@@ -398,29 +398,27 @@ struct AgentV2NewsTests {
         #expect(digest.top.first?.eventId == 307)
         #expect(digest.total == 5)
         #expect(digest.discussion?.threadId == "digest-thread")
-        #expect(digest.discussionNaming == nil)
-        let named = try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONSerialization.data(withJSONObject: [
+        #expect(digest.discussionFollowups == nil)
+        let feedWithFollowups = try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONSerialization.data(withJSONObject: [
             "locale": "ru", "items": [], "digests": [
                 [
                     "id": digestId, "deliveredAt": "2026-11-08T18:00:00.000Z", "top": top, "total": 5,
-                    "discussionNaming": ["title": "Evening digest", "icon": "🌙", "followups": ["What matters most?"]]
+                    "discussionFollowups": ["What matters most?"]
                 ],
                 [
                     "id": "ru:2026-11-07T18:00:00.000Z", "deliveredAt": "2026-11-07T18:00:00.000Z", "top": top, "total": 5,
-                    "discussionNaming": ["title": "Evening digest", "followups": ["What matters most?", 42]]
+                    "discussionFollowups": ["What matters most?", 42]
                 ],
                 [
                     "id": "ru:2026-11-06T18:00:00.000Z", "deliveredAt": "2026-11-06T18:00:00.000Z", "top": top, "total": 5,
-                    "discussionNaming": ["title": "Morning digest", "followups": ["What changed?", "What comes next?"]]
+                    "discussionFollowups": ["What changed?", "What comes next?"]
                 ]
             ]
         ]))
-        #expect(named.digests?.map(\.discussionNaming) == [
-            .init(title: "Evening digest", icon: "🌙", followups: ["What matters most?"]), nil,
-            .init(title: "Morning digest", followups: ["What changed?", "What comes next?"])
+        #expect(feedWithFollowups.digests?.map(\.discussionFollowups) == [
+            ["What matters most?"], nil, ["What changed?", "What comes next?"]
         ])
-        #expect(named.digests?.last?.discussionNaming?.icon == nil)
-        #expect(try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONEncoder().encode(named)) == named)
+        #expect(try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONEncoder().encode(feedWithFollowups)) == feedWithFollowups)
         for count in [1, 2] {
             let thread = try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: [
                 "id": "digest-thread", "revision": 1, "createdAt": digest.deliveredAt,
@@ -437,6 +435,10 @@ struct AgentV2NewsTests {
             ApiAgentV2ThreadCreateRequest(news: nil, digest: .init(id: digestId))
         )) as? NSDictionary
         #expect(encoded == ["digest": ["id": digestId]] as NSDictionary)
+        let encodedFollowup = try JSONSerialization.jsonObject(with: JSONEncoder().encode(
+            ApiAgentV2ThreadCreateRequest(news: nil, digest: .init(id: digestId, followup: "What matters most?"))
+        )) as? NSDictionary
+        #expect(encodedFollowup == ["digest": ["id": digestId, "followup": "What matters most?"]] as NSDictionary)
     }
 
     @Test @MainActor

@@ -116,10 +116,20 @@ actor SessionManager {
         }
     }
 
-    func invalidateLongSessions() {
+    func consumeBiometricRecoveryUsage(token: EnclaveToken) throws {
+        guard AuthType.from(token: token) == .passcode else {
+            throw EnclaveError.passcodeRequired
+        }
+        guard let session = sessions[token], session.validUntil > 0 || session.remainingUsages > 1 else {
+            throw EnclaveError.invalidSessionToken
+        }
+        _ = try validateSessionAndGetMasterKey(token: token, invalidateShortSession: true)
+    }
+
+    func invalidateLongSessions(except preservedToken: EnclaveToken? = nil) {
         revision += 1
         rememberedToken = nil
-        sessions = sessions.filter { $0.value.validUntil == 0 }
+        sessions = sessions.filter { $0.value.validUntil == 0 || $0.key == preservedToken }
     }
 
     func clearAll() {

@@ -1,0 +1,26 @@
+@use "row";
+
+.root {
+  @include row.root;
+}
+
+.primary {
+  @include row.column;
+
+  @include row.primary;
+}
+
+.value {
+  @include row.value;
+}
+
+.subtitle {
+  @include row.subtitle;
+}
+
+.button {
+  flex-shrink: 0;
+  padding: 0.1875rem 0.625rem;
+  border-radius: 0.875rem;
+  background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}

@@ -16,13 +16,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextBuilder
+import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextSnapshot
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
+import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
+import org.mytonwallet.app_air.uiagent.agentV2.loadAgentV2StarterHints
+import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentCachedHistories
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentPromptChatRequest
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSession
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.findAgentSupportThread
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.makeAgentSupportHint
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
@@ -34,6 +45,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 internal interface AgentThreadListClient {
     suspend fun list(cursor: String?): AgentV2ThreadListResponse
     suspend fun getCached(): List<AgentV2ThreadListItem>?
+    suspend fun getStarterHints(walletState: String?, host: JSONObject?): AgentV2HintsResponse
     suspend fun update(id: String, update: AgentV2ThreadUpdate): AgentV2ThreadResponse
     suspend fun delete(id: String): AgentV2ThreadDeleteResponse
 }
@@ -45,6 +57,9 @@ internal class LiveAgentThreadListClient : AgentThreadListClient {
         client.listThreads(cursor = cursor, limit = PAGE_SIZE)
 
     override suspend fun getCached() = client.getCachedThreads()
+
+    override suspend fun getStarterHints(walletState: String?, host: JSONObject?) =
+        client.getStarterHints(walletState, host)
 
     override suspend fun update(id: String, update: AgentV2ThreadUpdate) =
         client.updateThread(id, update)
@@ -72,7 +87,9 @@ internal class AgentThreadListModel(
     private val activityTracker: AgentThreadActivityTracker = AgentThreadActivityTracker(),
     private val cachedHistories: AgentCachedHistories = AgentSession.cachedHistories,
     private val nowMs: () -> Long = System::currentTimeMillis,
-    private val activityHoldMillis: Long = ACTIVITY_HOLD_MS
+    private val activityHoldMillis: Long = ACTIVITY_HOLD_MS,
+    private val makeSnapshot: suspend () -> AgentHostContextSnapshot =
+        AgentHostContextBuilder::build
 ) {
     var items: List<AgentV2ThreadListItem> = emptyList()
         private set
@@ -97,6 +114,20 @@ internal class AgentThreadListModel(
         private set
     var onChange: ((AgentThreadListChange) -> Unit)? = null
     var onError: ((Throwable) -> Unit)? = null
+    var onStarterHintsChange: (() -> Unit)? = null
+    var starterHints: List<AgentHint> = emptyList()
+        private set
+    private var hasStarterHintsSettled = false
+
+    // The server's suggestions, then Contact Support, which the client offers outside their limit
+    val shownStarterHints: List<AgentHint>
+        get() = if (isAgentSupportHandoffDeclared && hasStarterHintsSettled) {
+            starterHints + makeAgentSupportHint()
+        } else {
+            starterHints
+        }
+    private var areStarterHintsVisible = false
+    private var starterHintsJob: Job? = null
 
     /** The threads whose answering status changed */
     var onActivityChange: ((Set<String>) -> Unit)? = null
@@ -130,6 +161,7 @@ internal class AgentThreadListModel(
     private val runRevisions = mutableMapOf<String, Int>()
 
     fun reset() {
+        updateStarterHintsVisibility(false)
         supportRequest = null
         invalidateLoad()
         mutations.values.toList().forEach { it.cancel() }
@@ -143,6 +175,42 @@ internal class AgentThreadListModel(
         removeAllActivities()
         onChange?.invoke(AgentThreadListChange.DATA)
     }
+
+    fun updateStarterHintsVisibility(isVisible: Boolean) {
+        if (areStarterHintsVisible == isVisible) return
+        areStarterHintsVisible = isVisible
+        starterHintsJob?.cancel()
+        starterHintsJob = null
+        starterHints = emptyList()
+        hasStarterHintsSettled = false
+        if (!isVisible) return
+        starterHintsJob = scope.launch {
+            val hints = try {
+                val response = loadAgentV2StarterHints(client::getStarterHints, makeSnapshot)
+                response.items.mapNotNull { hint ->
+                    localizedAgentV2Hint(hint.id)?.copy(catalogVersion = response.catalogVersion)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                emptyList()
+            }
+            currentCoroutineContext().ensureActive()
+            starterHints = hints
+            hasStarterHintsSettled = true
+            onStarterHintsChange?.invoke()
+        }
+    }
+
+    fun makeHintChatRequest(hint: AgentHint) = AgentPromptChatRequest(
+        hint.prompt,
+        AgentV2EntryPoint(
+            kind = "emptyState",
+            surface = "agentTab",
+            hintId = hint.id,
+            catalogVersion = hint.catalogVersion
+        )
+    )
 
     /** Reloads at least as many chats as the list shows, following cursors */
     fun refresh() {

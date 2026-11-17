@@ -55,6 +55,7 @@ class EarnHeaderCell: UICollectionViewCell {
         lbl.applyTextStyle(.subheadline)
         lbl.textAlignment = .center
         lbl.text = lang("Currently Staked")
+        lbl.accessibilityIdentifier = "earn_staked_label"
         return lbl
     }()
     

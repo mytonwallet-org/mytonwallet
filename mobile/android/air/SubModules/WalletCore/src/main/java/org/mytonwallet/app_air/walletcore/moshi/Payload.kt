@@ -131,8 +131,8 @@ sealed class ApiParsedPayload {
         val initialMinBid: BigInteger,
         val maxBid: BigInteger,
         val minBidStep: Int,
-        val minExtendTime: Int,
-        val duration: Int
+        val minExtendTime: Long,
+        val duration: Long
     ) : ApiParsedPayload()
 
     @JsonClass(generateAdapter = true)
@@ -150,8 +150,8 @@ sealed class ApiParsedPayload {
         val initialMinBid: BigInteger,
         val maxBid: BigInteger,
         val minBidStep: Int,
-        val minExtendTime: Int,
-        val duration: Int
+        val minExtendTime: Long,
+        val duration: Long
     ) : ApiParsedPayload()
 
     @JsonClass(generateAdapter = true)

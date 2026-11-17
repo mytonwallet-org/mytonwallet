@@ -3,7 +3,13 @@ import type { GlobalState, NavigationTab } from '../types';
 import { ContentTab, SettingsState } from '../types';
 
 import { INITIAL_STATE } from '../initialState';
-import { openFirstNavigationTab, updateTokens } from './misc';
+import { openFirstNavigationTab, openSection, updateTokens } from './misc';
+
+jest.mock('../../config', () => ({
+  __esModule: true,
+  ...jest.requireActual('../../config'),
+  IS_PERPS_SUPPORTED: true,
+}));
 
 function makeToken(slug: string, priceUsd: number): ApiTokenWithPrice {
   return {
@@ -75,6 +81,32 @@ describe('updateTokens', () => {
   });
 });
 
+describe('openSection', () => {
+  it('closes the other sections when Futures opens', () => {
+    const global = openSection({
+      ...INITIAL_STATE,
+      areSettingsOpen: true,
+      isAgentOpen: true,
+      isExploreOpen: true,
+      isMarketOpen: true,
+      isPortfolioOpen: true,
+    }, 'futures');
+
+    expect(global).toMatchObject({
+      areSettingsOpen: false,
+      isAgentOpen: undefined,
+      isExploreOpen: undefined,
+      isMarketOpen: undefined,
+      isFuturesOpen: true,
+      isPortfolioOpen: undefined,
+    });
+  });
+
+  it('closes Futures when another section opens', () => {
+    expect(openSection({ ...INITIAL_STATE, isFuturesOpen: true }, 'market').isFuturesOpen).toBeUndefined();
+  });
+});
+
 describe('openFirstNavigationTab', () => {
   const ACCOUNT_ID = '0-mainnet';
 
@@ -90,12 +122,12 @@ describe('openFirstNavigationTab', () => {
 
   function getOpenSections(global: GlobalState) {
     const {
-      areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
+      areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, isPortfolioOpen,
     } = global;
 
     return Object.entries({
       settings: areSettingsOpen, agent: isAgentOpen, explore: isExploreOpen, market: isMarketOpen,
-      portfolio: isPortfolioOpen,
+      futures: isFuturesOpen, portfolio: isPortfolioOpen,
     }).filter(([, isOpen]) => isOpen).map(([section]) => section);
   }
 
@@ -106,7 +138,7 @@ describe('openFirstNavigationTab', () => {
     expect(openFirstNavigationTab(makeStartGlobal(['wallet', 'agent']))).toEqual(makeStartGlobal(['wallet', 'agent']));
   });
 
-  it.each(['market', 'explore'] as const)('opens %s when it comes first', (tab) => {
+  it.each(['market', 'futures', 'explore'] as const)('opens %s when it comes first', (tab) => {
     const global = openFirstNavigationTab(makeStartGlobal([tab, 'wallet']));
 
     expect(getOpenSections(global)).toEqual([tab]);

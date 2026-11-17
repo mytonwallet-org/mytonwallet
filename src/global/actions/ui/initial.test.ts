@@ -82,3 +82,30 @@ describe('selectToken', () => {
     expect(actions.setDefaultSwapParams).toHaveBeenCalledWith({ withResetAmount: true });
   });
 });
+
+describe('selectToken with a market token', () => {
+  function selectToken(isMarketOpen?: boolean) {
+    const global = {
+      currentAccountId: ACCOUNT_ID,
+      accounts: { byId: { [ACCOUNT_ID]: {} } },
+      byAccountId: { [ACCOUNT_ID]: { currentTokenSlug: BASE.slug } },
+      currentSwap: {},
+      currentTransfer: {},
+      isMarketOpen,
+      marketTokenSlug: BASE.slug,
+    };
+    const handler = getHandler('selectToken') as unknown as (...args: Parameters<ActionHandler>) => GlobalState;
+
+    return handler(global as unknown as GlobalState, { changeTransferToken: jest.fn() }, {
+      slug: BASE_USDC_MAINNET.slug,
+    }).marketTokenSlug;
+  }
+
+  it('follows a switch to another token in the open market', () => {
+    expect(selectToken(true)).toBe(BASE_USDC_MAINNET.slug);
+  });
+
+  it('gives a token selected after the market closes to the wallet', () => {
+    expect(selectToken()).toBeUndefined();
+  });
+});

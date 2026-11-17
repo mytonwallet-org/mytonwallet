@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from '../../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../../global';
+import { withGlobal } from '../../../../global';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState } from '../../../../api/types';
 import type { Account, UserToken } from '../../../../global/types';
@@ -15,15 +15,12 @@ import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
 import { getShortCurrencySymbol } from '../../../../util/formatNumber';
 
-import useLang from '../../../../hooks/useLang';
-
 import SensitiveData from '../../../ui/SensitiveData';
 import Transition from '../../../ui/Transition';
 
 import styles from './AccountSelector.module.scss';
 
 interface OwnProps {
-  withAccountSelector?: boolean;
   withBalance?: boolean;
 }
 
@@ -38,7 +35,6 @@ interface StateProps {
 
 function AccountSelector({
   currentAccount,
-  withAccountSelector,
   withBalance,
   tokens,
   baseCurrency,
@@ -46,24 +42,11 @@ function AccountSelector({
   stakingStates,
   isSensitiveDataHidden,
 }: OwnProps & StateProps) {
-  const { openAccountSelector } = getActions();
-
-  const lang = useLang();
   const balanceValues = useMemo(() => {
     return tokens ? calculateFullBalance(tokens, stakingStates, currencyRates[baseCurrency]) : undefined;
   }, [tokens, stakingStates, currencyRates, baseCurrency]);
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const { primaryWholePart, primaryFractionPart } = balanceValues || {};
-
-  function handleOpenAccountSelector() {
-    openAccountSelector();
-  }
-
-  const accountTitleClassName = buildClassName(
-    styles.accountTitle,
-    withAccountSelector && !withBalance && styles.accountTitleInteractive,
-    withBalance && styles.withBalance,
-  );
 
   return (
     <Transition
@@ -100,21 +83,11 @@ function AccountSelector({
         </div>
       )}
       {Boolean(currentAccount) && (
-        <button
-          type="button"
-          className={accountTitleClassName}
-          aria-label={lang('Switch Account')}
-          aria-haspopup="dialog"
-          onClick={withAccountSelector ? handleOpenAccountSelector : undefined}
-          disabled={!withAccountSelector}
-        >
+        <div className={buildClassName(styles.accountTitle, withBalance && styles.withBalance)}>
           <span className={styles.accountTitleInner}>
             {getAccountTitle(currentAccount)}
           </span>
-          {withAccountSelector && !withBalance && (
-            <i className={buildClassName('icon icon-expand', styles.expandIcon)} aria-hidden />
-          )}
-        </button>
+        </div>
       )}
     </Transition>
   );

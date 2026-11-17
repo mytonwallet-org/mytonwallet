@@ -76,6 +76,7 @@ export async function buildVtTransfer(
   const destination = resolveVtToken(destinationToken, destinationChain);
   const estimate = fromDecimal(request.networkFee ?? '0', sourceNative.decimals);
   const budget = fromDecimal(executionQuote.nativeFeeBudget, sourceNative.decimals);
+  // The budget is the signed fee ceiling: from the displayed estimate up to four times it.
   if (estimate <= 0n || budget < estimate || budget > estimate * 4n) {
     throw new Error('Invalid VT execution fee budget');
   }

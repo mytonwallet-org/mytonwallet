@@ -430,7 +430,7 @@ internal class AgentChatOpening(
                 Result.success(
                     client.createThread(
                         newsRequest,
-                        digestId?.let(::AgentV2ThreadDigestRequest)
+                        digestId?.let { AgentV2ThreadDigestRequest(it, followupText) }
                     ).thread
                 )
             } catch (error: CancellationException) {

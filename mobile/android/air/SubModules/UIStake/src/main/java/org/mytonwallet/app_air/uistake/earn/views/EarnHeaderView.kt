@@ -14,6 +14,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isGone
 import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -101,6 +102,7 @@ class EarnHeaderView(
 
     private val messageLabel: WLabel by lazy {
         WLabel(context).apply {
+            id = UIComponentsR.id.earn_staked_label
             setStyle(adaptiveFontSize(), WFont.Regular)
             gravity = Gravity.CENTER
         }
@@ -113,6 +115,7 @@ class EarnHeaderView(
 
     private val addStakeButton: WButton by lazy {
         val wButton = WButton(context, WButton.Type.PRIMARY)
+        wButton.id = UIComponentsR.id.earn_add_stake
         wButton.text = LocaleController.getString("Add Stake")
         wButton.setOnClickListener {
             onAddStakeClick?.invoke()
@@ -122,6 +125,7 @@ class EarnHeaderView(
 
     private val unstakeButton: WButton by lazy {
         val wButton = WButton(context, WButton.Type.SECONDARY_WITH_BACKGROUND).apply {
+            id = UIComponentsR.id.earn_unstake
             text = LocaleController.getString("Unstake")
             isEnabled = AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW
             setOnClickListener {

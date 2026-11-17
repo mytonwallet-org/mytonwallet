@@ -19,11 +19,23 @@ import {
   selectCurrentAccountChainDisplay,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
+  selectIsMarketTokenOpen,
 } from '../../selectors';
 
 addActionHandler('showTokenActivity', (global, actions, { slug, returnTab }) => {
-  if (returnTab !== undefined) {
-    setGlobal(updateCurrentAccountState(global, { activityReturnContentTab: returnTab }));
+  // A token screen opened from Market switches its token and leaves the wallet tab alone
+  if (returnTab === undefined && selectIsMarketTokenOpen(global)) {
+    actions.selectToken({ slug }, { forceOnHeavyAnimation: true });
+    return;
+  }
+
+  const { activeContentTab, currentTokenSlug } = selectCurrentAccountState(global) ?? {};
+  // A closed market keeps its token selected until its reset runs, and that token has no wallet place to keep
+  const isWalletTokenOpen = Boolean(currentTokenSlug) && currentTokenSlug !== global.marketTokenSlug;
+
+  // A token opened from another token keeps the place the first one returns to
+  if (returnTab !== undefined || !isWalletTokenOpen) {
+    setGlobal(updateCurrentAccountState(global, { activityReturnContentTab: returnTab ?? activeContentTab }));
   }
   actions.selectToken({ slug }, { forceOnHeavyAnimation: true });
   actions.setActiveContentTab({ tab: ContentTab.Activity });
@@ -31,12 +43,13 @@ addActionHandler('showTokenActivity', (global, actions, { slug, returnTab }) => 
 
 addActionHandler('closeTokenActivity', (global, actions) => {
   const { activeContentTab, activityReturnContentTab } = selectCurrentAccountState(global) ?? {};
+  const isMarketTokenOpen = selectIsMarketTokenOpen(global);
 
   actions.selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
 
-  // The token screen opened from Market leaves the wallet tab alone, so there is nothing to restore
-  if (activeContentTab === ContentTab.Activity) {
-    actions.setActiveContentTab({ tab: activityReturnContentTab ?? ContentTab.Assets });
+  // A token opened from Market leaves the wallet tab alone, so there is nothing to restore
+  if (!isMarketTokenOpen && activeContentTab === ContentTab.Activity) {
+    actions.setActiveContentTab({ tab: activityReturnContentTab ?? ContentTab.Overview });
   }
 });
 

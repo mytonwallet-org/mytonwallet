@@ -434,7 +434,9 @@ export async function buildOnchainSwapTransfer(
       rawTrace = trace;
     };
 
-    const result = await checkMultiTransactionDraft(accountId, transferList, request.shouldTryDiesel, onRawTrace);
+    const result = await checkMultiTransactionDraft(
+      accountId, transferList, request.shouldTryDiesel, onRawTrace,
+    );
 
     if ('error' in result) {
       await patchSwapItem({

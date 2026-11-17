@@ -136,6 +136,45 @@ describe('persistCache', () => {
     expect(settings.shownAgentSupportFeedbackToasts).toEqual(shownSupport);
   });
 
+  it('stores the Futures snapshot and trade evidence, but not the history of the session', () => {
+    const snapshot = {
+      positions: [], totalEquity: '0', totalPnl: '0', timestamp: 1, unavailableDexs: [],
+    };
+    setGlobal({
+      ...INITIAL_STATE,
+      currentAccountId: ACCOUNT_ID,
+      accounts: { byId: { [ACCOUNT_ID]: { type: 'mnemonic', byChain: {} } } },
+      byAccountId: {
+        [ACCOUNT_ID]: {
+          perps: {
+            snapshot,
+            hasActivityHistory: true,
+            isSnapshotLoadFailed: true,
+            history: { fills: [], fetchedAt: 1 },
+            marketDetailById: {},
+          },
+        },
+      },
+    });
+
+    persistCache();
+
+    expect(loadCache(INITIAL_STATE).byAccountId[ACCOUNT_ID].perps).toEqual({ snapshot, hasActivityHistory: true });
+  });
+
+  it('stores that the account has never traded', () => {
+    setGlobal({
+      ...INITIAL_STATE,
+      currentAccountId: ACCOUNT_ID,
+      accounts: { byId: { [ACCOUNT_ID]: { type: 'mnemonic', byChain: {} } } },
+      byAccountId: { [ACCOUNT_ID]: { perps: { hasActivityHistory: false } } },
+    });
+
+    persistCache();
+
+    expect(loadCache(INITIAL_STATE).byAccountId[ACCOUNT_ID].perps).toEqual({ hasActivityHistory: false });
+  });
+
   it('stores price history of the selected period, preferring the history of this session', () => {
     const sessionHistory = buildPriceHistory(MINUTE);
     const restoredHistory = buildPriceHistory(HOUR);

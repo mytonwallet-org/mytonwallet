@@ -587,11 +587,24 @@ public class PasscodeScreenView: UIView {
                     return
                 }
                 delegate?.onBiometricToken(enclaveToken)
+            } catch AuthSupportBiometricsError.canceled {
+                return
             } catch {
                 if BiometricHelper.biometryType == nil, let button = viewWithTag(biometricButtonTag) {
                     hideButton(button)
                 }
+                delegate?.onBiometricFailure()
             }
+        }
+    }
+
+    func showPasscodeFallback() {
+        let title = lang("Enter your Wallet Passcode")
+        enterPasscodeLabel.label.numberOfLines = 0
+        enterPasscodeLabel.setText(title, animatedWithDuration: nil, animateResize: false)
+        passcodeInputView.setAccessibilityTitle(title)
+        if let button = viewWithTag(biometricButtonTag) {
+            hideButton(button)
         }
     }
     

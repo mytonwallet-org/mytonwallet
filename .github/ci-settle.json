@@ -1,5 +1,6 @@
 {
   "ios": { "seconds": 600, "logins": [] },
   "android": { "seconds": 600, "logins": [] },
-  "simpleTests": { "seconds": 0, "logins": [] }
+  "simpleTests": { "seconds": 0, "logins": [] },
+  "agentV2E2e": { "seconds": 0, "logins": [] }
 }

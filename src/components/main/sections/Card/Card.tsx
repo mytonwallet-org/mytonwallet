@@ -16,7 +16,7 @@ import type {
 import type { LangFn } from '../../../../hooks/useLang';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
-import { ANIMATION_LEVEL_MIN, IS_GRAM_WALLET } from '../../../../config';
+import { IS_GRAM_WALLET } from '../../../../config';
 import {
   selectAccount,
   selectAccountSettings,
@@ -43,13 +43,14 @@ import useCardController from '../../../../hooks/useCardController';
 import useCardCustomization from '../../../../hooks/useCardCustomization';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useFontScale from '../../../../hooks/useFontScale';
+import useIsMotionDisabled from '../../../../hooks/useIsMotionDisabled';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 import useUniqueId from '../../../../hooks/useUniqueId';
 import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 import useWindowSize from '../../../../hooks/useWindowSize';
 
+import PrivacyDust from '../../../common/PrivacyDust';
 import MintCardButton from '../../../mintCard/MintCardButton';
 import AnimatedCounter from '../../../ui/AnimatedCounter';
 import CardTilt from '../../../ui/CardTilt';
@@ -58,7 +59,6 @@ import LoadingDots from '../../../ui/LoadingDots';
 import Spinner from '../../../ui/Spinner';
 import Transition from '../../../ui/Transition';
 import CardAddress from './CardAddress';
-import CardPrivacy from './CardPrivacy';
 import CardSurface from './CardSurface';
 import CurrencySwitcherMenu from './CurrencySwitcherMenu';
 import SeasonalTheming from './SeasonalTheming';
@@ -158,8 +158,7 @@ function Card({
   const balanceHitRef = useRef<HTMLSpanElement>();
   const balanceActionId = useUniqueId('balance-action-');
   const { cardRef: surfaceRef, controller, handleMotionFrame } = useCardController();
-  const hasReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)') ?? false;
-  const isMotionDisabled = animationLevel === ANIMATION_LEVEL_MIN || hasReducedMotion;
+  const isMotionDisabled = useIsMotionDisabled(animationLevel);
   const isTiltDisabled = is3dCardDisabled || isMotionDisabled;
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const { nft: shownCardNft, imageUrl: cardImageUrl } = useCardArtwork(cardNft, IS_GRAM_WALLET);
@@ -282,45 +281,59 @@ function Card({
       <>
         <div ref={amountRef} className={buildClassName(styles.balanceTransition, styles.balanceSlide)}>
           <div className={buildClassName(styles.primaryValue, 'rounded-font')}>
-            <span
-              ref={balanceHitRef}
-              className={styles.balanceHit}
-              data-testid={isActive ? getTestId('home_balance') : undefined}
-              role="button"
-              tabIndex={0}
-              data-card-play-allowed={isSensitiveDataHidden || undefined}
-              // The amount names the button. While it is hidden from screen readers, the label replaces it.
-              aria-label={isSensitiveDataHidden ? lang('Tap to reveal') : undefined}
-              aria-describedby={balanceActionId}
-              {...balanceGestureHandlers}
-            >
-              <CardPrivacy
-                isBalance
-                isHidden={Boolean(isSensitiveDataHidden)}
-                isDisabled={isMotionDisabled}
-                palette={balancePalette}
-                controller={controller}
-                revision={shownCardNft?.address ?? 'default'}
+            <span className={styles.balanceGroup}>
+              <span
+                ref={balanceHitRef}
+                className={buildClassName(styles.balanceHit, isSensitiveDataHidden && styles.balanceHitConcealed)}
+                data-testid={isActive ? getTestId('home_balance') : undefined}
+                role="button"
+                tabIndex={0}
+                data-card-play-allowed={isSensitiveDataHidden || undefined}
+                // The amount names the button. While it is hidden from screen readers, the label replaces it.
+                aria-label={isSensitiveDataHidden ? lang('Tap to reveal') : undefined}
+                aria-describedby={balanceActionId}
+                {...balanceGestureHandlers}
               >
-                <span
-                  className={buildClassName(
-                    styles.currencySwitcher,
-                    isUpdating && 'glare-mask',
-                    !isUpdating && withTextGradient && 'gradientText',
-                  )}
+                <PrivacyDust
+                  isBalance
+                  isHidden={Boolean(isSensitiveDataHidden)}
+                  isDisabled={isMotionDisabled}
+                  palette={balancePalette}
+                  controller={controller}
+                  revision={shownCardNft?.address ?? 'default'}
                 >
-                  {shortBaseSymbol.length === 1 && <span className={styles.currencySymbol}>{shortBaseSymbol}</span>}
-                  <AnimatedCounter isDisabled={noAnimationCounter} text={primaryWholePart ?? ''} />
-                  {primaryFractionPart && (
-                    <span className={styles.primaryFractionPart}>
-                      <AnimatedCounter isDisabled={noAnimationCounter} text={`.${primaryFractionPart}`} />
-                    </span>
-                  )}
-                  {shortBaseSymbol.length > 1 && (
-                    <span className={styles.primaryFractionPart}>&nbsp;{shortBaseSymbol}</span>
-                  )}
-                </span>
-              </CardPrivacy>
+                  <span
+                    className={buildClassName(
+                      styles.currencySwitcher,
+                      isUpdating && 'glare-mask',
+                      !isUpdating && withTextGradient && 'gradientText',
+                    )}
+                  >
+                    {shortBaseSymbol.length === 1 && <span className={styles.currencySymbol}>{shortBaseSymbol}</span>}
+                    <AnimatedCounter isDisabled={noAnimationCounter} text={primaryWholePart ?? ''} />
+                    {primaryFractionPart && (
+                      <span className={styles.primaryFractionPart}>
+                        <AnimatedCounter isDisabled={noAnimationCounter} text={`.${primaryFractionPart}`} />
+                      </span>
+                    )}
+                    {shortBaseSymbol.length > 1 && (
+                      <span className={styles.primaryFractionPart}>&nbsp;{shortBaseSymbol}</span>
+                    )}
+                  </span>
+                  <span className={styles.balanceCaret}>
+                    <i className={buildClassName('icon-expand', styles.balanceCaretIcon)} aria-hidden />
+                  </span>
+                </PrivacyDust>
+              </span>
+              {!isSensitiveDataHidden && (
+                <button
+                  type="button"
+                  className={styles.balanceCaretButton}
+                  aria-label={lang('Base Currency')}
+                  aria-haspopup="menu"
+                  onClick={openCurrencyMenu}
+                />
+              )}
             </span>
             {/* Outside the button, so the description does not become a part of the button name */}
             <span id={balanceActionId} className="visually-hidden">
@@ -337,7 +350,7 @@ function Card({
           onClose={closeCurrencyMenu}
         />
         {primaryValue !== '0' && (
-          <CardPrivacy
+          <PrivacyDust
             isHidden={Boolean(isSensitiveDataHidden)}
             isDisabled={isMotionDisabled}
             palette={textPalette}
@@ -379,7 +392,7 @@ function Card({
                 <i className={buildClassName(styles.changeChevron, 'icon-chevron-right')} aria-hidden />
               </span>
             </div>
-          </CardPrivacy>
+          </PrivacyDust>
         )}
       </>
     );

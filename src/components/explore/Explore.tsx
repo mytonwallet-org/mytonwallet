@@ -22,6 +22,7 @@ import { processSites } from './helpers/utils';
 import useAutoScroll from '../../hooks/useAutoScroll';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useDragScroll from '../../hooks/useDragScroll';
+import useHideHomeToolbar from '../../hooks/useHideHomeToolbar';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -91,6 +92,8 @@ function Explore({
     isActive,
     onBack: handleBack,
   });
+
+  useHideHomeToolbar(Boolean(isActive && currentSiteCategoryId));
 
   useLayoutEffect(() => {
     toggleExtraClass(document.documentElement, 'is-explore-active', isActive);

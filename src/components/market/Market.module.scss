@@ -371,6 +371,8 @@
   position: relative;
   height: 100%;
 
+  @include mixins.belowHomeToolbar();
+
   @include mixins.respond-above(xs) {
     // Clips the scrolling content and the movers rail at the rounded corners
     overflow: hidden;
@@ -474,14 +476,13 @@
   z-index: 3;
 }
 
+// The list lines up with `.searchContainer`, whose end margin gives way to the scrollbar
 .suggestionsMenu {
-  --offset-x-value: 0;
+  --offset-x-value: 1.25rem;
 
-  width: 100%;
+  width: calc(100% - 1.25rem - max(0px, calc(1.25rem - var(--scrollbar-width))));
 
   @include mixins.respond-below(xs) {
-    --offset-x-value: 1.25rem;
-
     top: auto !important;
     bottom: 3.25rem;
     transform-origin: bottom center !important;

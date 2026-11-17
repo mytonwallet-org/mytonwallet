@@ -1,0 +1,79 @@
+@use "../../styles/mixins";
+
+.root {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+
+  width: 100%;
+  padding: 0.8125rem 1.25rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.375rem;
+  color: var(--color-accent);
+  text-align: start;
+
+  background-color: var(--color-background-first);
+
+  @include mixins.transition(background-color 200ms);
+
+  @include mixins.active-transition-optimization();
+
+  @include mixins.separatorListTop();
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  &:active {
+    background-color: var(--color-interactive-item-hover);
+  }
+}
+
+.floating {
+  position: absolute;
+  bottom: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+
+  flex-shrink: 0;
+
+  @supports (backdrop-filter: var(--filter-blur-bar)) {
+    background-color: var(--color-background-first-blur);
+    backdrop-filter: var(--filter-blur-bar);
+  }
+}
+
+.icon {
+  margin-inline-end: 1.125rem;
+  font-size: 1.5rem;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  margin-inline-start: 0.25rem;
+  padding: 0.1875rem 0.1875rem 0.125rem;
+  border-radius: 0.25rem;
+
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 0.625rem;
+  color: var(--color-accent);
+
+  background: var(--color-accent-10o);
+}

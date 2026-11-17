@@ -58,6 +58,7 @@ public class UnstakeVC: WViewController {
     private func setupViews() {
         
         title = lang("Unstake")
+        view.accessibilityIdentifier = "stake_screen"
 
         let hostingController = addHostingController(
             UnstakeView(model: model),
@@ -76,6 +77,7 @@ public class UnstakeVC: WViewController {
         continueButtonPresenter = DraftButtonPresenter(button: continueButton)
         let title: String = L10n.unstakeAsset(symbol: model.baseToken.symbol)
         continueButton.setTitle(title, for: .normal)
+        continueButton.accessibilityIdentifier = "stake_submit"
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         continueButton.isEnabled = false
         

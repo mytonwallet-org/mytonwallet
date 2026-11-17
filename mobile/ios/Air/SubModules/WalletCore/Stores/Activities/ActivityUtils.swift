@@ -100,12 +100,12 @@ func getIsBackendSwapId(_ id: String) -> Bool {
     id.hasSuffix(":backend-swap")
 }
 
-/// CEX and cross-chain swaps settle on the backend after their source transaction, so pending ones are polled
-func getIsCrossChainBackendSwap(_ id: String, _ swap: ApiSwapActivity) -> Bool {
-    guard getIsBackendSwapId(id), let fromChain = getChainBySlug(swap.from), let toChain = getChainBySlug(swap.to) else {
+/// Backend settlement can follow the last chain activity, including for same-chain swaps
+func getShouldPollSwap(_ activity: ApiActivity) -> Bool {
+    guard case .swap(let swap) = activity, getIsActivityPendingForUser(activity) else {
         return false
     }
-    return fromChain != toChain
+    return swap.cex != nil || getIsBackendSwapId(swap.id)
 }
 
 func compareActivityIds(_ idA: String, _ idB: String, byId: [String: ApiActivity]) -> Bool {
@@ -132,8 +132,25 @@ func preserveActivityStatusProgress(existingActivity: ApiActivity?, incomingActi
         }
         return .transaction(incomingTransaction)
     case (.swap(let existingSwap), .swap(var incomingSwap)):
+        // Native history merges use the SDK's provider settlement rules
+        if incomingSwap.lifi != nil, getIsBackendSwapId(incomingSwap.id) {
+            if existingSwap.lifi?.outcome != nil, incomingSwap.lifi?.outcome == nil {
+                incomingSwap.status = existingSwap.status
+                incomingSwap.to = existingSwap.to
+                incomingSwap.toAmount = existingSwap.toAmount
+                incomingSwap.lifi = existingSwap.lifi
+            }
+            return .swap(incomingSwap)
+        }
+        if incomingSwap.layerzero != nil, existingSwap.layerzero == nil, getIsBackendSwapId(incomingSwap.id) {
+            return incomingActivity
+        }
         guard shouldPreserveStatus else { return incomingActivity }
         incomingSwap.status = existingSwap.status
+        if existingSwap.layerzero != nil, incomingSwap.layerzero != nil {
+            incomingSwap.toAmount = existingSwap.toAmount
+            incomingSwap.layerzero = existingSwap.layerzero
+        }
         if let cexStatus = existingSwap.cex?.status {
             incomingSwap.cex?.status = cexStatus
         }

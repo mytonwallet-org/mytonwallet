@@ -120,6 +120,13 @@ export function formatTime(datetime: string | number) {
   return toNativeDigits(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`);
 }
 
+/** A number of days, hours or minutes, as in "3h". The number and the unit stay on one line. */
+export function formatTimeUnit(langCode: LangCode, value: number, unit: 'day' | 'hour' | 'minute') {
+  return new Intl.NumberFormat(langCode, { style: 'unit', unit, unitDisplay: 'narrow' })
+    .format(value)
+    .replace(' ', '\u00A0');
+}
+
 export function getCountDaysToDate(datetime: string | number | Date) {
   const today = new Date();
   const date = datetime instanceof Date ? datetime
@@ -153,7 +160,7 @@ export function getMinuteStart(datetime: number | Date) {
   return date;
 }
 
-function isToday(datetime: string | number) {
+export function isToday(datetime: string | number) {
   return getDayStartAt(new Date()) === getDayStartAt(new Date(datetime));
 }
 

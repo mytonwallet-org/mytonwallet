@@ -6,6 +6,8 @@ import { getPerpsCoinFromAssetId } from './perps';
 
 const eventKinds = { open: 'opened', increase: 'increased', reduce: 'reduced', close: 'closed',
   liquidation: 'liquidated' } as const;
+// The hash goes into an explorer link, so a malformed one is dropped rather than linked
+const TX_HASH_REGEX = /^0x[0-9a-fA-F]{64}$/;
 
 /**
  * Preserve backend order IDs and event IDs. Unreported position sizes stay unknown.
@@ -34,6 +36,7 @@ export function normalizePerpsActivityPage(
     );
     fills.push({
       activityId: trade.id, assetId: trade.assetId, coin, oid: trade.orderId,
+      txHash: trade.txHash && TX_HASH_REGEX.test(trade.txHash) ? trade.txHash : undefined,
       time: trade.timestamp, eventKind: eventKinds[trade.kind], positionSide: trade.side,
       px: price, sz: trade.size, notional: trade.notional,
       entryPrice: trade.entryPrice, positionOpenedAt: trade.positionOpenedAt, leverage: trade.leverage,

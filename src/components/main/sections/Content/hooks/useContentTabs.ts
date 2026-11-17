@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useRef } from '../../../../../lib/teact/teact';
-import { getActions } from '../../../../../global';
+import { getActions, getGlobal } from '../../../../../global';
 
 import type { ApiChain, ApiNft, ApiNftCollection, ApiStakingState } from '../../../../../api/types';
 import type { DropdownItem } from '../../../../ui/Dropdown';
 import type { TabWithProperties } from '../../../../ui/TabList';
 import { type Account, ContentTab, SettingsState } from '../../../../../global/types';
 
-import {
-  DEFAULT_CHAIN,
-  PORTRAIT_MIN_ASSETS_TAB_VIEW,
-  STAKING_SLUG_PREFIX,
-  TELEGRAM_GIFTS_SUPER_COLLECTION,
-} from '../../../../../config';
+import { DEFAULT_CHAIN, STAKING_SLUG_PREFIX } from '../../../../../config';
+import { selectCurrentAccountState } from '../../../../../global/selectors';
 import { getChainsSupportingNft, getOrderedAccountChains } from '../../../../../util/chain';
 import { compact } from '../../../../../util/iteratees';
 import { getIsActiveStakingState } from '../../../../../util/staking';
@@ -21,8 +17,6 @@ import useEffectOnce from '../../../../../hooks/useEffectOnce';
 import useLang from '../../../../../hooks/useLang';
 import useLastCallback from '../../../../../hooks/useLastCallback';
 import useSyncEffect from '../../../../../hooks/useSyncEffect';
-
-import styles from '../Content.module.scss';
 
 const MAIN_CONTENT_TABS_LENGTH = Object.values(ContentTab).length / 2;
 
@@ -41,8 +35,6 @@ interface OwnProps {
   hasVesting: boolean;
   alwaysHiddenSlugs?: string[];
   tokensCount: number;
-  isPortrait: boolean;
-  isLandscape: boolean;
 }
 
 export default function useContentTabs({
@@ -60,8 +52,6 @@ export default function useContentTabs({
   hasVesting,
   alwaysHiddenSlugs,
   tokensCount,
-  isPortrait,
-  isLandscape,
 }: OwnProps) {
   const {
     selectToken,
@@ -106,16 +96,17 @@ export default function useContentTabs({
     }
   });
 
-  const {
-    items: nftCollections,
-    nameByKey: nftCollectionNameByKey,
-    shouldRenderHiddenNftsSection,
-  } = useNftCollectionMenuItems({
+  const collections = useNftCollectionMenuItems({
     nfts,
     blacklistedNftAddresses,
     whitelistedNftAddresses,
     areUnverifiedNftsHidden,
   });
+  const {
+    items: nftCollections,
+    nameByKey: nftCollectionNameByKey,
+    shouldRenderHiddenNftsSection,
+  } = collections;
 
   const visibleCollectionTabs = useMemo(() => (
     collectionTabs?.filter((tab) => nftCollectionNameByKey.has(`${tab.chain}_${tab.address}`)) ?? []
@@ -131,19 +122,17 @@ export default function useContentTabs({
   }, [currentCollection, nftCollectionNameByKey, closeNftCollection]);
 
   const totalTokensAmount = tokensCount + (hasVesting ? 1 : 0) + numberOfStaking;
-  const shouldShowSeparateAssetsPanel = isPortrait && totalTokensAmount <= PORTRAIT_MIN_ASSETS_TAB_VIEW;
 
   const [mainContentTabsCount, tabs] = useMemo(() => {
     const nftChains = getChainsSupportingNft();
     const doesSupportNft = byChain && getOrderedAccountChains(byChain).some((chain) => nftChains.has(chain));
 
     const mainContentTabs = compact([
-      !shouldShowSeparateAssetsPanel && { id: ContentTab.Assets, title: lang('Assets'), className: styles.tab },
-      { id: ContentTab.Activity, title: lang('Activity'), className: styles.tab },
+      { id: ContentTab.Assets, title: lang('Assets') },
+      { id: ContentTab.Activity, title: lang('Activity') },
       doesSupportNft && {
         id: ContentTab.Nft,
         title: lang('Collectibles'),
-        className: styles.tab,
         menuItems: shouldRenderHiddenNftsSection
           ? [
             ...nftCollections,
@@ -165,8 +154,6 @@ export default function useContentTabs({
       return {
         id: MAIN_CONTENT_TABS_LENGTH + index,
         title: name,
-        className: styles.tab,
-        icon: tab.address === TELEGRAM_GIFTS_SUPER_COLLECTION ? 'icon-gift' : undefined,
       };
     }));
 
@@ -175,16 +162,15 @@ export default function useContentTabs({
       [...mainContentTabs, ...collectionTabsItems] as TabWithProperties<ContentTab>[],
     ] as const;
   }, [
-    visibleCollectionTabs, byChain, lang, nftCollections, nftCollectionNameByKey,
-    shouldRenderHiddenNftsSection, shouldShowSeparateAssetsPanel,
+    visibleCollectionTabs, byChain, lang, nftCollections, nftCollectionNameByKey, shouldRenderHiddenNftsSection,
   ]);
 
   const activeTabIndex = useMemo(
     () => {
       const tabIndex = tabs.findIndex((tab) => tab.id === activeContentTab);
 
-      // `activeContentTab` can hold a value that is not a visible tab (an overlay section like `Agent`,
-      // or `Assets` while it is shown as a separate panel), so fall back to the first tab by index
+      // `activeContentTab` can hold a value that is not a visible tab (`Overview` or an overlay section
+      // like `Agent`), so fall back to the first tab by index
       return tabIndex === -1 ? 0 : tabIndex;
     },
     [tabs, activeContentTab],
@@ -199,17 +185,18 @@ export default function useContentTabs({
   }, [activeTabIndex, visibleCollectionTabs, currentCollection, mainContentTabsCount, tabs]);
 
   useEffectOnce(() => {
-    if (activeContentTab !== undefined) return;
+    // In portrait `activeContentTab` is the tab under an open token, which a market token leaves empty,
+    // so only the stored tab tells whether the wallet still has to choose one
+    if (selectCurrentAccountState(getGlobal())?.activeContentTab !== undefined) return;
 
-    if (currentTokenSlug !== undefined) {
-      setActiveContentTab({ tab: ContentTab.Activity });
-    } else {
-      setActiveContentTab({ tab: isLandscape ? ContentTab.Overview : ContentTab.Assets });
-    }
+    setActiveContentTab({ tab: currentTokenSlug !== undefined ? ContentTab.Activity : ContentTab.Overview });
   });
 
   const handleHeaderBackClick = useLastCallback(() => {
-    const returnTab = activeContentTab === ContentTab.Activity && activityReturnContentTab !== undefined
+    // `activityReturnContentTab` stays stored after a token closes, so it counts only while a token is open
+    const returnTab = currentTokenSlug !== undefined
+      && activeContentTab === ContentTab.Activity
+      && activityReturnContentTab !== undefined
       ? activityReturnContentTab
       : ContentTab.Overview;
     selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
@@ -226,8 +213,8 @@ export default function useContentTabs({
 
     selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
 
-    // On desktop the default screen is Overview, not Assets
-    const targetTab = tab === ContentTab.Assets && isLandscape ? ContentTab.Overview : tab;
+    // The default screen is Overview, not Assets
+    const targetTab = tab === ContentTab.Assets ? ContentTab.Overview : tab;
     setActiveContentTab({ tab: targetTab });
   });
 
@@ -240,14 +227,26 @@ export default function useContentTabs({
     mainContentTabsCount,
     activeTabIndex,
     contentTransitionKey,
+    collections,
     visibleCollectionTabs,
     totalTokensAmount,
-    shouldShowSeparateAssetsPanel,
+    backHeaderTitle: lang(getBackHeaderTitle(activeContentTab)),
     activeNftKey: activeNftKeyRef.current,
     handleSwitchTab,
     handleHeaderBackClick,
     handleClickAsset,
   };
+}
+
+function getBackHeaderTitle(tab?: ContentTab) {
+  switch (tab) {
+    case ContentTab.Activity:
+      return 'Activity';
+    case ContentTab.Nft:
+      return 'Collectibles';
+    default:
+      return 'Assets';
+  }
 }
 
 function parseCollectionId(id: string) {

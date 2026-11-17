@@ -197,7 +197,7 @@ $signSizeDiff: 0.375rem;
 
   width: 100%;
   height: 100%;
-  padding: max(3.75rem, 17.4927%) 1rem 0.25rem;
+  padding: max(3.75rem, 16.4021%) 1rem 0.25rem;
 
   > * {
     pointer-events: auto;
@@ -205,6 +205,10 @@ $signSizeDiff: 0.375rem;
 
   @media (max-width: 360px) {
     padding: max(2rem, 14%) 1rem 0.25rem;
+  }
+
+  @include mixins.respond-above(xs) {
+    padding-top: 3.375rem;
   }
 }
 
@@ -216,11 +220,12 @@ $signSizeDiff: 0.375rem;
   --border-radius-value: var(--border-radius-default);
 
   max-height: 3.5rem;
+  margin-bottom: 0.625rem;
 
   @include card-depth(1.1);
 
-  @include mixins.respond-below(xs) {
-    margin-bottom: 0.375rem;
+  @include mixins.respond-above(xs) {
+    margin-bottom: 0.5rem;
   }
 }
 
@@ -246,6 +251,8 @@ $signSizeDiff: 0.375rem;
   line-height: 1;
   color: var(--main-text);
   letter-spacing: -0.04375rem;
+  // A wrapped caret would not widen the box, and `useFontScale` would not shrink the balance to fit it
+  white-space: nowrap;
 
   @include mixins.transition($color-transition);
 
@@ -258,6 +265,10 @@ $signSizeDiff: 0.375rem;
   font-size: calc(2.375rem * var(--font-size-scale, 1));
   font-weight: 800;
   color: var(--second-text);
+
+  @include mixins.respond-above(xs) {
+    font-size: calc(2.125rem * var(--font-size-scale, 1));
+  }
 
   :global(.glare-mask) & {
     color: inherit;
@@ -296,7 +307,9 @@ $signSizeDiff: 0.375rem;
 }
 
 .cardAddressContainer {
-  height: 1.125rem;
+  // Keeps a long wallet name clear of `MintCardButton` in the card corner
+  max-width: calc(100% - 4rem);
+  height: 1.25rem;
   margin: auto auto 0.75rem;
 
   @include card-depth(0.8);
@@ -312,6 +325,9 @@ $signSizeDiff: 0.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
+
+  min-width: 0;
+  max-width: 100%;
 }
 
 .minimized {
@@ -392,11 +408,12 @@ $signSizeDiff: 0.375rem;
 .address {
   cursor: var(--custom-cursor, pointer);
 
-  direction: ltr;
   display: inline-flex;
+  gap: 0.25rem;
   align-items: center;
 
   width: auto;
+  min-width: 0;
   height: auto;
   margin: 0;
   padding: 0;
@@ -404,13 +421,11 @@ $signSizeDiff: 0.375rem;
 
   font-size: 0.9375rem;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.25rem;
   color: var(--second-text);
 
   background-color: transparent;
   outline: none;
-
-  -webkit-touch-callout: none;
 
   @include mixins.transition('#{$color-transition}, opacity 150ms');
 
@@ -425,16 +440,27 @@ $signSizeDiff: 0.375rem;
   @include mixins.respond-below(xs) {
     font-size: 1rem;
   }
-
-  .icon {
-    margin-inline-start: 0.125rem;
-  }
 }
 
 // `containerInert` covers browsers without the `inert` attribute, which still deliver clicks to an inert card
 .addressStatic,
 .containerInert {
   pointer-events: none;
+}
+
+.addressTitle {
+  unicode-bidi: plaintext;
+  overflow: hidden;
+
+  min-width: 0;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addressQrIcon {
+  flex: none;
+  font-size: 1rem;
 }
 
 .icon {
@@ -775,6 +801,10 @@ $signSizeDiff: 0.375rem;
   background: var(--color-card-button);
   backdrop-filter: blur(12px);
 
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
+
   @include mixins.transition('#{$color-transition}, background-color 200ms ease');
 
   &:hover,
@@ -815,44 +845,6 @@ $signSizeDiff: 0.375rem;
   margin-inline-end: -0.125rem;
   font-size: 1.25rem;
   line-height: 1rem;
-}
-
-.chainIcon,
-.multichainIcon {
-  height: 1.125rem;
-  margin-inline-end: 0.25rem;
-  vertical-align: -0.25rem;
-}
-
-.iconExpand {
-  margin-left: 0.25rem; // Language-agnostic value - correct as-is
-  font-size: 0.5rem;
-  color: inherit;
-
-  -webkit-text-fill-color: inherit;
-}
-
-.chainIcon {
-  width: 1.125rem;
-}
-
-.multichainIcon {
-  width: 1.875rem;
-}
-
-.multichainList {
-  display: inline-flex;
-  gap: 0.375rem;
-  align-items: center;
-}
-
-.multichainItem {
-  display: inline-flex;
-  align-items: center;
-}
-
-.multichainAddress {
-  display: inline-flex;
 }
 
 .loadingDotsContainer {
@@ -966,11 +958,64 @@ $signSizeDiff: 0.375rem;
 
   display: inline-block;
 
-  min-width: min(14rem, 100%);
-
   outline-offset: 0.25rem;
 
   -webkit-touch-callout: none;
+}
+
+// When the balance is hidden, a tap anywhere on the particles of `PrivacyDust` shows it. The pseudo-element widens
+// the tap area and keeps the size of the balance, so the digits do not jump.
+.balanceHitConcealed::before {
+  content: '';
+
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 14rem;
+}
+
+// One line box tall in the balance font, so the caret centers on the digits at any `--font-size-scale`
+.balanceCaret {
+  display: inline-flex;
+  align-items: center;
+
+  height: 1em;
+  margin-inline-start: 0.1875rem;
+
+  color: var(--second-text);
+  vertical-align: top;
+
+  @include mixins.transition($color-transition);
+}
+
+.balanceGroup {
+  position: relative;
+  display: inline-block;
+}
+
+// The caret is drawn inside `PrivacyDust` to dissolve with the digits, and the amount around it is a button itself.
+// A button cannot be nested in another one, so this empty one lies over the caret.
+.balanceCaretButton {
+  cursor: var(--custom-cursor, pointer);
+
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: 0;
+
+  width: 1.25rem;
+  padding: 0;
+  border: none;
+
+  background: transparent;
+}
+
+.balanceCaretIcon {
+  font-size: 0.875rem;
+  line-height: 1;
 }
 
 .change::before, .change::after {

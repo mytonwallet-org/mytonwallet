@@ -1007,7 +1007,7 @@ final class AgentThreadCell: AgentThreadRowCell, UIGestureRecognizerDelegate {
     func configure(with item: ApiAgentV2ThreadListItem, activity: String? = nil, isUnread: Bool = false, now: Date = .now) {
         let thread = item.thread
         avatarView.configure(seed: thread.id, emoji: thread.icon)
-        let title = thread.title?.nilIfEmpty
+        let title = thread.title?.nilIfEmpty ?? thread.digest.map { AgentV2Model.formatDigestDiscussionTitle(windowEnd: $0.windowEnd) }
         let preview = item.preview?.nilIfEmpty
         let isPinned = thread.isPinned == true
         let time = AgentThreadDateFormatting.formatRowTimestamp(

@@ -49,6 +49,15 @@ test('unavailable historical fees and order IDs remain absent', () => {
   expect(result.fills[0].receiptFees).toBeUndefined();
 });
 
+test.each([
+  { txHash: `0x${'a'.repeat(64)}`, expected: `0x${'a'.repeat(64)}` },
+  { txHash: 'javascript:alert(1)', expected: undefined },
+  { txHash: undefined, expected: undefined },
+])('the transaction hash reaches the fill only when well-formed: %j', ({ txHash, expected }) => {
+  const result = normalizePerpsActivityPage({ address: 'wallet', activities: [{ ...trade, txHash }] }, 'wallet');
+  expect(result.fills[0].txHash).toBe(expected);
+});
+
 test('wrong-account responses fail', () => {
   expect(() => normalizePerpsActivityPage({ address: 'another', activities: [] }, 'wallet'))
     .toThrow('PerpsIncompleteData');

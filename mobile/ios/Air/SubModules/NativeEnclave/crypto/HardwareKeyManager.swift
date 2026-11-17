@@ -26,10 +26,41 @@ enum HardwareKeyManager {
     }
 
     static func loadBiometricKey(context: LAContext) throws -> Data {
-        guard let keyData = try KeychainStore.getData(account: biometricKeyAlias, context: context) else {
-            throw EnclaveError.biometricNotConfigured
+        try loadBiometricKey { try KeychainStore.getData(account: biometricKeyAlias, context: context) }
+    }
+
+    static func loadBiometricKey(loadData: () throws -> Data?) throws -> Data {
+        do {
+            guard let keyData = try loadData() else {
+                throw EnclaveError.biometricKeyInvalidated
+            }
+            return keyData
+        } catch EnclaveError.keychainError(errSecAuthFailed) {
+            throw EnclaveError.biometricKeyInvalidated
         }
-        return keyData
+    }
+
+    static func loadBiometricKeyForSetup(context: LAContext) throws -> Data {
+        try loadBiometricKeyForSetup(
+            ensureKey: ensureBiometricKey,
+            loadKey: { try loadBiometricKey(context: context) },
+            deleteKey: { try KeychainStore.removeChecked(account: biometricKeyAlias) }
+        )
+    }
+
+    static func loadBiometricKeyForSetup(
+        ensureKey: () throws -> Void,
+        loadKey: () throws -> Data,
+        deleteKey: () throws -> Void
+    ) throws -> Data {
+        try ensureKey()
+        do {
+            return try loadKey()
+        } catch EnclaveError.biometricKeyInvalidated {
+            try deleteKey()
+            try ensureKey()
+            return try loadKey()
+        }
     }
 
     static func deleteDataKey() {
@@ -142,11 +173,18 @@ private enum KeychainStore {
     }
 
     static func remove(account: String) {
+        try? removeChecked(account: account)
+    }
+
+    static func removeChecked(account: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw EnclaveError.keychainError(status)
+        }
     }
 }

@@ -273,7 +273,11 @@ function SettingsAssets({
         {
           shouldRenderHiddenNftsSection && (
             <div className={styles.settingsBlock}>
-              <div className={buildClassName(styles.item, styles.item_small)} onClick={handleOpenHiddenNfts}>
+              <div
+                className={buildClassName(styles.item, styles.item_small)}
+                data-testid={getTestId('assets_hidden_nfts')}
+                onClick={handleOpenHiddenNfts}
+              >
                 <span className={styles.itemTitle}>{lang('Hidden NFTs')}</span>
                 <div className={styles.itemInfo}>
                   {hiddenNftsCount}

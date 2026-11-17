@@ -1,10 +1,11 @@
 import React, {
-  memo, useMemo, useState,
+  memo, useMemo,
 } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
 import type { NavigationTab, Theme } from '../../../../global/types';
 
+import { ANIMATED_STICKER_ICON_SPEED, IS_EXPLORER } from '../../../../config';
 import { selectCurrentAccountSettings } from '../../../../global/selectors';
 import { ACCENT_COLORS } from '../../../../util/accentColor/constants';
 import buildClassName from '../../../../util/buildClassName';
@@ -15,9 +16,8 @@ import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
 import useDraggablePill from '../../../../hooks/useDraggablePill';
-import useEffectOnce from '../../../../hooks/useEffectOnce';
 import useFlag from '../../../../hooks/useFlag';
-import { getIsBottomBarHidden, subscribeToBottomBarVisibility } from '../../../../hooks/useHideBottomBar';
+import { useIsBottomBarHidden } from '../../../../hooks/useHideBottomBar';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useNavigationTabDrag from '../../../../hooks/useNavigationTabDrag';
@@ -34,11 +34,12 @@ interface StateProps {
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
+  isFuturesOpen?: boolean;
   accentColorIndex?: number;
   navigationTabOrder?: NavigationTab[];
 }
 
-type IconKey = 'iconWallet' | 'iconMarket' | 'iconAgent' | 'iconExplore' | 'iconSettings';
+type IconKey = 'iconWallet' | 'iconMarket' | 'iconFutures' | 'iconAgent' | 'iconExplore' | 'iconSettings';
 
 interface TabConfig {
   tab: NavigationTab;
@@ -48,38 +49,46 @@ interface TabConfig {
 }
 
 const ICON_SIZE_PX = 38;
-const ANIMATED_STICKER_SPEED = 2;
 
 function BottomBar({
-  theme, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, accentColorIndex, navigationTabOrder,
+  theme, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, accentColorIndex,
+  navigationTabOrder,
 }: StateProps) {
   const {
-    switchToWallet, switchToAgent, switchToExplore, switchToMarket, switchToSettings, setNavigationTabOrder,
+    switchToWallet, switchToMarket, switchToFutures, switchToAgent, switchToExplore, switchToSettings,
+    setNavigationTabOrder,
   } = getActions();
 
   const lang = useLang();
-  const [isHidden, setIsHidden] = useState(getIsBottomBarHidden());
+  const isHidden = useIsBottomBarHidden();
   const appTheme = useAppTheme(theme);
   const stickerPaths = ANIMATED_STICKERS_PATHS[appTheme];
   const accentColor = accentColorIndex !== undefined ? ACCENT_COLORS[appTheme][accentColorIndex] : undefined;
 
-  useEffectOnce(() => {
-    return subscribeToBottomBarVisibility(() => {
-      setIsHidden(getIsBottomBarHidden());
-    });
-  });
-
   const order = useMemo(() => resolveNavigationTabOrder(navigationTabOrder), [navigationTabOrder]);
-  const activeIndex = order.indexOf(getActiveTab({ isAgentOpen, isExploreOpen, isMarketOpen, areSettingsOpen }));
+  // Settings opens from the header avatar button, which the Explorer header does not have
+  const visibleOrder = useMemo(() => (IS_EXPLORER ? order : order.filter((tab) => tab !== 'settings')), [order]);
+  const activeIndex = visibleOrder.indexOf(getActiveTab({
+    isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, areSettingsOpen,
+  }));
 
   const tabConfigs: Record<NavigationTab, TabConfig> = {
     wallet: { tab: 'wallet', label: 'Wallet', iconKey: 'iconWallet', onClick: switchToWallet },
     market: { tab: 'market', label: 'Market', iconKey: 'iconMarket', onClick: switchToMarket },
+    futures: { tab: 'futures', label: 'Futures', iconKey: 'iconFutures', onClick: switchToFutures },
     agent: { tab: 'agent', label: 'Agent', iconKey: 'iconAgent', onClick: switchToAgent },
     explore: { tab: 'explore', label: 'Explore', iconKey: 'iconExplore', onClick: switchToExplore },
     settings: { tab: 'settings', label: 'Settings', iconKey: 'iconSettings', onClick: switchToSettings },
   };
-  const tabs = order.map((tab) => tabConfigs[tab]);
+  const tabs = visibleOrder.map((tab) => tabConfigs[tab]);
+
+  // A hidden tab keeps its place in the order, which the landscape bar shows in full
+  const handleReorder = useLastCallback((newOrder: NavigationTab[]) => {
+    let visibleIndex = 0;
+    setNavigationTabOrder({
+      order: order.map((tab) => (visibleOrder.includes(tab) ? newOrder[visibleIndex++] : tab)),
+    });
+  });
 
   const switchToTabByIndex = useLastCallback((index: number) => {
     tabs[index]?.onClick();
@@ -105,10 +114,10 @@ function BottomBar({
     rootRef: capsuleRef,
     tabClassName: styles.button,
     axis: 'x',
-    order,
+    order: visibleOrder,
     isLiftBlocked: isDragging,
     onLift: cancelDrag,
-    onReorder: (newOrder) => setNavigationTabOrder({ order: newOrder }),
+    onReorder: handleReorder,
   });
 
   const handlePointerDown = useLastCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -161,7 +170,7 @@ function BottomBar({
         onPointerCancel={handlePointerCancel}
         onContextMenu={reorderPointerHandlers.onContextMenu}
       >
-        <Pill isDragging={isDragging || isActiveTabDragged} squeeze={squeeze} />
+        {activeIndex !== -1 && <Pill isDragging={isDragging || isActiveTabDragged} squeeze={squeeze} />}
         {tabs.map(({ tab, label, iconKey }, index) => {
           const isActive = renderedActiveIndex === index;
           const variant = isActive ? `${iconKey}Solid` as const : iconKey;
@@ -188,7 +197,9 @@ function BottomBar({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen } = global;
+  const {
+    areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen,
+  } = global;
 
   return {
     theme: global.settings.theme,
@@ -196,6 +207,7 @@ export default memo(withGlobal((global): StateProps => {
     isAgentOpen,
     isExploreOpen,
     isMarketOpen,
+    isFuturesOpen,
     accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
     navigationTabOrder: global.settings.navigationTabOrder,
   };
@@ -238,7 +250,7 @@ const TabButton = memo(({
       <AnimatedIconWithPreview
         play={isAnimating}
         size={ICON_SIZE_PX}
-        speed={ANIMATED_STICKER_SPEED}
+        speed={ANIMATED_STICKER_ICON_SPEED}
         nonInteractive
         forceOnHeavyAnimation
         className={styles.icon}
@@ -253,11 +265,13 @@ const TabButton = memo(({
 });
 
 function getActiveTab({
-  isAgentOpen, isExploreOpen, isMarketOpen, areSettingsOpen,
-}: Pick<StateProps, 'isAgentOpen' | 'isExploreOpen' | 'isMarketOpen' | 'areSettingsOpen'>): NavigationTab {
+  isAgentOpen, isExploreOpen, isMarketOpen, isFuturesOpen, areSettingsOpen,
+}: Pick<StateProps, 'isAgentOpen' | 'isExploreOpen' | 'isMarketOpen' | 'isFuturesOpen' | 'areSettingsOpen'>,
+): NavigationTab {
   if (isAgentOpen) return 'agent';
   if (isExploreOpen) return 'explore';
   if (isMarketOpen) return 'market';
+  if (isFuturesOpen) return 'futures';
   if (areSettingsOpen) return 'settings';
 
   return 'wallet';

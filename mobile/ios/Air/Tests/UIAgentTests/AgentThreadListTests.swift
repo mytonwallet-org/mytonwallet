@@ -1227,20 +1227,34 @@ final class ThreadListNewsClient: AgentNewsFeedClient {
         let lang: String
         let cursor: String?
         let schedule: AgentNewsDigestSchedule
+        let view: ApiAgentV2NewsFeedView
     }
 
     var locale = "en"
     var items: [ApiAgentV2NewsFeedItem]
     var digests: [ApiAgentV2NewsFeedDigest]?
     var shouldFail = false
+    /// Holds the first pages back until `releaseFirstPages()`
+    var holdsFirstPages = false
+    private var heldFirstPages: [CheckedContinuation<Void, Never>] = []
     private(set) var requests: [Request] = []
 
     init(items: [ApiAgentV2NewsFeedItem] = []) {
         self.items = items
     }
 
+    var heldFirstPageCount: Int { heldFirstPages.count }
+
+    func releaseFirstPages() {
+        holdsFirstPages = false
+        let held = heldFirstPages
+        heldFirstPages = []
+        held.forEach { $0.resume() }
+    }
+
     func getNewsFeed(lang: String, cursor: String?, schedule: AgentNewsDigestSchedule, view: ApiAgentV2NewsFeedView = .all) async throws -> ApiAgentV2NewsFeedPage {
-        requests.append(Request(lang: lang, cursor: cursor, schedule: schedule))
+        requests.append(Request(lang: lang, cursor: cursor, schedule: schedule, view: view))
+        if cursor == nil, holdsFirstPages { await withCheckedContinuation { heldFirstPages.append($0) } }
         if shouldFail { throw ThreadListError.unavailable }
         return ApiAgentV2NewsFeedPage(locale: locale, items: items, digests: digests)
     }

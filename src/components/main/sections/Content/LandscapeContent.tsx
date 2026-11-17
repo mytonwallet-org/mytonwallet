@@ -23,7 +23,6 @@ import { calcVestingAmountByStatus } from '../../../../util/vesting';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
 import useHistoryBack from '../../../../hooks/useHistoryBack';
-import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useScrolledState from '../../../../hooks/useScrolledState';
 import useContentSwipe from './hooks/useContentSwipe';
@@ -96,7 +95,6 @@ function LandscapeContent({
   currentToken,
   onStakedTokenClick,
 }: OwnProps & StateProps) {
-  const lang = useLang();
   const transitionRef = useRef<HTMLDivElement>();
 
   const hasNftSelection = Boolean(selectedNfts?.length);
@@ -106,8 +104,10 @@ function LandscapeContent({
     mainContentTabsCount,
     activeTabIndex,
     contentTransitionKey,
+    collections,
     visibleCollectionTabs,
     totalTokensAmount,
+    backHeaderTitle,
     activeNftKey,
     handleSwitchTab,
     handleHeaderBackClick,
@@ -127,8 +127,6 @@ function LandscapeContent({
     hasVesting,
     alwaysHiddenSlugs,
     tokensCount,
-    isPortrait: false,
-    isLandscape: true,
   });
 
   const { handleScroll: handleContentScroll, isScrolled, update: updateScrolledState } = useScrolledState();
@@ -144,12 +142,7 @@ function LandscapeContent({
 
   useHistoryBack({
     isActive: activeContentTab !== undefined && activeContentTab !== ContentTab.Overview,
-    onBack: () => {
-      const returnTab = activeContentTab === ContentTab.Activity && activityReturnContentTab !== undefined
-        ? activityReturnContentTab
-        : ContentTab.Overview;
-      handleSwitchTab(returnTab);
-    },
+    onBack: handleHeaderBackClick,
   });
 
   // Settings/Agent/Explore render on top of the landscape main area as full-screen overlay slides
@@ -214,12 +207,7 @@ function LandscapeContent({
       return <TokenHeader token={currentToken} isScrolled={isScrolled} onBackClick={handleHeaderBackClick} />;
     }
 
-    return (
-      <BackHeader
-        title={lang(getOverviewBackHeaderTitle(activeContentTab))}
-        onBackClick={handleHeaderBackClick}
-      />
-    );
+    return <BackHeader title={backHeaderTitle} onBackClick={handleHeaderBackClick} />;
   }
 
   function renderSlide(isSlideActive: boolean, _isFrom: boolean, currentKey: number) {
@@ -227,6 +215,10 @@ function LandscapeContent({
       return (
         <LandscapeWalletOverview
           totalTokensAmount={totalTokensAmount}
+          collections={collections}
+          collectionTabs={collectionTabs}
+          visibleCollectionTabs={visibleCollectionTabs}
+          isNftsDataReady={nfts !== undefined}
           isActive={isSlideActive}
           onStakedTokenClick={onStakedTokenClick}
         />
@@ -239,11 +231,8 @@ function LandscapeContent({
       <ContentSlide
         isActive={isSlideActive}
         isPortrait={false}
-        activeTabIndex={activeTabIndex}
         activeTabId={activeTabId}
         currentCollection={currentCollection}
-        shouldShowSeparateAssetsPanel={false}
-        totalTokensAmount={totalTokensAmount}
         activeNftKey={activeNftKey}
         scrollContainerSelector={SCROLL_CONTAINER_SELECTOR}
         onClickAsset={handleClickAsset}
@@ -320,17 +309,6 @@ function TokenSlideContent({ token, isActive, children }: {
       <div ref={activityRef} className={styles.tokenActivity}>{children}</div>
     </>
   );
-}
-
-function getOverviewBackHeaderTitle(tab?: ContentTab) {
-  switch (tab) {
-    case ContentTab.Activity:
-      return 'Activity';
-    case ContentTab.Nft:
-      return 'Collectibles';
-    default:
-      return 'Assets';
-  }
 }
 
 export default memo(

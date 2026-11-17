@@ -27,6 +27,8 @@ const MAX_NEWS_EVENT_ID = 2_147_483_647;
 const MAX_FEED_CURSOR_LENGTH = 2070;
 const MAX_DIGEST_ID_LENGTH = 64;
 const MAX_FEED_DIGEST_TOP_LENGTH = 5;
+const MAX_DIGEST_DISCUSSION_FOLLOWUPS = 3;
+const MAX_FOLLOWUP_TEXT_LENGTH = 80;
 
 export function decodeAgentV2NewsFeed(value: unknown): AgentNewsFeedPageV2 {
   const result = object(value, '$');
@@ -123,17 +125,23 @@ function newsFeedDigest(value: unknown, path: string): AgentNewsFeedDigestV2 {
   const discussion = result.discussion === undefined
     ? undefined
     : newsDiscussion(result.discussion, `${path}.discussion`);
-  const discussionNaming = result.discussionNaming === undefined
+  const discussionFollowups = result.discussionFollowups === undefined
     ? undefined
-    : decodeDiscussionNaming(result.discussionNaming, `${path}.discussionNaming`);
+    : decodeDigestDiscussionFollowups(result.discussionFollowups, `${path}.discussionFollowups`);
   return {
     id,
     deliveredAt,
     top,
     total,
     ...(discussion !== undefined && { discussion }),
-    ...(discussionNaming !== undefined && { discussionNaming }),
+    ...(discussionFollowups !== undefined && { discussionFollowups }),
   };
+}
+
+function decodeDigestDiscussionFollowups(value: unknown, path: string) {
+  const followups = array(value, path, MAX_DIGEST_DISCUSSION_FOLLOWUPS);
+  if (!followups.length) fail(path);
+  return followups.map((text, index) => followupText(text, `${path}[${index}]`, MAX_FOLLOWUP_TEXT_LENGTH));
 }
 
 function digestId(value: unknown, path: string) {
@@ -175,7 +183,7 @@ function decodeDiscussionNaming(value: unknown, path: string): AgentNewsFeedItem
     if (!title.trim() || title.includes('\u0000')) fail(`${path}.title`);
     const icon = result.icon === undefined ? undefined : boundedString(result.icon, `${path}.icon`, 1, 16);
     const followups = array(result.followups, `${path}.followups`, 3)
-      .map((value, index) => followupText(value, `${path}.followups[${index}]`, 80));
+      .map((value, index) => followupText(value, `${path}.followups[${index}]`, MAX_FOLLOWUP_TEXT_LENGTH));
     return { title, ...(icon !== undefined && { icon }), followups };
   } catch (error) {
     if (!(error instanceof AgentV2ContractError)) throw error;

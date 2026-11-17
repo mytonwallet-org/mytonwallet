@@ -128,7 +128,12 @@ function SettingsPushNotifications({
 
   return (
     <div className={styles.slide}>
-      <SettingsHeader title={headerTitle} isScrolled={isScrolled} onBackClick={onBackClick} />
+      <SettingsHeader
+        title={headerTitle}
+        titleTestId={getTestId('notifications_title')}
+        isScrolled={isScrolled}
+        onBackClick={onBackClick}
+      />
 
       <div
         className={buildClassName(styles.content, 'custom-scroll')}

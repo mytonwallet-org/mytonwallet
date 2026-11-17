@@ -87,6 +87,7 @@ import { pause } from '../../../../util/schedulers';
 import { getMaxMessagesInTransaction } from '../../../../util/ton/transfer';
 import { tonConnectGetDeviceInfo } from '../../../../util/tonConnectEnvironment';
 import { safeParseUrl } from '../../../../util/url';
+import { registerMfaRefillQuote } from '../../../chains/ton/dapp';
 import { fetchExternalMessageBocByHashNormalized } from '../../../chains/ton/toncenter/messages';
 import { checkMultiTransactionDraft, sendSignedTransactions } from '../../../chains/ton/transfer';
 import { parsePayloadBase64, preloadPayloadNfts } from '../../../chains/ton/util/metadata';
@@ -563,6 +564,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
     message: DappTransactionRequest<typeof this.protocolType>,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
     let promiseId: string | undefined;
+    let releaseMfaRefillQuote: (() => void) | undefined;
 
     try {
       await this.assertDappConnected(request);
@@ -657,9 +659,14 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         throw new BadRequestError(checkResult.error, checkResult.error);
       }
 
+      // Show the SDK-generated refill before approval, just like every other outgoing message.
+      const approvedMessages = checkResult.mfaRefill ? [...messages, {
+        address: checkResult.mfaRefill.toAddress,
+        amount: checkResult.mfaRefill.amount.toString(),
+      }] : messages;
       const transactionsForRequest = await prepareTransactionForRequest(
         network,
-        messages,
+        approvedMessages,
         checkResult.emulation,
         vestingAddress ?? address,
         checkResult.parsedPayloads,
@@ -667,6 +674,21 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         demand,
       );
 
+      if (checkResult.mfaRefill) {
+        // The refill is a visible transfer here; only distribute the wallet's actual network fee among the rows.
+        const fee = checkResult.emulation.isFallback
+          ? checkResult.emulation.networkFee - checkResult.mfaRefill.amount
+          : checkResult.emulation.realFee;
+        const count = BigInt(transactionsForRequest.length);
+        transactionsForRequest.forEach((transaction, index) => {
+          transaction.networkFee = fee / count
+            + (index === transactionsForRequest.length - 1 ? fee % count : 0n);
+        });
+      }
+
+      if (checkResult.mfaRefill) {
+        releaseMfaRefillQuote = registerMfaRefillQuote(accountId, transactionsForRequest, checkResult.mfaRefill.amount);
+      }
       const dappPromise = createDappPromise();
       promiseId = dappPromise.promiseId;
       const { promise } = dappPromise;
@@ -760,6 +782,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       return this.handleMethodError(err, message.id, 'sendTransaction');
     } finally {
+      releaseMfaRefillQuote?.();
       if (promiseId) {
         clearTonConnectFlowContext(promiseId);
       }
@@ -1621,7 +1644,7 @@ async function checkTransactionMessages(
   });
 
   const checkResult = await checkMultiTransactionDraft(
-    accountId, preparedMessages, undefined, undefined, undefined, demand,
+    accountId, preparedMessages, undefined, undefined, undefined, demand, true,
   );
 
   // Handle insufficient balance error specifically for TON Connect by converting to fallback emulation
@@ -1635,6 +1658,7 @@ async function checkTransactionMessages(
         networkFee: checkResult.emulation.networkFee,
       },
       parsedPayloads: checkResult.parsedPayloads,
+      mfaRefill: checkResult.mfaRefill,
     };
     return fallbackCheckResult;
   }

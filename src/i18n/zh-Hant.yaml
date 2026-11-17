@@ -1381,22 +1381,33 @@ $agent_hint_swap_title: 代幣兌換如何運作？
 $agent_hint_swap_prompt: 說明代幣兌換的運作方式。
 $agent_hint_staking_title: 什麼是質押？
 $agent_hint_staking_prompt: 從零開始解釋質押，就好像我以前從未接觸過加密貨幣一樣。
-$agent_hint_security_title: 如何保護我的錢包？
-$agent_hint_security_prompt: 請教我如何保護我的錢包安全。
+$agent_hint_security_title: 錢包安全
+$agent_hint_security_prompt: 如何保護我的錢包？
 $agent_hint_receive_title: 接收代幣
 $agent_hint_receive_prompt: 請幫我接收代幣。
-$agent_hint_assets_title: 顯示我的資產
-$agent_hint_total_title: 我總共有多少？
-$agent_hint_spending_title: 我這週花在了哪些地方？
-$agent_hint_last_transfer_title: 顯示我最近一筆轉帳
-$agent_hint_fund_title: 如何為錢包儲值？
-$agent_hint_market_today_title: 今天市場怎麼樣？
+$agent_hint_assets_title: 我的資產
+$agent_hint_assets_prompt: 顯示我的資產
+$agent_hint_total_title: 總餘額
+$agent_hint_total_prompt: 我總共有多少？
+$agent_hint_spending_title: 本週支出
+$agent_hint_spending_prompt: 我這週花在了哪些地方？
+$agent_hint_last_transfer_title: 最近一筆轉帳
+$agent_hint_last_transfer_prompt: 顯示我最近一筆轉帳
+$agent_hint_fund_title: 錢包儲值
+$agent_hint_fund_prompt: 如何為錢包儲值？
+$agent_hint_market_today_title: 今日行情
+$agent_hint_market_today_prompt: 今天市場怎麼樣？
 $agent_hint_news_today_title: 今日要聞
-$agent_hint_bitcoin_title: 比特幣怎麼了？
+$agent_hint_news_today_prompt: 今日要聞
+$agent_hint_bitcoin_title: 比特幣行情
+$agent_hint_bitcoin_prompt: 比特幣怎麼了？
 $agent_hint_price_title: 0.5 ETH 值多少錢？
-$agent_hint_staking_yield_title: 哪裡收益更高？
-$agent_hint_staking_options_title: 有哪些質押選項？
-$agent_hint_multisend_title: 如何向多人發送？
+$agent_hint_staking_yield_title: 質押收益
+$agent_hint_staking_yield_prompt: 哪裡收益更高？
+$agent_hint_staking_options_title: 質押選項
+$agent_hint_staking_options_prompt: 有哪些質押選項？
+$agent_hint_multisend_title: 向多人發送
+$agent_hint_multisend_prompt: 如何向多人發送？
 $agent_hint_action_swap_title: 兌換代幣
 $agent_hint_action_send_title: 發送加密貨幣
 $agent_hint_action_stake_title: 開始質押
@@ -1606,6 +1617,7 @@ Wallet Name: 錢包名稱
 App Icon: App 圖示
 Rounded Toolbars: 圓角工具列
 Toolbar: 工具列
+Toolbars: 工具列
 Shared Background: 共用背景
 Side Gutters: 側邊留白
 Gradient Navigation Bar: 漸層導覽列
@@ -2153,7 +2165,6 @@ $agent_news_unread_digests_count:
 Explorer mode: 瀏覽器模式
 Open a link to a wallet, transfer, token or collectible to see its details here.: 開啟錢包、轉帳、代幣或收藏品的連結，即可在此檢視詳情。
 
-# Perps
 Long: "做多"
 Short: "做空"
 Funding Rate: "資金費率"
@@ -2165,7 +2176,6 @@ $perps_max_leverage_hint: "此市場可用的最高槓桿。"
 $perps_volume_24h_hint: "過去 24 小時內此期貨市場的交易總額，包括開倉和平倉交易。"
 $perps_open_interest_hint: "此期貨市場目前未平倉合約的總價值。與 24 小時交易量不同，它不包括已平倉的倉位。"
 
-# Perps order entry
 "Leverage": "槓桿"
 "Position Size": "部位規模"
 "Liquidation Price": "強平價"
@@ -2186,18 +2196,15 @@ $perps_open_interest_hint: "此期貨市場目前未平倉合約的總價值。�
 "$perps_liquidation_price_hint": "由於資金不足以維持倉位，您的倉位可能被自動平倉的估計價格。"
 "$perps_leverage_disclaimer": "更高的槓桿會放大潛在收益和虧損。即使價格出現輕微的不利變動，也可能導致您的倉位被自動平倉。"
 
-# Perps order review
 "Open Position": "開倉"
 "$perps_asset_price": "%asset% 價格"
 "$perps_leverage_direction": "%leverage%倍 %direction%"
 "$perps_liquidation_acknowledgment": "確認即表示我理解，此部位可能被強制平倉，且我可能損失投入的資金。"
 
-# Perps position receipt
 "Position Opened": "已開倉"
 "Fees": "費用"
 "Transfer ID": "轉帳ID"
 
-# Perps active position
 "Equity": "權益"
 "Profit and Loss": "損益"
 "Invested": "已投入"
@@ -2210,7 +2217,6 @@ $perps_open_interest_hint: "此期貨市場目前未平倉合約的總價值。�
 "$perps_entry_price_hint": "此部位的平均開倉價。"
 "$perps_funding_payments_hint": "多頭和空頭交易者之間的定期付款。根據資金費率，在倉位開放期間，您可能需要支付或收到資金費用。"
 
-# Perps edit position
 "$perps_edit_long": "調整 %asset% 多倉"
 "$perps_edit_short": "調整 %asset% 空倉"
 "Current:": "目前："
@@ -2221,7 +2227,6 @@ $perps_open_interest_hint: "此期貨市場目前未平倉合約的總價值。�
 "$perps_network_fee_hint": "在區塊鏈上處理此交易的費用。"
 "$perps_edit_liquidation_hint": "強平 — 部位被自動平倉的價格。"
 
-# Perps position lifecycle
 "Increase Position": "加倉"
 "Reduce Position": "減倉"
 "Current Value": "目前價值"
@@ -2243,7 +2248,6 @@ $perps_open_interest_hint: "此期貨市場目前未平倉合約的總價值。�
 "$perps_liquidated_title": "部位已自動平倉。"
 "$perps_liquidated_message": "市場價格觸及強平價，造成了虧損。"
 
-# Perps home
 "Open Positions": "目前持倉"
 "Show All Positions": "查看所有部位"
 "Futures": "期貨"
@@ -2257,14 +2261,13 @@ $perps_open_interest_hint: "此期貨市場目前未平倉合約的總價值。�
 "$perps_explore_futures": "開立空頭與多頭部位"
 "$perps_explore_apps": "探索去中心化網際網路"
 
-# Perps SDK integration
 "PerpsQuoteExpired": "價格或部位已變動。請返回並重新確認訂單。"
 "PerpsReviewChanged": "訂單已變動。請返回並重新確認。"
 "PerpsInsufficientUsdc": "Arbitrum上的USDC不足以支付所需金額及跨鏈橋費用。"
 "EvmUserOperationMismatch": "燃料費支付與此交易不符。"
 "PerpsInsufficientBalance": "Hyperliquid餘額中的USDC不足以支付所需金額及交易手續費。"
 "PerpsMarketNeedsUnifiedAccount": "使用您目前的 Hyperliquid 帳戶類型，無法從錢包為此市場注資。"
-"PerpsRequiresMultichainWallet": "期貨需要多鏈錢包。請切換到多鏈錢包或新建一個以開始交易。"
+"PerpsRequiresMultichainWallet": "請切換到多鏈錢包或新建一個以開始交易。"
 "PerpsSwitchesToUnifiedAccount": "此訂單也會將您的 Hyperliquid 帳戶切換為 Unified，一個 USDC 餘額即可用於所有市場。"
 "PerpsAmountTooSmall": "此金額低於市場最低要求。"
 "$perps_minimum_amount": "最低金額：%amount% USDC。"
@@ -2309,7 +2312,6 @@ Could not save the image. Please try again.: 無法儲存圖片。請再試一�
 "$perps_activity_closed": "平倉 %asset%"
 "$perps_activity_liquidated": "強平 %asset%"
 
-# Perps
 "PerpsInsufficientGas": "Arbitrum上的ETH不足以支付網路費用。部位所用的USDC與此費用分開計算。"
 "PerpsFundingMissingTitle": "Arbitrum 上沒有 USDC 或 ETH"
 "$perps_funding_missing": "請接收至少 %minUSDC% USDC，以及用於支付費用的 %feeETH% ETH。"
@@ -2425,9 +2427,13 @@ Unlink Wallet: 取消連結錢包
 Confirm Unlinking: 確認取消連結
 Domain Unlinked: 網域已取消連結
 Drag here to add to the toolbar: 拖到此處以新增至工具列
+$toolbar_settings_hint: 按住按鈕並拖移即可重新排列工具列。拖離工具列的按鈕會被移除，帳戶按鈕則會移到頂部列。
+$toolbar_full_title: 工具列已滿
+$toolbar_full_hint: 請先移除一個按鈕再加入
 $send_only_chain_and_token: 請僅將 %symbol%、%tokenSymbol% 或其他 %chain% 網路資產傳送到此地址。傳送其他代幣會導致損失。
 $agent_digest_unavailable: "此摘要已無法使用"
 $agent_digest_title: "今日要聞"
+$agent_digest_discussion_title: "%date%新聞"
 $agent_digest_meta:
   otherValue: "%count% 則新聞"
 $agent_digest_more:
@@ -2464,3 +2470,11 @@ $agent_digest_minutes: "分鐘"
 $swap_one_to_one: 金額達到 %value% 即可享有更優惠的匯率（1:1）。
 $swap_better_rate_minimum: "從 %value% 起可享有更佳匯率。"
 $agent_daily_limit_resets_at: "已達助手每日使用上限。將於 %time% 重設。"
+$biometric_recovery_title: "重新設定生物辨識"
+$biometric_recovery_passcode: "您的生物辨識設定可能已變更。請輸入錢包密碼以繼續。"
+$biometric_recovery_offer: "密碼已確認。要重新設定生物辨識嗎？"
+$biometric_recovery_enable: "啟用生物辨識"
+$biometric_recovery_failed: "無法設定生物辨識。您可以在「設定 > 安全性」中重試。"
+"$perps_leverage_value": "槓桿 %value%"
+"$perps_edit_action": "編輯"
+"PerpsRequiresOwnWallet": "請切換到你自己的錢包或新建一個以開始交易。"

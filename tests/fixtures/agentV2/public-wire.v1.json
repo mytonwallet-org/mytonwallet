@@ -125,11 +125,29 @@
                 "threadId": "44444444-4444-4444-8444-444444444444",
                 "icon": "🗞️"
               },
-              "discussionNaming": {
-                "title": "Network and market news",
-                "icon": "🗞️",
-                "followups": ["What else happened that day?"]
-              }
+              "discussionFollowups": ["What changed in the TON network?", "Why did Bitcoin reach a new high?"]
+            }
+          ]
+        },
+        {
+          "protocolVersion": 3,
+          "locale": "en",
+          "items": [],
+          "digests": [
+            {
+              "id": "en:2026-10-20T09:00:00.000Z",
+              "deliveredAt": "2026-10-20T09:00:00.000Z",
+              "top": [
+                { "eventId": 44, "headline": "TON network update" },
+                { "eventId": 45, "headline": "Bitcoin reaches a new high" },
+                { "eventId": 46, "headline": "A new wallet release" }
+              ],
+              "total": 3,
+              "discussionFollowups": [
+                "What changed in the TON network?",
+                "Why did Bitcoin reach a new high?",
+                "What does the new wallet release add?"
+              ]
             }
           ]
         },
@@ -161,6 +179,44 @@
           "locale": "ru",
           "items": [],
           "nextCursor": ""
+        },
+        {
+          "protocolVersion": 3,
+          "locale": "en",
+          "items": [],
+          "digests": [
+            {
+              "id": "en:2026-10-19T09:00:00.000Z",
+              "deliveredAt": "2026-10-19T09:00:00.000Z",
+              "top": [{ "eventId": 42, "headline": "TON network update" }],
+              "total": 1,
+              "discussionFollowups": []
+            }
+          ]
+        },
+        {
+          "protocolVersion": 3,
+          "locale": "en",
+          "items": [],
+          "digests": [
+            {
+              "id": "en:2026-10-20T09:00:00.000Z",
+              "deliveredAt": "2026-10-20T09:00:00.000Z",
+              "top": [
+                { "eventId": 44, "headline": "TON network update" },
+                { "eventId": 45, "headline": "Bitcoin reaches a new high" },
+                { "eventId": 46, "headline": "A new wallet release" },
+                { "eventId": 47, "headline": "Fees fall on the network" }
+              ],
+              "total": 4,
+              "discussionFollowups": [
+                "What changed in the TON network?",
+                "Why did Bitcoin reach a new high?",
+                "What does the new wallet release add?",
+                "Why did the fees fall?"
+              ]
+            }
+          ]
         }
       ]
     },
@@ -688,9 +744,23 @@
           "digest": {
             "id": "ru:2026-11-04T08:00:00.000Z"
           }
+        },
+        {
+          "protocolVersion": 3,
+          "digest": {
+            "id": "ru:2026-11-04T08:00:00.000Z",
+            "followup": "Что изменилось в сети TON?"
+          }
         }
       ],
       "invalid": [
+        {
+          "protocolVersion": 3,
+          "digest": {
+            "id": "ru:2026-11-04T08:00:00.000Z",
+            "followup": "What else happened?\n"
+          }
+        },
         {
           "protocolVersion": 3,
           "news": {

@@ -39,6 +39,7 @@ import {
   IS_HEADLESS,
   IS_OPERA_EXTENSION,
   IS_PACKAGED_ELECTRON,
+  IS_PERPS_SUPPORTED,
   IS_TELEGRAM_APP,
   LANG_LIST,
   MFA_API_BASE_URL,
@@ -149,6 +150,9 @@ const cspImageSrcHosts = [
   'https://c.tonapi.io',
   'https://web-api.changelly.com',
 ].join(' ');
+
+// The clips of the Perps onboarding stories
+const cspMediaSrcHosts = IS_PERPS_SUPPORTED ? 'https://s3.mywallet.io/public/perps/' : '';
 
 // Kept out of `CSP` because that string is also served via a `<meta>` tag and the extension manifest,
 // where `frame-ancestors` is invalid. It only works as an HTTP header, so it is appended in `_headers`.
@@ -526,7 +530,7 @@ function buildCsp(isDevServer: boolean) {
     script-src 'self' 'wasm-unsafe-eval' ${cspScriptSrcExtra};
     style-src 'self' https://fonts.googleapis.com/${cspStyleSrcExtra};
     img-src 'self' data: blob: https: ${cspImageSrcHosts};
-    media-src 'self' data: https://static.mytonwallet.org/;
+    media-src 'self' data: https://static.mytonwallet.org/ ${cspMediaSrcHosts};
     object-src 'none';
     base-uri 'none';
     font-src 'self' https://fonts.gstatic.com/;

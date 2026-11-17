@@ -1,0 +1,54 @@
+@use "../../../styles/mixins";
+
+// The position rows and the balance row share this look, so the card reads as one list
+
+@mixin root {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+
+  width: 100%;
+  padding: 0.6875rem 0.75rem;
+
+  color: var(--color-black);
+
+  background-color: var(--color-background-first);
+}
+
+@mixin column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+@mixin primary {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@mixin value {
+  unicode-bidi: plaintext;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
+}
+
+@mixin caption {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1rem;
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.75rem;
+  }
+}
+
+@mixin subtitle {
+  @include caption;
+
+  color: var(--color-gray-2);
+}

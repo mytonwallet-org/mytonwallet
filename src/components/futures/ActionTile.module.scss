@@ -1,0 +1,53 @@
+@use "../../styles/mixins";
+
+.root {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  justify-content: space-between;
+
+  width: 5.5rem;
+  height: 5.5rem;
+  padding: 0.75rem;
+  border-radius: 1.25rem;
+
+  color: var(--color-accent);
+  text-align: start;
+
+  background-color: var(--color-background-first);
+
+  @include mixins.transition('background-color 200ms');
+
+  @media (hover: hover) {
+    &:focus-visible,
+    &:hover {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  @media (pointer: coarse) {
+    &:active {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+}
+
+.icon {
+  // The animation leaves wider margins around the glyph than a font icon, so its larger canvas keeps the glyph size
+  margin: -0.1875rem;
+}
+
+.spinner {
+  --spinner-size: 1.5rem;
+}
+
+.label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+  color: var(--color-black);
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.875rem;
+  }
+}

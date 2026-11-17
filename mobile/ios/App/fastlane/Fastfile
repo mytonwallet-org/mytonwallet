@@ -264,6 +264,50 @@ def ensure_no_app_store_review_in_progress!
   UI.user_error!("Cannot start App Store release while another version is in review: #{details}")
 end
 
+APP_REVIEW_NOTES_LIMIT = 4000
+
+def review_notes_with_appendix(notes, appendix)
+  squash = ->(text) { text.to_s.gsub(/\s+/, ' ').strip }
+  return nil if squash.(notes).include?(squash.(appendix))
+
+  [notes.to_s.rstrip, appendix.strip].reject(&:empty?).join("\n\n----\n\n")
+end
+
+# The appendix is added to whatever App Store Connect holds rather than replacing it: the notes
+# also carry the reviewers' test wallet, which lives only there.
+def append_review_notes!(version)
+  appendix = env_value('IOS_REVIEW_NOTES_APPENDIX')
+  return if appendix.nil? || appendix.strip.empty?
+
+  app = Spaceship::ConnectAPI::App.find($app_identifier)
+  edit_version = app&.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
+  if edit_version.nil? || edit_version.version_string != version
+    UI.user_error!("No editable App Store version #{version} to add the App Review notes to")
+  end
+
+  detail = edit_version.fetch_app_store_review_detail
+  notes = review_notes_with_appendix(detail&.notes, appendix)
+  return UI.message('App Review notes already hold the required text') if notes.nil?
+
+  UI.user_error!("App Review notes would grow to #{notes.length} characters, over #{APP_REVIEW_NOTES_LIMIT}") if notes.length > APP_REVIEW_NOTES_LIMIT
+  if detail
+    detail.update(attributes: { notes: notes })
+  else
+    edit_version.create_app_store_review_detail(attributes: { notes: notes })
+  end
+  UI.success('Added the required text to the App Review notes')
+end
+
+# deliver deletes every App Review attachment it is not handed, so the attachment travels with
+# each release instead of staying in App Store Connect between versions.
+def review_attachment_path
+  path = env_value('IOS_REVIEW_ATTACHMENT_PATH')
+  return nil if path.nil?
+
+  UI.user_error!("App Review attachment #{path} does not exist") unless File.file?(path)
+  File.expand_path(path)
+end
+
 def beta_review_in_progress?(version)
   app = Spaceship::ConnectAPI::App.find($app_identifier)
   raise "Could not find App Store Connect app: #{$app_identifier}" if app.nil?
@@ -510,6 +554,8 @@ platform :ios do
       }
     }
     upload_options[:metadata_path] = $metadata_path if $metadata_path
+    attachment_path = review_attachment_path
+    upload_options[:app_review_attachment_file] = attachment_path if attachment_path
 
     # Review state can change while Xcode builds the archive. Check again immediately before
     # set_changelog can rename the editable App Store version.
@@ -523,6 +569,7 @@ platform :ios do
       changelog: changelog,
       platform: "ios"
     )
+    append_review_notes!(version)
 
     upload_to_app_store(upload_options)
   end

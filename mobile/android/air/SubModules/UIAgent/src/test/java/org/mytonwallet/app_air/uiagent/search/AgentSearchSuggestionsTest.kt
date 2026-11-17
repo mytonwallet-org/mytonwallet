@@ -1,19 +1,135 @@
 package org.mytonwallet.app_air.uiagent.search
 
+import java.lang.reflect.Proxy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.BeforeClass
 import org.junit.Test
+import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextSnapshot
+import org.mytonwallet.app_air.uiagent.agentV2.AgentV2Client
+import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
+import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2StarterHint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 
 class AgentSearchSuggestionsTest {
+    @Test
+    fun starterSuggestionsPassTheCurrentAccountContextAndOmitFailedOrStaleSnapshots() =
+        runBlocking {
+            @Suppress("UNCHECKED_CAST")
+            val totals = BalanceStore::class.java.getDeclaredField(
+                "totalBalanceInBaseCurrency"
+            ).run {
+                isAccessible = true
+                get(null) as MutableMap<String, Double>
+            }
+            val firstAccountId = "starter-hints-search-first"
+            val secondAccountId = "starter-hints-search-second"
+            val previousAccountId = AccountStore.activeAccountId
+            val previousTotals = listOf(firstAccountId, secondAccountId).associateWith {
+                totals[it]
+            }
+            val firstHost = JSONObject()
+            val secondHost = JSONObject()
+            val requests = mutableListOf<Pair<String?, JSONObject?>>()
+            var publishedContexts = 0
+            val client = object : AgentV2Client by LiveAgentV2Client() {
+                override suspend fun getStarterHints(
+                    walletState: String?,
+                    host: JSONObject?
+                ): AgentV2HintsResponse {
+                    requests += walletState to host
+                    return AgentV2HintsResponse(
+                        "agent-starter-hints-v2",
+                        listOf(
+                            AgentV2StarterHint("wallet.assets", "wallet"),
+                            AgentV2StarterHint("future.hint", "learn")
+                        )
+                    )
+                }
+
+                override suspend fun updateHostContext(context: JSONObject?) {
+                    publishedContexts++
+                }
+            }
+            totals.remove(firstAccountId)
+            totals[secondAccountId] = 1.0
+            try {
+                AccountStore.updateActiveAccount(firstAccountId)
+                val first = AgentSearchSuggestions.suggested(client) {
+                    AgentHostContextSnapshot(firstAccountId, firstHost)
+                }
+                AccountStore.updateActiveAccount(secondAccountId)
+                val second = AgentSearchSuggestions.suggested(client) {
+                    AgentHostContextSnapshot(secondAccountId, secondHost)
+                }
+                val fallback = AgentSearchSuggestions.suggested(client) {
+                    error("Unavailable snapshot")
+                }
+                val stale = AgentSearchSuggestions.suggested(client) {
+                    AccountStore.updateActiveAccount(firstAccountId)
+                    val snapshot = AgentHostContextSnapshot(firstAccountId, firstHost)
+                    AccountStore.updateActiveAccount(secondAccountId)
+                    snapshot
+                }
+
+                assertEquals(listOf(null, "funded", "funded", "funded"), requests.map { it.first })
+                assertSame(firstHost, requests[0].second)
+                assertSame(secondHost, requests[1].second)
+                assertNull(requests[2].second)
+                assertNull(requests[3].second)
+                assertEquals(listOf("wallet.assets"), first.map { it.id })
+                assertEquals("agent-starter-hints-v2", first.single().catalogVersion)
+                assertEquals(first, second)
+                assertEquals(first, fallback)
+                assertEquals(first, stale)
+                assertEquals(0, publishedContexts)
+            } finally {
+                previousTotals.forEach { (accountId, total) ->
+                    if (total == null) totals.remove(accountId) else totals[accountId] = total
+                }
+                AccountStore.updateActiveAccount(previousAccountId)
+            }
+        }
+
+    @Test
+    fun serializesStarterHintHostContextWithoutQuotingOrShiftingArguments() {
+        val argumentMoshi = MoshiBuilder.build()
+        val host = object : JSONObject() {
+            override fun toString() = """{"activeAccountId":"account","isTestnet":true}"""
+        }
+
+        assertEquals(
+            """["funded",{"activeAccountId":"account","isTestnet":true}]""",
+            ApiMethod.AgentV2.GetStarterHints("funded", host, argumentMoshi).arguments
+        )
+        assertEquals(
+            """[null,{"activeAccountId":"account","isTestnet":true}]""",
+            ApiMethod.AgentV2.GetStarterHints(null, host, argumentMoshi).arguments
+        )
+        assertEquals(
+            """["empty"]""",
+            ApiMethod.AgentV2.GetStarterHints("empty", moshi = argumentMoshi).arguments
+        )
+    }
+
     @Test
     fun firstPageSearchUsesChatListOrderAndKeepsUpToNineRecentThreads() = runBlocking {
         val requests = mutableListOf<Pair<String?, String?>>()
@@ -238,6 +354,30 @@ class AgentSearchSuggestionsTest {
         val noConsent = AgentThreadSearchProvider({ false }, loader, { "New Chat" }, 0)
         assertTrue(noConsent.search().isEmpty())
         assertEquals(0, requestCount)
+    }
+
+    companion object {
+        @JvmStatic
+        @BeforeClass
+        fun initializeEmptyWalletStorage() {
+            val storage = Proxy.newProxyInstance(
+                IGlobalStorageProvider::class.java.classLoader,
+                arrayOf(IGlobalStorageProvider::class.java)
+            ) { _, method, _ ->
+                when (method.name) {
+                    "contains" -> false
+
+                    "keysIn" -> emptyArray<String>()
+
+                    "getInt", "getString", "getBool", "getDict", "getArray",
+                    "incrementDoNotSynchronize", "decrementDoNotSynchronize",
+                    "set", "setEmptyObject", "setEmptyObjects", "remove" -> null
+
+                    else -> error("Unexpected wallet storage call: ${method.name}")
+                }
+            } as IGlobalStorageProvider
+            WGlobalStorage.init(storage)
+        }
     }
 
     private fun thread(id: String, lastActivityAt: String) = AgentV2ThreadSummary(

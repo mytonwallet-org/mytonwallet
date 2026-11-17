@@ -25,6 +25,8 @@ $listHorizontalPadding: 1rem;
 .slideWrapper {
   position: relative;
   height: 100%;
+
+  @include mixins.belowHomeToolbar();
 }
 
 .slide {
@@ -207,13 +209,21 @@ $listHorizontalPadding: 1rem;
 }
 
 .emptyList {
+  --empty-list-padding-top: 1.875rem;
+
   display: flex;
   flex-direction: column;
   align-items: center;
 
   height: 100%;
-  padding-top: 1.875rem;
+  padding-top: var(--empty-list-padding-top);
   padding-bottom: 2rem;
+
+  @include mixins.respond-below(xs) {
+    padding-top: calc(var(--empty-list-padding-top) + var(--safe-area-top));
+  }
+
+  @include mixins.belowHomeToolbar();
 
   color: var(--color-gray-2);
 
@@ -230,7 +240,7 @@ $listHorizontalPadding: 1rem;
 }
 
 .emptyListLoading {
-  padding-top: 8rem;
+  --empty-list-padding-top: 8rem;
 
   @include mixins.respond-above(xs) {
     padding-bottom: 8rem;

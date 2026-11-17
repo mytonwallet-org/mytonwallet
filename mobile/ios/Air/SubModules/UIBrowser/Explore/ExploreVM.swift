@@ -18,7 +18,15 @@ private let log = Log("ExploreVM")
 }
 
 @MainActor final class ExploreVM: WalletCoreData.EventsObserver {
+    enum LoadingState {
+        case loading
+        case loaded
+        case failed
+        case offline
+    }
+
     let reachability = Reachability()
+    private(set) var loadingState: LoadingState = .loading
 
     // MARK: - Initializer
 
@@ -42,6 +50,9 @@ private let log = Log("ExploreVM")
     private let retryDelay: Duration
 
     init(
+        getCachedSites: () -> ApiExploreSitesResult? = {
+            Api.getCachedExploreSites(langCode: LocalizationSupport.shared.langCode)
+        },
         fetchSites: @escaping () async throws -> ApiExploreSitesResult = {
             try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
         },
@@ -53,14 +64,27 @@ private let log = Log("ExploreVM")
         self.fetchDapps = fetchDapps
         self.accountId = accountId
         self.retryDelay = retryDelay
+        if let result = getCachedSites() {
+            updateExploreSites(result)
+            didLoadSites = false
+        }
         // Listen for network connection events
         reachability.whenReachable = { [weak self] _ in
             guard let self else { return }
             waitingForNetwork = false
+            if loadingState == .offline {
+                loadingState = .loading
+                delegate?.didUpdateViewModelData()
+            }
             if isActive { refreshMissingContent() }
         }
         reachability.whenUnreachable = { [weak self] _ in
-            self?.waitingForNetwork = true
+            guard let self else { return }
+            waitingForNetwork = true
+            if loadingState != .loaded, loadExploreSitesTask != nil {
+                loadingState = .offline
+                delegate?.didUpdateViewModelData()
+            }
         }
         reachability.startNotifier()
 
@@ -103,6 +127,10 @@ private let log = Log("ExploreVM")
     }
 
     func refresh() {
+        if loadingState != .loaded, loadExploreSitesTask == nil {
+            loadingState = .loading
+            delegate?.didUpdateViewModelData()
+        }
         loadExploreSites()
         loadDapps()
         updateRestricted()
@@ -112,6 +140,7 @@ private let log = Log("ExploreVM")
 
     func updateExploreSites(_ result: ApiExploreSitesResult) {
         didLoadSites = true
+        loadingState = .loaded
         featuredTitle = result.featuredTitle
         exploreSites = OrderedDictionary(result.sites.map { ($0.url, $0) }, uniquingKeysWith: { $1 })
         exploreCategories = OrderedDictionary(result.categories.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
@@ -139,6 +168,10 @@ private let log = Log("ExploreVM")
                 self?.updateExploreSites(result)
             } catch {
                 guard !Task.isCancelled else { return }
+                if let self, loadingState != .loaded {
+                    loadingState = waitingForNetwork ? .offline : .failed
+                    delegate?.didUpdateViewModelData()
+                }
                 log.error("failed to fetch explore sites \(error, .public)")
             }
             self?.loadExploreSitesTask = nil

@@ -232,9 +232,11 @@ addActionHandler('selectToken', (global, actions, { slug } = {}) => {
     }
   }
 
-  // The market keeps its token while one stays selected, and follows a switch to another token
-  // made from the token screen, e.g. from an activity modal
-  global = { ...global, marketTokenSlug: slug && global.marketTokenSlug ? slug : undefined };
+  // The open market keeps its token while one stays selected, and follows a switch to another token made from
+  // the token screen, e.g. from an activity modal. A token selected after the market closes belongs to the wallet,
+  // which also cancels the market's pending reset of its token.
+  const isMarketTokenKept = Boolean(slug && global.marketTokenSlug && global.isMarketOpen);
+  global = { ...global, marketTokenSlug: isMarketTokenKept ? slug : undefined };
 
   return updateCurrentAccountState(global, { currentTokenSlug: slug });
 });

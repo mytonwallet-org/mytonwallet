@@ -31,6 +31,8 @@ type PerpsDraftAmountContext = {
   availableUsdc?: string;
   /** The book's spendable HyperCore USDC. Required for the fraction of a new balance-funded order. */
   spendableUsdc?: string;
+  /** Paymaster USDC left in the wallet when a gasless deposit's fraction spends the rest. */
+  reservedUsdc?: string;
 };
 
 /** A market without the backend's canonical exchange index cannot be traded on any book. */
@@ -49,7 +51,7 @@ function isValidPerpsWireAssetIndex(index: unknown): index is number {
 }
 
 function resolveTargetCollateral({
-  asset, draft, position, availableUsdc, spendableUsdc,
+  asset, draft, position, availableUsdc, spendableUsdc, reservedUsdc,
 }: PerpsDraftAmountContext): Big {
   const oldCollateral = Big(position?.collateral ?? 0);
   let target = Big(draft.amount || '0');
@@ -61,8 +63,8 @@ function resolveTargetCollateral({
     } else {
       const available = draft.funding === 'balance'
         ? getPerpsBalanceAvailableCollateral(asset, draft.leverage, spendableUsdc!)
-        : Big(availableUsdc!).minus(PERPS_CCTP_FORWARD_FEE_USDC);
-      target = available.mul(draft.fraction).div(100);
+        : Big(availableUsdc!).minus(PERPS_CCTP_FORWARD_FEE_USDC).minus(reservedUsdc ?? 0);
+      target = (available.gt(0) ? available : Big(0)).mul(draft.fraction).div(100);
     }
   }
   return draft.close ? Big(0) : target;
@@ -183,10 +185,16 @@ export function getPerpsFundingRequirements(params: PerpsDraftAmountContext & {
 }): ApiPerpsFundingRequirements {
   const { draft, position, availableUsdc, availableEth, depositLimits } = params;
   if (draft.editing && !position) throw new Error('PerpsPositionChanged');
+  // A gasless deposit's fraction leaves the paymaster cost in the wallet; ETH-paid gas reserves nothing in USDC
+  const gasReserve = params.nativeFee ? '0' : readPerpsGasUsdcReserve(params.requiredGasUsdc);
   const availableCollateral = resolveTargetCollateral({
-    asset: params.asset, availableUsdc, draft: { ...draft, fraction: 100, close: false },
+    asset: params.asset,
+    availableUsdc,
+    reservedUsdc: gasReserve,
+    draft: { ...draft, fraction: 100, close: false },
   });
-  const delta = resolveTargetCollateral(params).minus(position?.collateral ?? 0);
+  const delta = resolveTargetCollateral({ ...params, reservedUsdc: gasReserve })
+    .minus(position?.collateral ?? 0);
   const deposits = params.leverageDepositAmount !== undefined
     ? Big(params.leverageDepositAmount).gt(0) : !draft.close && (!draft.editing || delta.gt(0));
   const minimum = position
@@ -205,13 +213,8 @@ export function getPerpsFundingRequirements(params: PerpsDraftAmountContext & {
     requiredEth = priced.eth;
     requiredEthUsd = priced.usd ?? '0';
     needsEth = Big(availableEth).lte(0);
-  } else if (deposits && params.requiredGasUsdc !== undefined) {
-    try {
-      const reserve = Big(params.requiredGasUsdc);
-      requiredGasUsdc = reserve.gte(0) ? reserve.toFixed() : '0';
-    } catch {
-      requiredGasUsdc = '0';
-    }
+  } else if (deposits) {
+    requiredGasUsdc = gasReserve;
   }
   const totalUsdc = Big(requiredUsdc).plus(requiredGasUsdc);
   return {
@@ -226,6 +229,17 @@ export function getPerpsFundingRequirements(params: PerpsDraftAmountContext & {
     needsUsdc: totalUsdc.gt(0) && Big(availableUsdc).lt(totalUsdc),
     needsEth,
   };
+}
+
+/** Non-negative paymaster USDC to leave in the wallet when sizing a gasless deposit. */
+function readPerpsGasUsdcReserve(requiredGasUsdc?: string): string {
+  if (requiredGasUsdc === undefined) return '0';
+  try {
+    const reserve = Big(requiredGasUsdc);
+    return reserve.gte(0) ? reserve.toFixed() : '0';
+  } catch {
+    return '0';
+  }
 }
 
 export function normalizePerpsPosition(
@@ -329,6 +343,8 @@ export function resolvePerpsDraft(params: {
   availableUsdc?: string;
   /** The book's spendable HyperCore USDC, which a balance draft's fraction shares. */
   spendableUsdc?: string;
+  /** Paymaster USDC left in the wallet when a gasless deposit's fraction spends the rest. */
+  reservedUsdc?: string;
   /** `limitsByChain` for this asset's chain from `GET /perps/assets`. */
   depositLimits: ApiPerpsLimits;
   now: number;

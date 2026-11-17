@@ -55,7 +55,7 @@ function TransferComplete({
   const lang = useLang();
   const isNftTransfer = Boolean(nfts?.length);
   const title = isNftBurn && nfts?.length
-    ? lang('$nfts_burned', nfts.length) as string
+    ? lang('$nfts_burned', nfts.length)
     : lang('Sent');
 
   useHistoryBack({

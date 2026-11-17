@@ -8,6 +8,9 @@
       location = "group:../Air">
    </FileRef>
    <FileRef
+      location = "group:../Packages/GraphKit">
+   </FileRef>
+   <FileRef
       location = "group:../Tests/AirTests.xctestplan">
    </FileRef>
 </Workspace>

@@ -187,6 +187,7 @@ final class RootAgentBarController {
         // The toolbar's own pieces show whenever the bar doesn't, so no frame goes without the trailing button
         let isBarFolded = clamped <= 0.001
         bar.toolbarActionsWidth = searchToolbar.homeActionsWidth
+        bar.toolbarLeadingInset = searchToolbar.homeFieldLeadingInset
         searchToolbar.setTrailingHandoffProgress(isBarFolded ? 0 : AgentListBottomBar.getSearchCircleCollapse(at: clamped))
         let isOnRoot = host?.agentBarNavigationController?.viewControllers.count ?? 1 <= 1
         bar.isHidden = isBarFolded || !isOnRoot || !isAvailable

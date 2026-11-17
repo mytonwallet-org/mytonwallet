@@ -71,6 +71,7 @@ function AddAccountSelector({
             icon="subwallet-add"
             label={lang('New Subwallet')}
             description={lang('From current secret words')}
+            testId={getTestId('add_wallet_subwallet')}
             onClick={onNewSubwalletClick}
           />
         )}

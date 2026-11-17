@@ -129,3 +129,16 @@
     background-color: color-mix(in srgb, var(--color-red) 12%, transparent);
   }
 }
+
+.root.informational {
+  color: var(--color-accent);
+  background-color: #2C92F01F;
+
+  &::before {
+    background-color: var(--color-accent);
+  }
+
+  @supports (background-color: color-mix(in srgb, var(--color-accent) 12%, transparent)) {
+    background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+}

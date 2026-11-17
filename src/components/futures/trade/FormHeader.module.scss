@@ -1,0 +1,50 @@
+@use "../../../styles/mixins";
+
+.root {
+  position: relative;
+}
+
+// Centered over the whole header and kept clear of the buttons on both sides
+.title {
+  position: absolute;
+  inset-block: 0;
+  inset-inline: 5.5rem;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 0;
+}
+
+.titleText,
+.subtitle {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titleText {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.375rem;
+  color: var(--color-black);
+
+  @include mixins.respond-above(xs) {
+    font-size: 1rem;
+  }
+}
+
+.subtitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.6875rem;
+  }
+}

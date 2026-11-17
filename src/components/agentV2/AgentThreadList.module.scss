@@ -20,6 +20,11 @@ $swipeCardRadius: 1.625rem;
 .root {
   @include agentHeader.variables;
 
+  // The home toolbar over the list already keeps clear of Opera's dead zone, and `--safe-area-top` includes it
+  :global(html.with-home-toolbar.is-windows.is-opera.is-extension) & {
+    --header-padding-top: var(--safe-area-top);
+  }
+
   // The chats' avatars are as large as the tokens' in the wallet: 36 px, 42 px on a phone and 40 px in the wide layout
   --agent-avatar-size: 2.25rem;
 

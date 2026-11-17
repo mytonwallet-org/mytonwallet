@@ -32,7 +32,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private let isConsentKnownGiven: () -> Bool
     /// Makes the chat of a row; the flag tells that the row is the SDK's copy of the list
     private let makeThreadChat: (ApiAgentV2ThreadSummary, Bool) -> UIViewController
-    private let makeNewChat: (String?) -> UIViewController
+    private let makeNewChat: (String?, ApiAgentV2EntryPoint?) -> UIViewController
     /// Makes a new chat that asks for a support operator
     private let makeSupportChat: () -> UIViewController
     /// The user has a wallet, whose addresses an operator gets with the chat
@@ -78,6 +78,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private var sections: [AgentThreadListSection] = []
     private var itemsById: [String: ApiAgentV2ThreadListItem] = [:]
     private var suggestions: [AgentHint] = []
+    /// The list has gone from the screen since it last came
+    private var hasLeftScreen = false
     /// Contact Support was confirmed and waits for the server's chats to choose the chat it goes to, with the list's
     /// `disappearanceCount` then: a list the user left since drops it, as a question asked or News opened meanwhile
     private var pendingSupportRequestDisappearanceCount: Int?
@@ -121,17 +123,17 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         )
     }
 
+    /// Without `makeNewChat` and `loadSuggestions`, the list opens new chats and loads suggestions with `preloader`
     init(
         model: AgentThreadListModel,
+        preloader: AgentPreloader = .shared,
         loadConsent: @escaping () async throws -> Bool,
         acceptConsent: @escaping () async throws -> Void,
         isConsentKnownGiven: @escaping () -> Bool = { false },
         makeThreadChat: @escaping (ApiAgentV2ThreadSummary, Bool) -> UIViewController = {
             AgentEntryPoint.makeRootViewController(thread: $0, isSummaryCached: $1)
         },
-        makeNewChat: @escaping (String?) -> UIViewController = {
-            AgentEntryPoint.makeNewChatViewController(query: $0)
-        },
+        makeNewChat: ((String?, ApiAgentV2EntryPoint?) -> UIViewController)? = nil,
         makeSupportChat: @escaping () -> UIViewController = {
             AgentEntryPoint.makeSupportChatViewController()
         },
@@ -140,11 +142,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         makeNewsFeed: @escaping (AgentNewsFeedModel) -> UIViewController = {
             AgentNewsFeedVC(model: $0)
         },
-        loadSuggestions: @escaping () async throws -> [AgentHint] = {
-            try await AgentSearchProvider.shared.loadSuggestions(langCode: "").map {
-                AgentHint(id: $0.id, title: $0.title, subtitle: $0.prompt, prompt: $0.prompt, catalogVersion: $0.catalogVersion)
-            }
-        },
+        loadSuggestions: (() async throws -> [AgentHint])? = nil,
         getCurrentDate: @escaping () -> Date = { .now },
         refreshInterval: TimeInterval = AgentThreadListLayout.refreshInterval
     ) {
@@ -153,12 +151,21 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         self.acceptConsent = acceptConsent
         self.isConsentKnownGiven = isConsentKnownGiven
         self.makeThreadChat = makeThreadChat
-        self.makeNewChat = makeNewChat
+        self.makeNewChat = makeNewChat ?? {
+            AgentEntryPoint.makeNewChatViewController(query: $0, entryPoint: $1, preloader: preloader)
+        }
         self.makeSupportChat = makeSupportChat
         self.hasWalletAccount = hasWalletAccount
         self.presentConfirmation = presentConfirmation
         self.makeNewsFeed = makeNewsFeed
-        self.loadSuggestions = loadSuggestions
+        self.loadSuggestions = loadSuggestions ?? {
+            let suggestions = try await AgentSearchProvider.shared.loadSuggestions(
+                client: preloader.client, activeAccount: AccountStore.account
+            )
+            return suggestions.map {
+                AgentHint(id: $0.id, title: $0.title, subtitle: $0.prompt, prompt: $0.prompt, catalogVersion: $0.catalogVersion)
+            }
+        }
         self.getCurrentDate = getCurrentDate
         self.refreshInterval = refreshInterval
         super.init(nibName: nil, bundle: nil)
@@ -248,6 +255,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         if isComposing, !bottomBar.isEditing {
             setSuggestionsVisible(false, animated: false)
         }
+        if hasLeftScreen, isShowingSuggestions { pickSuggestions() }
+        hasLeftScreen = false
         if hasConsent {
             updateList()
             refresh()
@@ -302,6 +311,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     public override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         isOnScreen = false
+        hasLeftScreen = true
         refreshTimer?.invalidate()
         refreshTimer = nil
     }
@@ -712,7 +722,6 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         collectionView.isHidden = false
         updateList()
         refresh()
-        loadSuggestionsIfNeeded()
         if isOnScreen { startRefreshTimer() }
     }
 
@@ -754,7 +763,6 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         collectionView.isHidden = false
         updateList()
         refresh()
-        loadSuggestionsIfNeeded()
         if isOnScreen { startRefreshTimer() }
     }
 
@@ -1018,6 +1026,11 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             if case .field = self { return true }
             return false
         }
+
+        var entryPoint: ApiAgentV2EntryPoint? {
+            guard case .suggestion(let hint) = self else { return nil }
+            return .emptyState(hintId: hint.id, catalogVersion: hint.catalogVersion)
+        }
     }
 
     /// Asks for consent first when the Agent doesn't have it: closing the sheet keeps the question in the field and
@@ -1040,7 +1053,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         // suggestion tapped, which leaves the list meanwhile
         let sentSource = makeSentSource(from: origin)
         bottomBar.clearDraft()
-        let chat = makeNewChat(query)
+        let chat = makeNewChat(query, origin.entryPoint)
         (chat as? AgentVC)?.openingSentSource = sentSource
         shouldKeepSuggestionsForComposedChat = isComposing && presentComposedChat != nil
         if shouldKeepSuggestionsForComposedChat {
@@ -1121,16 +1134,18 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         clock?.start()
     }
 
-    private func loadSuggestionsIfNeeded() {
-        guard suggestions.isEmpty, suggestionsTask == nil else { return }
+    /// The suggestions coming on screen are a new pick, for the wallet as it is then
+    private func pickSuggestions() {
+        suggestionsTask?.cancel()
+        suggestions = []
         // Contact Support shows at once, as on the web, and the suggestions come before it once they load
         configureSuggestions()
         suggestionsTask = Task { [weak self] in
             guard let self else { return }
             let loaded = (try? await loadSuggestions()) ?? []
-            suggestionsTask = nil
             guard !Task.isCancelled else { return }
-            suggestions = Array(loaded.prefix(5))
+            suggestionsTask = nil
+            suggestions = loaded
             configureSuggestions()
         }
     }
@@ -1259,7 +1274,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         isComposing = shouldHideList
         isShowingSuggestions = isVisible
         if isVisible {
-            loadSuggestionsIfNeeded()
+            if !wasShowingSuggestions { pickSuggestions() }
             closeSwipedRows(except: nil)
         }
         suggestionsView.isHidden = false

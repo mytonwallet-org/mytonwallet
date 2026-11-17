@@ -102,7 +102,7 @@ public struct ApiAgentV2NewsFeedDigest: Codable, Equatable, Hashable, Sendable {
     public let top: [ApiAgentV2DigestHeadline]
     public let total: Int
     public let discussion: ApiAgentV2NewsFeedItem.Discussion?
-    public let discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming?
+    public let discussionFollowups: [String]?
 
     public init(
         id: String,
@@ -110,18 +110,18 @@ public struct ApiAgentV2NewsFeedDigest: Codable, Equatable, Hashable, Sendable {
         top: [ApiAgentV2DigestHeadline],
         total: Int,
         discussion: ApiAgentV2NewsFeedItem.Discussion? = nil,
-        discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming? = nil
+        discussionFollowups: [String]? = nil
     ) {
         self.id = id
         self.deliveredAt = deliveredAt
         self.top = top
         self.total = total
         self.discussion = discussion
-        self.discussionNaming = discussionNaming
+        self.discussionFollowups = discussionFollowups
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, deliveredAt, top, total, discussion, discussionNaming
+        case id, deliveredAt, top, total, discussion, discussionFollowups
     }
 
     public init(from decoder: Decoder) throws {
@@ -131,7 +131,7 @@ public struct ApiAgentV2NewsFeedDigest: Codable, Equatable, Hashable, Sendable {
         top = try container.decode([ApiAgentV2DigestHeadline].self, forKey: .top)
         total = try container.decode(Int.self, forKey: .total)
         discussion = try container.decodeIfPresent(ApiAgentV2NewsFeedItem.Discussion.self, forKey: .discussion)
-        discussionNaming = try? container.decodeIfPresent(ApiAgentV2NewsFeedItem.DiscussionNaming.self, forKey: .discussionNaming)
+        discussionFollowups = try? container.decodeIfPresent([String].self, forKey: .discussionFollowups)
     }
 }
 
@@ -151,9 +151,11 @@ public struct ApiAgentV2ThreadDigestCard: Codable, Equatable, Hashable, Sendable
 
 public struct ApiAgentV2ThreadDigestRequest: Encodable, Equatable, Sendable {
     public let id: String
+    public let followup: String?
 
-    public init(id: String) {
+    public init(id: String, followup: String? = nil) {
         self.id = id
+        self.followup = followup
     }
 }
 
@@ -1009,23 +1011,74 @@ private extension ApiAgentV2PersistedMessage {
     }
 }
 
-public struct ApiAgentV2StarterHint: Codable, Equatable, Hashable, Sendable {
-    public enum ID: String, Codable, Equatable, Hashable, Sendable {
+public struct ApiAgentV2StarterHint: Decodable, Equatable, Hashable, Sendable {
+    public enum ID: String, Decodable, Equatable, Hashable, Sendable {
         case agentCapabilities = "agent.capabilities"
-        case portfolioPerformance = "portfolio.performance"
         case learnSwap = "learn.swap"
         case learnStaking = "learn.staking"
         case learnSecurity = "learn.security"
         case receiveTokens = "receive.tokens"
+        case walletAssets = "wallet.assets"
+        case walletTotal = "wallet.total"
+        case walletSpending = "wallet.spending"
+        case walletLastTransfer = "wallet.last_transfer"
+        case walletFund = "wallet.fund"
+        case marketToday = "market.today"
+        case newsToday = "news.today"
+        case marketBitcoin = "market.bitcoin"
+        case marketPrice = "market.price"
+        case stakingYield = "staking.yield"
+        case stakingOptions = "staking.options"
+        case learnMultisend = "learn.multisend"
+        case actionSwap = "action.swap"
+        case actionSend = "action.send"
+        case actionStake = "action.stake"
     }
+
+    public enum Group: String, Decodable, Equatable, Hashable, Sendable {
+        case wallet, market, learn, action
+    }
+
     public let id: ID
-    public let requiredCapabilities: [String]?
+    public let group: Group
+
+    public init(id: ID, group: Group) {
+        self.id = id
+        self.group = group
+    }
 }
 
-public struct ApiAgentV2HintsResponse: Codable, Equatable, Sendable {
-    public let protocolVersion: Int
+/// The wallet state the SDK picks starter hints for
+public enum ApiAgentV2HintWalletState: String, Encodable, Equatable, Sendable {
+    case funded, empty
+}
+
+/// One hint per group, picked anew on every call
+public struct ApiAgentV2StarterHints: Decodable, Equatable, Sendable {
+    private struct LossyHint: Decodable {
+        let value: ApiAgentV2StarterHint?
+
+        init(from decoder: Decoder) throws {
+            value = try? ApiAgentV2StarterHint(from: decoder)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case catalogVersion, items }
+
     public let catalogVersion: String
     public let items: [ApiAgentV2StarterHint]
+
+    public init(catalogVersion: String, items: [ApiAgentV2StarterHint]) {
+        self.catalogVersion = catalogVersion
+        self.items = items
+    }
+
+    /// A hint of an id or group this version does not know is left out
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        catalogVersion = try container.decode(String.self, forKey: .catalogVersion)
+        items = try container.decode([LossyHint].self, forKey: .items).compactMap(\.value)
+    }
 }
 
 public struct ApiAgentV2HostAsset: Codable, Equatable, Sendable {

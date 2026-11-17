@@ -338,7 +338,9 @@ describe('swapCexSubmit', () => {
 
     await swapCexSubmit('base' as ApiChain, transferOptions, 'swap-id');
 
-    expect(chains.base.submitGasfullTransfer).toHaveBeenCalledWith(transferOptions);
+    expect(chains.base.submitGasfullTransfer).toHaveBeenCalledWith({
+      ...transferOptions,
+    });
     expect(fetchStoredWallet).toHaveBeenCalledWith('0-mainnet', 'ton');
     expect(patchSwapItem).toHaveBeenCalledWith({
       address: 'EQ-ton-history-owner',

@@ -79,6 +79,9 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
     private var futuresPositionsObservation: ObserveToken?
     private var observedFuturesEntries: [WalletCoreFuturesSearchEntry]?
     private var observedFuturesPositions: FuturesPositions?
+    private let getSuggestionsWalletState: @MainActor () -> ApiAgentV2HintWalletState?
+    /// The active account's wallet state the indexed Agent suggestions were picked for
+    private var suggestionsWalletState: ApiAgentV2HintWalletState?
 
     init(
         coordinator: UniversalSearchCoordinator,
@@ -86,12 +89,16 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
             WalletCoreUniversalSearchFactory.currentContext()
         },
         timing: RefreshTiming = RefreshTiming(),
-        perpsStore: PerpsStore = .shared
+        perpsStore: PerpsStore = .shared,
+        getSuggestionsWalletState: @escaping @MainActor () -> ApiAgentV2HintWalletState? = {
+            AgentSearchProvider.shared.getActiveWalletState()
+        }
     ) {
         self.coordinator = coordinator
         self.contextProvider = contextProvider
         self.timing = timing
         self.perpsStore = perpsStore
+        self.getSuggestionsWalletState = getSuggestionsWalletState
     }
 
     deinit {
@@ -117,6 +124,7 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
         guard isWalletReady != isReady else { return }
         isWalletReady = isReady
         if isReady {
+            suggestionsWalletState = getSuggestionsWalletState()
             // Serve the persisted corpus right away; the full source refresh rides the debounce so
             // it coalesces with the startup event storm instead of competing with startup work
             hydrationTask = Task { [weak self] in
@@ -169,6 +177,7 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .accountChanged:
+            suggestionsWalletState = getSuggestionsWalletState()
             // Only account-scoped snapshots can be invalidated by a switch; shared snapshots and
             // cached snapshots of other accounts stay
             scheduleRefresh(sourceIDs: coordinator.accountScopedSourceIDs)
@@ -202,11 +211,13 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
             if accountID == AccountStore.accountId {
                 scheduleRefresh(sourceIDs: [WalletCoreTokenSearchSource.id])
             }
+            refreshSuggestionsIfWalletStateChanged()
 
         case .updateBalances(let update):
             if update.accountId == AccountStore.accountId {
                 scheduleRefresh(sourceIDs: [WalletCoreTokenSearchSource.id])
             }
+            refreshSuggestionsIfWalletStateChanged()
 
         case .nftsChanged(let accountID):
             if accountID == AccountStore.accountId {
@@ -289,6 +300,15 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
             guard await coordinator.removeDocument(id: id), let self else { return }
             publish(.init(context: contextProvider(), kind: .documentRemoved(id)))
         }
+    }
+
+    /// The Agent suggestions are picked for the active account's wallet state: unknown until its balances load, then
+    /// empty or funded
+    private func refreshSuggestionsIfWalletStateChanged() {
+        let walletState = getSuggestionsWalletState()
+        guard walletState != suggestionsWalletState else { return }
+        suggestionsWalletState = walletState
+        scheduleRefresh(sourceIDs: [UniversalSearchAgentSuggestionSource.id])
     }
 
     private func scheduleRefresh(

@@ -9,7 +9,7 @@ public final class WalletAccountButton: UIControl {
     private let activityIndicator = UIView()
     private let activityIndicatorImage = UIImageView(image: .airBundle("AccountActivityIndicator"))
     private var isUpdating = false
-    private var showsToolbarContent = true
+    public private(set) var showsToolbarContent = true
     private var materialEffect: UIVisualEffect?
 
     public func setToolbarAppearance(showsBackground: Bool, showsContent: Bool) {
@@ -36,6 +36,27 @@ public final class WalletAccountButton: UIControl {
         activityIndicator.transform = transform
     }
 
+    /// The avatar's layer, for a host that animates the button's content apart from its glass
+    public var contentLayer: CALayer { iconView.layer }
+
+    /// Whether the glass reacts to touches. A host that drags the button's copy away turns the reaction off, since
+    /// glass keeps reacting to a finger that is no longer pressing the button.
+    public func setGlassInteractive(_ isInteractive: Bool) {
+        guard #available(iOS 26, iOSApplicationExtension 26, *), isInteractive != isGlassInteractive else { return }
+        isGlassInteractive = isInteractive
+        let effect = UIGlassEffect(style: .regular)
+        effect.isInteractive = isInteractive
+        materialEffect = effect
+        if glassView.effect != nil {
+            // The press the glass is showing ends only with the effect that shows it
+            UIView.performWithoutAnimation {
+                glassView.effect = nil
+                glassView.effect = effect
+            }
+        }
+    }
+
+    private var isGlassInteractive = true
     private var visibilityAnimationId = 0
     private let glassView: UIVisualEffectView = {
         let view: UIVisualEffectView

@@ -1,117 +1,28 @@
-import type { TeactNode } from '../../../../lib/teact/teact';
-import React, { memo, useMemo } from '../../../../lib/teact/teact';
-
-import type { ApiChain } from '../../../../api/types';
-import type { Account } from '../../../../global/types';
+import React, { memo } from '../../../../lib/teact/teact';
 
 import buildClassName from '../../../../util/buildClassName';
-import { shortenAddress } from '../../../../util/shortenAddress';
-import { shortenDomain } from '../../../../util/shortenDomain';
-import getChainNetworkIcon from '../../../../util/swap/getChainNetworkIcon';
-
-import useLastCallback from '../../../../hooks/useLastCallback';
-import useLongPress from '../../../../hooks/useLongPress';
 
 import styles from './Card.module.scss';
 
 interface OwnProps {
-  chains: ApiChain[];
-  byChain: Account['byChain'];
+  title: string;
   withTextGradient?: boolean;
   isMinimized?: boolean;
-  isTinyFormat?: boolean;
   testId?: string;
   toggleMenu: NoneToVoidFunction;
-  onLongPress?: (chain: ApiChain, address: string, domain?: string) => void;
   onMouseEnter?: NoneToVoidFunction;
   onMouseLeave?: NoneToVoidFunction;
 }
 
-const MULTICHAIN_DOMAIN_LENGTH = 10;
-const MULTICHAIN_DOMAIN_LENGTH_TINY = 8;
-const MULTICHAIN_ADDRESS_LENGTH = 6;
-const MULTICHAIN_ADDRESS_LENGTH_TINY = 5;
-const MAX_RENDERED_CHAINS = 3;
-const ADDRESS_CHAINS_COUNT = 2;
-
 function AddressMenuButton({
-  chains,
+  title,
   withTextGradient,
   isMinimized,
-  isTinyFormat,
   testId,
   toggleMenu,
-  onLongPress,
   onMouseEnter,
   onMouseLeave,
-  byChain,
 }: OwnProps) {
-  const chain = chains[0];
-  if (!chain) return undefined;
-
-  const isMultiChain = chains.length > 1;
-  const { domain, address } = byChain[chain] ?? {};
-
-  const handleLongPressStart = useLastCallback((target: HTMLElement) => {
-    const el = target.closest<HTMLElement>('[data-chain]');
-    if (!el?.dataset.chain || !el.dataset.address) return;
-
-    onLongPress?.(el.dataset.chain as ApiChain, el.dataset.address, el.dataset.domain);
-  });
-
-  const longPressHandlers = useLongPress({
-    onClick: toggleMenu,
-    onStart: handleLongPressStart,
-  });
-
-  const handleMouseLeave = useLastCallback(() => {
-    onMouseLeave?.();
-    longPressHandlers.onMouseLeave();
-  });
-
-  const multiChainButtonContent = useMemo(() => {
-    if (!isMultiChain || !byChain) return undefined;
-
-    const nodes: TeactNode[] = [];
-    const renderedChains = chains.slice(0, MAX_RENDERED_CHAINS);
-    const chainsLength = renderedChains.length;
-
-    renderedChains.forEach((chainItem, index) => {
-      const { domain: chainDomain, address: chainAddress } = byChain[chainItem]!;
-      const shouldRenderAddress = index < ADDRESS_CHAINS_COUNT;
-      const domainLength = isTinyFormat ? MULTICHAIN_DOMAIN_LENGTH_TINY : MULTICHAIN_DOMAIN_LENGTH;
-      const addressLength = isTinyFormat
-        ? MULTICHAIN_ADDRESS_LENGTH_TINY
-        : MULTICHAIN_ADDRESS_LENGTH;
-      const title = chainDomain
-        ? shortenDomain(chainDomain, domainLength)
-        : shortenAddress(chainAddress, 0, addressLength)!;
-
-      nodes.push(
-        <span
-          key={`${chainItem}-item`}
-          className={styles.multichainItem}
-          style={![0, 1].includes(index)
-            ? `margin-left: -${(index === 2 ? 0 : 24)}px`
-            : undefined}
-          data-chain={chainItem}
-          data-address={chainAddress}
-          data-domain={chainDomain}
-        >
-          <img src={getChainNetworkIcon(chainItem)} alt="" className={styles.chainIcon} />
-          {shouldRenderAddress && (
-            <span className={styles.multichainAddress}>
-              {title}
-              {index < chainsLength - 1 && index < ADDRESS_CHAINS_COUNT && ','}
-            </span>
-          )}
-        </span>,
-      );
-    });
-
-    return nodes;
-  }, [byChain, chains, isMultiChain, isTinyFormat]);
-
   return (
     <button
       type="button"
@@ -122,23 +33,12 @@ function AddressMenuButton({
       )}
       tabIndex={isMinimized ? -1 : undefined}
       data-testid={testId}
-      {...longPressHandlers}
+      onClick={toggleMenu}
       onMouseEnter={onMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={onMouseLeave}
     >
-      {multiChainButtonContent ? (
-        <span className={buildClassName(styles.multichainList, 'itemName')}>
-          {multiChainButtonContent}
-        </span>
-      ) : (
-        <span data-chain={chain} data-address={address} data-domain={domain}>
-          <img src={getChainNetworkIcon(chain)} alt="" className={styles.chainIcon} />
-          <span className={buildClassName(styles.itemName, 'itemName')}>
-            {domain ? shortenDomain(domain) : shortenAddress(address!)}
-          </span>
-        </span>
-      )}
-      {!isMinimized && <i className={buildClassName('icon-expand', styles.iconExpand)} aria-hidden />}
+      <span className={styles.addressTitle}>{title}</span>
+      {!isMinimized && <i className={buildClassName('icon-qr-code', styles.addressQrIcon)} aria-hidden />}
     </button>
   );
 }

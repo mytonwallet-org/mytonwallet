@@ -2,18 +2,33 @@
 
 @use "../../../../styles/scssVariables" as v;
 
-/* Two cells + a single 1rem gap span the Activities `.activitiesWrapper` content width
-   (= `$landscapeMainContentMaxWidth − padding-right`). */
-$cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
+$cellMinWidth: 22.375rem;
+// Two cells and the gap between them fill the content width of the Activity block
+$cellMaxWidth: calc((#{v.$landscapeMainContentMaxWidth} - 1rem - 0.75rem) / 2);
 
 .wrapper {
   display: flex;
+  flex: 1 0 $cellMinWidth;
   flex-direction: column;
-  flex-shrink: 0;
   gap: 0.375rem;
   align-self: stretch;
 
-  width: $cellWidth;
+  max-width: $cellMaxWidth;
+}
+
+.portrait {
+  flex: none;
+  gap: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.stretched {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: v.$landscapeScrollContentMaxWidth;
+
+  @include mixins.adapt-padding-to-scrollbar(1rem);
 }
 
 .card {
@@ -39,7 +54,7 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
   width: 100%;
   // Body sizes to its content but never grows past the size-specific limit, so cells with little
   // content stay compact and cells with overflowing content scroll internally up to the cap.
-  max-height: var(--overview-cell-body-height, #{$cellWidth});
+  max-height: var(--overview-cell-body-height, #{$cellMinWidth});
 
   &:global(:has(.content-centered)) {
     margin-top: auto;
@@ -47,8 +62,13 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
   }
 }
 
+.bodyPortrait {
+  overflow: visible;
+  max-height: none;
+}
+
 .sizeSmall {
-  --overview-cell-body-height: 29rem;
+  --overview-cell-body-height: 25rem;
 }
 
 .sizeMedium {
@@ -63,73 +83,11 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
   padding-bottom: 3rem;
 }
 
-.showAll {
-  position: absolute;
-  bottom: 0;
-  inset-inline-start: 0;
-  inset-inline-end: 0;
-
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-
-  width: 100%;
-  padding: 0.8125rem 1.25rem;
-
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.375rem;
-  color: var(--color-accent);
-  text-align: start;
-
-  background-color: var(--color-background-first);
-
-  @supports (backdrop-filter: var(--filter-blur-bar)) {
-    background-color: var(--color-background-first-blur);
-    backdrop-filter: var(--filter-blur-bar);
-  }
-
-  @include mixins.transition(background-color 200ms);
-
-  @media (hover: hover) {
-    &:hover,
-    &:focus-visible {
-      background-color: var(--color-interactive-item-hover);
-    }
-  }
-
-  &:active {
-    background-color: var(--color-interactive-item-hover);
-  }
-
-  @include mixins.active-transition-optimization();
-
-  @include mixins.separatorListTop();
-
-}
-
-.showAllIcon {
-  margin-inline-end: 1.125rem;
-  font-size: 1.5rem;
-}
-
-.showAllBadge {
-  display: flex;
-  flex-direction: row;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-
-  margin-inline-start: 0.25rem;
-  padding: 0.1875rem 0.1875rem 0.125rem;
-  border-radius: 0.25rem;
-
-  font-size: 0.625rem;
-  font-weight: 700;
-  line-height: 0.625rem;
-  color: var(--color-accent);
-
-  background: var(--color-accent-10o);
+.showAllIconGift {
+  margin-top: -0.0625rem;
+  margin-inline-start: -0.125rem;
+  margin-inline-end: 1rem !important;
+  font-size: 1.75rem !important;
 }
 
 .caption {
@@ -150,6 +108,15 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
   color: var(--color-black);
 
   @include mixins.transition('color 200ms');
+}
+
+.captionPortrait {
+  height: auto;
+  padding: 0 0.5rem 0.375rem;
+
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--color-gray-2);
 }
 
 .captionInteractive {
@@ -188,10 +155,8 @@ $cellWidth: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
   align-items: center;
 
   min-width: 0;
-  height: 1.25rem;
 }
 
-.showAllLabel,
 .captionTitle {
   overflow: hidden;
   text-overflow: ellipsis;

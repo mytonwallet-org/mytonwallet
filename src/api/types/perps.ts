@@ -307,6 +307,8 @@ export type ApiPerpsAssetActivity = {
   id: string;
   orderId?: number;
   fillIds?: number[];
+  /** Hyperliquid transaction of the trade. A TWAP trade has none. */
+  txHash?: string;
   assetId?: ApiPerpsAssetId;
   dex: string;
   kind: ApiPerpsAssetActivityKind;

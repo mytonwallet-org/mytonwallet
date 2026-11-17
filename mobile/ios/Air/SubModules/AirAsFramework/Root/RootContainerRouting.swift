@@ -19,6 +19,7 @@ protocol RootContainerRouting {
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?)
     func showExplore()
     func showHome(popToRoot: Bool)
+    func showRootAfterAccountSwitch()
     func showImportWalletVersion()
     func showSettings(path: [UIViewController])
     func showTemporaryViewAccount(accountId: String)
@@ -113,6 +114,10 @@ struct TopTabsRootContainerRouter: RootContainerRouting {
         topTabsVC?.switchToHome(popToRoot: popToRoot)
     }
 
+    func showRootAfterAccountSwitch() {
+        topTabsVC?.switchToHome(popToRoot: true, shouldPreserveSelectedTab: true)
+    }
+
     func showImportWalletVersion() {
         showSettings(path: [WalletVersionsVC()])
     }
@@ -192,6 +197,10 @@ struct SplitRootContainerRouter: RootContainerRouting {
         } else {
             showTab(.wallet, popToRoot: popToRoot)
         }
+    }
+
+    func showRootAfterAccountSwitch() {
+        splitVC?.showHome(popToRoot: true, shouldPreserveSelectedTab: true)
     }
 
     func showImportWalletVersion() {

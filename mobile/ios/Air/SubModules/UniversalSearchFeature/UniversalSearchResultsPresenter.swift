@@ -709,7 +709,8 @@ public struct UniversalSearchResultsPresenter {
             content: .token(UniversalSearchTokenResult(
                 icon: icon,
                 title: token.displayName(strippingLabelWhenShown: true),
-                badge: token.isRwaStock ? token.label : nil,
+                badge: token.label?.nilIfEmpty,
+                badgeStyle: token.isRwaStock ? .stock : .regular,
                 price: price,
                 amount: amount,
                 balanceValue: balanceValue

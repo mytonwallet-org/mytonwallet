@@ -10,7 +10,14 @@ protocol AgentV2Client: AnyObject, Sendable {
     func forgetKnownConsent()
     func acceptConsent() async throws
     func updateHostContext(_ context: ApiAgentV2HostContext?) async throws
-    func hints() async throws -> ApiAgentV2HintsResponse
+    /// A new pick of starter hints on every call, for the actions `host` gives the active account; without it, for the
+    /// context the chat published
+    func starterHints(
+        walletState: ApiAgentV2HintWalletState?,
+        host: ApiAgentV2HostContext?
+    ) async throws -> ApiAgentV2StarterHints
+    /// The state of the account's total balance, once it is known
+    func hintWalletState(of account: MAccount) -> ApiAgentV2HintWalletState?
     func loadAvailability() async
     func loadUserQuota() async
     func problemReportAvailability() async -> Bool
@@ -47,6 +54,21 @@ protocol AgentV2Client: AnyObject, Sendable {
 extension AgentV2Client {
     var isConsentKnownGiven: Bool { false }
     func forgetKnownConsent() {}
+
+    /// A new pick of starter hints for `account`, read with its host context, as the list, search and a chat that hasn't
+    /// published its context yet need. The context goes with the call only: publishing it stays with the chat.
+    func loadStarterHints(for account: MAccount?) async throws -> ApiAgentV2StarterHints {
+        // Without the wallet the user is in, there is no context to read its actions from
+        guard let account else { return try await starterHints(walletState: nil, host: nil) }
+        let walletState = hintWalletState(of: account)
+        let host = await AgentV2HostContextProvider.makeSnapshot(activeAccount: account)
+        return try await starterHints(walletState: walletState, host: host)
+    }
+
+    func hintWalletState(of account: MAccount) -> ApiAgentV2HintWalletState? {
+        let context = AccountContext(accountId: account.id)
+        return ApiAgentV2HintWalletState(balance: context.balance?.amount, hasLoadedBalances: context.hasLoadedBalances)
+    }
 }
 
 @MainActor
@@ -77,8 +99,11 @@ final class LiveAgentV2Client: AgentV2Client {
         _ = try await Api.updateAgentV2HostContext(context)
     }
 
-    func hints() async throws -> ApiAgentV2HintsResponse {
-        try await Api.getAgentV2Hints(langCode: nil)
+    func starterHints(
+        walletState: ApiAgentV2HintWalletState?,
+        host: ApiAgentV2HostContext?
+    ) async throws -> ApiAgentV2StarterHints {
+        try await Api.getAgentV2StarterHints(walletState: walletState, host: host)
     }
 
     func loadAvailability() async {

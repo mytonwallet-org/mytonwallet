@@ -320,9 +320,9 @@ export function createAgentV2RunController(
     const current = dependencies.getState();
     const entryPoint = current.starterHints && buildAgentV2StarterHintEntryPoint(current.starterHints, hint.id);
     if (!current.thread || !entryPoint || isInputBlocked()) return;
-    const outgoingMessageId = addOptimisticMessage(hint.title);
+    const outgoingMessageId = addOptimisticMessage(hint.prompt);
     void run({
-      input: { kind: 'append', text: hint.title },
+      input: { kind: 'append', text: hint.prompt },
       entryPoint,
     }, { kind: 'append', messageId: outgoingMessageId });
   }

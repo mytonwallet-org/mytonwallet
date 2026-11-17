@@ -40,6 +40,7 @@ type MenuHandler = 'sendAll' | 'fragment' | 'marketplace' | 'explorer' | 'hideAl
 
 interface OwnProps {
   collection: ApiNftCollection;
+  isHidden?: boolean;
 }
 
 interface StateProps {
@@ -53,6 +54,7 @@ interface StateProps {
 
 function NftCollectionHeader({
   collection,
+  isHidden,
   nfts,
   isTestnet,
   isViewMode,
@@ -161,11 +163,11 @@ function NftCollectionHeader({
   ]);
 
   useHistoryBack({
-    isActive: true,
+    isActive: !isHidden,
     onBack: closeNftCollection,
   });
 
-  useEffect(() => captureEscKeyListener(closeNftCollection), []);
+  useEffect(() => (isHidden ? undefined : captureEscKeyListener(closeNftCollection)), [isHidden]);
 
   const getTriggerElement = useLastCallback(() => ref.current);
   const getRootElement = useLastCallback(() => document.body);

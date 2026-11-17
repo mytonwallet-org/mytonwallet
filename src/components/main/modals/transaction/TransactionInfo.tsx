@@ -495,21 +495,21 @@ function TransactionInfo({
 
 export function formatUtxoEtaForModal(lang: LangFn, etaSeconds: number) {
   const duration = formatUtxoEtaDuration(lang, etaSeconds);
-  return lang('$utxo_estimated_time', duration) as string;
+  return lang('$utxo_estimated_time', duration);
 }
 
 function formatUtxoEtaDuration(lang: LangFn, etaSeconds: number) {
   const seconds = Math.max(0, Math.ceil(etaSeconds));
-  if (seconds < 60) return lang('second', seconds, undefined, seconds) as string;
+  if (seconds < 60) return lang('second', seconds, undefined, seconds);
 
   const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return lang('minute', minutes, undefined, minutes) as string;
+  if (minutes < 60) return lang('minute', minutes, undefined, minutes);
 
   const hours = Math.ceil(minutes / 60);
-  if (hours < 24) return lang('hour', hours, undefined, hours) as string;
+  if (hours < 24) return lang('hour', hours, undefined, hours);
 
   const days = Math.ceil(hours / 24);
-  return lang('day', days, undefined, days) as string;
+  return lang('day', days, undefined, days);
 }
 
 function getCurrentAccountDomain(

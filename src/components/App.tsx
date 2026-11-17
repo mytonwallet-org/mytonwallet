@@ -1,23 +1,30 @@
 import React, {
   memo, useEffect, useLayoutEffect, useRef,
 } from '../lib/teact/teact';
-import { getActions, withGlobal } from '../global';
+import { getActions, getGlobal, withGlobal } from '../global';
 
 import type { Theme } from '../global/types';
 import { AppState } from '../global/types';
 
 import {
+  ANIMATION_LEVEL_MIN,
   APP_NAME,
   INACTIVE_MARKER,
   IS_ANDROID_DIRECT,
   IS_EXPLORER,
   IS_GRAM_WALLET,
 } from '../config';
-import { selectCurrentAccountId, selectCurrentAccountSettings, selectCurrentAccountState } from '../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectCurrentAccountSettings,
+  selectCurrentAccountState,
+  selectIsContentListOpen,
+} from '../global/selectors';
 import { useAccentColor } from '../util/accentColor';
 import { setActiveTabChangeListener } from '../util/activeTabMonitor';
 import buildClassName from '../util/buildClassName';
 import { MINUTE } from '../util/dateFormat';
+import getTestId from '../util/getTestId';
 import { closeThisTab } from '../util/ledger/tab';
 import { resolveRender } from '../util/renderPromise';
 import resolveSlideTransitionName from '../util/resolveSlideTransitionName';
@@ -35,7 +42,10 @@ import useAppTheme from '../hooks/useAppTheme';
 import useBackgroundMode from '../hooks/useBackgroundMode';
 import { useDeviceScreen } from '../hooks/useDeviceScreen';
 import useFlag from '../hooks/useFlag';
+import useForceUpdate from '../hooks/useForceUpdate';
+import { useIsHomeToolbarHidden } from '../hooks/useHideHomeToolbar';
 import useInterval from '../hooks/useInterval';
+import useLastCallback from '../hooks/useLastCallback';
 import useSyncEffect from '../hooks/useSyncEffect';
 import useTimeout from '../hooks/useTimeout';
 
@@ -52,6 +62,8 @@ import DappTransferModal from './dapps/DappTransferModal';
 import Dialogs from './Dialogs';
 import ElectronHeader from './electron/ElectronHeader';
 import Explore from './explore/Explore';
+import Futures from './futures/LazyFutures';
+import FuturesModals from './futures/LazyModals';
 import LedgerModal from './ledger/LedgerModal';
 import Main from './main/Main';
 import BackupModal from './main/modals/BackupModal';
@@ -62,6 +74,8 @@ import ReportNftModal from './main/modals/ReportNftModal';
 import SignatureModal from './main/modals/SignatureModal';
 import UnhideNftModal from './main/modals/UnhideNftModal';
 import BottomBar from './main/sections/Actions/BottomBar';
+import PortraitContent from './main/sections/Content/PortraitContent';
+import HomeToolbar from './main/sections/Header/HomeToolbar';
 import Toasts from './main/Toasts';
 import WalletRenameModal from './main/WalletRenameModal';
 import Market from './market/Market';
@@ -82,6 +96,7 @@ import WalletConnectPayOptionSelectionModal from './walletConnectPay/WalletConne
 
 // import Test from './components/test/TestNoRedundancy';
 import styles from './App.module.scss';
+import mainStyles from './main/Main.module.scss';
 
 interface StateProps {
   appState: AppState;
@@ -92,9 +107,11 @@ interface StateProps {
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
+  isFuturesOpen?: boolean;
   isPortfolioOpen?: boolean;
   currentTokenSlug?: string;
   marketTokenSlug?: string;
+  isContentListOpen: boolean;
   isFullscreen: boolean;
   areSettingsOpen?: boolean;
   theme: Theme;
@@ -103,7 +120,12 @@ interface StateProps {
 }
 
 const APP_STATES_WITH_BOTTOM_BAR = new Set([
-  AppState.Main, AppState.Agent, AppState.Settings, AppState.Explore, AppState.Market, AppState.TokenInfo,
+  AppState.Main, AppState.Agent, AppState.Settings, AppState.Explore, AppState.Market, AppState.Futures,
+  AppState.TokenInfo, AppState.ContentList,
+]);
+const SLIDING_APP_STATES_WITH_BOTTOM_BAR = new Set([AppState.TokenInfo, AppState.ContentList]);
+const APP_STATES_WITH_HOME_TOOLBAR = new Set([
+  AppState.Main, AppState.Agent, AppState.Settings, AppState.Explore, AppState.Market,
 ]);
 const APP_UPDATE_INTERVAL = (IS_ELECTRON && !IS_LINUX) || IS_ANDROID_DIRECT
   ? 5 * MINUTE
@@ -122,9 +144,11 @@ function App({
   isAgentOpen,
   isExploreOpen,
   isMarketOpen,
+  isFuturesOpen,
   isPortfolioOpen,
   currentTokenSlug,
   marketTokenSlug,
+  isContentListOpen,
   isFullscreen,
   areSettingsOpen,
   theme,
@@ -148,6 +172,8 @@ function App({
 
   const [isInactive, markInactive] = useFlag(false);
   const [canPrerenderMain, prerenderMain] = useFlag();
+  const forceUpdate = useForceUpdate();
+  const isContentListRenderedRef = useRef(isContentListOpen);
 
   const renderingKey = resolveRenderingKey({
     isInactive,
@@ -155,17 +181,36 @@ function App({
     isAgentOpen,
     isExploreOpen,
     isMarketOpen,
+    isFuturesOpen,
     isPortfolioOpen,
     currentTokenSlug,
     marketTokenSlug,
+    isContentListOpen,
     isPortrait,
     appState,
   });
   const withBottomBar = isPortrait && (!IS_EXPLORER || isAppReady) && APP_STATES_WITH_BOTTOM_BAR.has(renderingKey);
-  // Screens sharing the bottom bar are sibling tabs, so they cross-fade into each other. The token
-  // screen is the exception: the bar stays visible, but the transition slides in.
-  const withSlide = isPortrait && (!withBottomBar || renderingKey === AppState.TokenInfo);
+  const hasPortraitToolbar = isPortrait && !IS_EXPLORER;
+  const isToolbarHiddenByScreen = useIsHomeToolbarHidden();
+  const isToolbarHidden = !APP_STATES_WITH_HOME_TOOLBAR.has(renderingKey) || isToolbarHiddenByScreen;
+  // Screens sharing the bottom bar are sibling tabs, so they cross-fade into each other. The token and list
+  // screens are the exception: the bar stays visible, but they slide in, as they have a back button.
+  const withSlide = isPortrait && (!withBottomBar || SLIDING_APP_STATES_WITH_BOTTOM_BAR.has(renderingKey));
   const transitionName = isLayoutSwitch ? 'none' : withSlide ? resolveSlideTransitionName() : 'semiFade';
+
+  // The closed list screen stays rendered until the transition that hides it ends, which only an animated one reports
+  if (isContentListOpen) {
+    isContentListRenderedRef.current = true;
+  } else if (transitionName === 'none' || getGlobal().settings.animationLevel === ANIMATION_LEVEL_MIN) {
+    isContentListRenderedRef.current = false;
+  }
+
+  const handleTransitionStop = useLastCallback(() => {
+    if (isContentListOpen || !isContentListRenderedRef.current) return;
+
+    isContentListRenderedRef.current = false;
+    forceUpdate();
+  });
 
   useTimeout(
     prerenderMain,
@@ -197,6 +242,10 @@ function App({
   }, IS_LEDGER_EXTENSION_TAB);
 
   useLayoutEffect(() => {
+    document.documentElement.classList.toggle('with-home-toolbar', hasPortraitToolbar);
+  }, [hasPortraitToolbar]);
+
+  useLayoutEffect(() => {
     document.documentElement.classList.add('is-rendered');
     resolveRender();
   }, []);
@@ -219,22 +268,24 @@ function App({
   useAppIntersectionObserver();
 
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: AppState) {
+    const slideFullClassName = buildClassName(
+      styles.appSlide,
+      styles.appSlideContent,
+      'custom-scroll',
+      'app-slide-content',
+    );
+
     switch (currentKey) {
       case AppState.Auth:
         return <Auth />;
       case AppState.Main: {
-        const slideFullClassName = buildClassName(
-          styles.appSlide,
-          styles.appSlideContent,
-          'custom-scroll',
-          'app-slide-content',
-        );
         return (
           <Transition
             name="semiFade"
             activeKey={mainKey}
             shouldCleanup
             nextKey={renderingKey === AppState.Auth && canPrerenderMain ? mainKey + 1 : undefined}
+            className={styles.mainTab}
             slideClassName={slideFullClassName}
           >
             <Main
@@ -251,12 +302,26 @@ function App({
         return <Explore isActive={isActive} />;
       case AppState.Market:
         return <Market isActive={isActive} />;
+      case AppState.Futures:
+        // Another account starts its Futures from scratch, so its positions and history load right away
+        return <Futures key={accountId} isActive={isActive} />;
       case AppState.Settings:
         return <Settings isActive={isActive} />;
       case AppState.Portfolio:
         return <Portfolio isActive={isActive} />;
       case AppState.TokenInfo:
         return <TokenInfo isActive={isActive} />;
+      case AppState.ContentList:
+        return (
+          <div
+            className={buildClassName(slideFullClassName, styles.appSlideContentWithOwnInset)}
+            data-testid={isActive ? getTestId('content_list') : undefined}
+          >
+            <div className={mainStyles.portraitContainer}>
+              {isContentListRenderedRef.current && <PortraitContent key={accountId} isListScreen />}
+            </div>
+          </div>
+        );
       case AppState.Ledger:
         return <LedgerModal isOpen noBackdropClose onClose={closeThisTab} />;
       case AppState.Inactive:
@@ -277,12 +342,22 @@ function App({
         renderCount={APP_STATE_RENDER_COUNT}
         shouldCleanup={!withBottomBar}
         className={styles.transitionContainer}
+        onStop={handleTransitionStop}
         slideClassName={
           buildClassName(styles.appSlide, withBottomBar && styles.appSlide_fastTransition, 'custom-scroll')
         }
       >
         {renderContent}
       </Transition>
+
+      {hasPortraitToolbar && (
+        <HomeToolbar
+          isHidden={isToolbarHidden}
+          isOnFirstBackground={renderingKey === AppState.Agent || renderingKey === AppState.Explore}
+          // The header of the list of chats reaches up under the toolbar
+          isOverScreenHeader={renderingKey === AppState.Agent}
+        />
+      )}
 
       <AppLocked />
       <MediaViewer />
@@ -296,6 +371,7 @@ function App({
           />
           <TransferModal />
           <SwapModal />
+          <FuturesModals />
           <MintCardModal />
           <CustomizeWalletModal isOpen={isCustomizeWalletModalOpen} />
           <SignatureModal />
@@ -339,9 +415,11 @@ export default memo(withGlobal((global): StateProps => {
     isAgentOpen: global.isAgentOpen,
     isExploreOpen: global.isExploreOpen,
     isMarketOpen: global.isMarketOpen,
+    isFuturesOpen: global.isFuturesOpen,
     isPortfolioOpen: global.isPortfolioOpen,
     currentTokenSlug: selectCurrentAccountState(global)?.currentTokenSlug,
     marketTokenSlug: global.marketTokenSlug,
+    isContentListOpen: selectIsContentListOpen(global),
     areSettingsOpen: global.areSettingsOpen,
     isFullscreen: Boolean(global.isFullscreen),
     theme: global.settings.theme,
@@ -356,9 +434,11 @@ function resolveRenderingKey({
   isAgentOpen,
   isExploreOpen,
   isMarketOpen,
+  isFuturesOpen,
   isPortfolioOpen,
   currentTokenSlug,
   marketTokenSlug,
+  isContentListOpen,
   isPortrait,
   appState,
 }: {
@@ -367,9 +447,11 @@ function resolveRenderingKey({
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
+  isFuturesOpen?: boolean;
   isPortfolioOpen?: boolean;
   currentTokenSlug?: string;
   marketTokenSlug?: string;
+  isContentListOpen: boolean;
   isPortrait: boolean;
   appState: AppState;
 }) {
@@ -382,8 +464,10 @@ function resolveRenderingKey({
   if (isMarketOpen && isPortrait) {
     return currentTokenSlug && currentTokenSlug === marketTokenSlug ? AppState.TokenInfo : AppState.Market;
   }
+  if (isFuturesOpen && isPortrait) return AppState.Futures;
   if (isPortfolioOpen && isPortrait) return AppState.Portfolio;
   // In landscape the token screen lives inside the main content, next to the wallet overview
   if (currentTokenSlug && isPortrait && appState === AppState.Main) return AppState.TokenInfo;
+  if (isContentListOpen && isPortrait && appState === AppState.Main) return AppState.ContentList;
   return appState;
 }

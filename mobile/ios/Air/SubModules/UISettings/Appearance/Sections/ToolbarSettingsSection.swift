@@ -1,77 +1,95 @@
 import Perception
 import SwiftUI
 import UIComponents
-import UIUniversalSearch
 import WalletContext
 import WalletCore
 
+/// The home screen's top bar and toolbar as they are, to rearrange by dragging
 struct ToolbarSettingsSection: View {
-    @AppStorage(ToolbarSettings.accountsKey) private var showsAccounts = false
-    @AppStorage(ToolbarSettings.scanKey) private var showsScan = true
-    @AppStorage(ToolbarSettings.sharedBackgroundKey) private var sharesBackground = true
+    @State private var configuration = ToolbarSettings.configuration()
+    /// Changes when the preview needs another height
+    @State private var previewLayout = 0
 
-    private var configuration: HomeToolbarConfiguration {
-        .init(showsAccounts: showsAccounts, showsScan: showsScan, sharesBackground: sharesBackground)
+    private var sharesBackground: Binding<Bool> {
+        Binding {
+            configuration.sharesBackground
+        } set: { sharesBackground in
+            var configuration = ToolbarSettings.configuration()
+            configuration.sharesBackground = sharesBackground
+            ToolbarSettings.setConfiguration(configuration)
+        }
     }
 
     var body: some View {
         WithPerceptionTracking {
             InsetSection(dividersTrailingInset: IOS_26_MODE_ENABLED ? 16 : 0) {
-                VStack(spacing: 0) {
-                    InsetCell(horizontalPadding: 12, verticalPadding: 0) {
-                        ToolbarPreview(configuration: configuration, account: AccountStore.account)
-                            .frame(height: 48)
-                            .padding(.top, 24)
-                            .padding(.bottom, 20)
-                            .accessibilityHidden(true)
+                InsetCell(horizontalPadding: 0, verticalPadding: 0) {
+                    ToolbarsPreview(
+                        configuration: configuration,
+                        account: AccountStore.account,
+                        layout: previewLayout
+                    ) {
+                        withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                            previewLayout += 1
+                        }
                     }
-                    toggle(lang("Accounts"), isOn: $showsAccounts, id: "appearance.toolbar.accounts")
                 }
-                toggle(lang("Scan QR"), isOn: $showsScan, id: "appearance.toolbar.scan")
                 if IOS_26_MODE_ENABLED, #available(iOS 26, *) {
-                    toggle(lang("Shared Background"), isOn: $sharesBackground, id: "appearance.toolbar.sharedBackground")
+                    InsetDetailCell(horizontalPadding: 16, verticalPadding: 0) {
+                        Text(lang("Shared Background")).frame(minHeight: 44)
+                    } value: {
+                        Toggle(lang("Shared Background"), isOn: sharesBackground)
+                            .labelsHidden()
+                            .accessibilityIdentifier("appearance.toolbar.sharedBackground")
+                    }
+                }
+                if configuration != HomeToolbarConfiguration() {
+                    InsetButtonCell(horizontalPadding: 16, verticalPadding: 0, action: reset) {
+                        Text(lang("Reset"))
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("appearance.toolbar.reset")
                 }
             } header: {
-                Text(lang("Toolbar"))
+                Text(lang("Toolbars"))
+            } footer: {
+                Text(lang("$toolbar_settings_hint"))
             }
-            .onChange(of: configuration) { _ in
-                ToolbarSettings.notifyDidChange()
+            .onReceive(NotificationCenter.default.publisher(for: ToolbarSettings.didChangeNotification)) { _ in
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                    configuration = ToolbarSettings.configuration()
+                }
             }
         }
     }
 
-    private func toggle(_ title: String, isOn: Binding<Bool>, id: String) -> some View {
-        InsetDetailCell(horizontalPadding: 16, verticalPadding: 0) {
-            Text(title).frame(minHeight: 44)
-        } value: {
-            Toggle(title, isOn: isOn)
-                .labelsHidden()
-                .accessibilityIdentifier(id)
-        }
+    private func reset() {
+        ToolbarSettings.setConfiguration(HomeToolbarConfiguration())
     }
 }
 
-private struct ToolbarPreview: UIViewRepresentable {
+private struct ToolbarsPreview: UIViewRepresentable {
     var configuration: HomeToolbarConfiguration
     var account: MAccount?
+    var layout: Int
+    var onHeightChange: () -> Void
 
-    func makeUIView(context: Context) -> UniversalSearchFieldView {
-        let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: lang("Search"), showsMicrophone: false))
-        // SwiftUI supplies this view's frame; its internal constraints still need that width.
-        toolbar.translatesAutoresizingMaskIntoConstraints = true
-        toolbar.setHomeConfiguration(configuration, animated: false)
-        toolbar.setPresentation(.homeToolbar, animated: false)
-        toolbar.isUserInteractionEnabled = false
-        return toolbar
+    func makeUIView(context: Context) -> ToolbarsPreviewView {
+        ToolbarsPreviewView()
     }
 
-    func updateUIView(_ toolbar: UniversalSearchFieldView, context: Context) {
-        toolbar.accountsButton.configure(account: account)
-        toolbar.setHomeConfiguration(configuration, animated: toolbar.window != nil)
+    func updateUIView(_ view: ToolbarsPreviewView, context: Context) {
+        view.onHeightChange = onHeightChange
+        view.configure(account: account)
+        view.setConfiguration(configuration, animated: view.window != nil)
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UniversalSearchFieldView, context: Context) -> CGSize? {
+    static func dismantleUIView(_ view: ToolbarsPreviewView, coordinator: ()) {
+        view.onHeightChange = nil
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: ToolbarsPreviewView, context: Context) -> CGSize? {
         guard let width = proposal.width else { return nil }
-        return CGSize(width: width, height: 48)
+        return CGSize(width: width, height: uiView.getPreferredHeight(width: width))
     }
 }

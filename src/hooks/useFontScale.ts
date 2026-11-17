@@ -37,7 +37,7 @@ function useFontScale(inputRef: ElementRef<HTMLElement>, shouldGetParentWidth?: 
         el.style.display = 'inline';
       });
 
-      // Decorative layers, like the dust canvas in `CardPrivacy`, reach past the text and are not measured
+      // Decorative layers, like the dust canvas in `PrivacyDust`, reach past the text and are not measured
       measureEl.current.querySelectorAll('[data-measure-exclude]').forEach((el) => el.remove());
       document.body.appendChild(measureEl.current);
 

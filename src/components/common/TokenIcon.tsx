@@ -28,7 +28,8 @@ function TokenIcon({
   const isNativeToken = getIsNativeToken(slug);
   const isNativeTokenStaking = getIsNativeStakedToken(slug);
   const shouldRenderImage = Boolean(image) && !isLoadingError;
-  const shapeClassName = getIsRwaStockToken(token) ? styles.square : styles.circle;
+  const isSquare = getIsRwaStockToken(token);
+  const shapeClassName = isSquare ? styles.square : styles.circle;
   const shouldRenderChainIcon = Boolean(withChainIcon && !isNativeToken && !isNativeTokenStaking && chain);
   const iconFullClassName = buildClassName(
     styles.icon,
@@ -37,6 +38,23 @@ function TokenIcon({
     shouldRenderChainIcon && styles.withChainIcon,
     iconClassName,
   );
+
+  function renderImage() {
+    const img = (
+      <img
+        key={image}
+        src={image}
+        data-account-crossfade-image
+        alt={symbol}
+        className={isSquare ? styles.squareImage : iconFullClassName}
+        draggable={false}
+        onError={markLoadingError}
+      />
+    );
+
+    // The image of a stock goes on black, and the icon clips the image with its black at once
+    return isSquare ? <div className={iconFullClassName}>{img}</div> : img;
+  }
 
   function renderDefaultIcon() {
     return (
@@ -54,19 +72,7 @@ function TokenIcon({
         className,
       )}
     >
-      {
-        shouldRenderImage ? (
-          <img
-            key={image}
-            src={image}
-            data-account-crossfade-image
-            alt={symbol}
-            className={iconFullClassName}
-            draggable={false}
-            onError={markLoadingError}
-          />
-        ) : renderDefaultIcon()
-      }
+      {shouldRenderImage ? renderImage() : renderDefaultIcon()}
       {shouldRenderChainIcon && (
         <img
           src={getChainNetworkIcon(chain)}

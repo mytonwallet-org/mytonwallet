@@ -30,6 +30,12 @@ import {
   processSelfDeeplink,
 } from './index';
 
+jest.mock('../../config', () => ({
+  __esModule: true,
+  ...jest.requireActual('../../config'),
+  IS_PERPS_SUPPORTED: true,
+}));
+
 // Mock modules
 jest.mock('../../global', () => ({
   getActions: jest.fn(),
@@ -750,6 +756,81 @@ describe('processSelfDeeplink', () => {
 
       expect(result).toBe(true);
       expect(mockActions.switchToMarket).toHaveBeenCalled();
+    });
+  });
+
+  describe('Futures command', () => {
+    beforeEach(() => {
+      mockActions.switchToFutures = jest.fn();
+      mockActions.openFuturesMarket = jest.fn();
+      mockActions.switchToWallet = jest.fn();
+      mockGlobal.accounts!.byId['test-account-id'].byChain.arbitrum = { address: TEST_EVM_ADDRESS };
+    });
+
+    it('should switch to the Futures section', async () => {
+      const result = await processSelfDeeplink('mtw://futures');
+
+      expect(result).toBe(true);
+      expect(mockActions.switchToFutures).toHaveBeenCalled();
+      expect(mockActions.openFuturesMarket).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      'mtw://futures/hyperliquid%3Ahl%3ABTC',
+      'https://my.tt/futures/hyperliquid%3Ahl%3ABTC',
+    ])('should open the market with the URL-encoded asset id from %s', async (url) => {
+      const result = await processSelfDeeplink(url);
+
+      expect(result).toBe(true);
+      expect(mockActions.switchToFutures).toHaveBeenCalled();
+      expect(mockActions.openFuturesMarket).toHaveBeenCalledWith({ assetId: 'hyperliquid:hl:BTC' });
+    });
+
+    it('should open the wallet when the build has no Perps', async () => {
+      const unsupported = jest.replaceProperty(config, 'IS_PERPS_SUPPORTED', false);
+      try {
+        const result = await processSelfDeeplink('mtw://futures/hyperliquid%3Ahl%3ABTC');
+
+        expect(result).toBe(true);
+        expect(mockActions.switchToWallet).toHaveBeenCalled();
+        expect(mockActions.switchToFutures).not.toHaveBeenCalled();
+        expect(mockActions.openFuturesMarket).not.toHaveBeenCalled();
+      } finally {
+        unsupported.restore();
+      }
+    });
+
+    it.each([
+      ['the account has no Arbitrum address', () => {
+        delete mockGlobal.accounts!.byId['test-account-id'].byChain.arbitrum;
+      }],
+      ['testnet is on', () => {
+        mockGlobal.settings.isTestnet = true;
+      }],
+    ])('should open Futures without the market when %s', async (_, makeUnreadable) => {
+      makeUnreadable();
+
+      const result = await processSelfDeeplink('mtw://futures/hyperliquid%3Ahl%3ABTC');
+
+      expect(result).toBe(true);
+      expect(mockActions.switchToFutures).toHaveBeenCalled();
+      expect(mockActions.openFuturesMarket).not.toHaveBeenCalled();
+    });
+
+    it('should leave a link with a malformed asset id unhandled without opening Futures', async () => {
+      expect(await processSelfDeeplink('mtw://futures/%E0%A4%A')).toBe(false);
+      expect(mockActions.switchToFutures).not.toHaveBeenCalled();
+    });
+
+    it('should not open Futures in explorer mode', async () => {
+      const explorer = jest.replaceProperty(config, 'IS_EXPLORER', true);
+      try {
+        expect(await processSelfDeeplink('mtw://futures')).toBe(false);
+        expect(mockActions.showError).toHaveBeenCalled();
+        expect(mockActions.switchToFutures).not.toHaveBeenCalled();
+      } finally {
+        explorer.restore();
+      }
     });
   });
 
@@ -1820,6 +1901,19 @@ describe('View-only mode deeplink blocking', () => {
 
       expect(result).toBe(true);
       expect(mockActions.showError).not.toHaveBeenCalled();
+    });
+
+    it('should open a Futures market in view-only mode', async () => {
+      mockActions.switchToFutures = jest.fn();
+      mockActions.openFuturesMarket = jest.fn();
+      mockGlobal.accounts!.byId['test-account-id'].byChain.arbitrum = { address: TEST_EVM_ADDRESS };
+
+      const result = await processSelfDeeplink('mtw://futures/hyperliquid%3Ahl%3ABTC');
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).not.toHaveBeenCalled();
+      expect(mockActions.switchToFutures).toHaveBeenCalled();
+      expect(mockActions.openFuturesMarket).toHaveBeenCalledWith({ assetId: 'hyperliquid:hl:BTC' });
     });
   });
 
