@@ -304,8 +304,44 @@ def review_attachment_path
   path = env_value('IOS_REVIEW_ATTACHMENT_PATH')
   return nil if path.nil?
 
-  UI.user_error!("App Review attachment #{path} does not exist") unless File.file?(path)
+  UI.user_error!("App Review attachment #{path} is missing or empty") unless File.file?(path) && File.size?(path)
   File.expand_path(path)
+end
+
+def find_review_materials_gaps(notes:, attachment_names:, appendix:, attachment_name:)
+  gaps = []
+  gaps << 'the notes lack the required text' if appendix && review_notes_with_appendix(notes, appendix)
+  gaps << "the attachment #{attachment_name} is missing" if attachment_name && !attachment_names.include?(attachment_name)
+  gaps
+end
+
+# The `deliver` action uploads the attachment and submits in one call, so what App Review received
+# is known only by reading the submitted version back
+def verify_review_materials!(version, attempts: 3, pause: 10)
+  appendix = env_value('IOS_REVIEW_NOTES_APPENDIX')
+  appendix = nil if appendix && appendix.strip.empty?
+  attachment_path = review_attachment_path
+  return if appendix.nil? && attachment_path.nil?
+
+  app = Spaceship::ConnectAPI::App.find($app_identifier)
+  filter = { versionString: version, platform: Spaceship::ConnectAPI::Platform::IOS }
+  submitted = app&.get_app_store_versions(filter: filter)&.first
+  UI.user_error!("App Store version #{version} not found to verify its App Review materials") if submitted.nil?
+
+  gaps = []
+  attempts.times do |attempt|
+    sleep(pause) if attempt.positive?
+    detail = submitted.fetch_app_store_review_detail
+    gaps = find_review_materials_gaps(
+      notes: detail&.notes,
+      attachment_names: Array(detail&.app_store_review_attachments).map(&:file_name),
+      appendix: appendix,
+      attachment_name: attachment_path && File.basename(attachment_path)
+    )
+    break if gaps.empty?
+  end
+  UI.user_error!("Version #{version} went to App Review without its materials: #{gaps.join('; ')}") unless gaps.empty?
+  UI.success('App Review notes and attachment are in place')
 end
 
 def beta_review_in_progress?(version)
@@ -572,6 +608,7 @@ platform :ios do
     append_review_notes!(version)
 
     upload_to_app_store(upload_options)
+    verify_review_materials!(version)
   end
 
   after_all do |lane|

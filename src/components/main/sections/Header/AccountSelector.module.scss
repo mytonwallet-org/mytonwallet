@@ -29,12 +29,18 @@ $iconGapSize: 1rem;
   justify-content: center;
 
   max-width: 100%;
+  padding: 0;
+  border: none;
 
   font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.5rem;
   color: var(--color-black);
   text-align: center;
+
+  appearance: none;
+  background: none;
+  outline: none;
 
   &.withBalance {
     font-size: 0.8125rem;
@@ -49,11 +55,44 @@ $iconGapSize: 1rem;
   }
 }
 
+.accountTitleInteractive {
+  cursor: var(--custom-cursor, pointer);
+
+  @include mixins.transition(opacity 150ms);
+
+  &:hover {
+    opacity: 0.65;
+  }
+
+  &:focus-visible {
+    border-radius: 0.25rem;
+    outline: 0.125rem solid var(--color-accent);
+    outline-offset: 0.25rem;
+  }
+
+  @include mixins.active-transition-optimization(!important);
+}
+
 .accountTitleInner {
   unicode-bidi: plaintext;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.expandIcon {
+  position: relative;
+  top: 0.3125rem;
+
+  margin-inline-start: 0.25rem;
+
+  font-size: 0.5rem;
+  line-height: 1rem;
+  vertical-align: 0;
+
+  @include mixins.respond-above(xs) {
+    top: 0.125rem;
+  }
 }
 
 .balance {

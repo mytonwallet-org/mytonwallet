@@ -26,13 +26,14 @@ import useQrScannerSupport from '../../../../hooks/useQrScannerSupport';
 import useShowTransition from '../../../../hooks/useShowTransition';
 
 import WalletAvatar from '../../../ui/WalletAvatar';
+import AccountSelector from './AccountSelector';
 import AppLockButton from './actionButtons/AppLockButton';
 import BackButton from './actionButtons/BackButton';
 import QrScannerButton from './actionButtons/QrScannerButton';
 import ToggleFullscreenButton from './actionButtons/ToggleFullscreenButton';
 import ToggleLayoutButton from './actionButtons/ToggleLayoutButton';
 import ToggleSensitiveDataButton from './actionButtons/ToggleSensitiveDataButton';
-import HomeSearchField from './HomeSearchField';
+import HomeSearchField, { IS_HOME_SEARCH_AVAILABLE } from './HomeSearchField';
 
 import styles from './HomeToolbar.module.scss';
 
@@ -108,10 +109,14 @@ function HomeToolbar({
 
   function renderStartPill() {
     const isFullscreenToggleShown = isPortrait && IS_TELEGRAM_APP;
-    if (!CAN_TOGGLE_APP_LAYOUT && !isFullscreenToggleShown && !isQrScannerSupported) return undefined;
+    const isSensitiveDataToggleShown = isPortrait && !IS_HOME_SEARCH_AVAILABLE;
+    if (
+      !CAN_TOGGLE_APP_LAYOUT && !isFullscreenToggleShown && !isQrScannerSupported && !isSensitiveDataToggleShown
+    ) return undefined;
 
     return (
       <div className={styles.pill}>
+        {isSensitiveDataToggleShown && <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />}
         {CAN_TOGGLE_APP_LAYOUT && <ToggleLayoutButton />}
         {isFullscreenToggleShown && <ToggleFullscreenButton isFullscreen={isFullscreen} />}
         <QrScannerButton isViewMode={isViewMode} />
@@ -172,7 +177,13 @@ function HomeToolbar({
       <div className={buildClassName(styles.row, isPortrait && styles.rowPortrait)}>
         {isTemporaryAccount && renderPill(<BackButton isIconOnly />)}
         {renderStartPill()}
-        <HomeSearchField ref={searchRef} microphoneRef={microphoneRef} />
+        {IS_HOME_SEARCH_AVAILABLE ? (
+          <HomeSearchField ref={searchRef} microphoneRef={microphoneRef} />
+        ) : (
+          <div className={styles.accountTitle}>
+            <AccountSelector key={currentAccountId} withAccountSelector />
+          </div>
+        )}
         {isPortrait ? renderPortraitEnd() : renderLandscapeEnd()}
       </div>
     </div>

@@ -7,6 +7,9 @@ import useLang from '../../../../hooks/useLang';
 
 import styles from './HomeSearchField.module.scss';
 
+// The search has nothing behind it yet, so the home screen shows the account header in its place
+export const IS_HOME_SEARCH_AVAILABLE = false;
+
 interface OwnProps {
   ref?: ElementRef<HTMLDivElement>;
   microphoneRef?: ElementRef<HTMLElement>;
