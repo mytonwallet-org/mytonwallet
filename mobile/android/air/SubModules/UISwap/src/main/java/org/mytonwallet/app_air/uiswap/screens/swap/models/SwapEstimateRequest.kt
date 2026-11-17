@@ -47,7 +47,7 @@ data class SwapEstimateRequest private constructor(
                 tokenToSend,
                 wallet.isSupportedChain(tokenToSend.mBlockchain),
                 swapType,
-                prevEst?.dex?.networkFee
+                prevEst?.dex?.networkFeeValue
             )
         val totalNativeAmount = (networkFeeData?.fee ?: BigDecimal.ZERO) +
             (

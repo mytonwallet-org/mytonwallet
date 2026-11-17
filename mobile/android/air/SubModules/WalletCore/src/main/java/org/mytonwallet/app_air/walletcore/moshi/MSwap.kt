@@ -147,8 +147,9 @@ data class MApiSwapEstimateResponse(
     val toAmount: BigDecimal,
     val fromAmount: BigDecimal,
     val toMinAmount: BigDecimal,
-    val networkFee: Double,
-    val realNetworkFee: Double?,
+    /** The backend's exact decimal string: the SDK matches a build to its quote by string. */
+    val networkFee: String,
+    val realNetworkFee: String?,
     val swapFee: BigDecimal,
     val swapFeePercent: Double,
     val ourFee: String?,
@@ -165,14 +166,20 @@ data class MApiSwapEstimateResponse(
 
     // only in v3
     val routes: List<List<JSONObject>>?
-)
+) {
+    val networkFeeValue: Double
+        get() = networkFee.toDouble()
+
+    val realNetworkFeeValue: Double?
+        get() = realNetworkFee?.toDouble()
+}
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapBuildRequest(
     val toAmount: BigDecimal,
     val fromAmount: BigDecimal,
     val toMinAmount: BigDecimal,
-    val networkFee: Double,
+    val networkFee: String,
     val swapFee: BigDecimal,
     val dexLabel: String?,
     val from: String,
@@ -191,7 +198,42 @@ data class MApiSwapBuildRequest(
     val needsBatch: Boolean? = null,
     /** Which side of the trade the user fixed. */
     val swapMode: MApiSwapMode? = null
-)
+) {
+    companion object {
+        /** Built from the confirmed quote: the SDK refuses a build whose values differ from it. */
+        fun fromEstimate(
+            dex: MApiSwapEstimateResponse,
+            fromAddress: String,
+            historyAddress: String?,
+            toAddress: String?,
+            slippage: Float,
+            shouldTryDiesel: Boolean,
+            swapVersion: Int?,
+            swapMode: MApiSwapMode
+        ) = MApiSwapBuildRequest(
+            dexLabel = dex.dexLabel?.name?.lowercase(),
+            from = dex.from,
+            fromAddress = fromAddress,
+            historyAddress = historyAddress,
+            toAddress = toAddress,
+            fromAmount = dex.fromAmount,
+            networkFee = dex.realNetworkFee ?: dex.networkFee,
+            shouldTryDiesel = shouldTryDiesel,
+            slippage = slippage,
+            swapFee = dex.swapFee,
+            to = dex.to,
+            toAmount = dex.toAmount,
+            toMinAmount = dex.toMinAmount,
+            ourFee = dex.ourFee,
+            dexRouterLabel = dex.dexRouterLabel,
+            dieselFee = dex.dieselFee,
+            swapVersion = swapVersion,
+            routes = dex.routes,
+            needsBatch = dex.needsBatch,
+            swapMode = swapMode
+        )
+    }
+}
 
 @JsonClass(generateAdapter = false)
 enum class MApiSwapMode {
