@@ -4,7 +4,8 @@ import WalletContext
 
 public enum AgentEntryPoint {
     /// With `isSummaryCached`, the summary is the SDK's copy from a past session, whose unread state is unknown until
-    /// the history loads: the chat loads under the skeleton rather than opening on its cached history
+    /// the history loads: the chat loads under the skeleton rather than opening on its cached history, which it shows
+    /// only when the history fails to load
     @MainActor
     public static func makeRootViewController(
         thread: ApiAgentV2ThreadSummary,
@@ -62,7 +63,10 @@ public enum AgentEntryPoint {
     /// A new chat that asks for a support operator once it has loaded, as Contact Support among the starter hints does
     @MainActor
     static func makeSupportChatViewController(preloader: AgentPreloader = .shared) -> UIViewController {
-        AgentRootVC(client: preloader.client, preloader: preloader, shouldRequestSupport: true)
+        AgentRootVC(
+            client: preloader.client, preloader: preloader,
+            shouldRequestSupport: AgentSupportRequest.isEntryVisible(client: preloader.client)
+        )
     }
 
     @MainActor
@@ -82,17 +86,29 @@ public enum AgentEntryPoint {
         try await makeNewsChatViewController(eventId: eventId, client: LiveAgentNewsFeedClient(), preloader: .shared)
     }
 
+    /// The news item's discussion, as a digest's headline opens it: the chat the app has loaded for it opens at once;
+    /// otherwise the item comes from the feed, and the post of a discussion it already has waits for the thread, which
+    /// the user may have written in
     @MainActor
     static func makeNewsChatViewController(eventId: Int, client: AgentNewsFeedClient, preloader: AgentPreloader) async throws -> UIViewController {
+        if let discussion = preloader.loadedNewsDiscussion(eventId: eventId) {
+            return AgentVC(model: discussion)
+        }
         let generation = preloader.sessionGeneration
         let page = try await client.getNewsFeed(
             lang: LocalizationSupport.shared.langCode, cursor: nil, schedule: .current, view: .all
         )
         guard preloader.sessionGeneration == generation else { throw CancellationError() }
-        if let item = page.items.first(where: { $0.eventId == eventId }) {
-            return makeNewsChatViewController(item: item, locale: page.locale, preloader: preloader, onThreadCreated: { _ in })
+        guard let item = page.items.first(where: { $0.eventId == eventId }) else {
+            return AgentVC(model: preloader.acquireNewsModel(request: .init(eventId: eventId, locale: page.locale)))
         }
-        return AgentVC(model: preloader.acquireNewsModel(request: .init(eventId: eventId, locale: page.locale)))
+        if let threadId = item.discussion?.threadId, let thread = preloader.model(threadId: threadId)?.thread,
+           let discussion = preloader.acquireModel(thread: thread, news: (item, page.locale)) {
+            return AgentVC(model: discussion)
+        }
+        return AgentVC(model: preloader.acquireNewsModel(
+            item: item, locale: page.locale, holdsPostForExistingThread: true, onThreadCreated: { _ in }
+        ))
     }
 
     @MainActor

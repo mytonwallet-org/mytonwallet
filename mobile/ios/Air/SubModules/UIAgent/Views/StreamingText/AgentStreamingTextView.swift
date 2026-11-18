@@ -48,8 +48,8 @@ private final class AgentRevealSnippetLayer: CALayer {
 /// from blue to violet as the thinking glow does. With Reduce Motion it only fades in.
 @MainActor
 enum AgentStreamedCharacterAppearance {
-    static let sharpenDuration = AgentDictationTextReveal.sharpenDuration
-    static let colorDuration = AgentDictationTextReveal.colorDuration
+    static let sharpenDuration = TextViewCharacterReveal.sharpenDuration
+    static let colorDuration = TextViewCharacterReveal.colorDuration
     static let initialOpacity: Float = 0.15
     static let initialGlowOpacity: Float = 0.9
     static let initialGlowRadius: CGFloat = 3

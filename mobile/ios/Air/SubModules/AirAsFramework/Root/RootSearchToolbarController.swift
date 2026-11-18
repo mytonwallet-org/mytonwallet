@@ -1011,6 +1011,9 @@ final class RootSearchToolbarController: NSObject {
         searchToolbarViewportView.addSubview(container)
         let placement = searchToolbarDisplacementView
         placement.translatesAutoresizingMaskIntoConstraints = false
+        // Asks the toolbar, as the container does, so the glass it hosts takes touches past its bounds, such as the
+        // Agent list's recording cross above the field
+        placement.shouldAcceptTouchesOutside = true
         container.addSubview(placement)
         searchToolbar.translatesAutoresizingMaskIntoConstraints = false
         placement.addSubview(searchToolbar)

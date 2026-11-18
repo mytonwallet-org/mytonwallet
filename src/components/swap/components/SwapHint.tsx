@@ -6,9 +6,11 @@ import type { TradeDirection, UserSwapToken } from '../../../global/types';
 
 import { Big } from '../../../lib/big.js';
 import buildClassName from '../../../util/buildClassName';
+import { findChainConfig } from '../../../util/chain';
 import { formatCurrency, formatCurrencySimple } from '../../../util/formatNumber';
 import { toNativeDigits } from '../../../util/nativeDigits';
 import { openUrl } from '../../../util/openUrl';
+import getChainNetworkName from '../../../util/swap/getChainNetworkName';
 
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
@@ -86,7 +88,13 @@ function SwapHint({
   } else {
     if (!intermediateToken || !tokenOut) return undefined;
 
-    const symbols = { buy_token: tokenOut.symbol, token: intermediateToken.symbol };
+    const chainConfig = findChainConfig(intermediateToken.chain);
+
+    const token = chainConfig?.chainStandard === 'ethereum'
+      ? `${intermediateToken.symbol} (${getChainNetworkName(intermediateToken.chain)})`
+      : intermediateToken.symbol;
+
+    const symbols = { buy_token: tokenOut.symbol, token };
     const isSell = tradeDirection === 'sell';
 
     title = lang(tradeDirection ? 'Direct exchange unavailable' : 'Direct swap unavailable');

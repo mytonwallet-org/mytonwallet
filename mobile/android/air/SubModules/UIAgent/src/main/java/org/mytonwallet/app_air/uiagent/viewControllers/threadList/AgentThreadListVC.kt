@@ -58,6 +58,9 @@ import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.AndroidAgentDictationRecorder
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2InputLimitText
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2LoadErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2QuotaResetAt
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_SUPPORT_HINT_ID
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentConsentGate
@@ -72,8 +75,11 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportRequest
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentInputLimitCode
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.holdDictationForConsent
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.isAgentSupportVisible
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.showMicrophoneDeniedAlert
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBulletin
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentDustEffect
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentLoadErrorView
@@ -130,6 +136,7 @@ import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Availability
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
@@ -138,6 +145,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsFeedView
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationSettings
@@ -217,6 +225,13 @@ class AgentThreadListVC(context: Context) :
     private var hasRevealedThreads = false
     private var hasConsent = false
     private var hasConsentResult = false
+
+    // The Agent's capacity and the user's daily quota, which hold new questions back as they do in a chat
+    private var availability: AgentV2Availability? = null
+    private var userQuota: AgentV2UserQuota? = null
+    private var limitExpiryJob: Job? = null
+    private val inputLimitCode: String?
+        get() = getAgentInputLimitCode(availability, userQuota, System.currentTimeMillis())
 
     // A recording asked for before the list went from the screen doesn't start after; the consent sheet covering the
     // list keeps it
@@ -340,6 +355,7 @@ class AgentThreadListVC(context: Context) :
     }
     private var searchGlass: WGlassView? = null
     private val composer = AgentComposerView(context, recyclerView)
+    private val limitBulletin = AgentBulletin()
     private val dictation: AgentDictationController by lazy {
         AgentDictationController(
             scope = scope,
@@ -356,6 +372,7 @@ class AgentThreadListVC(context: Context) :
             nowMs = SystemClock::elapsedRealtime,
             onStateChanged = composer::renderDictation,
             onTranscript = composer::setDictationText,
+            onSendTranscript = composer::sendDictationText,
             onFailure = composer::showDictationFailure,
             onRecordingStarted = { Haptics.play(composer, HapticType.LIGHT_TAP) },
             onGestureFeedback = { Haptics.play(composer, HapticType.LIGHT_TAP) }
@@ -512,6 +529,7 @@ class AgentThreadListVC(context: Context) :
     }
 
     override fun viewWillDisappear() {
+        limitBulletin.dismiss()
         if (!isAskingForConsent) heldDictation.drop()
         dictation.cancel()
         closeSwipes(except = null)
@@ -565,6 +583,12 @@ class AgentThreadListVC(context: Context) :
     ): Boolean {
         if (!hasConsent) {
             requestConsent { sendComposed(prompt, card, entryPoint) }
+            return false
+        }
+        inputLimitCode?.let { code ->
+            // The field is dimmed, and the question goes nowhere: the Agent's toast over the field says why, as iOS's
+            val text = agentV2InputLimitText(code, userQuota?.let(::agentV2QuotaResetAt))
+            limitBulletin.showMessage(view, recyclerView, text, ::limitBulletinBottomOffset)
             return false
         }
         // The question grows into the new chat's first bubble as the chat comes in, out of the
@@ -713,6 +737,8 @@ class AgentThreadListVC(context: Context) :
             return
         }
         isComposeShown = shouldShowCompose
+        // A new chat's field keeps Send in place, as a chat's does
+        composer.isSendAlwaysShown = shouldShowCompose
         if (shouldShowCompose) {
             closeSwipes(except = null)
         }
@@ -840,7 +866,8 @@ class AgentThreadListVC(context: Context) :
 
     // Contact Support waits until the list knows the consent and, with consent, until the chats have loaded
     private val canRequestSupportFromList: Boolean
-        get() = hasConsentResult && (!hasConsent || (model.hasLoaded && !model.hasLoadFailed))
+        get() = isAgentSupportVisible && hasConsentResult &&
+            (!hasConsent || (model.hasLoaded && !model.hasLoadFailed))
 
     private var isComposeHeaderShown = false
 
@@ -1176,6 +1203,42 @@ class AgentThreadListVC(context: Context) :
         hasConsentResult = true
         updateChrome()
         refresh()
+        if (isAllowed) loadInputLimits()
+    }
+
+    // The limits come back as updates
+    private fun loadInputLimits() {
+        loadInputLimit { client.loadAvailability() }
+        loadInputLimit { client.loadUserQuota() }
+    }
+
+    private fun loadInputLimit(load: suspend () -> Unit) {
+        scope.launch {
+            try {
+                load()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                // Without it, questions go out and the server tells about any limit
+            }
+        }
+    }
+
+    // The field dims and sends nothing while a limit blocks new questions, until the nearest limit resets
+    private fun updateInputLimit() {
+        val isBlocked = inputLimitCode != null
+        composer.contentAlpha = if (isBlocked) LIMITED_COMPOSER_ALPHA else 1f
+        composer.setSubmissionEnabled(!isBlocked)
+        limitExpiryJob?.cancel()
+        val now = System.currentTimeMillis()
+        val nextReset = listOfNotNull(availability?.resetAt, userQuota?.let(::agentV2QuotaResetAt))
+            .filter { it > now }
+            .minOrNull() ?: return
+        limitExpiryJob = scope.launch {
+            delay(nextReset - now)
+            limitExpiryJob = null
+            updateInputLimit()
+        }
     }
 
     // The News row shows the latest of the feed's view as soon as it switches
@@ -1437,14 +1500,23 @@ class AgentThreadListVC(context: Context) :
 
     // Chrome
 
+    // What the failure of the chats says: without a network, that the device has no connection
+    private val loadFailureText: String
+        get() = if (model.loadErrorCode == "network_error") {
+            agentV2LoadErrorText(model.loadErrorCode)
+        } else {
+            LocaleController.getString("\$agent_chats_unavailable")
+        }
+
     private fun updateChrome() {
         recyclerView.visibility = when {
             !hasConsentResult -> View.GONE
             hasConsent && !hasRevealedThreads -> View.INVISIBLE
             else -> View.VISIBLE
         }
-        // Once the chats are revealed, the placeholder hides as it finishes fading out
-        if (!hasConsent) {
+        // Once the chats are revealed, the placeholder hides as it finishes fading out. While the device's copy of the
+        // chats is read, the list shows nothing rather than the skeleton, so a list with a copy opens on its chats.
+        if (!hasConsent || (!hasRevealedThreads && !model.hasReadCachedThreads)) {
             skeletonView.animate().cancel()
             skeletonView.isGone = true
         } else if (!hasRevealedThreads) {
@@ -1457,10 +1529,10 @@ class AgentThreadListVC(context: Context) :
         loadMoreSpinner.isVisible = hasConsent && model.isLoading && model.nextCursor != null &&
             model.hasLoaded
         loadErrorView.setError(
-            LocaleController.getString("\$agent_chats_unavailable").takeIf {
-                hasConsent && model.hasLoadFailed && model.items.isEmpty()
-            }
+            loadFailureText.takeIf { hasConsent && model.hasLoadFailed && model.items.isEmpty() }
         )
+        // The failure stays, its Retry dimmed, while the list loads again
+        loadErrorView.isRetrying = model.isLoading
         updateBarVisibility()
         updatePlaceholderFrames()
         updateComposeState()
@@ -1706,6 +1778,8 @@ class AgentThreadListVC(context: Context) :
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            WalletEvent.ConfigReceived -> model.updateSupportVisibility()
+
             WalletEvent.AppForeground -> {
                 isAppActive = true
                 if (hasConsentResult && !isDisappeared) refresh()
@@ -1736,6 +1810,19 @@ class AgentThreadListVC(context: Context) :
     override fun onBridgeUpdate(update: ApiUpdate) {
         val agentUpdate = (update as? ApiUpdate.ApiUpdateAgentV2)?.update ?: return
         model.handleUpdate(agentUpdate)
+        when (agentUpdate) {
+            is AgentV2Update.AvailabilityChanged -> {
+                availability = agentUpdate.availability
+                updateInputLimit()
+            }
+
+            is AgentV2Update.UserQuotaChanged -> {
+                userQuota = agentUpdate.quota
+                updateInputLimit()
+            }
+
+            else -> Unit
+        }
         if (!hasConsent || isDisappeared) return
         when (agentUpdate) {
             is AgentV2Update.ThreadChanged -> model.applyThreadChange(agentUpdate.thread)
@@ -1877,6 +1964,13 @@ class AgentThreadListVC(context: Context) :
         (error as? AgentV2OperationException)?.error?.code ?: error.message
     )
 
+    // The bulletin stands on the field's top edge, wherever the keyboard carries the field
+    private fun limitBulletinBottomOffset(): Int {
+        val viewTop = IntArray(2).also(view::getLocationInWindow)[1]
+        val composerTop = IntArray(2).also(composer::getLocationInWindow)[1]
+        return (viewTop + view.height - composerTop - composer.fieldTop).coerceAtLeast(0)
+    }
+
     private fun showOperationError(error: Throwable) = showToast(errorText(error))
 
     private fun showToast(text: String) {
@@ -1961,6 +2055,7 @@ class AgentThreadListVC(context: Context) :
         const val LOAD_MORE_THRESHOLD = 5
         const val LOAD_ERROR_SIDE_INSET = 32
         const val REFRESH_INTERVAL_MS = 30_000L
+        const val LIMITED_COMPOSER_ALPHA = 0.5f
         const val REVEAL_DURATION_MS = 300L
         const val MENU_WIDTH = 194
         const val BAR_HEIGHT = 48

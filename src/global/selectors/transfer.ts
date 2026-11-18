@@ -4,7 +4,7 @@ import type { GlobalState } from '../types';
 import { getChainConfig, getTrustedUsdtSlugs } from '../../util/chain';
 import { CHAIN_ORDER } from '../../util/chain';
 import { getMaxTransferAmount } from '../../util/fee/transferFee';
-import { isValidAddressOrDomain } from '../../util/isValidAddress';
+import { getPreferredChainForAddress, isValidAddressOrDomain } from '../../util/isValidAddress';
 import { orderByPattern } from '../../util/iteratees';
 import {
   getOffRampBaselineCurrencies,
@@ -63,16 +63,27 @@ export function selectTokenMatchingCurrentTransferAddressSlow(global: GlobalStat
     CHAIN_ORDER,
   );
 
+  const isCurrentChainAvailable = currentChain in availableChains;
+
   // First try to match a chain by the full address, then by the prefix.
   // Because a valid TRON address is a prefix of a valid TON address, and we want to match TRON in this case.
   for (const isCheckingPrefix of [false, true]) {
+    // While the user is typing, keep the selected chain as long as the text can still become its address.
+    // Otherwise the token jumps to another chain mid-typing: the start of an `0x…` address also fits the TON format.
+    if (isCheckingPrefix && isCurrentChainAvailable && isValidAddressOrDomain(toAddress, currentChain, true)) {
+      return currentTokenSlug;
+    }
+
     for (const chain of orderedChains) {
       if (isValidAddressOrDomain(toAddress, chain, isCheckingPrefix)) {
-        if (chain === currentChain) {
+        const matchingChain = isCurrentChainAvailable
+          ? getPreferredChainForAddress(toAddress, chain, currentChain)
+          : chain;
+        if (matchingChain === currentChain) {
           return currentTokenSlug;
         }
 
-        const token = selectBestChainTokenSlow(global, chain, currentTokenSlug);
+        const token = selectBestChainTokenSlow(global, matchingChain, currentTokenSlug);
         if (token) return token.slug;
       }
     }

@@ -37,61 +37,78 @@ class AgentDictationControllerTest {
     }
 
     @Test
-    fun slidingLeftCancelsTheRecordingWithoutCallingTheAgent() = runBlocking {
+    fun movingTheHeldMicrophoneOnlyMarksWhatLettingGoWouldDo() = runBlocking {
         val fixture = Fixture(this)
         fixture.controller.press()
         fixture.started.await()
 
-        fixture.controller.move(
-            horizontalDp = -150f,
-            upDp = 0f,
-            cancelDirection = AgentDictationCancelDirection.LEFT
-        )
-        fixture.recorder.cancelled.await()
+        listOf(
+            -150f to AgentDictationHoldZone.CANCEL,
+            30f to AgentDictationHoldZone.SEND,
+            0f to AgentDictationHoldZone.STOP
+        ).forEach { (horizontalDp, zone) ->
+            fixture.controller.move(
+                horizontalDp = horizontalDp,
+                upDp = 0f,
+                cancelDirection = AgentDictationCancelDirection.LEFT
+            )
+            assertEquals(zone, fixture.controller.state.holdZone)
+        }
 
-        assertEquals(AgentDictationPhase.IDLE, fixture.controller.state.phase)
-        assertTrue(fixture.failures.isEmpty())
-        assertEquals(0, fixture.apiCalls)
+        assertEquals(AgentDictationPhase.RECORDING, fixture.controller.state.phase)
         assertEquals(0, fixture.recorder.finishCalls)
+        fixture.controller.cancel()
     }
 
     @Test
-    fun releasingFastTowardTheStartCancelsWhileAShortReleaseTranscribes() = runBlocking {
+    fun lettingGoCancelsAtTheCrossKeepsTheTextInPlaceAndSendsAtSend() = runBlocking {
         val cancelling = Fixture(this)
         cancelling.controller.press()
         cancelling.started.await()
         cancelling.now = 1000
-
-        cancelling.controller.release(
-            horizontalDp = -40f,
-            upDp = 10f,
-            horizontalVelocity = -500f,
-            cancelDirection = AgentDictationCancelDirection.LEFT
-        )
+        cancelling.controller.release(horizontalDp = -150f)
         cancelling.recorder.cancelled.await()
 
         assertEquals(AgentDictationPhase.IDLE, cancelling.controller.state.phase)
         assertEquals(0, cancelling.apiCalls)
+        assertEquals(0, cancelling.recorder.finishCalls)
 
-        val finishing = Fixture(this)
-        finishing.controller.press()
-        finishing.started.await()
-        finishing.now = 1000
+        listOf(0f, 30f).forEach { horizontalDp ->
+            val fixture = Fixture(this)
+            fixture.controller.press()
+            fixture.started.await()
+            fixture.now = 1000
+            fixture.controller.release(horizontalDp = horizontalDp)
+            fixture.recorder.cancelled.await()
 
-        finishing.controller.release(
-            horizontalDp = -40f,
-            upDp = 10f,
-            horizontalVelocity = -100f,
-            cancelDirection = AgentDictationCancelDirection.LEFT
-        )
-        finishing.recorder.cancelled.await()
-
-        assertEquals(1, finishing.apiCalls)
-        assertEquals(listOf("Text"), finishing.transcripts)
+            val isSending = horizontalDp > 0f
+            assertEquals(1, fixture.apiCalls)
+            assertEquals(if (isSending) emptyList() else listOf("Text"), fixture.transcripts)
+            assertEquals(if (isSending) listOf("Text") else emptyList(), fixture.sentTranscripts)
+        }
     }
 
     @Test
-    fun slidingRightInRtlCancelsWithoutCallingTheAgentWhileSlidingLeftDoesNot() = runBlocking {
+    fun repeatedFinishKeepsTheFirstDecisionToSendOrKeepTheTranscript() = runBlocking {
+        listOf(false, true).forEach { isSending ->
+            val fixture = Fixture(this)
+            fixture.controller.startHandsFree()
+            fixture.started.await()
+            fixture.now = 1000
+
+            fixture.controller.finish(isSending = isSending)
+            fixture.controller.finish(isSending = !isSending)
+            fixture.recorder.cancelled.await()
+
+            assertEquals(1, fixture.apiCalls)
+            assertEquals(1, fixture.recorder.finishCalls)
+            assertEquals(if (isSending) emptyList() else listOf("Text"), fixture.transcripts)
+            assertEquals(if (isSending) listOf("Text") else emptyList(), fixture.sentTranscripts)
+        }
+    }
+
+    @Test
+    fun inRtlTheCrossIsOnTheRightAndSendOnTheLeft() = runBlocking {
         val fixture = Fixture(this)
         fixture.controller.press()
         fixture.started.await()
@@ -101,13 +118,18 @@ class AgentDictationControllerTest {
             upDp = 0f,
             cancelDirection = AgentDictationCancelDirection.RIGHT
         )
-
-        assertEquals(AgentDictationPhase.RECORDING, fixture.controller.state.phase)
-        assertEquals(-150f, fixture.controller.state.cancelDragDp, 0f)
+        assertEquals(AgentDictationHoldZone.SEND, fixture.controller.state.holdZone)
 
         fixture.controller.move(
             horizontalDp = 150f,
             upDp = 0f,
+            cancelDirection = AgentDictationCancelDirection.RIGHT
+        )
+        assertEquals(AgentDictationHoldZone.CANCEL, fixture.controller.state.holdZone)
+
+        fixture.now = 1000
+        fixture.controller.release(
+            horizontalDp = 150f,
             cancelDirection = AgentDictationCancelDirection.RIGHT
         )
         fixture.recorder.cancelled.await()
@@ -248,18 +270,13 @@ class AgentDictationControllerTest {
     }
 
     @Test
-    fun lockedRecordingSurvivesReleaseAndTheLimitTranscribesOnce() = runBlocking {
+    fun handsFreeRecordingSurvivesReleaseAndTheLimitTranscribesOnce() = runBlocking {
         val fixture = Fixture(this)
-        fixture.controller.press()
+        fixture.controller.startHandsFree()
         fixture.started.await()
         fixture.now = 1000
-        fixture.controller.move(
-            horizontalDp = 0f,
-            upDp = 110f,
-            cancelDirection = AgentDictationCancelDirection.LEFT
-        )
 
-        fixture.controller.release(upDp = 110f)
+        fixture.controller.release(horizontalDp = -150f)
         yield()
 
         assertEquals(AgentDictationPhase.RECORDING, fixture.controller.state.phase)
@@ -273,41 +290,6 @@ class AgentDictationControllerTest {
         assertEquals(AgentDictationPhase.IDLE, fixture.controller.state.phase)
         assertEquals(1, fixture.recorder.finishCalls)
         assertEquals(1, fixture.apiCalls)
-        assertEquals(listOf("Text"), fixture.transcripts)
-        assertTrue(fixture.failures.isEmpty())
-    }
-
-    @Test
-    fun pausedRecordingStopsItsTimeAndResumesTheSameRecording() = runBlocking {
-        val fixture = Fixture(this)
-        fixture.controller.startHandsFree()
-        fixture.started.await()
-        fixture.now = 1000
-
-        fixture.controller.pause()
-        assertTrue(fixture.controller.state.isPaused)
-        assertEquals(1000, fixture.controller.state.elapsedMs)
-
-        // A pause doesn't count toward the limit
-        fixture.now = 61_000
-        delay(TICKS_MS)
-        assertEquals(AgentDictationPhase.RECORDING, fixture.controller.state.phase)
-        assertEquals(1000, fixture.controller.state.elapsedMs)
-        assertEquals(0, fixture.recorder.finishCalls)
-
-        fixture.controller.resume()
-        fixture.now = 61_500
-        delay(TICKS_MS)
-        assertEquals(1500, fixture.controller.state.elapsedMs)
-
-        fixture.controller.pause()
-        fixture.controller.finish()
-        fixture.recorder.cancelled.await()
-
-        assertEquals(1, fixture.recorder.startCalls)
-        assertEquals(2, fixture.recorder.pauseCalls)
-        assertEquals(1, fixture.recorder.resumeCalls)
-        assertEquals(1, fixture.recorder.finishCalls)
         assertEquals(listOf("Text"), fixture.transcripts)
         assertTrue(fixture.failures.isEmpty())
     }
@@ -386,6 +368,7 @@ class AgentDictationControllerTest {
         var apiCalls = 0
         val failures = mutableListOf<AgentDictationFailure>()
         val transcripts = mutableListOf<String>()
+        val sentTranscripts = mutableListOf<String>()
         val started = CompletableDeferred<Unit>()
         val recorder = FakeRecorder(amplitude)
         val controller = AgentDictationController(
@@ -399,6 +382,7 @@ class AgentDictationControllerTest {
             nowMs = { now },
             onStateChanged = {},
             onTranscript = transcripts::add,
+            onSendTranscript = sentTranscripts::add,
             onFailure = failures::add,
             onRecordingStarted = { started.complete(Unit) }
         )
@@ -408,22 +392,12 @@ class AgentDictationControllerTest {
         val cancelled = CompletableDeferred<Unit>()
         var startCalls = 0
         var finishCalls = 0
-        var pauseCalls = 0
-        var resumeCalls = 0
 
         override fun start() {
             startCalls++
         }
 
         override fun amplitude() = amplitude
-
-        override fun pause() {
-            pauseCalls++
-        }
-
-        override fun resume() {
-            resumeCalls++
-        }
 
         override suspend fun finish(): String {
             finishCalls++
@@ -445,10 +419,6 @@ class AgentDictationControllerTest {
         }
 
         override fun amplitude() = 2000
-
-        override fun pause() = Unit
-
-        override fun resume() = Unit
 
         override suspend fun finish() = encode()
 

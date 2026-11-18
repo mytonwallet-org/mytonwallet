@@ -1,18 +1,25 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
+import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.agentThreadActivityDate
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2SupportRequestSource
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSupport
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
 /** Contact Support, which ends the starter suggestions; the client offers it, never the server's catalog */
 internal const val AGENT_SUPPORT_HINT_ID = "client.supportRequest"
+
+internal val isAgentSupportVisible: Boolean
+    get() = isAgentSupportHandoffDeclared && ConfigStore.isAgentSupportEnabled == true
 
 /** Once an operator has joined the chat, every answer in it names its author, the agent's before it too */
 internal fun List<AgentMessage>.hasSupportOperatorJoined(): Boolean =
@@ -70,7 +77,9 @@ internal fun findAgentSupportThread(items: List<AgentV2ThreadListItem>): AgentV2
 internal class AgentSupportRequestConfirmation(
     hasConsent: Boolean,
     private val onConfirm: () -> Unit
-) {
+) : WalletCore.EventObserver {
+    private var dismiss: (() -> Unit)? = null
+
     val text: String = LocaleController.getString(
         if (hasConsent && AccountStore.activeAccountId != null) {
             "\$agent_support_confirm_text"
@@ -79,9 +88,10 @@ internal class AgentSupportRequestConfirmation(
         }
     )
 
-    fun present(viewController: WViewController) =
-        present { title, text, action, onAction, cancel, onCancel ->
-            viewController.showAlert(
+    fun present(viewController: WViewController) {
+        if (viewController.isDisappeared || viewController.window == null) return
+        present { title, text, action, onAction, cancel, onCancel, onDismiss ->
+            val dialog = viewController.showAlert(
                 title,
                 text,
                 button = action,
@@ -89,7 +99,10 @@ internal class AgentSupportRequestConfirmation(
                 secondaryButton = cancel,
                 secondaryButtonPressed = onCancel
             )
+            dialog.setOnDismissListener(onDismiss)
+            dialog::dismiss
         }
+    }
 
     /** Shows the sheet through [showAlert]: Call confirms, and Cancel only closes the sheet */
     internal fun present(
@@ -99,17 +112,30 @@ internal class AgentSupportRequestConfirmation(
             action: String,
             onAction: () -> Unit,
             cancel: String,
-            onCancel: (() -> Unit)?
-        ) -> Unit
+            onCancel: (() -> Unit)?,
+            onDismiss: () -> Unit
+        ) -> (() -> Unit)
     ) {
-        showAlert(
+        if (!isAgentSupportVisible) return
+        dismiss = showAlert(
             LocaleController.getString("\$agent_support_confirm_title"),
             text,
             LocaleController.getString("\$agent_support_confirm_action"),
-            onConfirm,
+            { if (isAgentSupportVisible) onConfirm() },
             LocaleController.getString("Cancel"),
-            null
+            null,
+            {
+                dismiss = null
+                WalletCore.unregisterObserver(this)
+            }
         )
+        WalletCore.registerObserver(this)
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        if (walletEvent == WalletEvent.ConfigReceived && !isAgentSupportVisible) {
+            dismiss?.invoke()
+        }
     }
 }
 

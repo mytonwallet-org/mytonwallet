@@ -1,6 +1,7 @@
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
+import type { AgentV2ComposerStatus } from '../../api/agentV2/types';
 import type { AgentConversationComposerProps } from '../agent/AgentConversationShell';
 
 import { getAgentV2LocalState, resetAgentV2LocalState } from '../../util/agent/agentV2LocalState';
@@ -12,6 +13,11 @@ import { getIsAnyModalOpen } from '../ui/Modal';
 import AgentThreadList from './AgentThreadList';
 
 jest.mock('../../api', () => ({ callApi: jest.fn().mockResolvedValue(undefined) }));
+const mockShowToast = jest.fn();
+jest.mock('../../global', () => ({
+  ...jest.requireActual('../../global'),
+  getActions: () => ({ ...jest.requireActual('../../global').getActions(), showToast: mockShowToast }),
+}));
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
   default: () => Object.assign((key: string) => key, { code: 'en', isRtl: false }),
@@ -180,11 +186,16 @@ describe('field focus', () => {
   });
 });
 
-function renderList({ isActive = true, isAgentActive = true } = {}) {
+function renderList({ isActive = true, isAgentActive = true, composerStatus }: {
+  isActive?: boolean;
+  isAgentActive?: boolean;
+  composerStatus?: AgentV2ComposerStatus;
+} = {}) {
   TeactDOM.render(
     <AgentThreadList
       isActive={isActive}
       isAgentActive={isAgentActive}
+      composerStatus={composerStatus}
       hasMore={false}
       isRetrying={false}
       newsUnreadCount={0}
@@ -202,6 +213,30 @@ function renderList({ isActive = true, isAgentActive = true } = {}) {
     root,
   );
 }
+
+it('dims the field under a limit, and says why with a toast on a question it holds back, as on iOS', async () => {
+  const resetAt = Date.now() + 3_600_000;
+  renderList({
+    composerStatus: {
+      kind: 'userQuota',
+      mode: 'blocked',
+      quota: {
+        limit: 20, used: 20, remaining: 0, resetAt: new Date(resetAt).toISOString(),
+      },
+      resetAt,
+    },
+  });
+  await flushUi();
+
+  expect(mockComposer).toMatchObject({ isDimmed: true, isDisabled: false });
+  expect(mockComposer).not.toHaveProperty('statusNotice');
+  mockComposer.onInput('A question');
+  mockComposer.onSend();
+  await flushUi();
+
+  expect(onStartChat).not.toHaveBeenCalled();
+  expect(mockShowToast).toHaveBeenCalledWith({ message: expect.stringContaining('$agent_daily_limit_resets_at') });
+});
 
 function getField() {
   return root.querySelector('textarea');

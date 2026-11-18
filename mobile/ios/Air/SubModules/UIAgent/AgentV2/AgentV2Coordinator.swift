@@ -238,7 +238,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         switch code {
         case .clientUpdateRequired, .deviceTokenMissing, .deviceTokenInvalid, .deviceTokenExpired,
              .profileIdInvalid, .profileDeleted, .networkError, .invalidEvent:
-            return AgentV2Copy.error(code)
+            return AgentV2Copy.loadError(code)
         default:
             return lang("Failed to load chat")
         }
@@ -289,6 +289,23 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     var isInputBlockedByLimit: Bool { inputLimitErrorCode != nil }
 
+    /// The limit the Agent's capacity or the user's daily quota sets on new questions, as the server last reported them
+    static func inputLimitErrorCode(
+        availability: ApiAgentV2AvailabilityState,
+        userQuota: ApiAgentV2UserQuota?,
+        now: Date = Date()
+    ) -> ApiAgentV2ErrorCode? {
+        if availability.state == .capacityExhausted,
+           let resetAt = availability.resetAt,
+           Date(timeIntervalSince1970: resetAt / 1_000) > now {
+            return .agentCapacityExhausted
+        }
+        if let userQuota, userQuota.remaining == 0, AgentV2DateParser.date(userQuota.resetAt) > now {
+            return .userQuotaExhausted
+        }
+        return nil
+    }
+
     var userQuotaResetDate: Date? {
         if let limitRetry, limitRetry.kind == .userQuota {
             return limitRetry.resetAt.map { Date(timeIntervalSince1970: $0 / 1_000) }
@@ -301,18 +318,14 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     var inputLimitErrorCode: ApiAgentV2ErrorCode? {
         let now = Date()
         let isSupportActive = isSupportActive
+        // A question the quota held back waits for its own reset rather than the quota's
         if !isSupportActive,
-           availability.state == .capacityExhausted,
-           let resetAt = availability.resetAt,
-           Date(timeIntervalSince1970: resetAt / 1_000) > now {
-            return .agentCapacityExhausted
-        }
-        if !isSupportActive,
-           let userQuota,
-           limitRetry?.kind != .userQuota,
-           userQuota.remaining == 0,
-           AgentV2DateParser.date(userQuota.resetAt) > now {
-            return .userQuotaExhausted
+           let code = Self.inputLimitErrorCode(
+               availability: availability,
+               userQuota: limitRetry?.kind == .userQuota ? nil : userQuota,
+               now: now
+           ) {
+            return code
         }
         if isRateLimitWaiting {
             return .rateLimited
@@ -402,6 +415,18 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     var isDiscussion: Bool {
         news != nil || newsRequest != nil || digest != nil || digestRequest != nil
+    }
+
+    /// The discussion opens on a thread the feed says it has, which the user may have written in
+    private let opensExistingDiscussion: Bool
+
+    /// A discussion the user has written in, or may have, whose history hasn't come: its post comes with the history
+    /// rather than show alone and have the history push in under it, with another date over it and an icon in the title
+    var isAwaitingStartedDiscussionHistory: Bool {
+        guard isDiscussion, !hasHydratedMessages, error == nil, !needsOpeningConsent else { return false }
+        guard let thread else { return opensExistingDiscussion }
+        // A discussion's post is its first message; any after it are the user's and the Agent's
+        return thread.messageCount > 1
     }
     private(set) var newsPreview: ApiAgentV2ThreadNewsCard?
     /// The digest as the feed's card showed it, which the digest discussion's post shows until its thread comes
@@ -595,6 +620,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         news: ApiAgentV2ThreadNewsCard? = nil,
         newsRequest: ApiAgentV2ThreadNewsRequest? = nil,
         shouldDeferThread: Bool = false,
+        opensExistingDiscussion: Bool = false,
         discussionNaming: ApiAgentV2NewsFeedItem.DiscussionNaming? = nil,
         discussionFollowups: [String]? = nil,
         digestRequest: ApiAgentV2ThreadDigestRequest? = nil,
@@ -618,6 +644,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             && news == nil && newsRequest == nil && digestRequest == nil && digest == nil && question == nil
         self.newsRequest = newsRequest
         self.shouldDeferThread = shouldDeferThread
+        self.opensExistingDiscussion = opensExistingDiscussion
         self.discussionNaming = discussionNaming
         self.discussionFollowups = discussionFollowups
         hasOpeningConsent = shouldDeferThread && client.isConsentKnownGiven
@@ -2084,6 +2111,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         switch event {
         case .agentV2(let update):
             handle(update)
+        case .configChanged:
+            notifyObservers()
         case .accountChanged(let accountId, _):
             if activeRun?.discussionSupportAccountId != accountId {
                 cancelUnsubmittedDiscussionSupportRequest()

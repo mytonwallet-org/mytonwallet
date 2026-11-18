@@ -1,4 +1,5 @@
-// `AnimatedCounter`'s roll: 10 px and 30° in a 10 px perspective over 200 ms, eased out
+// `AnimatedCounter`'s roll: 10 px and 30° in a 10 px perspective over 200 ms, eased out. The keyframes' names don't
+// turn into the classes' names in camel case, which would export the keyframes under the classes' names.
 $perspective: 0.625rem;
 $distance: 0.625rem;
 $angle: 30deg;
@@ -31,22 +32,22 @@ $angle: 30deg;
 }
 
 .rollInFromAbove {
-  animation-name: roll-in-from-above;
+  animation-name: title-roll-in-from-above;
 }
 
 .rollAwayBelow {
-  animation-name: roll-away-below;
+  animation-name: title-roll-away-below;
 }
 
 .rollInFromBelow {
-  animation-name: roll-in-from-below;
+  animation-name: title-roll-in-from-below;
 }
 
 .rollAwayAbove {
-  animation-name: roll-away-above;
+  animation-name: title-roll-away-above;
 }
 
-@keyframes roll-in-from-above {
+@keyframes title-roll-in-from-above {
   from {
     transform: perspective($perspective) translateY(-$distance) rotateX($angle);
     opacity: 0;
@@ -58,7 +59,7 @@ $angle: 30deg;
   }
 }
 
-@keyframes roll-away-below {
+@keyframes title-roll-away-below {
   from {
     transform: none;
     opacity: 1;
@@ -70,7 +71,7 @@ $angle: 30deg;
   }
 }
 
-@keyframes roll-in-from-below {
+@keyframes title-roll-in-from-below {
   from {
     transform: perspective($perspective) translateY($distance) rotateX(-$angle);
     opacity: 0;
@@ -82,7 +83,7 @@ $angle: 30deg;
   }
 }
 
-@keyframes roll-away-above {
+@keyframes title-roll-away-above {
   from {
     transform: none;
     opacity: 1;

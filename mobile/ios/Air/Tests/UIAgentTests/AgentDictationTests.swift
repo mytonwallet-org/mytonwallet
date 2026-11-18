@@ -38,11 +38,11 @@ final class AgentDictationTests: XCTestCase {
         XCTAssertTrue(fixture.requests.isEmpty)
     }
 
-    /// Recording starts at touch-down. A touch released within 0.2 s is a tap, which records on hands-free until the
-    /// next tap puts the transcript into the field; one held longer is push-to-talk, whose release sends it. The
-    /// recording's haptic waits for the touch to be one or the other.
+    /// Recording starts at touch-down. A touch released within 0.2 s is a tap, which records on hands-free until its
+    /// stop puts the transcript into the field; one held longer records while held, and let go where it started puts
+    /// the transcript into the field too. The recording's haptic waits for the touch to be one or the other.
     @MainActor
-    func testTapRecordsHandsFreeAndAHoldIsPushToTalk() async {
+    func testTapRecordsHandsFreeAndAHoldRecordsWhileHeld() async {
         XCTAssertEqual(AgentDictationController.tapDuration, 0.2)
         let tapping = Fixture()
         tapping.controller.touchBegan()
@@ -55,15 +55,15 @@ final class AgentDictationTests: XCTestCase {
         XCTAssertEqual(tapping.controller.state.phase, .handsFree)
         XCTAssertEqual(tapping.recordingReadyCount, 1, "The tap's haptic")
         tapping.scheduler.advance(by: 5)
-        XCTAssertEqual(tapping.controller.state.phase, .handsFree, "It records until the next tap")
+        XCTAssertEqual(tapping.controller.state.phase, .handsFree, "It records until its stop is tapped")
         tapping.controller.finish()
+        XCTAssertFalse(tapping.controller.state.isSending)
         await tapping.waitForRequest()
         tapping.resumeTranscription(text: "Tapped")
         await drainTasks()
         XCTAssertEqual(tapping.transcripts, ["Tapped"])
         XCTAssertTrue(tapping.sentTranscripts.isEmpty)
-        XCTAssertEqual(tapping.controller.state.phase, .idle)
-        XCTAssertTrue(tapping.controller.state.canDictateMore)
+        XCTAssertEqual(tapping.controller.state, AgentDictationState())
 
         let holding = Fixture()
         holding.controller.touchBegan()
@@ -75,59 +75,78 @@ final class AgentDictationTests: XCTestCase {
         holding.scheduler.advance(by: 1)
         holding.controller.touchEnded()
         XCTAssertEqual(holding.controller.state.phase, .recognizing)
-        XCTAssertFalse(holding.controller.state.canDictateMore, "A transcript to send brings no floating microphone")
+        XCTAssertFalse(holding.controller.state.isSending)
         await holding.waitForRequest()
         holding.resumeTranscription(text: "Held")
         await drainTasks()
-        XCTAssertEqual(holding.sentTranscripts, ["Held"], "Releasing a hold sends the question at once")
-        XCTAssertTrue(holding.transcripts.isEmpty)
+        XCTAssertEqual(holding.transcripts, ["Held"], "Let go where it started, the transcript goes into the field")
+        XCTAssertTrue(holding.sentTranscripts.isEmpty)
         XCTAssertEqual(holding.controller.state, AgentDictationState())
     }
 
+    /// Let go, a held microphone's recording goes by where the finger is: into the field near where it started, nowhere
+    /// from halfway to the field's cross, toward the leading end, and off as the question from halfway to Send. A light
+    /// tap marks each change of what letting go would do.
     @MainActor
-    func testSlidingLeft150PointsDeletesRecordingWithoutTranscription() async {
-        let fixture = Fixture()
-        fixture.controller.touchBegan()
-        fixture.scheduler.advance(by: 0.22)
-        await fixture.waitForRecording()
-        fixture.scheduler.advance(by: 0.8)
-
-        fixture.controller.touchMoved(x: -149, y: 0)
-        XCTAssertEqual(fixture.controller.state.phase, .holding)
-        fixture.controller.touchMoved(x: -150, y: 0)
-        fixture.controller.touchEnded()
-
-        XCTAssertEqual(fixture.controller.state.phase, .idle)
-        XCTAssertEqual(fixture.recorder.cancelCount, 1)
-        XCTAssertTrue(fixture.requests.isEmpty)
-        XCTAssertEqual(fixture.failureFeedbackCount, 0)
-    }
-
-    @MainActor
-    func testReleasingPastTelegramThresholdsCancelsOrPauses() async {
+    func testReleasingAHeldMicrophoneStopsCancelsOrSendsByWhereItIs() async {
+        XCTAssertEqual(AgentDictationController.cancelZoneDistance, 90)
+        XCTAssertEqual(AgentDictationController.sendZoneDistance, 24)
         let cancelling = Fixture()
-        cancelling.controller.touchBegan()
-        cancelling.scheduler.advance(by: 0.22)
-        await cancelling.waitForRecording()
-        cancelling.scheduler.advance(by: 0.8)
-        cancelling.controller.touchMoved(x: -101, y: -10)
-        cancelling.controller.touchEnded(x: -101, y: -10)
-        XCTAssertEqual(cancelling.controller.state.phase, .idle)
+        await cancelling.hold()
+        cancelling.controller.touchMoved(x: -89)
+        XCTAssertEqual(cancelling.controller.state.holdZone, .stop)
+        XCTAssertEqual(cancelling.gestureFeedbackCount, 0)
+        cancelling.controller.touchMoved(x: -90)
+        XCTAssertEqual(cancelling.controller.state.holdZone, .cancel)
+        XCTAssertEqual(cancelling.gestureFeedbackCount, 1)
+        cancelling.controller.touchEnded(x: -90)
+        XCTAssertEqual(cancelling.controller.state, AgentDictationState())
         XCTAssertEqual(cancelling.recorder.cancelCount, 1)
+        XCTAssertTrue(cancelling.requests.isEmpty, "A cancelled recording never leaves the device")
+        XCTAssertEqual(cancelling.failureFeedbackCount, 0)
 
-        let pausing = Fixture()
-        pausing.controller.touchBegan()
-        pausing.scheduler.advance(by: 0.22)
-        await pausing.waitForRecording()
-        pausing.scheduler.advance(by: 0.8)
-        pausing.controller.touchMoved(x: 0, y: -20)
-        pausing.controller.touchEnded(x: 0, y: -20, velocityY: -500)
-        XCTAssertEqual(pausing.controller.state.phase, .recognizing)
-        await pausing.waitForRequest()
-        pausing.resumeTranscription(text: "Kept")
+        let sending = Fixture()
+        await sending.hold()
+        sending.controller.touchMoved(x: 23)
+        XCTAssertEqual(sending.controller.state.holdZone, .stop)
+        sending.controller.touchMoved(x: 24)
+        XCTAssertEqual(sending.controller.state.holdZone, .send)
+        XCTAssertEqual(sending.gestureFeedbackCount, 1)
+        sending.controller.touchEnded(x: 24)
+        XCTAssertEqual(sending.controller.state.phase, .recognizing)
+        XCTAssertTrue(sending.controller.state.isSending)
+        await sending.waitForRequest()
+        sending.resumeTranscription(text: "Sent")
         await drainTasks()
-        XCTAssertEqual(pausing.transcripts, ["Kept"], "A swipe up keeps the question in the field")
-        XCTAssertTrue(pausing.sentTranscripts.isEmpty)
+        XCTAssertEqual(sending.sentTranscripts, ["Sent"])
+        XCTAssertTrue(sending.transcripts.isEmpty)
+        XCTAssertEqual(sending.controller.state, AgentDictationState())
+
+        // Back from Send, the finger lets go near where it started
+        let stopping = Fixture()
+        await stopping.hold()
+        stopping.controller.touchMoved(x: 30)
+        stopping.controller.touchMoved(x: 5)
+        XCTAssertEqual(stopping.controller.state.holdZone, .stop)
+        XCTAssertEqual(stopping.gestureFeedbackCount, 2)
+        stopping.controller.touchEnded(x: 5)
+        XCTAssertFalse(stopping.controller.state.isSending)
+        await stopping.waitForRequest()
+        stopping.resumeTranscription(text: "Kept")
+        await drainTasks()
+        XCTAssertEqual(stopping.transcripts, ["Kept"])
+        XCTAssertTrue(stopping.sentTranscripts.isEmpty)
+
+        // Right to left, the cross is to the right and Send to the left
+        let rightToLeft = Fixture()
+        await rightToLeft.hold(isRightToLeft: true)
+        rightToLeft.controller.touchMoved(x: -24)
+        XCTAssertEqual(rightToLeft.controller.state.holdZone, .send)
+        rightToLeft.controller.touchMoved(x: 90)
+        XCTAssertEqual(rightToLeft.controller.state.holdZone, .cancel)
+        rightToLeft.controller.touchEnded(x: 90)
+        XCTAssertEqual(rightToLeft.controller.state, AgentDictationState())
+        XCTAssertTrue(rightToLeft.requests.isEmpty)
     }
 
     @MainActor
@@ -289,41 +308,6 @@ final class AgentDictationTests: XCTestCase {
         }
     }
 
-    /// Swiping a held microphone up 110 pt stops the recording at once and recognizes it into the field instead of
-    /// sending it, and the floating microphone then dictates more
-    @MainActor
-    func testSwipingUpKeepsTheTranscriptInTheField() async {
-        let fixture = Fixture()
-        fixture.controller.touchBegan()
-        await fixture.waitForRecorder()
-        fixture.scheduler.advance(by: 1)
-        XCTAssertTrue(fixture.controller.state.isHeld)
-        XCTAssertEqual(fixture.recordingReadyCount, 1)
-
-        fixture.controller.touchMoved(x: 0, y: -109)
-        XCTAssertEqual(fixture.controller.state.phase, .holding)
-        XCTAssertEqual(fixture.gestureFeedbackCount, 0)
-        fixture.controller.touchMoved(x: 0, y: -110)
-        XCTAssertEqual(fixture.controller.state.phase, .recognizing)
-        XCTAssertEqual(fixture.gestureFeedbackCount, 1, "A light tap marks the pause")
-        await fixture.waitForRequest()
-        XCTAssertEqual(fixture.recorder.stopCount, 1)
-        // The finger that is still down neither records nor sends anything
-        fixture.controller.touchMoved(x: 0, y: -200)
-        fixture.controller.touchEnded(x: 0, y: -200)
-        XCTAssertEqual(fixture.recordingStarts, 1)
-
-        fixture.resumeTranscription(text: "Recognized phrase")
-        await drainTasks()
-        XCTAssertEqual(fixture.transcripts, ["Recognized phrase"])
-        XCTAssertTrue(fixture.sentTranscripts.isEmpty)
-        XCTAssertEqual(fixture.controller.state.phase, .idle)
-        XCTAssertTrue(fixture.controller.state.canDictateMore)
-
-        fixture.controller.endDictatingMore()
-        XCTAssertEqual(fixture.controller.state, AgentDictationState(), "A sent or cleared question ends it")
-    }
-
     /// A hands-free recording stops by itself at one minute, and its transcript goes into the field
     @MainActor
     func testRecordingStopsAtOneMinuteIntoTheField() async {
@@ -338,7 +322,7 @@ final class AgentDictationTests: XCTestCase {
         XCTAssertEqual(fixture.controller.state.phase, .handsFree)
         fixture.scheduler.advance(by: 0.1)
         XCTAssertEqual(fixture.controller.state.phase, .recognizing)
-        XCTAssertTrue(fixture.controller.state.canDictateMore, "The floating microphone comes up as recognition starts")
+        XCTAssertFalse(fixture.controller.state.isSending)
         await fixture.waitForRequest()
         XCTAssertEqual(fixture.requests.first?.format, .m4a)
         XCTAssertEqual(fixture.requests.first?.audio, Data([1, 2, 3]).base64EncodedString())
@@ -347,53 +331,8 @@ final class AgentDictationTests: XCTestCase {
         fixture.resumeTranscription(text: "Recognized phrase")
         await drainTasks()
         XCTAssertEqual(fixture.transcripts, ["Recognized phrase"])
+        XCTAssertTrue(fixture.sentTranscripts.isEmpty)
         XCTAssertEqual(fixture.recorder.stopCount, 1)
-        XCTAssertEqual(fixture.controller.state.phase, .idle)
-        XCTAssertTrue(fixture.controller.state.canDictateMore)
-    }
-
-    /// The floating microphone records hands-free after a transcript in the field, and its transcript goes into the
-    /// field too. While the field holds dictated text, it comes back after a further dictation that is cancelled or
-    /// fails; a sent or cleared field ends it.
-    @MainActor
-    func testDictatingMoreRecordsHandsFreeIntoTheField() async {
-        let fixture = Fixture()
-        fixture.controller.startHandsFree()
-        await fixture.waitForRecording()
-        fixture.scheduler.advance(by: 1)
-        fixture.controller.finish()
-        await fixture.waitForRequest()
-        fixture.resumeTranscription(text: "First")
-        await drainTasks()
-        XCTAssertTrue(fixture.controller.state.canDictateMore)
-
-        fixture.controller.startHandsFree()
-        XCTAssertEqual(fixture.controller.state.phase, .handsFree)
-        XCTAssertFalse(fixture.controller.state.canDictateMore)
-        await fixture.waitForRecording(count: 2)
-        fixture.scheduler.advance(by: 1)
-        fixture.controller.finish()
-        await fixture.waitForRequest(count: 2)
-        fixture.resumeTranscription(text: "Second")
-        await drainTasks()
-        XCTAssertEqual(fixture.transcripts, ["First", "Second"])
-        XCTAssertTrue(fixture.controller.state.canDictateMore)
-
-        fixture.controller.startHandsFree()
-        await fixture.waitForRecording(count: 3)
-        fixture.controller.cancel()
-        XCTAssertEqual(fixture.controller.state.phase, .idle)
-        XCTAssertTrue(fixture.controller.state.canDictateMore, "The field still holds its dictated text")
-
-        fixture.controller.startHandsFree()
-        await fixture.waitForRecording(count: 4)
-        fixture.controller.finish()
-        XCTAssertEqual(fixture.controller.state.phase, .failed, "Too short")
-        fixture.scheduler.advance(by: AgentDictationController.failureDuration)
-        XCTAssertEqual(fixture.controller.state.phase, .idle)
-        XCTAssertTrue(fixture.controller.state.canDictateMore)
-
-        fixture.controller.endDictatingMore()
         XCTAssertEqual(fixture.controller.state, AgentDictationState())
     }
 
@@ -549,6 +488,15 @@ private final class Fixture {
         }
         return controller
     }()
+
+    /// A touch on the microphone held past a tap's time, recording
+    func hold(isRightToLeft: Bool = false) async {
+        controller.touchBegan(isRightToLeft: isRightToLeft)
+        await waitForRecorder()
+        scheduler.advance(by: 1)
+        XCTAssertTrue(controller.state.isHeld)
+        XCTAssertEqual(recordingReadyCount, 1)
+    }
 
     func waitForRecording(count: Int = 1) async {
         for _ in 0..<100 where recordingReadyCount < count { await Task.yield() }

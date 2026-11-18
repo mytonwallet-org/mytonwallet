@@ -1,6 +1,8 @@
 import type { AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
 import type { AgentV2HostUiCapabilities } from '../../api/agentV2/types';
 
+import { getGlobal } from '..';
+
 export const AGENT_V2_CLASSIC_UI_CAPABILITIES: AgentV2HostUiCapabilities = {
   supportedActions: ['send', 'receive', 'stake', 'swap', 'openDapp'],
   supportsFollowups: true,
@@ -13,7 +15,8 @@ export const AGENT_V2_CLASSIC_UI_CAPABILITIES: AgentV2HostUiCapabilities = {
 };
 
 export function getIsAgentV2SupportEntryVisible(thread?: AgentThreadSummaryV2) {
-  return Boolean(AGENT_V2_CLASSIC_UI_CAPABILITIES.supportsSupportHandoff)
+  return getGlobal().restrictions.isAgentSupportEnabled === true
+    && Boolean(AGENT_V2_CLASSIC_UI_CAPABILITIES.supportsSupportHandoff)
     && !getIsAgentV2SupportActive(thread);
 }
 

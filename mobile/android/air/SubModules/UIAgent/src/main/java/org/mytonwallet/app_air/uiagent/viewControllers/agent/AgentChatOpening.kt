@@ -16,7 +16,6 @@ import org.mytonwallet.app_air.uiagent.agentV2.AgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentSupportRequestText
-import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsDigestSchedule
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsFeedClient
 import org.mytonwallet.app_air.uiagent.viewControllers.news.LiveAgentNewsFeedClient
@@ -50,7 +49,12 @@ data class AgentNewsChatRequest(
     val body: String? = null,
     val sources: List<AgentV2NewsFeedItem.Source>? = null,
     val discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
-    val shouldDeferCreation: Boolean = false
+    val shouldDeferCreation: Boolean = false,
+    /**
+     * The messages of [threadId]'s discussion as the chats list knows them: one the user has written in loads as a
+     * chat, behind placeholders, rather than as its post alone.
+     */
+    val messageCount: Int = 0
 )
 
 data class AgentPromptChatRequest(
@@ -125,7 +129,13 @@ internal class AgentChatOpening(
             prompt?.entryPoint ?: AgentV2EntryPoint()
         }
     private var discussionThread = news?.threadId?.let {
-        AgentV2ThreadSummary(it, revision = 0, icon = news.icon, news = news.newsPostCard())
+        AgentV2ThreadSummary(
+            it,
+            revision = 0,
+            messageCount = news.messageCount,
+            icon = news.icon,
+            news = news.newsPostCard()
+        )
     }
     var messages = if (discussionThread == null) openingMessages else emptyList()
         private set
@@ -140,6 +150,10 @@ internal class AgentChatOpening(
     var hasConsent: Boolean? = null
         private set
     var onChange: (() -> Unit)? = null
+        set(value) {
+            field = value
+            if (value != null) isSupportFeatureVisible = isAgentSupportVisible
+        }
     private var isDeleted = false
     private val heldProblemReports = mutableListOf<HeldProblemReport>()
 
@@ -152,7 +166,8 @@ internal class AgentChatOpening(
             error == null && !isDeleted
 
     val isSupportRequestVisible: Boolean
-        get() = isAgentSupportHandoffDeclared && !isDeleted
+        get() = isAgentSupportVisible && !isDeleted
+    private var isSupportFeatureVisible = isAgentSupportVisible
     val canRequestSupport: Boolean
         get() = isSupportRequestVisible && isDeferredDiscussion && discussionThread == null &&
             hasConsent == true && !isCreating && !hasStagedMessage
@@ -336,6 +351,14 @@ internal class AgentChatOpening(
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
+        if (walletEvent == WalletEvent.ConfigReceived) {
+            val isVisible = isAgentSupportVisible
+            if (isSupportFeatureVisible == isVisible) return
+            isSupportFeatureVisible = isVisible
+            if (!isVisible) dropStagedSupportRequest()
+            onChange?.invoke()
+            return
+        }
         if (!isHeaderSupportRequest) return
         when (walletEvent) {
             is WalletEvent.AccountWillChange,

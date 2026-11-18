@@ -20,6 +20,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.json.JSONObject
+import org.junit.After
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,6 +28,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import org.mytonwallet.app_air.uiagent.agentV2.AgentChatHeader
@@ -89,8 +91,22 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
 class AgentVMTest {
+    private var previousSupportFlag: Boolean? = null
+
+    @Before
+    fun resetSupportConfig() {
+        previousSupportFlag = ConfigStore.isAgentSupportEnabled
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig())
+    }
+
+    @After
+    fun restoreSupportConfig() {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = previousSupportFlag))
+    }
+
     @Test
     fun supportConflictRefreshesTheRevisionAndResendsTheSameBubbleOnce() = runBlocking {
         for (state in listOf("waiting", "operator")) {
@@ -2668,6 +2684,7 @@ class AgentVMTest {
 
     @Test
     fun aQuestionDeliveredToSupportCountsAsSeenWhenTheChatIsLeft() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
         val operator = AgentV2OperatorAuthor("operator", "Sam")
         fun event(id: String, code: String, createdAt: String) = AgentV2PersistedMessage(
             id,
@@ -2723,6 +2740,10 @@ class AgentVMTest {
         model.setActive(delegate, true)
         try {
             awaitReady(model)
+            assertFalse(model.isSupportRequestVisible)
+            assertEquals(2, model.messages.count { it.supportEvent != null })
+            assertEquals("Sam", model.messages.last().operator?.name)
+            assertEquals("Operator reply", model.messages.last().text)
             readState.onChatAppeared(client.thread.id)
             assertTrue(model.sendMessage("Thanks"))
             awaitReady(model)
@@ -3691,6 +3712,7 @@ class AgentVMTest {
 
     @Test
     fun cachedHistoryShowsWithNothingToActOnUntilTheHistoryReplacesIt() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient(history())
         val freshHistory = CompletableDeferred<AgentV2ThreadHydration>()
         client.onMessages = { freshHistory.await() }
@@ -4377,7 +4399,171 @@ class AgentVMTest {
     )
 
     @Test
+    fun supportEntryPointsFollowConfigWhileAnEmptyChatIsShown() = runBlocking {
+        val supportThreads = CompletableDeferred<AgentV2ThreadListResponse>()
+        val client = FakeClient(emptyList()).apply {
+            onStarterHints = {
+                AgentV2HintsResponse(
+                    "agent-starter-hints-v2",
+                    listOf(AgentV2StarterHint("learn.staking", "learn"))
+                )
+            }
+            onListThreads = { supportThreads.await() }
+        }
+        val model = newModel(client)
+        var hintChanges = 0
+        var availabilityChanges = 0
+        val delegate = createPollingDelegate(
+            onHintsUpdated = { hintChanges++ },
+            onSupportAvailabilityChanged = { availabilityChanges++ }
+        )
+        model.attach(delegate)
+        model.setActive(delegate, true)
+        try {
+            awaitReady(model)
+            withTimeout(1_000) { while (model.visibleHints.isEmpty()) yield() }
+            assertEquals(listOf("learn.staking"), model.visibleHints.map { it.id })
+            assertFalse(model.isSupportRequestVisible)
+            assertFalse(model.canRequestSupportFromStarterHint)
+            assertFalse(model.requestSupport(AgentV2SupportRequestSource.HEADER))
+            val opened = mutableListOf<String>()
+            model.requestSupportFromStarterHint { opened += it.id }
+            yield()
+            assertTrue(opened.isEmpty())
+            assertTrue(client.startedTexts.isEmpty())
+
+            val hintsBeforeConfig = hintChanges
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            model.onWalletEvent(WalletEvent.ConfigReceived)
+            yield()
+            assertEquals(hintsBeforeConfig, hintChanges)
+            assertEquals(0, availabilityChanges)
+            assertEquals(listOf("learn.staking"), model.visibleHints.map { it.id })
+
+            val hintsBeforeEnabling = hintChanges
+            val availabilityBeforeEnabling = availabilityChanges
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
+            model.onWalletEvent(WalletEvent.ConfigReceived)
+            assertEquals(hintsBeforeEnabling + 1, hintChanges)
+            assertEquals(availabilityBeforeEnabling + 1, availabilityChanges)
+            assertFalse(model.canRequestSupportFromStarterHint)
+            supportThreads.complete(AgentV2ThreadListResponse(emptyList()))
+            withTimeout(1_000) {
+                while (!model.canRequestSupportFromStarterHint) yield()
+            }
+            assertTrue(model.isSupportRequestVisible)
+            assertEquals(
+                listOf("learn.staking", AGENT_SUPPORT_HINT_ID),
+                model.visibleHints.map { it.id }
+            )
+            val changesWhenEnabled = availabilityChanges
+            val hintsWhenEnabled = hintChanges
+            for (countryCode in listOf("US", "GB")) {
+                ConfigStore.init(
+                    ApiUpdate.ApiUpdateConfig(
+                        isAgentSupportEnabled = true,
+                        countryCode = countryCode
+                    )
+                )
+                model.onWalletEvent(WalletEvent.ConfigReceived)
+            }
+            yield()
+            assertEquals(changesWhenEnabled, availabilityChanges)
+            assertEquals(hintsWhenEnabled, hintChanges)
+
+            val hintsBeforeDisabling = hintChanges
+            val availabilityBeforeDisabling = availabilityChanges
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            model.onWalletEvent(WalletEvent.ConfigReceived)
+            assertEquals(hintsBeforeDisabling + 1, hintChanges)
+            assertEquals(availabilityBeforeDisabling + 1, availabilityChanges)
+            yield()
+            assertFalse(model.isSupportRequestVisible)
+            assertFalse(model.canRequestSupportFromStarterHint)
+            assertEquals(listOf("learn.staking"), model.visibleHints.map { it.id })
+
+            model.setActive(delegate, false)
+            client.onStarterHints = { AgentV2HintsResponse("agent-starter-hints-v2", emptyList()) }
+            model.setActive(delegate, true)
+            withTimeout(1_000) { while (client.hintRequests.size < 2) yield() }
+            yield()
+            assertTrue(model.visibleHints.isEmpty())
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun supportConfirmationStaysWhenSupportTakesTheChatAndClosesWhenDisabled() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
+        val client = FakeClient(emptyList())
+        val model = newModel(client, waitForSupportPoll = { awaitCancellation() })
+        var dismissals = 0
+        lateinit var call: () -> Unit
+        try {
+            awaitReady(model)
+            AgentSupportRequestConfirmation(hasConsent = true) {
+                model.requestSupport(AgentV2SupportRequestSource.HEADER)
+            }.present { _, _, _, onAction, _, _, onDismiss ->
+                call = onAction
+                val dismiss: () -> Unit = {
+                    dismissals++
+                    onDismiss()
+                }
+                dismiss
+            }
+            model.onBridgeUpdate(
+                ApiUpdate.ApiUpdateAgentV2(
+                    AgentV2Update.ThreadChanged(
+                        client.thread.id,
+                        client.thread.copy(support = AgentV2ThreadSupport("waiting"))
+                    )
+                )
+            )
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
+            WalletCore.notifyEvent(WalletEvent.ConfigReceived)
+            yield()
+            assertEquals(0, dismissals)
+
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            WalletCore.notifyEvent(WalletEvent.ConfigReceived)
+            yield()
+            assertEquals(1, dismissals)
+            call()
+            yield()
+            assertTrue(client.startedTexts.isEmpty())
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun aNewsDiscussionTheUserHasWrittenInLoadsAsAChat() {
+        val request = AgentNewsChatRequest(42, "en", "Feed headline", threadId = "discussion")
+        val news = AgentV2ThreadNewsCard(
+            42,
+            headline = "Feed headline",
+            publishedAt = "2026-10-20T00:00:00Z"
+        )
+        for ((messageCount, loadsAsChat) in listOf(0 to false, 1 to false, 3 to true)) {
+            val thread = AgentV2ThreadSummary(
+                "discussion",
+                revision = 0,
+                messageCount = messageCount,
+                news = news
+            )
+            assertEquals(
+                "$messageCount messages",
+                loadsAsChat,
+                isAgentNewsOpeningLoadingAsChat(request, thread)
+            )
+            assertFalse("A chat without News", isAgentNewsOpeningLoadingAsChat(null, thread))
+        }
+    }
+
+    @Test
     fun supportRequestIsOfferedOutsideSupportAndWaitsOnlyForARunOrARateLimit() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         var clock = 1_000L
         val client = FakeClient(emptyList())
         val model = newModel(client, now = { clock })
@@ -4493,6 +4679,7 @@ class AgentVMTest {
 
     @Test
     fun supportRequestWaitsForConsent() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient(emptyList()).apply { hasConsent = false }
         val model = newModel(client)
         try {
@@ -4508,6 +4695,7 @@ class AgentVMTest {
 
     @Test
     fun supportRequestSendsItsMessageFromEachSource() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val entryPoints = listOf(
             UIComponentsR.id.agent_support_button to AgentV2SupportRequestSource.HEADER,
             UIComponentsR.id.agent_support_hint to AgentV2SupportRequestSource.STARTER_HINT
@@ -4541,18 +4729,29 @@ class AgentVMTest {
                 if (source != AgentV2SupportRequestSource.STARTER_HINT) {
                     // Cancel sends nothing; Call does
                     lateinit var call: () -> Unit
-                    var cancel: (() -> Unit)? = null
-                    AgentSupportRequestConfirmation(hasConsent = true) {
-                        model.requestSupport(source)
-                    }.present { _, _, action, onAction, cancelTitle, onCancel ->
-                        assertEquals("\$agent_support_confirm_action", action)
-                        assertEquals("Cancel", cancelTitle)
-                        call = onAction
-                        cancel = onCancel
+                    lateinit var cancel: () -> Unit
+                    fun presentConfirmation() {
+                        AgentSupportRequestConfirmation(hasConsent = true) {
+                            model.requestSupport(source)
+                        }.present { _, _, action, onAction, cancelTitle, onCancel, onDismiss ->
+                            assertEquals("\$agent_support_confirm_action", action)
+                            assertEquals("Cancel", cancelTitle)
+                            call = {
+                                onAction()
+                                onDismiss()
+                            }
+                            cancel = {
+                                onCancel?.invoke()
+                                onDismiss()
+                            }
+                            onDismiss
+                        }
                     }
-                    cancel?.invoke()
+                    presentConfirmation()
+                    cancel()
                     yield()
                     assertTrue(client.startedTexts.isEmpty())
+                    presentConfirmation()
                     call()
                 }
                 withTimeout(1_000) { while (client.startedTexts.isEmpty()) yield() }
@@ -4568,6 +4767,7 @@ class AgentVMTest {
 
     @Test
     fun confirmationSendsNothingOnceSupportCanNoLongerBeCalled() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient(emptyList())
         val runMayEnd = CompletableDeferred<Unit>()
         client.onStartRun = { clientRunId ->
@@ -4580,7 +4780,13 @@ class AgentVMTest {
             lateinit var call: () -> Unit
             AgentSupportRequestConfirmation(hasConsent = true) {
                 model.requestSupport(AgentV2SupportRequestSource.HEADER)
-            }.present { _, _, _, onAction, _, _ -> call = onAction }
+            }.present { _, _, _, onAction, _, _, onDismiss ->
+                call = {
+                    onAction()
+                    onDismiss()
+                }
+                onDismiss
+            }
             assertTrue(model.sendMessage("Question"))
             call()
             runMayEnd.complete(Unit)
@@ -4608,6 +4814,7 @@ class AgentVMTest {
 
     @Test
     fun failedSupportRequestLeavesRetryToTheQuestionALimitHeld() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val resetAt = 10_000L
         var clock = resetAt - 1_000
         val client = FakeClient(emptyList())
@@ -4661,6 +4868,7 @@ class AgentVMTest {
 
     @Test
     fun rateLimitedSupportRequestKeepsTheCooldownAndTheHeldQuestionsRetry() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val quotaResetAt = 5_000L
         val cooldownEnd = 10_000L
         var clock = 1_000L
@@ -4716,6 +4924,7 @@ class AgentVMTest {
 
     @Test
     fun starterHintsStayForTheVisibleEmptyChatAndRefreshOnReopening() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient(emptyList()).apply {
             onStarterHints = {
                 AgentV2HintsResponse(
@@ -4795,6 +5004,7 @@ class AgentVMTest {
 
     @Test
     fun starterHintFailureKeepsContactSupportWithoutRetryingTheVisibleState() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient(emptyList()).apply {
             onStarterHints = { error("Unavailable hints") }
         }
@@ -4816,6 +5026,7 @@ class AgentVMTest {
 
     @Test
     fun starterHintsUseTheActiveAccountsKnownTotalBalance() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         @Suppress("UNCHECKED_CAST")
         val totals = BalanceStore::class.java.getDeclaredField("totalBalanceInBaseCurrency").run {
             isAccessible = true
@@ -4861,6 +5072,7 @@ class AgentVMTest {
 
     @Test
     fun emptyChatsSupportHintOpensTheChatSupportHasOrCallsSupportHere() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val supportThread = AgentV2ThreadSummary(
             "support",
             1,
@@ -4941,6 +5153,7 @@ class AgentVMTest {
 
     @Test
     fun admittedSupportRequestQueuesTheQuestionALimitHeldAfterIt() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient(emptyList())
         val model = newModel(client)
         client.onStartRun = { clientRunId ->
@@ -5061,6 +5274,7 @@ class AgentVMTest {
 
     @Test
     fun supportRequestWaitsWhileOlderHistoryLoads() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val olderPage = CompletableDeferred<AgentV2ThreadHydration>()
         val client = FakeClient(history()).apply {
             onMessagePage = { cursor, _ ->
@@ -5231,7 +5445,8 @@ class AgentVMTest {
     private fun createPollingDelegate(
         onRefreshed: () -> Unit = {},
         onHintsUpdated: () -> Unit = {},
-        onError: () -> Unit = {}
+        onError: () -> Unit = {},
+        onSupportAvailabilityChanged: () -> Unit = {}
     ): AgentVM.Delegate = Proxy.newProxyInstance(
         AgentVM.Delegate::class.java.classLoader,
         arrayOf(AgentVM.Delegate::class.java)
@@ -5239,6 +5454,7 @@ class AgentVMTest {
         if (method.name == "onError") onError()
         if (method.name == "onMessagesRefreshed") onRefreshed()
         if (method.name == "onHintsUpdated") onHintsUpdated()
+        if (method.name == "onSupportRequestAvailabilityChanged") onSupportAvailabilityChanged()
         null
     } as AgentVM.Delegate
 

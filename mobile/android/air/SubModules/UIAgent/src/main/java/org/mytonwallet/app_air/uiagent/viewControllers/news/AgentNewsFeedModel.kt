@@ -12,10 +12,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.agentUnavailableText
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2LoadErrorText
 import org.mytonwallet.app_air.uiagent.agentV2.callAgentV2Mutation
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.api.getAgentV2CachedNewsFeed
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedPage
@@ -58,6 +61,19 @@ internal interface AgentNewsFeedClient {
 internal class LiveAgentNewsFeedClient(
     private val call: suspend (ApiMethod.AgentV2.GetNewsFeed) -> AgentV2NewsFeedPage = {
         callAgentV2Mutation(it)
+    },
+    private val readCache: suspend (
+        lang: String,
+        schedule: AgentNewsDigestSchedule,
+        view: String?
+    ) -> AgentV2NewsFeedPage? = { lang, schedule, view ->
+        WalletCore.getAgentV2CachedNewsFeed(
+            lang,
+            schedule.hour,
+            schedule.minute,
+            schedule.timeZone,
+            view
+        )
     }
 ) : AgentNewsFeedClient {
     override suspend fun getNewsFeed(
@@ -65,16 +81,25 @@ internal class LiveAgentNewsFeedClient(
         cursor: String?,
         schedule: AgentNewsDigestSchedule,
         view: AgentNewsFeedView
-    ) = call(
-        ApiMethod.AgentV2.GetNewsFeed(
-            lang,
-            cursor,
-            schedule.hour,
-            schedule.minute,
-            schedule.timeZone,
-            view.value.takeIf { view == AgentNewsFeedView.Digests }
-        )
-    )
+    ): AgentV2NewsFeedPage {
+        val viewValue = view.value.takeIf { view == AgentNewsFeedView.Digests }
+        return try {
+            call(
+                ApiMethod.AgentV2.GetNewsFeed(
+                    lang,
+                    cursor,
+                    schedule.hour,
+                    schedule.minute,
+                    schedule.timeZone,
+                    viewValue
+                )
+            )
+        } catch (error: AgentV2OperationException) {
+            // Without a network the first page is the copy of the one that last loaded for the same request
+            if (cursor != null || error.error.code != "network_error") throw error
+            readCache(lang, schedule, viewValue) ?: throw error
+        }
+    }
 }
 
 internal sealed interface AgentNewsFeedEntry {
@@ -769,10 +794,10 @@ internal fun mergeAgentNewsItems(items: List<AgentV2NewsFeedItem>): List<AgentV2
 }
 
 internal fun agentNewsErrorText(error: Throwable): String =
-    if ((error as? AgentV2OperationException)?.error?.code == "news_unavailable") {
-        LocaleController.getString("\$agent_news_unavailable")
-    } else {
-        agentUnavailableText()
+    when (val code = (error as? AgentV2OperationException)?.error?.code) {
+        "news_unavailable" -> LocaleController.getString("\$agent_news_unavailable")
+        "network_error" -> agentV2LoadErrorText(code)
+        else -> agentUnavailableText()
     }
 
 private fun agentNewsTimestamp(value: String): Long = parseAgentV2Timestamp(value)?.time ?: 0

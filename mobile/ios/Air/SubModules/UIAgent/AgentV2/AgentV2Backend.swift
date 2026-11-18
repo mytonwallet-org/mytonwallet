@@ -42,6 +42,11 @@ final class AgentV2Model: AgentModel {
         !coordinator.messages.isEmpty || newsPostItemID != nil
     }
 
+    /// The chat's history has loaded, with or without messages
+    var hasLoadedHistory: Bool {
+        coordinator.hasHydratedMessages
+    }
+
     /// A discussion opened without the feed's copy of its post, as from a digest's headline, until the post comes, unless
     /// its opening fails or waits for consent
     var isAwaitingDiscussionPost: Bool {
@@ -92,6 +97,10 @@ final class AgentV2Model: AgentModel {
     /// The support sheet's text tells that the operator gets the wallet's addresses
     var hasSupportWalletAddresses: Bool {
         v2Backend.hasSupportWalletAddresses
+    }
+
+    var isAgentSupportEnabled: Bool {
+        coordinator.client.isAgentSupportEnabled
     }
 
     /// Sends the support request a new chat opened with from the starter hints, now or once the chat's history has
@@ -188,11 +197,6 @@ final class AgentV2Model: AgentModel {
 
     var hasFailedInitialLoad: Bool {
         !coordinator.hasPendingOpenings && !coordinator.hasHydratedMessages && coordinator.error != nil
-    }
-
-    /// The failure of a chat that hasn't loaded, whatever it shows meanwhile
-    var initialLoadFailure: String? {
-        hasFailedInitialLoad ? coordinator.error : nil
     }
 
     /// The failure of a chat that has nothing to show, which the chat shows in its middle with Retry
@@ -432,6 +436,7 @@ final class AgentV2Model: AgentModel {
         thread: ApiAgentV2ThreadSummary? = nil,
         news: ApiAgentV2NewsFeedItem,
         locale: String,
+        holdsPostForExistingThread: Bool = false,
         activeAccount: @escaping @MainActor () -> MAccount? = { AccountStore.account },
         onThreadCreated: @escaping (ApiAgentV2ThreadSummary) -> Void
     ) {
@@ -441,6 +446,7 @@ final class AgentV2Model: AgentModel {
             news: Self.newsPreview(for: news),
             newsRequest: thread == nil ? .init(eventId: news.eventId, locale: locale) : nil,
             shouldDeferThread: thread == nil && news.discussion == nil,
+            opensExistingDiscussion: holdsPostForExistingThread && thread == nil && news.discussion != nil,
             discussionNaming: news.discussionNaming,
             activeAccount: activeAccount
         )
@@ -617,10 +623,16 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     }
 
     private var canSendNow: Bool {
+        canSend(ignoringDiscussionStatus: false)
+    }
+
+    /// Whether a message can go now; `ignoringDiscussionStatus` leaves out the status a discussion reads as it opens,
+    /// which takes a moment
+    private func canSend(ignoringDiscussionStatus: Bool) -> Bool {
         isTimelineReady
             && (!coordinator.hasPendingOpenings || coordinator.isWaitingForFirstDiscussionMessage)
             && coordinator.activeRun?.isRunning != true
-            && !coordinator.isAwaitingDiscussionStatus
+            && (ignoringDiscussionStatus || !coordinator.isAwaitingDiscussionStatus)
             && !coordinator.isInputBlockedByLimit
             && !coordinator.isDeletingChat
             && queuedQuestionHoldCount == 0
@@ -690,8 +702,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     /// Contact Support shows in a chat the host lets an operator answer, unless support already has it
     var isSupportRequestVisible: Bool {
         !didStop
-            && AgentV2HostContextProvider.supportsSupportHandoff
-            && !coordinator.isSupportActive
+            && AgentSupportRequest.isEntryVisible(client: coordinator.client, support: coordinator.thread?.support)
     }
 
     /// A support request goes once the chat's history has loaded and nothing runs, waits or clears in it. Only a rate
@@ -846,10 +857,16 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     private let postItemID = AgentItemID()
     private var postTimestamp: Date?
     private(set) var newsPostItemID: AgentItemID?
+    /// A started discussion's post waits for its history unless it already shows; the chat's placeholders hold its place
+    private var isPostHeldForHistory: Bool {
+        coordinator.isAwaitingStartedDiscussionHistory && coordinator.messages.isEmpty && newsPostItemID == nil
+    }
     /// Questions sent while an answer is written: each shows at once as the user's bubble at the chat's end, below the
     /// answer, and goes once nothing else is answered, first in, first out
     private var queuedQuestions: [QueuedQuestion] = []
     private var queuedQuestionHoldCount = 0
+    /// A discussion's suggestion tapped while its status loaded, with the wallet it was tapped for
+    private var pendingDiscussionFollowup: (text: String, accountID: String?)?
     /// Questions a wallet switch failed, as failed sends: last in the chat, before the questions that wait, until a
     /// later question goes, and from then on where they stand
     private var failedQuestionGroups: [FailedQuestionGroup] = []
@@ -1282,8 +1299,14 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                 source: .followup(messageID: nativeMessageID, followupID: followup.id)
             )
         case .discussionFollowup(let text):
-            guard canSendMessages else { return }
-            context?.sendMessage(text, source: .followup(messageID: newsPostPresentationKey, followupID: text))
+            guard canSendMessages else {
+                // The suggestions show enabled while the discussion's status loads, so one tapped then goes once it has
+                if coordinator.isAwaitingDiscussionStatus, canSend(ignoringDiscussionStatus: true), queuedQuestions.isEmpty {
+                    pendingDiscussionFollowup = (text, coordinator.activeAccountID)
+                }
+                return
+            }
+            sendDiscussionFollowup(text)
         case .retryLimit:
             coordinator.retryLimit()
         case .retryOpening:
@@ -1294,6 +1317,19 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         case .retryFailedQuestions:
             retryFailedQuestions()
         }
+    }
+
+    private func sendDiscussionFollowup(_ text: String) {
+        context?.sendMessage(text, source: .followup(messageID: newsPostPresentationKey, followupID: text))
+    }
+
+    /// The suggestion tapped while the discussion's status loaded goes once it has, unless a limit holds the chat or
+    /// the user has switched to another wallet
+    private func sendPendingDiscussionFollowupIfPossible() {
+        guard let pending = pendingDiscussionFollowup, !coordinator.isAwaitingDiscussionStatus else { return }
+        pendingDiscussionFollowup = nil
+        guard canSendMessages, pending.accountID == coordinator.activeAccountID else { return }
+        sendDiscussionFollowup(pending.text)
     }
 
     /// Stops the answer being written, and the next waiting question goes at once
@@ -1380,6 +1416,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
             removeOrphanedTypingIndicatorIfNeeded()
         }
         markLoadedSupportMessagesSeen()
+        sendPendingDiscussionFollowupIfPossible()
         sendNextQueuedQuestionIfPossible()
         sendPendingDiscussionSupportRequestIfPossible()
         sendPendingSupportRequestIfPossible()
@@ -1432,7 +1469,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     ) {
         guard let context, !isClearing,
               coordinator.hasHydratedMessages || coordinator.hasShownCachedMessages || coordinator.error != nil
-                || coordinator.newsPreview != nil || coordinator.digestPreview != nil
+                || (coordinator.newsPreview != nil || coordinator.digestPreview != nil) && !isPostHeldForHistory
                 || !queuedQuestions.isEmpty
                 || coordinator.hasPendingOpenings && !coordinator.messages.isEmpty else { return }
         defer { synchronizeOpeningTypingIndicator() }
@@ -1473,6 +1510,9 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                     interactions: &nextInteractions
                 )
             } else if coordinator.isDeferredDiscussion, queuedQuestions.isEmpty {
+                // While the discussion's status loads, the suggestions show as they will once it has, rather than dim
+                // for that moment
+                let areFollowupsEnabled = canSend(ignoringDiscussionStatus: true)
                 let followups = coordinator.digest != nil ? coordinator.discussionFollowups : coordinator.discussionNaming?.followups
                 postControls = (followups ?? []).enumerated().map { index, text in
                     let controlID = "discussion-followup:\(index)"
@@ -1480,7 +1520,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                     return AgentMessageControl(
                         id: controlID,
                         title: text,
-                        isEnabled: canSendMessages,
+                        isEnabled: areFollowupsEnabled,
                         kind: .followup
                     )
                 }

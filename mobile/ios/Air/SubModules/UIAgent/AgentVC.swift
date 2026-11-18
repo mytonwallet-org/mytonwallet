@@ -29,14 +29,15 @@ enum AgentVCLayout {
     static let arrivalUserMessageTailInset: CGFloat = 100
     static let scrollToBottomButtonSize: CGFloat = AgentScrollToBottomButton.size
     /// The button stands over the microphone circle: the same gap above as beside it, the same trailing edge
-    static let scrollToBottomButtonSpacing: CGFloat = AgentComposerMetrics.microphoneSpacing
+    static let scrollToBottomButtonSpacing: CGFloat = AgentComposerMetrics.actionCircleSpacing
     /// Messages fade out under the composer over this height above its field
     static let bottomEdgeFadeHeight: CGFloat = 28
     static let minimumTypingStatusDuration: TimeInterval = 1.2
     static let sentUserMessageFlyUpDuration: TimeInterval = 0.3
     static let typingIndicatorRevealGap: TimeInterval = 0.18
-    /// As on Android, a question that appears where it lands stays there this long before the chat brings it up
-    static let sentUserMessagePinDelay: TimeInterval = 0.25
+    /// As on Android and Classic, this long after a question just sent has appeared, the answer's typing row comes in,
+    /// and the chat brings up a question that appeared where it lands
+    static let sentUserMessagePinDelay: TimeInterval = 0.2
     /// How long Telegram's list takes to close the gap a message turning to dust leaves
     static let dissolvedGapCloseDuration: TimeInterval = 0.8
 }
@@ -129,7 +130,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         minimumDuration: AgentVCLayout.minimumTypingStatusDuration,
         onUpdate: { [weak self] in self?.updateVisibleTypingIndicator() }
     )
-    private let chatTitleView = AgentChatTitleView()
+    private let chatTitleView = NavigationTitleView()
     private var isNavigationTitleVisible = false
     private var displayedTitleThreadID: String?
     let collectionView: AgentCollectionView = {
@@ -164,12 +165,17 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     private var isOpeningConsentAsked = false
     /// How many times the chat has gone from the screen, so a recording asked for before it went doesn't start after
     private var disappearanceCount = 0
+    /// The chat is going off screen, and its composer's Stop and Send stay as they were while it goes
+    private var isDisappearing = false
+    private var pendingAnswerStop: (typingIndicatorID: AgentItemID, userMessageID: AgentItemID?)?
     private var isOpeningConsentRetryScheduled = false
     let dictationController: AgentDictationController
     let scrollToBottomButton = AgentScrollToBottomButton()
     let loadingOlderIndicator = AgentLoadingOlderIndicator()
     /// The failure with Retry for a chat that has nothing to show
     let loadErrorView = AgentLoadErrorView()
+    /// The failure Retry was tapped on, which stays, its Retry dimmed, until the chat loads or fails again
+    private var retriedLoadError: String?
     private(set) var navigationBarBackground: UIView?
     private let bottomEdgeEffectView = EdgeEffectView()
     /// Runs around the display's edge while the Agent thinks
@@ -265,7 +271,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     /// The placeholder bubbles of a discussion whose post is loading
     private var postSkeletonView: AgentMessagesSkeletonView?
     /// Rows leaving the chat dissolve in it, over the messages
-    var messageDissolveView: AgentMessageDissolveView?
+    var messageDissolveView: DustDissolveView?
     var dissolvingItemIDs: Set<AgentItemID> = []
     /// The thread this chat reported as on screen to the list's unread state
     private var shownThreadId: String?
@@ -376,8 +382,16 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         AgentEntryPoint.removeDeletedChat(self, animated: chatActions.isDeletingChat && viewIfLoaded?.window != nil)
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // A push from another chat, as a digest's headline opens its news item, or a pop back to one, morphs the
+        // header's capsules into each other's, as the News feed's do. The coming chat starts it, for both directions.
+        AgentChatHeaderMorph.runIfNeeded(for: self, isAppearing: true) { $0 is AgentVC }
+    }
+
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
+        isDisappearing = false
         hintsSectionView.isActive = true
         AgentChatNavigation.installThreadsButton(in: self)
         presentTransferredModelIfNeeded()
@@ -392,6 +406,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         refreshNavigationTitle()
         updateAccessibilityStatus()
         updateThinkingVisuals()
+        updateSendButtonState()
     }
 
     @objc private func handleDidBecomeActive() {
@@ -424,6 +439,11 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // Back after a swipe that didn't leave
+        if isDisappearing {
+            isDisappearing = false
+            updateSendButtonState()
+        }
         updateOpeningConsentView()
         updateThinkingGlow()
         refreshNavigationTitle()
@@ -436,6 +456,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         disappearanceCount += 1
+        isDisappearing = true
         hintsSectionView.isActive = false
         if let model = model as? AgentV2Model, let seenMessageCount = model.seenMessageCount,
            let threadId = shownThreadId ?? model.threadId {
@@ -453,6 +474,7 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     public override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        pendingAnswerStop = nil
         hasLeftScreen = true
         // Rows that were dissolving as the chat went are gone when it shows again
         removeMessageDissolveView()
@@ -700,28 +722,16 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
                 self.clearEmptyUnfocusedEdit()
             }
         }
+        // Send keeps its place in a chat, quiet while there is nothing to send, so the microphone beside it stays put
+        composerView.isSendAlwaysShown = true
         composerView.onSend = { [weak self] in
             self?.sendCurrentMessage()
         }
         composerView.shouldStartDictation = { [weak self] in
             self?.checkDictationConsent() ?? true
         }
-        composerView.onDictationPhaseChanged = { [weak self] in
-            self?.updateScrollToBottomButtonPlacement(animated: true)
-        }
         composerView.onStop = { [weak self] in
-            guard let self else { return }
-            // Stopped while it thinks, before any of the answer has come, the Agent's tops are knocked as by a
-            // failure, the typing row's status going at once and its top growing, staying grown a moment for its knock
-            // to show before it shrinks back and the row goes; with Reduce Motion the row only fades. Stopped while it
-            // writes, the tops only ease back.
-            if thinkingTypingIndicatorID != nil, !hasActiveStreamingMessage {
-                knockTops()
-                model.holdTypingIndicator(
-                    for: UIAccessibility.isReduceMotionEnabled ? 0 : Self.stoppedTypingRowHoldDuration
-                )
-            }
-            model.stopAnswer()
+            self?.stopComposerAnswer()
         }
         composerView.onLayoutHeightChanged = { [weak self] in
             self?.view.setNeedsLayout()
@@ -822,7 +832,11 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         view.bringSubviewToFront(scrollToBottomButton)
         toastController.keepAbove(composerView.inputTopGuide, spacing: AgentVCLayout.toastSpacingToComposer)
         loadingOlderIndicator.install(in: view, column: contentLayoutGuide)
-        loadErrorView.onRetry = { [weak self] in (self?.model as? AgentV2Model)?.retryLoad() }
+        loadErrorView.onRetry = { [weak self] in
+            guard let self else { return }
+            retriedLoadError = loadErrorView.label.text
+            (model as? AgentV2Model)?.retryLoad()
+        }
         loadErrorView.install(in: view, column: contentLayoutGuide, centerY: collectionView.centerYAnchor)
         updateLoadError()
         setupNavigationItem()
@@ -939,7 +953,12 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
     private static let openingConsentReadRetryDelay: TimeInterval = 1
 
     func updateLoadError() {
-        loadErrorView.show((model as? AgentV2Model)?.initialLoadError)
+        let model = model as? AgentV2Model
+        let error = model?.initialLoadError
+        if error != nil || model?.hasLoadedHistory != false || model?.hasMessages == true {
+            retriedLoadError = nil
+        }
+        loadErrorView.show(error ?? retriedLoadError, isRetrying: error == nil && retriedLoadError != nil)
     }
 
     /// A discussion opened without the feed's copy of its post, as from a digest's headline, holds the post's place with
@@ -1190,17 +1209,22 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
             defer { self?.isOpeningDigestHeadline = false }
             do {
                 let controller = try await AgentEntryPoint.makeNewsChatViewController(eventId: eventId)
-                if let model = (controller as? AgentVC)?.model as? AgentV2Model {
-                    let deadline = ContinuousClock.now + Self.headlinePostWait
-                    while model.isAwaitingDiscussionPost, ContinuousClock.now < deadline {
-                        try await Task.sleep(for: Self.headlinePostCheckInterval)
-                    }
-                }
+                try await Self.waitForDiscussionPost(in: controller)
                 guard let self, self.view.window != nil else { return }
                 self.navigationController?.pushViewController(controller, animated: true)
             } catch {
                 if !(error is CancellationError) { AppActions.showError(error: error) }
             }
+        }
+    }
+
+    /// Waits a while for the post of the discussion `controller` shows, so that a headline's chat slides in with its post,
+    /// and with the history of a discussion the user has written in
+    static func waitForDiscussionPost(in controller: UIViewController) async throws {
+        guard let model = (controller as? AgentVC)?.model as? AgentV2Model else { return }
+        let deadline = ContinuousClock.now + headlinePostWait
+        while model.isAwaitingDiscussionPost, ContinuousClock.now < deadline {
+            try await Task.sleep(for: headlinePostCheckInterval)
         }
     }
 
@@ -1390,9 +1414,55 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
         AgentMessageLinks.openMessageURL(url, renderingPolicy: renderingPolicy)
     }
 
+    public func stopComposerAnswer() {
+        // `holdTypingIndicator` notifies the delegate synchronously, so consume a deferred Stop before holding the row
+        pendingAnswerStop = nil
+        // The list's handoff can Stop before this view has attached the model delegate
+        loadViewIfNeeded()
+        guard model.canStopAnswer else {
+            if let typingIndicatorID = thinkingTypingIndicatorID {
+                pendingAnswerStop = (typingIndicatorID, getLastUserMessageID())
+            }
+            return
+        }
+        // Stopping before any answer text holds the typing row for its knock; a streaming answer only eases back
+        if thinkingTypingIndicatorID != nil, !hasActiveStreamingMessage {
+            knockTops()
+            model.holdTypingIndicator(
+                for: UIAccessibility.isReduceMotionEnabled ? 0 : Self.stoppedTypingRowHoldDuration
+            )
+        }
+        model.stopAnswer()
+    }
+
+    func stopPendingAnswerIfReady() {
+        discardPendingAnswerStopIfNeeded()
+        guard pendingAnswerStop != nil, model.canStopAnswer else { return }
+        stopComposerAnswer()
+    }
+
+    func discardPendingAnswerStopIfNeeded() {
+        guard let pendingAnswerStop else { return }
+        let typingIndicatorID = thinkingTypingIndicatorID
+        let isSameQuestion = pendingAnswerStop.userMessageID == getLastUserMessageID()
+        let isSameAnswer = typingIndicatorID == pendingAnswerStop.typingIndicatorID
+            || typingIndicatorID == nil && model.canStopAnswer
+        if !isSameQuestion || !isSameAnswer {
+            self.pendingAnswerStop = nil
+        }
+    }
+
+    private func getLastUserMessageID() -> AgentItemID? {
+        model.itemIDs.last { model.message(for: $0)?.role == .user }
+    }
+
     func updateSendButtonState() {
         composerView.setSendEnabled(model.canSendMessage(draftText: composerView.draftText, isEditing: editingMessageID != nil))
-        composerView.setStopAvailable(model.canStopAnswer)
+        // Stop shows while the Agent thinks on screen, also before the chat has heard of the run its row is for, as
+        // when a chat that is answering opens: a tap then waits for the run. As the chat goes, Stop stays as it was.
+        if !isDisappearing {
+            composerView.setStopAvailable(model.canStopAnswer || thinkingTypingIndicatorID != nil)
+        }
         // As the design's "Limit Reached" frame shows it, the composer is at half its opacity while a limit blocks sending
         let contentAlpha: CGFloat = (model as? AgentV2Model)?.isInputBlockedByLimit == true ? 0.5 : 1
         if composerView.contentAlpha != contentAlpha {
@@ -1858,39 +1928,6 @@ public final class AgentVC: WViewController, WalletCoreData.EventsObserver {
 
     @objc private func handleCurrentLocaleDidChange() {
         model.refreshDerivedSystemMessages(animated: false)
-    }
-
-    /// The floating microphone takes the place nearest the field, where the scroll-to-bottom button rests; while it
-    /// shows, the button stands above it as far apart, as Telegram stacks its floating buttons
-    func updateScrollToBottomButtonPlacement(animated: Bool) {
-        guard animated, view.window != nil, !UIAccessibility.isReduceMotionEnabled else {
-            applyScrollToBottomButtonPlacement(animated: false)
-            return
-        }
-        // On the next turn, once the change that brought or took the floating microphone has laid out the composer in
-        // its own way, such as text growing the field, so only the button moves on this spring
-        DispatchQueue.main.async { [weak self] in
-            self?.applyScrollToBottomButtonPlacement(animated: true)
-        }
-    }
-
-    private func applyScrollToBottomButtonPlacement(animated: Bool) {
-        let spacing = AgentVCLayout.scrollToBottomButtonSpacing
-        let constant = composerView.isShowingFloatingMicrophone
-            ? -(spacing + AgentVoiceResumeButton.diameter + spacing)
-            : -spacing
-        guard scrollToBottomButtonBottomToComposerConstraint.constant != constant else { return }
-        scrollToBottomButtonBottomToComposerConstraint.constant = constant
-        guard animated, view.window != nil else { return }
-        UIView.animate(
-            withDuration: 0.3,
-            delay: 0,
-            usingSpringWithDamping: 1,
-            initialSpringVelocity: 0,
-            options: [.beginFromCurrentState, .allowUserInteraction]
-        ) {
-            self.view.layoutIfNeeded()
-        }
     }
 
     @objc func scrollToBottomButtonPressed() {

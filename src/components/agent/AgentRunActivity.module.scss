@@ -59,8 +59,9 @@ $glintOverhang: 2 * $glintHalfWidth + $glintTileWidth * 0.5;
     line-height: 1.375rem;
   }
 
-  // Comes in after the question it answers, rising into place while its text comes into focus, as on mobile
-  animation: agent-activity-appear 350ms ease-out 180ms backwards;
+  // Rises into place while its text comes into focus, as on mobile. The chat holds it until the question it answers has
+  // appeared.
+  animation: agent-activity-appear 350ms ease-out backwards;
 
   &:global(.closing) {
     opacity: 0;
@@ -113,7 +114,7 @@ $glintOverhang: 2 * $glintHalfWidth + $glintTileWidth * 0.5;
 
 // The first step comes into focus with the indicator
 .stepsFocusing {
-  animation: agent-activity-focus 400ms ease-out 180ms backwards;
+  animation: agent-activity-focus 400ms ease-out backwards;
 }
 
 // A Stop while the Agent thinks drops the step at once, while the top shows the Stop

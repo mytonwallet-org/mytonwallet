@@ -43,6 +43,11 @@ final class AgentThreadListModel {
     private(set) var hasPageLoadFailed = false
     /// The rows are the SDK's copy of the first page, shown until the first page loads
     private(set) var isShowingCachedThreads = false
+    /// The SDK's copy of the first page has been read, or a first page has loaded or failed to: until then the list shows
+    /// nothing in place of the chats rather than the skeleton, which a list with a copy to show doesn't have
+    private(set) var hasReadCachedThreads = false
+    /// What failed the load whose failure the list shows: of the first page with no chats, or of a later page
+    private(set) var loadErrorCode: ApiAgentV2ErrorCode?
     private(set) var newsItems: [ApiAgentV2NewsFeedItem] = []
     /// The digests on the latest first page of the feed's view
     private(set) var newsDigests: [ApiAgentV2NewsFeedDigest] = []
@@ -434,12 +439,15 @@ final class AgentThreadListModel {
         startedLoadCount += 1
         let loadCount = startedLoadCount
         isLoading = true
+        var cachedThreadsTask: Task<Void, Never>?
         if cursor != nil {
             hasPageLoadFailed = false
         } else {
             hasFirstPageLoadFailed = false
             if items.isEmpty, !hasLoadedFirstPage {
-                showCachedThreads(generation: generation, loadCount: loadCount)
+                cachedThreadsTask = showCachedThreads(generation: generation, loadCount: loadCount)
+            } else {
+                hasReadCachedThreads = true
             }
         }
         onChange?()
@@ -487,6 +495,8 @@ final class AgentThreadListModel {
             if cursor == nil {
                 cacheableLoadCount = nil
                 isShowingCachedThreads = false
+                hasReadCachedThreads = true
+                loadErrorCode = nil
                 hasLoadedFirstPage = true
                 preloader.prefetchCachedHistories(of: items.map(\.thread))
             }
@@ -515,15 +525,26 @@ final class AgentThreadListModel {
             notifyActivityChange(released)
         } catch {
             guard generation == requestGeneration else { return }
+            // A failed first page leaves the SDK's copy being read to show in place of the failure
+            if let cachedThreadsTask {
+                hasFirstPageLoadFailed = true
+                await cachedThreadsTask.value
+                guard generation == requestGeneration else { return }
+            }
             isLoading = false
             hasLoaded = true
-            // A failed refresh keeps the chats shown without a word, and the SDK's copy no longer stands in for it
+            let errorCode = AgentV2Copy.isConnectionError(error)
+                ? .networkError : (error as? ApiAgentV2MutationError)?.code
+            // A failed refresh keeps the chats shown without a word, and leaves no code for a later failure to say
             if cursor == nil {
                 cacheableLoadCount = nil
+                hasReadCachedThreads = true
                 hasLoadFailed = items.isEmpty
                 hasFirstPageLoadFailed = true
+                if hasLoadFailed { loadErrorCode = errorCode }
             } else {
                 hasPageLoadFailed = true
+                loadErrorCode = errorCode
             }
             onChange?()
         }
@@ -531,14 +552,17 @@ final class AgentThreadListModel {
 
     /// Shows the SDK's copy of the first page while the first page loads. The copy leaves unread counts, held statuses
     /// and pagination alone, and a failed load keeps it on screen.
-    private func showCachedThreads(generation: Int, loadCount: Int) {
+    private func showCachedThreads(generation: Int, loadCount: Int) -> Task<Void, Never> {
         cacheableLoadCount = loadCount
-        Task { [weak self, client] in
+        return Task { [weak self, client] in
             let threads = await client.cachedThreads()
-            guard let self, let threads, !threads.isEmpty,
-                  generation == self.requestGeneration,
-                  self.cacheableLoadCount == loadCount,
-                  self.items.isEmpty else { return }
+            guard let self, generation == self.requestGeneration, self.cacheableLoadCount == loadCount else { return }
+            self.hasReadCachedThreads = true
+            guard let threads, !threads.isEmpty, self.items.isEmpty else {
+                // Without a copy the skeleton shows while the page loads; a page that failed shows its failure next
+                if !self.hasFirstPageLoadFailed { self.onChange?() }
+                return
+            }
             self.items = self.sorted(threads)
             self.nextCursor = nil
             self.isShowingCachedThreads = true
@@ -574,6 +598,10 @@ final class AgentThreadListModel {
     private func invalidateLoads() {
         requestGeneration += 1
         isLoading = false
+        // The read of the SDK's copy is dropped with the load, so a list that has nothing yet shows its skeleton
+        guard !hasReadCachedThreads else { return }
+        hasReadCachedThreads = true
+        onChange?()
     }
 
     private func sorted(_ items: [ApiAgentV2ThreadListItem]) -> [ApiAgentV2ThreadListItem] {

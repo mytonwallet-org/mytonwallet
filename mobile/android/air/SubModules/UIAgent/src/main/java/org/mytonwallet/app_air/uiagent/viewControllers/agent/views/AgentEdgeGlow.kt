@@ -22,6 +22,7 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.random.Random
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -159,8 +160,9 @@ private class AgentEdgeGlowRenderer(
         val now = AnimationUtils.currentAnimationTimeMillis()
         advanceFade(now)
         fadeFrom = computeOpacity()
-        // A glow that comes back while it still fades out goes on from where its lights are
-        if (isGlowing && fadeFrom <= 0f) startTime = now
+        // A glow that comes anew starts at a random point of its motion, so that the lights are never where they were
+        // the last time. One that comes back while it still fades out goes on from where its lights are.
+        if (isGlowing && fadeFrom <= 0f) startTime = now - Random.nextLong(MOTION_PERIOD_MS)
         fadeTarget = target
         fadeElapsed = 0f
         invalidateParts()

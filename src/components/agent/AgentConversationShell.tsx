@@ -19,7 +19,6 @@ import { LoadMoreDirection } from '../../global/types';
 import { requestForcedReflow, requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
 import animateScroll, {
   cancelScrollAnimation,
-  easeInOutTransition,
   isAnimatingScroll,
   restartScrollAnimation,
   trackWheelInertia,
@@ -43,8 +42,10 @@ import {
   getBezierProgress,
   getBorderRadii,
   getLayerRect,
+  getQuestionSpringProgress,
   getTelegramProgress,
   interpolateRect,
+  QUESTION_SPRING_DURATION,
   TELEGRAM_EASING,
 } from './helpers/agentMotion';
 import buildMessageIds, { DATE_ITEM_ID_PREFIX, UNREAD_ITEM_ID_PREFIX } from './helpers/buildMessageIds';
@@ -52,6 +53,7 @@ import buildMessageTurnIds from './helpers/buildMessageTurnIds';
 import { getReturnKeyAction, insertLineBreak } from './helpers/composerReturnKey';
 import focusAtEnd from './helpers/focusAtEnd';
 import { planHistoryReveal } from './helpers/historyReveal';
+import { finishRelayScroll, measureRelayScroll } from './helpers/relayScroll';
 import {
   createSentTextPicture,
   measureSentQuestionFlight,
@@ -108,12 +110,17 @@ const STUCK_DATE_LINE_HIDE_DELAY = 1000;
 // Subpixel layout can leave a stuck line a fraction of a pixel off its sticky inset
 const STUCK_DATE_LINE_TOLERANCE = 1;
 const QUESTION_FLY_UP_DURATION = 300;
-// Android's sent question grows into place on a spring that settles in about 0.3 s
-const QUESTION_IN_PLACE_DURATION = 300;
+// A question with nothing to come out of appears as on iOS and Android: Android's row opens on a critically damped
+// spring of stiffness 500 from 30% of its height, and the bubble fades in and grows from 80% over the last 30% of that
+const QUESTION_IN_PLACE_DURATION = 320;
 const QUESTION_IN_PLACE_SCALE = 0.8;
-// A question that has appeared where it lands stays there this long before the list takes it up, as iOS's
-// `sentUserMessagePinDelay` and Android's `INCOMING_MESSAGE_DELAY_MS`
-const QUESTION_IN_PLACE_SCROLL_DELAY = 250;
+const QUESTION_IN_PLACE_FREQUENCY = Math.sqrt(500);
+const QUESTION_IN_PLACE_START_OPENING = 0.3;
+const QUESTION_IN_PLACE_APPEARING_OPENING = 0.7;
+const QUESTION_IN_PLACE_FRAME_RATE = 60;
+// This long after a question just sent has appeared, the run's activity comes in under it, and the list takes it up
+// from where it appeared, as iOS's `sentUserMessagePinDelay` and Android's `INCOMING_MESSAGE_DELAY_MS`
+const QUESTION_APPEARED_PAUSE = 200;
 const DISSOLVE_GAP_CLOSE_DURATION = 400;
 // The field grows with its text until it comes this short of the header, as on iOS and Android, as in Telegram
 const INPUT_HEADER_CLEARANCE = 120;
@@ -418,6 +425,8 @@ interface LiveTailRequest {
   previousMessageId?: number;
   /** Where a question sent from the follow-ups appears in the list's content: where those follow-ups begin */
   inPlaceTop?: number;
+  /** The question is in the list already, as a queued one that goes */
+  isQuestionShown?: boolean;
 }
 
 /** What a question being sent came from, for its bubble to come out of: the field's text, or the follow-up tapped */
@@ -546,6 +555,9 @@ function AgentConversationShell({
   const [dissolveGap, setDissolveGap] = useState<DissolveGap | undefined>();
   // A question showing where it lands holds the list still until the list takes it up, as a scroll does
   const [isQuestionInPlace, setIsQuestionInPlace] = useState(false);
+  // The run's activity under a question just sent waits until the question has appeared and a moment more, as the
+  // answer's row does on iOS and Android
+  const [isRunActivityHeld, setIsRunActivityHeld] = useState(false);
   // While removed messages turn to dust or fade, the run's activity under the question waits for them to go
   const [areMessagesDissolving, setAreMessagesDissolving] = useState(false);
   const [areDateLinesSticky, markDateLinesSticky] = useFlag();
@@ -593,6 +605,7 @@ function AgentConversationShell({
   const messengerSendTimeoutRef = useRef<number>();
   // The list takes a question shown in place up once it has appeared
   const inPlaceScrollTimeoutRef = useRef<number>();
+  const runActivityHoldTimeoutRef = useRef<number>();
   const isScrolledUpUpdatePendingRef = useRef(false);
   const lastAutoLoadLengthRef = useRef<number>();
   const stuckDateLinesTimeoutRef = useRef<number>();
@@ -619,6 +632,7 @@ function AgentConversationShell({
       window.clearTimeout(liveTailTimeoutRef.current);
       window.clearTimeout(messengerSendTimeoutRef.current);
       window.clearTimeout(inPlaceScrollTimeoutRef.current);
+      window.clearTimeout(runActivityHoldTimeoutRef.current);
       finishQuestionMotionRef.current?.();
       window.clearTimeout(stuckDateLinesTimeoutRef.current);
     };
@@ -670,6 +684,10 @@ function AgentConversationShell({
   // The live tail goes to the question that waited first, which has gone
   const isWaitingQuestionPinned = liveTailMessageId !== undefined
     && liveTailMessageId === previousFirstWaitingMessageIdRef.current;
+  // The question that waited first goes, the one being answered now
+  const isWaitingQuestionGoing = Boolean(
+    runningMessage?.isOutgoing && runningMessage.id === previousFirstWaitingMessageIdRef.current,
+  );
   previousFirstWaitingMessageIdRef.current = firstWaitingMessageId;
   // While the scroll button shows as a queued question goes, the turn that has the live tail's top space keeps it, so
   // that nothing on screen moves. The space goes to the live tail once the rows it moves are out of sight, or as the
@@ -706,15 +724,31 @@ function AgentConversationShell({
     setIsQuestionInPlace(false);
   });
 
+  // The run's activity comes in `delay` ms from now, at once without one
+  const releaseRunActivity = useLastCallback((delay = 0) => {
+    window.clearTimeout(runActivityHoldTimeoutRef.current);
+    runActivityHoldTimeoutRef.current = undefined;
+    if (!delay) {
+      setIsRunActivityHeld(false);
+      return;
+    }
+    runActivityHoldTimeoutRef.current = window.setTimeout(() => {
+      runActivityHoldTimeoutRef.current = undefined;
+      setIsRunActivityHeld(false);
+    }, delay);
+  });
+
   const resetLiveTail = useLastCallback(() => {
     window.clearTimeout(liveTailTimeoutRef.current);
     cancelInPlaceScroll();
+    releaseRunActivity();
     setLiveTailRequest(undefined);
     setFocusedLiveTailRequest(undefined);
     releaseFrozenSpacer();
     isFollowSuppressedRef.current = false;
     shouldRevealLiveTailAnswerRef.current = false;
     if (isAnimatingScroll(messagesRef.current)) cancelScrollAnimation();
+    if (messagesRef.current) finishRelayScroll(messagesRef.current);
   });
 
   const releaseHeldSpace = useLastCallback(() => {
@@ -780,6 +814,7 @@ function AgentConversationShell({
       lastOutgoingMessage: isQuestionShown ? undefined : lastOutgoingMessage,
       previousMessageId: liveTailMessageId,
       inPlaceTop: followupId !== undefined ? getFollowupsTop(messagesRef.current) : undefined,
+      isQuestionShown: isQuestionShown || undefined,
     };
     if (followupId !== undefined) {
       replaceSentSource(captureTappedSuggestion(findFollowupButton(messagesRef.current, followupId)));
@@ -1221,11 +1256,12 @@ function AgentConversationShell({
       shouldRevealLiveTailAnswerRef.current = false;
     }
 
+    // It goes on from where it appeared, on the spring iOS's and Android's chats bring it up on
     requestMeasure(() => {
       const mutateScroll = animateScroll(element, getLiveTailScrollTop, {
         maxDistance: element.clientHeight,
-        forceDuration: scrollDuration,
-        transition: easeInOutTransition,
+        forceDuration: scrollDuration ?? QUESTION_SPRING_DURATION,
+        transition: getQuestionSpringProgress,
         onEnd: releaseFrozenSpacer,
       });
       requestMutation(() => {
@@ -1246,6 +1282,12 @@ function AgentConversationShell({
     cancelInPlaceScroll();
     setFocusedLiveTailRequest(liveTailRequest);
     pinnedQuestionIdRef.current = liveTailMessageId;
+    const isQuestionJustSent = shouldAnimate && liveTailMessageId !== undefined
+      && Boolean(justAddedIds?.has(String(liveTailMessageId)));
+    if (isQuestionJustSent) {
+      window.clearTimeout(runActivityHoldTimeoutRef.current);
+      setIsRunActivityHeld(true);
+    }
     isAtBottomRef.current = true;
     isFollowSuppressedRef.current = !noLiveTail;
     shouldRevealLiveTailAnswerRef.current = !noLiveTail;
@@ -1257,14 +1299,13 @@ function AgentConversationShell({
       sentSourceRef.current = undefined;
       if (!element || !layer) {
         if (source) discardSentSource(source);
+        releaseRunActivity();
         return undefined;
       }
 
       // The list goes to the pinned question rather than to its own end, though the two can be the same place. This
       // runs after a scroll to the end asked for earlier in the frame.
       ownEndScrollTopRef.current = undefined;
-      const isQuestionJustSent = shouldAnimate && liveTailMessageId !== undefined
-        && Boolean(justAddedIds?.has(String(liveTailMessageId)));
       const question = isQuestionJustSent ? findQuestion(element, liveTailMessageId) : undefined;
       const getBubble = () => findQuestion(element, liveTailMessageId!)?.bubble;
       // A tapped suggestion turns into its question wherever the list shows it, as on iOS, and a question sent from the
@@ -1295,26 +1336,46 @@ function AgentConversationShell({
             animateQuestionInPlace(question!.bubble);
           }
           setIsQuestionInPlace(true);
+          releaseRunActivity(appearanceDuration + QUESTION_APPEARED_PAUSE);
           inPlaceScrollTimeoutRef.current = window.setTimeout(() => {
             inPlaceScrollTimeoutRef.current = undefined;
             scrollToLiveTail();
-          }, appearanceDuration + QUESTION_IN_PLACE_SCROLL_DELAY);
+          }, appearanceDuration + QUESTION_APPEARED_PAUSE);
+        };
+      }
+
+      // A queued question that goes stays where it is a moment, and the list takes it up as the run's activity comes in
+      // under it, as on iOS and Android
+      if (liveTailRequest?.isQuestionShown && shouldAnimate) {
+        return () => {
+          setIsQuestionInPlace(true);
+          inPlaceScrollTimeoutRef.current = window.setTimeout(() => {
+            inPlaceScrollTimeoutRef.current = undefined;
+            scrollToLiveTail();
+          }, QUESTION_APPEARED_PAUSE);
         };
       }
 
       // A question just sent with nothing to come out of that the list has no room to scroll to rises from the input
       // into its place, as on iOS
       const flyUp = isQuestionJustSent && !startMotion ? measureQuestionFlyUp(element, liveTailMessageId) : undefined;
-      // Normally the new question is at most one screen away. A longer path means the list was scrolled up,
-      // so it jumps closer first instead of animating through the whole history. The question comes up from
-      // under the input at rest and settles at rest, as on iOS, its flight or morph following it.
-      const mutateScroll = animateScroll(element, getLiveTailScrollTop, {
+      // The question comes up on the spring iOS's and Android's chats bring it up on, its flight or morph following
+      // it. Normally it is at most one screen away. A longer path means the list was scrolled up, and the list relays
+      // to it as iOS's does rather than racing through the whole history.
+      const relayScroll = scrollDuration === undefined
+        ? measureRelayScroll(element, getLiveTailScrollTop, releaseFrozenSpacer)
+        : undefined;
+      const mutateScroll = relayScroll ?? animateScroll(element, getLiveTailScrollTop, {
         maxDistance: element.clientHeight,
-        forceDuration: scrollDuration,
-        transition: easeInOutTransition,
+        forceDuration: scrollDuration ?? QUESTION_SPRING_DURATION,
+        transition: getQuestionSpringProgress,
         onEnd: releaseFrozenSpacer,
       });
 
+      const appearanceDuration = flight ? SENT_QUESTION_FLIGHT_DURATION
+        : morph ? FOLLOWUP_MORPH_DURATION
+          : flyUp ? QUESTION_FLY_UP_DURATION
+            : question ? QUESTION_IN_PLACE_DURATION : undefined;
       return () => {
         mutateScroll();
         flyUp?.();
@@ -1326,6 +1387,7 @@ function AgentConversationShell({
           // fades in with its rise alone.
           animateQuestionInPlace(question.bubble);
         }
+        releaseRunActivity(appearanceDuration !== undefined ? appearanceDuration + QUESTION_APPEARED_PAUSE : 0);
       };
     });
   });
@@ -1374,12 +1436,32 @@ function AgentConversationShell({
   // its end
   const messengerQuestionId = messengerSend && lastSentMessage
     && lastSentMessage !== messengerSend.lastOutgoingMessage ? lastSentMessage.id : undefined;
+  // A question sent as in a messenger that is answered at once, rather than queued, has the run's activity under it
+  const isMessengerQuestionRunning = messengerQuestionId !== undefined && messengerQuestionId === runningMessage?.id;
+  // The run's activity waits for a question just sent from the render the question comes in, before the list takes
+  // the question in hand, and for a question that waited from the render it goes
+  const shownRunActivity = isRunActivityHeld || (isLiveTailPending && isLiveTailRequestFulfilled)
+    || isMessengerQuestionRunning || (isWaitingQuestionGoing && shouldAnimate) ? undefined : runActivity;
+
+  // The run's activity under a question that waited comes in a moment after the question goes, as the answer's row
+  // does on iOS and Android
+  useLayoutEffect(() => {
+    if (!isWaitingQuestionGoing || !shouldAnimate) return;
+
+    setIsRunActivityHeld(true);
+    releaseRunActivity(QUESTION_APPEARED_PAUSE);
+  }, [isWaitingQuestionGoing, releaseRunActivity, shouldAnimate]);
   useLayoutEffect(() => {
     if (messengerQuestionId === undefined) return;
 
     setMessengerSend(undefined);
     window.clearTimeout(messengerSendTimeoutRef.current);
     const isQuestionJustSent = shouldAnimate && Boolean(justAddedIds?.has(String(messengerQuestionId)));
+    const isActivityHeld = isQuestionJustSent && isMessengerQuestionRunning;
+    if (isActivityHeld) {
+      window.clearTimeout(runActivityHoldTimeoutRef.current);
+      setIsRunActivityHeld(true);
+    }
 
     requestForcedReflow(() => {
       const element = messagesRef.current;
@@ -1389,18 +1471,27 @@ function AgentConversationShell({
       const question = element && isQuestionJustSent ? findQuestion(element, messengerQuestionId) : undefined;
       const getBubble = () => findQuestion(element!, messengerQuestionId)?.bubble;
       let startMotion: (() => NoneToVoidFunction) | undefined;
+      let appearanceDuration = 0;
       if (question && layer && source?.kind === 'field') {
         startMotion = measureSentQuestionFlight(
           source.picture, question.bubble, question.text, getBubble, layer, () => findComposer(layer),
         );
+        appearanceDuration = SENT_QUESTION_FLIGHT_DURATION;
       } else if (question && layer && source?.kind === 'followup') {
         startMotion = measureFollowupMorph(source.followup, question.bubble, question.text, getBubble, layer);
+        appearanceDuration = FOLLOWUP_MORPH_DURATION;
       }
       if (source && !startMotion) discardSentSource(source);
+      if (isActivityHeld) {
+        releaseRunActivity((startMotion ? appearanceDuration : 0) + QUESTION_APPEARED_PAUSE);
+      }
 
       return startMotion && (() => startQuestionMotion(startMotion));
     });
-  }, [justAddedIds, messengerQuestionId, shouldAnimate, startQuestionMotion]);
+  }, [
+    isMessengerQuestionRunning, justAddedIds, messengerQuestionId, releaseRunActivity, shouldAnimate,
+    startQuestionMotion,
+  ]);
 
   const wasNoLiveTailRef = useRef(noLiveTail);
   // The last item as `noLiveTail` turned on over a pinned question
@@ -1832,9 +1923,13 @@ function AgentConversationShell({
     requestMeasure(() => focusAtEnd(input));
   }, [isActive, isInputDisabled]);
 
-  // On a desktop a chat opens with its field focused, as in Telegram, while a touch screen keeps its keyboard down
-  // until the field is tapped. A modal or the lock screen over the Agent keeps the focus.
+  // On a desktop a chat's field takes the focus whenever the chat shows, as in Telegram, the Agent's opening included,
+  // while a touch screen keeps its keyboard down until the field is tapped. A modal or the lock screen over the Agent
+  // keeps the focus.
   const shouldFocusOnOpenRef = useRef(!IS_TOUCH_ENV && !shouldRestoreFocusRef.current);
+  useEffect(() => {
+    if (!isActive) shouldFocusOnOpenRef.current = !IS_TOUCH_ENV;
+  }, [isActive]);
   useEffect(() => {
     const input = inputRef.current;
     if (!shouldFocusOnOpenRef.current || !isActive || !input) return;
@@ -2059,7 +2154,7 @@ function AgentConversationShell({
             />
           )}
           {ids.slice(turnStartIndex, index + 1).map(renderItem)}
-          {turnId === runActivityTurnId && runActivity}
+          {turnId === runActivityTurnId && shownRunActivity}
           {isLastTurn && isViewportAtEnd && messageListFooter}
           {isLastTurn && isViewportAtEnd && renderFailureLine()}
           {isLastTurn && dissolveGap && (
@@ -2204,7 +2299,7 @@ function AgentConversationShell({
           style={frozenSpacerHeight ? `min-height: ${frozenSpacerHeight}px` : undefined}
         />
         {viewportIds && renderTurns(viewportIds)}
-        {runActivityTurnId === undefined && runActivity}
+        {runActivityTurnId === undefined && shownRunActivity}
         {(!viewportIds?.length || !isViewportAtEnd) && messageListFooter}
         {(!viewportIds?.length || !isViewportAtEnd) && renderFailureLine()}
         <AgentHints
@@ -2311,10 +2406,28 @@ function getIsQuestionInPlace(container: HTMLElement, bubble: HTMLElement, conte
 function animateQuestionInPlace(bubble: HTMLElement) {
   if (!bubble.animate) return;
 
-  bubble.animate([
-    { transform: `scale(${QUESTION_IN_PLACE_SCALE})`, opacity: 0 },
-    { transform: 'none', opacity: 1 },
-  ], { duration: QUESTION_IN_PLACE_DURATION, easing: 'ease-out' });
+  const frameCount = Math.ceil(QUESTION_IN_PLACE_DURATION / 1000 * QUESTION_IN_PLACE_FRAME_RATE);
+  const keyframes = Array.from({ length: frameCount + 1 }, (_, index) => {
+    const time = Math.min(QUESTION_IN_PLACE_DURATION, index * 1000 / QUESTION_IN_PLACE_FRAME_RATE);
+    const progress = index === frameCount ? 1 : getQuestionInPlaceProgress(time / 1000);
+    return {
+      offset: time / QUESTION_IN_PLACE_DURATION,
+      transform: `scale(${QUESTION_IN_PLACE_SCALE + (1 - QUESTION_IN_PLACE_SCALE) * progress})`,
+      opacity: progress,
+    };
+  });
+  bubble.animate(keyframes, { duration: QUESTION_IN_PLACE_DURATION, easing: 'linear' });
+}
+
+/**
+ * How far a question with nothing to come out of has appeared `seconds` in: 0 while its row opens to 70% of its height,
+ * 1 once it is open
+ */
+function getQuestionInPlaceProgress(seconds: number) {
+  const phase = QUESTION_IN_PLACE_FREQUENCY * seconds;
+  const opening = 1 - (1 - QUESTION_IN_PLACE_START_OPENING) * (1 + phase) * Math.exp(-phase);
+  const share = (opening - QUESTION_IN_PLACE_APPEARING_OPENING) / (1 - QUESTION_IN_PLACE_APPEARING_OPENING);
+  return Math.min(1, Math.max(0, share));
 }
 
 function discardSentSource(source: SentQuestionSource) {

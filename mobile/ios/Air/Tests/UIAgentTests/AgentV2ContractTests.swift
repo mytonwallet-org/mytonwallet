@@ -50,7 +50,8 @@ final class AgentV2ContractTests: XCTestCase {
             "author": ["operatorId": maya.operatorId, "name": maya.name, "avatarUrl": maya.avatarUrl!]
         ])
         let history = try decodeHydration(threadId: thread.id, messages: messages, thread: thread)
-        let model = AgentV2Model(client: FakeAgentV2Client(hydrationResult: history), thread: thread)
+        let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true)
+        let model = AgentV2Model(client: client, thread: thread)
         defer { model.stop() }
         await model.waitForInitialLoad()
 
@@ -82,6 +83,12 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(presented.compactMap(\.supportEvent).last?.text, L10n.agentSupportOperatorJoined(name: maya.name))
         XCTAssertEqual(AgentSupportPresentation.getSubtitle(for: model.supportState), L10n.agentSupportWithOperator(name: maya.name))
         XCTAssertEqual(AgentSupportPresentation.getComposerPlaceholder(for: model.supportState), lang("$agent_support_placeholder"))
+        XCTAssertFalse(client.isAgentSupportEnabled)
+        XCTAssertFalse(model.isSupportRequestVisible)
+
+        model.send(text: "Reply to the operator")
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: "Reply to the operator")])
     }
 
     @MainActor
@@ -598,6 +605,29 @@ final class AgentV2ContractTests: XCTestCase {
     }
 
     @MainActor
+    func testLiveSupportEntryRequiresExplicitlyEnabledBackendConfig() throws {
+        let previousConfig = ConfigStore.shared.config
+        defer {
+            ConfigStore.shared.config = previousConfig
+            _ = ConfigStore.shared.config
+        }
+        let client = LiveAgentV2Client()
+        ConfigStore.shared.config = nil
+        XCTAssertFalse(client.isAgentSupportEnabled)
+        XCTAssertFalse(AgentSupportRequest.isEntryVisible(client: client))
+
+        for (json, isEnabled) in [
+            (#"{}"#, false),
+            (#"{"isAgentSupportEnabled": false}"#, false),
+            (#"{"isAgentSupportEnabled": true}"#, true),
+        ] {
+            ConfigStore.shared.config = try JSONDecoder().decode(ApiUpdate.UpdateConfig.self, from: Data(json.utf8))
+            XCTAssertEqual(client.isAgentSupportEnabled, isEnabled)
+            XCTAssertEqual(AgentSupportRequest.isEntryVisible(client: client), isEnabled)
+        }
+    }
+
+    @MainActor
     func testLiveThreadClientUsesSdkOperationsAndUnwrapsTheirResponses() async throws {
         let probe = try installThreadBridgeProbe()
         defer { Api.stop() }
@@ -661,9 +691,11 @@ final class AgentV2ContractTests: XCTestCase {
             let chat = try XCTUnwrap(controller as? AgentVC)
             let model = try chatModel(in: chat)
             XCTAssertEqual(model.news?.body, hasPreview ? item.body : nil)
-            XCTAssertEqual(model.newsPostItemID != nil, hasPreview)
+            // The post of the discussion the item already has waits for its thread, which the user may have written in
+            XCTAssertNil(model.newsPostItemID)
             client.resumeThreadCreation()
             await model.waitForInitialLoad()
+            XCTAssertNotNil(model.newsPostItemID)
             XCTAssertEqual(client.newsThreadRequests, [.init(eventId: 307, locale: "ru")])
             XCTAssertTrue(model.needsConsentToSend)
             XCTAssertFalse(model.isStarted)
@@ -959,6 +991,7 @@ final class AgentV2ContractTests: XCTestCase {
             let client = FakeAgentV2Client(
                 hydrationResult: try decodeHydration(threadId: "thread-a", messages: []), blockedHydrationAttempt: 1
             )
+            client.isAgentSupportEnabled = true
             let root = AgentRootVC(client: client, shouldRequestSupport: true)
             let navigation = UINavigationController(rootViewController: root)
             let window = makeKeyWindow(showing: navigation)
@@ -2249,6 +2282,7 @@ final class AgentV2ContractTests: XCTestCase {
                     newsPostMessage(id: "post", text: "Saved headline", role: "assistant", threadId: thread.id, newsPost: true)
                 ], thread: thread)
                 let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true, blockedHydrationAttempt: 1)
+                client.isAgentSupportEnabled = true
                 client.createdThreadIsNew = false
                 client.blocksThreadCreation = true
                 client.blocksRunStart = true
@@ -2331,6 +2365,7 @@ final class AgentV2ContractTests: XCTestCase {
                     newsPostMessage(id: "post", text: "News", role: "assistant", threadId: thread.id, newsPost: true)
                 ], thread: thread)
                 let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true, blockedHydrationAttempt: 1)
+                client.isAgentSupportEnabled = true
                 client.blocksThreadCreation = true
                 var accountID: String? = "wallet-a"
                 let existing: AgentV2Model?
@@ -2398,6 +2433,7 @@ final class AgentV2ContractTests: XCTestCase {
                     hydrationResult: history, shouldCompleteRun: true,
                     hostContextFailuresRemaining: 3, blockedHostContextAttempt: 4
                 )
+                client.isAgentSupportEnabled = true
                 var accountID: String? = kind == .news ? "wallet-a" : nil
                 let model = makeDeferredDiscussionModel(
                     kind, client: client, activeAccount: { accountID.map { Self.makeWalletAccount(id: $0) } }
@@ -2633,6 +2669,112 @@ final class AgentV2ContractTests: XCTestCase {
                 XCTAssertEqual(client.hydrationRequestCount, 0)
                 XCTAssertTrue(client.startedCommands.isEmpty)
                 XCTAssertEqual(client.completedStatusRequests, ["availability", "userQuota"])
+            }
+        }
+    }
+
+    /// The suggestions show enabled while the discussion's status loads, so one tapped then goes once the status has
+    /// loaded, unless it brings a limit
+    @MainActor
+    func testDeferredDiscussionSuggestionTappedWhileStatusLoadsGoesOnceItHas() async throws {
+        for kind in DeferredDiscussion.allCases {
+            for hasCapacityLimit in [true, false] {
+                let thread = try decodeDiscussionThread(kind, id: "discussion-thread", messageCount: 1)
+                let history = try decodeHydration(threadId: thread.id, messages: [
+                    newsPostMessage(id: "post", text: "News", role: "assistant", threadId: thread.id, newsPost: true)
+                ], thread: thread)
+                let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true)
+                client.blocksStatusRefresh = true
+                if hasCapacityLimit {
+                    client.availabilityResult = .init(state: .capacityExhausted, resetAt: 4_102_444_800_000)
+                }
+                let model = makeDeferredDiscussionModel(
+                    kind, client: client, naming: .init(title: "Market discussion", followups: ["What changed?"])
+                )
+                let chat = AgentVC(model: model)
+                let navigation = UINavigationController(rootViewController: chat)
+                let window = makeKeyWindow(showing: navigation)
+                defer {
+                    model.stop()
+                    client.resumeStatusRefresh()
+                    window.isHidden = true
+                    navigation.setViewControllers([], animated: false)
+                }
+                await waitForRequest("availability", client: client)
+                await waitForRequest("userQuota", client: client)
+                let postID = try XCTUnwrap(model.newsPostItemID)
+                let control = try XCTUnwrap(model.message(for: postID)?.controls.first)
+                XCTAssertTrue(control.isEnabled, "\(kind)")
+
+                model.performControl(messageID: postID, controlID: control.id)
+                for _ in 0..<20 { await Task.yield() }
+                XCTAssertEqual(discussionThreadRequestCount(kind, in: client), 0, "\(kind)")
+                XCTAssertTrue(client.startedCommands.isEmpty, "\(kind)")
+
+                client.resumeStatusRefresh()
+                if hasCapacityLimit {
+                    try await waitForDiscussionUI { model.isInputBlockedByLimit }
+                    for _ in 0..<20 { await Task.yield() }
+                    XCTAssertEqual(discussionThreadRequestCount(kind, in: client), 0, "\(kind)")
+                    XCTAssertTrue(client.startedCommands.isEmpty, "\(kind)")
+                } else {
+                    try await waitForDiscussionUI { client.startedCommands.count == 1 }
+                    XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: "What changed?")], "\(kind)")
+                    XCTAssertEqual(discussionThreadRequestCount(kind, in: client), 1, "\(kind)")
+                }
+            }
+        }
+    }
+
+    /// A suggestion tapped while the discussion's status loads was tapped for the wallet chosen then: it doesn't go
+    /// from the wallet the user switches to before the status has loaded
+    @MainActor
+    func testDeferredDiscussionSuggestionTappedWhileStatusLoadsDropsAfterWalletChanges() async throws {
+        for kind in DeferredDiscussion.allCases {
+            try await withDependencies {
+                $0.accountStore = .makePreview(
+                    accounts: ["wallet-a", "wallet-b"].map { Self.makeWalletAccount(id: $0) },
+                    selectedAccountId: "wallet-a"
+                )
+                $0[SavedAddressesStore.self] = .liveValue
+            } operation: {
+                let thread = try decodeDiscussionThread(kind, id: "discussion-thread", messageCount: 1)
+                let history = try decodeHydration(threadId: thread.id, messages: [
+                    newsPostMessage(id: "post", text: "News", role: "assistant", threadId: thread.id, newsPost: true)
+                ], thread: thread)
+                let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true)
+                client.blocksStatusRefresh = true
+                var accountID = "wallet-a"
+                let model = makeDeferredDiscussionModel(
+                    kind, client: client, naming: .init(title: "Market discussion", followups: ["What changed?"]),
+                    activeAccount: { Self.makeWalletAccount(id: accountID) }
+                )
+                let chat = AgentVC(model: model)
+                let navigation = UINavigationController(rootViewController: chat)
+                let window = makeKeyWindow(showing: navigation)
+                defer {
+                    model.stop()
+                    client.resumeStatusRefresh()
+                    window.isHidden = true
+                    navigation.setViewControllers([], animated: false)
+                }
+                await waitForRequest("availability", client: client)
+                await waitForRequest("userQuota", client: client)
+                let postID = try XCTUnwrap(model.newsPostItemID)
+                let control = try XCTUnwrap(model.message(for: postID)?.controls.first)
+
+                model.performControl(messageID: postID, controlID: control.id)
+                accountID = "wallet-b"
+                try notifyAccountChanged(to: accountID, in: [model])
+                client.resumeStatusRefresh()
+                try await waitForDiscussionUI { client.completedStatusRequests.count == 2 && model.canSendMessage(draftText: "Question") }
+                for _ in 0..<20 { await Task.yield() }
+                XCTAssertEqual(discussionThreadRequestCount(kind, in: client), 0, "\(kind)")
+                XCTAssertTrue(client.startedCommands.isEmpty, "\(kind)")
+
+                // The same suggestion tapped now goes
+                model.performControl(messageID: postID, controlID: control.id)
+                try await waitForDiscussionUI { client.startedCommands.count == 1 }
             }
         }
     }
@@ -3904,7 +4046,7 @@ final class AgentV2ContractTests: XCTestCase {
             // The feed's failure stays the feed's: the chat keeps what it showed and takes a question
             XCTAssertEqual(model.itemIDs.map { presentedMessage($0, in: model)?.text }, items, "fails: \(fails)")
             XCTAssertFalse(model.itemIDs.contains { presentedMessage($0, in: model)?.isFailureCaption == true })
-            XCTAssertNil(model.initialLoadFailure)
+            XCTAssertFalse(model.hasFailedInitialLoad)
             XCTAssertTrue(model.canSendMessage(draftText: "First question"), "fails: \(fails)")
         }
     }
@@ -5030,7 +5172,16 @@ final class AgentV2ContractTests: XCTestCase {
             XCTAssertEqual(client.hintsRequestCount, 1)
             XCTAssertEqual(client.hintsWalletStates, [nil], "Balances that have not loaded give no wallet state")
             XCTAssertEqual(client.hintsHosts.map { $0?.activeAccountId }, ["wallet"], "The hints read the active account's actions")
+            XCTAssertEqual(model.visibleHints.map(\.id), ["learn.swap"])
+            XCTAssertFalse(model.isSupportRequestVisible)
+            XCTAssertFalse(model.requestSupport(source: .header))
+
+            client.isAgentSupportEnabled = true
+            WalletCoreData.notify(event: .configChanged)
+            try await waitForDiscussionUI { model.visibleHints.map(\.id) == ["learn.swap", AgentHint.supportRequest.id] }
             XCTAssertEqual(model.visibleHints.map(\.id), ["learn.swap", AgentHint.supportRequest.id])
+            XCTAssertTrue(model.isSupportRequestVisible)
+            XCTAssertEqual(client.hintsRequestCount, 1)
 
             // The chat loading its history again, typing and a canceled back swipe keep the pick
             client.hintsResult = try decodeStarterHints(#"[{"id":"agent.capabilities","group":"learn"}]"#)
@@ -5075,6 +5226,13 @@ final class AgentV2ContractTests: XCTestCase {
             third.viewIsAppearing(false)
             try await waitForDiscussionUI { client.hintsRequestCount == 5 }
             try await waitForDiscussionUI { model.visibleHints.map(\.id) == [AgentHint.supportRequest.id] }
+
+            client.isAgentSupportEnabled = false
+            WalletCoreData.notify(event: .configChanged)
+            try await waitForDiscussionUI { model.visibleHints.isEmpty }
+            XCTAssertFalse(model.isSupportRequestVisible)
+            XCTAssertFalse(model.canRequestSupport)
+            XCTAssertEqual(client.hintsRequestCount, 5)
         }
     }
 
@@ -5140,6 +5298,7 @@ final class AgentV2ContractTests: XCTestCase {
         let client = FakeAgentV2Client(
             hydrationResult: try decodeHydration(threadId: "thread-a", messages: []), blockedHydrationAttempt: 1
         )
+        client.isAgentSupportEnabled = true
         client.hintsResult = try initialHints()
         client.blocksHints = true
         let root = AgentRootVC(client: client)
@@ -7117,6 +7276,71 @@ final class AgentV2ContractTests: XCTestCase {
     }
 
     @MainActor
+    func testStopWithOnlyAThinkingIndicatorWaitsForItsRun() throws {
+        let chat = AgentTestChat(messages: [])
+        defer { chat.close() }
+        chat.layout()
+        let indicator = AgentTypingIndicator()
+        chat.backend.context?.append(.typingIndicator(indicator), animated: false)
+        chat.controller.updateSendButtonState()
+
+        XCTAssertNotNil(chat.controller.thinkingTypingIndicatorID)
+        XCTAssertFalse(chat.model.canStopAnswer)
+        XCTAssertTrue(chat.controller.composerView.isStopShown)
+        XCTAssertTrue(chat.controller.isComposerStopShown)
+        let unopenedChat = AgentVC(model: chat.model)
+        XCTAssertTrue(unopenedChat.isComposerStopShown)
+
+        let bar = AgentListBottomBar()
+        bar.setHandoffTarget(unopenedChat)
+        bar.setExpansion(1)
+        let stop = try XCTUnwrap(findDescendants(of: bar).compactMap { $0 as? UIButton }.first {
+            $0.accessibilityIdentifier == "agent_stop"
+        })
+        tap(stop)
+        XCTAssertEqual(chat.backend.stopCount, 0)
+
+        chat.backend.canStopAnswer = true
+        chat.backend.context?.notifyStateChanged()
+        XCTAssertEqual(chat.backend.stopCount, 1)
+        XCTAssertEqual(chat.model.heldTypingIndicatorID, indicator.id, "The deferred Stop holds the row for its knock")
+        chat.backend.context?.notifyStateChanged()
+        XCTAssertEqual(chat.backend.stopCount, 1)
+        XCTAssertFalse(unopenedChat.isComposerStopShown)
+    }
+
+    @MainActor
+    func testDeferredStopDoesNotStopALaterAnswer() {
+        for reset in ["rowRemoved", "newQuestion", "chatChanged"] {
+            let chat = AgentTestChat(messages: [])
+            defer { chat.close() }
+            chat.layout()
+            let indicator = AgentTypingIndicator()
+            chat.backend.context?.append(.typingIndicator(indicator), animated: false)
+            chat.controller.stopComposerAnswer()
+            XCTAssertEqual(chat.backend.stopCount, 0)
+
+            switch reset {
+            case "rowRemoved":
+                chat.backend.context?.removeItem(id: indicator.id, animated: false)
+                chat.backend.context?.append(.typingIndicator(AgentTypingIndicator()), animated: false)
+            case "newQuestion":
+                chat.backend.context?.sendMessage("Next question", source: .composer)
+            case "chatChanged":
+                chat.controller.viewWillDisappear(false)
+                chat.controller.viewDidDisappear(false)
+            default:
+                XCTFail("Unknown deferred Stop reset")
+            }
+
+            chat.backend.canStopAnswer = true
+            chat.backend.context?.notifyStateChanged()
+            XCTAssertEqual(chat.backend.stopCount, 0, "The old Stop does not affect a later answer: \(reset)")
+            XCTAssertTrue(chat.model.canStopAnswer, "The later answer keeps running: \(reset)")
+        }
+    }
+
+    @MainActor
     func testStopTakesThePlaceOfSendWhileAnAnswerIsWrittenAndStopsItOnce() async throws {
         let history = try decodeRatedConversation(answerFeedback: nil)
         let client = FakeAgentV2Client(hydrationResult: history)
@@ -7132,18 +7356,16 @@ final class AgentV2ContractTests: XCTestCase {
         }
         window.layoutIfNeeded()
         let buttons = findDescendants(of: window).compactMap { $0 as? UIButton }
-        let send = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "agent_send" })
-        // Stop is the microphone's circle, which turns into it while an answer is being written
-        let stop = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "agent_microphone" })
-        XCTAssertEqual(stop.accessibilityLabel, lang("$agent_dictation_start"))
+        // Stop is the send button, which holds it in the empty field while an answer is being written
+        let stop = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "agent_send" })
         XCTAssertFalse(stop.isHidden)
+        XCTAssertFalse(stop.isEnabled)
 
         model.send(text: "Next question")
         XCTAssertTrue(model.hasActiveRun)
         XCTAssertFalse(stop.isHidden)
         XCTAssertEqual(stop.accessibilityLabel, lang("$agent_stop_answer"))
         XCTAssertEqual(stop.accessibilityIdentifier, "agent_stop")
-        XCTAssertTrue(send.isHidden)
         try await waitForDiscussionUI { client.startedCommands.count == 1 }
         let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
         let started = try JSONDecoder().decode(ApiAgentV2ClientUpdate.self, from: JSONSerialization.data(withJSONObject: [
@@ -7162,10 +7384,10 @@ final class AgentV2ContractTests: XCTestCase {
         tap(stop)
         XCTAssertFalse(model.hasActiveRun)
         XCTAssertTrue(model.canSendMessage(draftText: "Another question"))
+        // The empty field keeps Send disabled once the answer has stopped
         XCTAssertFalse(stop.isHidden)
-        XCTAssertEqual(stop.accessibilityLabel, lang("$agent_dictation_start"))
-        // The microphone again, which a tap doesn't stop with
-        tap(stop)
+        XCTAssertFalse(stop.isEnabled)
+        XCTAssertEqual(stop.accessibilityIdentifier, "agent_send")
         try await waitForDiscussionUI { !client.stoppedThreadIds.isEmpty }
         // A second stop would follow the first one's call
         try await Task.sleep(for: .milliseconds(100))
@@ -8602,6 +8824,7 @@ private enum FakeAgentV2ClientError: Error {
 
 @MainActor
 final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
+    var isAgentSupportEnabled = false
     var defaultThreadError: ApiAgentV2MutationError?
     var hintsResult: ApiAgentV2StarterHints?
     private(set) var hintsRequestCount = 0

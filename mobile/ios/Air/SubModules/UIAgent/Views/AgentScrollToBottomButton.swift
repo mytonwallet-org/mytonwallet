@@ -7,7 +7,7 @@ import WalletContext
 /// stretches under the finger on its own. Glass ignores alpha, so it materializes and dematerializes with the fade.
 final class AgentScrollToBottomButton: UIControl {
     /// As large as the composer's microphone circle, with the design's 40 pt button scaled up to it
-    nonisolated static let size: CGFloat = AgentComposerMetrics.microphoneSize
+    nonisolated static let size: CGFloat = AgentComposerMetrics.actionCircleSize
     /// The chevron is drawn at 80% of the design's chevron scaled with the button
     private static let scale: CGFloat = size / 40 * 0.8
     /// The design's 18 × 9 pt chevron with its 2 pt stroke, scaled
@@ -70,9 +70,8 @@ final class AgentScrollToBottomButton: UIControl {
         }
     }
 
-    /// The glass of the chat's floating buttons, this one and the floating microphone: Liquid Glass, or nil before it,
-    /// where they are a plain circle
-    static func makeGlassView() -> WGlassView? {
+    /// The button's glass: Liquid Glass, or nil before it, where the button is a plain circle
+    private static func makeGlassView() -> WGlassView? {
         if #available(iOS 26, iOSApplicationExtension 26, *), IOS_26_MODE_ENABLED {
             return WGlassView(cornerRadius: nil)
         }

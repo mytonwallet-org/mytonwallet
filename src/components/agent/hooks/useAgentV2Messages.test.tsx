@@ -62,6 +62,7 @@ const FRAGMENT_SITE = {
 };
 let mockExploreSites = [FRAGMENT_SITE];
 let mockIsLimitedRegion = false;
+let mockIsAgentSupportEnabled = true;
 let mockAccountState: { balances?: { bySlug: Record<string, bigint> } } = {};
 let mockHasTokenInfo = false;
 let mockSwapTokensBySlug: Record<string, { slug: string }> = {};
@@ -91,7 +92,7 @@ jest.mock('../../../global', () => ({
       jest.requireActual<typeof import('../../../global/initialState')>('../../../global/initialState').INITIAL_STATE,
     )),
     exploreData: { sites: mockExploreSites },
-    restrictions: { isLimitedRegion: mockIsLimitedRegion },
+    restrictions: { isLimitedRegion: mockIsLimitedRegion, isAgentSupportEnabled: mockIsAgentSupportEnabled },
     currentAccountId: '0-mainnet',
     byAccountId: { '0-mainnet': mockAccountState },
     swapTokenInfo: { bySlug: mockSwapTokensBySlug },
@@ -110,6 +111,7 @@ jest.mock('../../../global', () => ({
   }),
 }));
 
+const NO_CONNECTION_TEXT = 'No internet connection. Please check your connection and try again.';
 const THREAD_ID = '11111111-1111-4111-8111-111111111111';
 const REPLACEMENT_THREAD_ID = '11111111-1111-4111-8111-111111111112';
 const CLIENT_RUN_ID = '22222222-2222-4222-8222-222222222222';
@@ -224,6 +226,7 @@ describe('useAgentV2Messages', () => {
     mockSwapTokensBySlug = Object.fromEntries(['toncoin', 'usdton', 'trx'].map((slug) => [slug, { slug }]));
     mockExploreSites = [FRAGMENT_SITE];
     mockIsLimitedRegion = false;
+    mockIsAgentSupportEnabled = true;
     jest.mocked(parseDeeplinkTransferParams).mockReset();
     jest.mocked(parseDeeplinkTransferParams).mockReturnValue({ tokenSlug: 'toncoin', amount: 500000000n });
     processDeeplinkMock.mockReset();
@@ -523,7 +526,8 @@ describe('useAgentV2Messages', () => {
     expect(result!.messages.filter(({ isOutgoing }) => isOutgoing)).toEqual([question]);
   });
 
-  it('maps support messages and rates the stored operator reply by its own id', async () => {
+  it('maps support messages and rates the stored operator reply with support disabled in config', async () => {
+    mockIsAgentSupportEnabled = false;
     const avatarUrl = 'https://agent.test/api/v2/support/operators/operator-id/avatar?v=hash';
     const base = { threadId: THREAD_ID, status: 'complete' as const, createdAt: '2026-08-07T10:00:00.000Z' };
     hydratedMessages = [
@@ -621,7 +625,8 @@ describe('useAgentV2Messages', () => {
   });
 
   it.each([undefined, 'waiting', 'operator'] as const)(
-    'allows messages at the daily quota only with active support: %s', async (state) => {
+    'allows replies at the daily quota with active support even when disabled in config: %s', async (state) => {
+      mockIsAgentSupportEnabled = false;
       threadSupport = state && { state };
       startRunResponses = [new Promise(() => undefined)];
       TeactDOM.render(<Harness />, root);
@@ -823,6 +828,7 @@ describe('useAgentV2Messages', () => {
     let visibilitySpy: jest.SpyInstance;
 
     beforeEach(() => {
+      mockIsAgentSupportEnabled = false;
       threadSupport = { state: 'waiting' };
       visibilityState = 'visible';
       visibilitySpy = jest.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState);
@@ -3461,7 +3467,7 @@ describe('useAgentV2Messages', () => {
     expect(result!.isInitialLoadComplete).toBe(false);
 
     history.resolve();
-    expect(await waitFor(() => result?.historyFailure?.text === '$agent_connection_lost', 10, 20))
+    expect(await waitFor(() => result?.historyFailure?.text === NO_CONNECTION_TEXT, 10, 20))
       .toBe(true);
     expect(result!.messages.some(({ failureText }) => failureText)).toBe(false);
     expect(result!.isInputDisabled).toBe(true);
@@ -3910,12 +3916,12 @@ describe('useAgentV2Messages', () => {
     });
     TeactDOM.render(<Harness />, root);
     expect(await waitFor(() => result?.historyFailure !== undefined, 10, 20)).toBe(true);
-    expect(result!.historyFailure).toEqual({ text: '$agent_connection_lost', isRetrying: false });
+    expect(result!.historyFailure).toEqual({ text: NO_CONNECTION_TEXT, isRetrying: false });
     expect(result!.messages).toEqual([]);
 
     result!.retryHistory();
     expect(await waitFor(() => result?.historyFailure?.isRetrying === true, 10, 20)).toBe(true);
-    expect(result!.historyFailure!.text).toBe('$agent_connection_lost');
+    expect(result!.historyFailure!.text).toBe(NO_CONNECTION_TEXT);
 
     retriedHistory.resolve();
     expect(await waitFor(() => result?.messages.length === 1, 10, 20)).toBe(true);
@@ -7420,7 +7426,7 @@ describe('useAgentV2Messages', () => {
         historyReads[failedRead].resolve({ ok: false, error: { code: 'network_error', retryable: true } });
         expect(await waitFor(() => result?.historyFailure !== undefined, 10, 20)).toBe(true);
         expect(result).toMatchObject({
-          historyFailure: { text: '$agent_connection_lost', isRetrying: false },
+          historyFailure: { text: NO_CONNECTION_TEXT, isRetrying: false },
           messages: [{ text: 'Persisted request' }],
           isHistoryCached: true,
           isInitialLoadComplete: true,
@@ -7436,29 +7442,29 @@ describe('useAgentV2Messages', () => {
       },
     );
 
-    it('shows no cached copy read after the history failed, leaving the failure and Retry as without it', async () => {
+    it('shows the cached copy read after the history failed under the failure with Retry', async () => {
       TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
-      expect(await waitFor(() => historyReads.length === 1, 10, 20)).toBe(true);
+      expect(await waitFor(() => historyReads.length === 1 && cachedReads.length === 1, 10, 20)).toBe(true);
       historyReads[0].resolve({ ok: false, error: { code: 'network_error', retryable: true } });
+      await pause(20);
+      expect(result!.historyFailure).toBeUndefined();
+      cachedReads[0].resolve(cachedHistory([persistedUserMessage()]));
       expect(await waitFor(() => result?.historyFailure !== undefined, 10, 20)).toBe(true);
-      // The read after a runtime restart fails silently, before its cached copy comes
-      publishAgentV2Update({ kind: 'runtimeReady', generation: 112 });
-      expect(await waitFor(() => cachedReads.length === 2 && historyReads.length === 2, 10, 20)).toBe(true);
-      historyReads[1].resolve({ ok: false, error: { code: 'network_error', retryable: true } });
-      await pause(20);
-      cachedReads[1].resolve(cachedHistory([persistedUserMessage()]));
-      await pause(20);
 
       expect(result).toMatchObject({
-        messages: [],
-        isHistoryCached: false,
-        historyFailure: { text: '$agent_connection_lost', isRetrying: false },
+        isHistoryCached: true,
+        historyFailure: {
+          text: NO_CONNECTION_TEXT,
+          isRetrying: false,
+        },
       });
+      expect(result!.messages).toHaveLength(1);
       result!.retryHistory();
-      expect(await waitFor(() => historyReads.length === 3, 10, 20)).toBe(true);
-      historyReads[2].resolve(undefined);
-      expect(await waitFor(() => result?.messages.length === 1, 10, 20)).toBe(true);
-      expect(result).toMatchObject({ historyFailure: undefined, isHistoryCached: false, isInputDisabled: false });
+      expect(await waitFor(() => historyReads.length === 2, 10, 20)).toBe(true);
+      historyReads[1].resolve(undefined);
+      expect(await waitFor(() => result?.isHistoryCached === false, 10, 20)).toBe(true);
+      expect(result).toMatchObject({ historyFailure: undefined, isInputDisabled: false });
+      expect(cachedReads).toHaveLength(1);
     });
 
     it.each([true, false])(

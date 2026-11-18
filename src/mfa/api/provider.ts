@@ -183,6 +183,7 @@ async function updateMfaConfig() {
       seasonalTheme: config.seasonalTheme,
       knowledgeBaseVersion: config.knowledgeBaseVersion,
       preferredAgent: config.preferredAgent,
+      isAgentSupportEnabled: config.isAgentSupportEnabled,
       allowedOnOffRampCurrencies: config.allowedOnOffRampCurrencies,
     });
   } catch (err) {

@@ -83,13 +83,30 @@ internal class AgentBulletin {
         }
     }
 
+    /** [text] alone, as iOS's overlay toast without an icon says why a question was held back */
+    fun showMessage(
+        container: ConstraintLayout,
+        blurRoot: ViewGroup?,
+        text: String,
+        bottomOffset: () -> Int
+    ) {
+        present(
+            container,
+            blurRoot,
+            text,
+            bottomOffset,
+            AgentBulletinDurations.REACTION_MS,
+            icon = null
+        )
+    }
+
     private fun present(
         container: ConstraintLayout,
         blurRoot: ViewGroup?,
         text: String,
         bottomOffset: () -> Int,
         durationMs: Long,
-        icon: ImageView.() -> Unit
+        icon: (ImageView.() -> Unit)?
     ) {
         dismiss()
         val bar = createBar(container.context, blurRoot, text, icon)
@@ -187,7 +204,7 @@ internal class AgentBulletin {
         context: Context,
         blurRoot: ViewGroup?,
         text: String,
-        icon: ImageView.() -> Unit
+        icon: (ImageView.() -> Unit)?
     ): View {
         val panel = createPanel(context, text, icon)
         val bar = FrameLayout(context).apply {
@@ -218,15 +235,17 @@ internal class AgentBulletin {
         return bar
     }
 
-    private fun createPanel(context: Context, text: String, icon: ImageView.() -> Unit): View =
+    private fun createPanel(context: Context, text: String, icon: (ImageView.() -> Unit)?): View =
         FrameLayout(context).apply {
             minimumHeight = CONTENT_HEIGHT.dp
-            addView(
-                ImageView(context).apply(icon),
-                FrameLayout.LayoutParams(ICON_BOX_WIDTH.dp, CONTENT_HEIGHT.dp).apply {
-                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                }
-            )
+            if (icon != null) {
+                addView(
+                    ImageView(context).apply(icon),
+                    FrameLayout.LayoutParams(ICON_BOX_WIDTH.dp, CONTENT_HEIGHT.dp).apply {
+                        gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                    }
+                )
+            }
             addView(
                 WLabel(context).apply {
                     setStyle(TEXT_SIZE, WFont.Regular)
@@ -239,7 +258,7 @@ internal class AgentBulletin {
                 },
                 FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                    marginStart = ICON_BOX_WIDTH.dp
+                    marginStart = if (icon != null) ICON_BOX_WIDTH.dp else TEXT_END.dp
                     marginEnd = TEXT_END.dp
                 }
             )

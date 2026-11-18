@@ -41,10 +41,10 @@ interface OwnProps {
 const CARD_SELECTOR = '[data-agent-news-digest-id]';
 
 /**
- * A daily digest in the feed, in the bubble the news cards have, as on mobile: its title, how many news it covers, its
- * top headlines, each opening its news item's discussion, the news it leaves out, the time it came in the bubble's
- * trailing corner, as a news card's, and the "Discuss" strip, which opens the digest's own discussion. Its menu, as a
- * news card's, copies its title and headlines.
+ * A daily digest in the feed, as on mobile, in the bubble the news cards have, topped in the look of the suggestions:
+ * its title, how many news it covers, its top headlines, each opening its news item's discussion, the news it leaves
+ * out, the time it came in the bubble's trailing corner, as a news card's, and the "Discuss" strip, which opens the
+ * digest's own discussion. Its menu, as a news card's, copies its title and headlines.
  */
 function AgentNewsDigestCard({
   digest, messageId, isJustAdded = false, isInDigestsView = false, onOpenNewsDiscussion, onOpenDigestDiscussion,
@@ -109,6 +109,7 @@ function AgentNewsDigestCard({
             bubbleStyles.bubble,
             bubbleStyles.incoming,
             styles.news,
+            styles.digestCard,
             shouldAnimateAppearance && bubbleStyles.appearing,
           )}
           data-agent-news-digest-id={id}
@@ -116,7 +117,7 @@ function AgentNewsDigestCard({
           onContextMenu={handleContextMenu}
         >
           <div className={styles.digestHeader}>
-            <h3 className={styles.newsHeadline}>{title}</h3>
+            <h3 className={buildClassName(styles.newsHeadline, styles.digestTitle)}>{title}</h3>
             <div className={styles.digestMeta}>
               {lang('$agent_digest_meta', { count: toNativeDigits(String(total)) }, undefined, total)}
             </div>

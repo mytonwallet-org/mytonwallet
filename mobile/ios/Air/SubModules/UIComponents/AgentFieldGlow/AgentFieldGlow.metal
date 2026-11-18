@@ -1,12 +1,13 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// Matches `AgentFieldGlowView.Uniforms`: three float4, 48 bytes.
+// Matches `AgentFieldGlowView.Uniforms`: four float4, 64 bytes.
 struct AgentFieldGlowUniforms {
     float4 geometry;  // xy: the field's size, points; z: drawable pixels per point; w: corner radius, points
-    float4 motion;    // x: time, seconds; y: opacity; z: the leading side, 0 for the left and 1 for the right;
-                      // w: how far the canvas reaches beyond the field on every side, points
+    float4 motion;    // x: time, seconds; y: opacity; z: reserved; w: how far the canvas reaches beyond the field on
+                      // every side, points
     float4 tint;      // rgb: the accent colour
+    float4 rimPhases; // xyz: where the rim's three bright stretches stand, as shares of its loop
 };
 
 struct AgentFieldGlowVertexOut {
@@ -31,8 +32,20 @@ static float agentFieldGlowLight(float2 xy, float2 centre, float sigma) {
     return exp(-dot(d, d) / (2.0 * sigma * sigma));
 }
 
+// How near `x` lies to either side of a field `width` wide, the light along the edge reaching `reach` in from each
+static float agentFieldGlowNearSide(float x, float width, float reach) {
+    return exp(-max(min(x, width - x), 0.0) / reach);
+}
+
+// A share of the field's width that wanders over all of it, from 0.05 to 0.95, along two slow swings that never
+// quite repeat, so the light it places turns up anywhere, as the thinking glow's do
+static float agentFieldGlowWander(float time, float first, float firstPhase, float second, float secondPhase) {
+    return 0.5 + 0.28 * sin(time * first + firstPhase) + 0.17 * sin(time * second + secondPhase);
+}
+
 // The same light as Android's `AgentFieldGlowView` shader draws, point for point: an edge band brightest at the bottom
-// and the leading side, and three lights drifting along the bottom, through the field and up and down the leading side.
+// and as bright near either side, and three lights wandering over the field, one low along the bottom and two through
+// it, so neither side is favoured.
 fragment float4 agentFieldGlowFragment(
     AgentFieldGlowVertexOut in [[stage_in]],
     constant AgentFieldGlowUniforms &u [[buffer(0)]]
@@ -40,28 +53,32 @@ fragment float4 agentFieldGlowFragment(
     float2 size = u.geometry.xy;
     float2 xy = in.position.xy / u.geometry.z - u.motion.w;
     float time = u.motion.x;
-    float leading = u.motion.z;
     float2 halfSize = size * 0.5;
     float inset = max(-agentFieldGlowRoundedRectDistance(xy - halfSize, halfSize, u.geometry.w), 0.0);
-    float leadingDistance = abs(xy.x / size.x - leading) * size.x;
     float down = xy.y / size.y;
     float edgeBand = exp(-inset / 5.0);
-    float nearLeading = exp(-leadingDistance / 50.0);
+    float nearSide = agentFieldGlowNearSide(xy.x, size.x, 50.0);
 
-    // A share of the width from the leading side is `abs(leading - share) * size.x`
-    float2 bottomCentre = float2(abs(leading - (0.35 + 0.25 * sin(time * 0.55))) * size.x, size.y);
-    float2 driftCentre = float2(
-        abs(leading - (0.575 + 0.325 * sin(time * 0.37 + 2.0))) * size.x,
-        size.y * (0.725 + 0.275 * sin(time * 0.8))
+    float2 bottomCentre = float2(
+        size.x * agentFieldGlowWander(time, 0.55, 0.0, 1.31, 1.7),
+        size.y * (0.9 + 0.1 * sin(time * 0.83 + 0.4))
     );
-    float2 sideCentre = float2(leading * size.x, size.y * (0.65 + 0.35 * sin(time * 0.45 + 1.0)));
+    float2 driftCentre = float2(
+        size.x * agentFieldGlowWander(time, 0.37, 2.0, 0.97, 4.1),
+        size.y * (0.6 + 0.3 * sin(time * 0.8))
+    );
+    float2 strayCentre = float2(
+        size.x * agentFieldGlowWander(time, 0.45, 4.2, 1.13, 0.6),
+        size.y * (0.65 + 0.35 * sin(time * 0.61 + 1.0))
+    );
     float bottomLight = agentFieldGlowLight(xy, bottomCentre, 28.0);
     float driftLight = agentFieldGlowLight(xy, driftCentre, 40.0);
-    float sideLight = agentFieldGlowLight(xy, sideCentre, 22.0);
-    float haze = 0.3 * exp(-(size.y - xy.y) / 22.0) * (0.5 + 0.5 * nearLeading);
-    float glow = edgeBand * (0.35 + 1.1 * nearLeading + 0.6 * down)
-        * (0.7 + 0.9 * bottomLight + 0.5 * driftLight + 0.6 * sideLight)
-        + 0.45 * bottomLight + 0.25 * driftLight + 0.35 * sideLight + haze;
+    float strayLight = agentFieldGlowLight(xy, strayCentre, 26.0);
+    // Each side is lit half as much, so the two together light the field as one alone would
+    float haze = 0.3 * exp(-(size.y - xy.y) / 22.0) * (0.5 + 0.25 * nearSide);
+    float glow = edgeBand * (0.35 + 0.55 * nearSide + 0.6 * down)
+        * (0.7 + 0.9 * bottomLight + 0.5 * driftLight + 0.6 * strayLight)
+        + 0.45 * bottomLight + 0.25 * driftLight + 0.35 * strayLight + haze;
     float alpha = clamp(glow * 0.55, 0.0, 0.92) * u.motion.y;
     // The brightest light whitens
     float3 color = mix(u.tint.rgb, float3(1.0), clamp((glow - 1.1) * 0.35, 0.0, 0.6));
@@ -114,16 +131,14 @@ static float agentFieldRimSpot(float along, float centre, float total, float sig
 }
 
 // The field's border giving off light: a thin, almost white core line along it, a bloom in the accent colour spilling
-// out beyond the field and a softer haze inside it. The rim is brightest at the bottom and the leading side, and bright
-// stretches run along it.
+// out beyond the field and a softer haze inside it. The rim is brightest at the bottom and as bright near either side,
+// and bright stretches run along it both ways, each at a pace that rises and falls, so they meet and part anywhere.
 fragment float4 agentFieldRimFragment(
     AgentFieldGlowVertexOut in [[stage_in]],
     constant AgentFieldGlowUniforms &u [[buffer(0)]]
 ) {
     float2 size = u.geometry.xy;
     float2 xy = in.position.xy / u.geometry.z - u.motion.w;
-    float time = u.motion.x;
-    float leading = u.motion.z;
     float2 halfSize = size * 0.5;
     float2 local = xy - halfSize;
     float radius = u.geometry.w;
@@ -132,11 +147,15 @@ fragment float4 agentFieldRimFragment(
     float along = agentFieldRimAlong(local, halfSize, radius, total);
 
     float down = clamp(xy.y / size.y, 0.0, 1.0);
-    float nearLeading = exp(-abs(clamp(xy.x / size.x, 0.0, 1.0) - leading) * size.x / 90.0);
-    float base = 0.15 + 0.45 * down + 0.6 * nearLeading;
-    float spots = agentFieldRimSpot(along, time * 140.0, total, 60.0)
-        + 0.8 * agentFieldRimSpot(along, total * 0.45 - time * 95.0, total, 48.0)
-        + 0.6 * agentFieldRimSpot(along, total * 0.7 + time * 60.0, total, 70.0);
+    float nearSide = agentFieldGlowNearSide(xy.x, size.x, 90.0);
+    float base = 0.15 + 0.45 * down + 0.3 * nearSide;
+    // The stretches stand at shares of the loop, which a field that grows or shrinks carries along with it
+    float first = fract(u.rimPhases.x) * total;
+    float second = fract(u.rimPhases.y) * total;
+    float third = fract(u.rimPhases.z) * total;
+    float spots = agentFieldRimSpot(along, first, total, 60.0)
+        + 0.8 * agentFieldRimSpot(along, second, total, 48.0)
+        + 0.6 * agentFieldRimSpot(along, third, total, 70.0);
     float intensity = base * (0.3 + 1.2 * spots);
 
     float core = exp(-edgeDistance * edgeDistance / (2.0 * 0.6 * 0.6));

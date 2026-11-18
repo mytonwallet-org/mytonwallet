@@ -154,6 +154,8 @@ final class AgentTestChat {
         /// A question goes at once, or with only `canAcceptMessages` waits for the answer being written
         var canSendMessages = true
         var canAcceptMessages = true
+        var canStopAnswer = false
+        private(set) var stopCount = 0
         /// The Agent thinks on each question that goes, its typing row coming once the chat has brought the question up
         var isThinkingOnSend = false
 
@@ -171,6 +173,12 @@ final class AgentTestChat {
             context?.append(.typingIndicator(AgentTypingIndicator()), animated: true)
         }
         func clearConversation() {}
+
+        func stopAnswer() {
+            stopCount += 1
+            canStopAnswer = false
+            context?.notifyStateChanged()
+        }
     }
 
     let backend = Backend()

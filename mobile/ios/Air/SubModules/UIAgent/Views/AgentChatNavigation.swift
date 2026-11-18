@@ -39,11 +39,17 @@ public enum AgentChatHeaderMorph {
     public static var runner: Runner?
 
     /// Call from `viewWillAppear` and `viewWillDisappear` of a screen that pushes other Agent screens: a push to or a
-    /// pop from one of them morphs the capsules, while the root handles its own pushes and pops
-    static func runIfNeeded(for screen: UIViewController & AgentChatNavigationHandoff, isAppearing: Bool) {
+    /// pop from one of them morphs the capsules, while the root handles its own pushes and pops. `isOther` limits the
+    /// morph to the screens it accepts on the other side.
+    static func runIfNeeded(
+        for screen: UIViewController & AgentChatNavigationHandoff,
+        isAppearing: Bool,
+        isOther: (UIViewController) -> Bool = { _ in true }
+    ) {
         guard let runner, let coordinator = screen.transitionCoordinator, coordinator.isAnimated,
               coordinator.viewController(forKey: isAppearing ? .to : .from) === screen,
-              let other = coordinator.viewController(forKey: isAppearing ? .from : .to) as? any AgentChatNavigationHandoff
+              let otherScreen = coordinator.viewController(forKey: isAppearing ? .from : .to), isOther(otherScreen),
+              let other = otherScreen as? any AgentChatNavigationHandoff
         else { return }
         runner(isAppearing ? other : screen, isAppearing ? screen : other, coordinator)
     }

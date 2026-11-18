@@ -20,7 +20,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     private var composerBottomConstant: CGFloat {
         AgentComposerMetrics.threadVerticalInset - AgentComposerMetrics.getFieldBottomInset(safeAreaBottom: view.safeAreaInsets.bottom)
     }
-    private let chatTitleView = AgentChatTitleView()
+    private let chatTitleView = NavigationTitleView()
     /// Consent was found missing before the chat was on screen, where the consent sheet asks for it
     private var isConsentPending = false
     /// A chat that couldn't load shows the failure in its middle with Retry, as the News feed does
@@ -157,6 +157,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         skeletonView.translatesAutoresizingMaskIntoConstraints = false
         skeletonView.isHidden = thread == nil
         composerView.translatesAutoresizingMaskIntoConstraints = false
+        composerView.isSendAlwaysShown = true
         composerView.isUserInteractionEnabled = false
         composerView.accessibilityElementsHidden = true
         view.addSubview(skeletonView)
@@ -187,7 +188,8 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
             contentLayoutGuide.trailingAnchor.constraint(equalTo: composerView.trailingAnchor),
         ])
         loadErrorView.onRetry = { [weak self] in
-            self?.loadErrorView.show(nil)
+            // The failure stays, its Retry dimmed, while the chat loads again, rather than giving way to the skeleton
+            self?.loadErrorView.isRetrying = true
             self?.loadConsent()
         }
         loadErrorView.install(in: view, column: contentLayoutGuide, centerY: contentLayoutGuide.centerYAnchor)
@@ -207,7 +209,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
                 guard !Task.isCancelled, self.isSessionCurrent else { return }
                 self.transitionTask = nil
                 self.skeletonView.isHidden = true
-                self.loadErrorView.show(AgentV2Copy.displayError(error)?.text ?? lang("$agent_error_generic"))
+                self.loadErrorView.show(AgentV2Copy.loadErrorText(error))
                 return
             }
             guard !Task.isCancelled, self.isSessionCurrent else { return }
@@ -253,7 +255,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
 
     private func showAgent() async {
         composerView.isHidden = false
-        skeletonView.isHidden = thread == nil
+        skeletonView.isHidden = thread == nil || loadErrorView.isRetrying
         // The placeholder shown from the start stays: a header transition may be drawing over it, hiding it, and a new
         // one would show its glass under the transition's
         if AgentChatNavigation.findButton(in: navigationItem.rightBarButtonItem)?.accessibilityIdentifier
@@ -282,7 +284,8 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
             }
             model.retainPresentation()
             preparingModel = model
-            // A chat with unread messages opens at the first of them, which only its loaded history places
+            // A chat with unread messages opens at the first of them, which only its loaded history places. Its cached
+            // history shows only when the history fails to load, under the failure with Retry.
             let isCacheAllowed = thread != nil && !isSummaryCached && !AgentThreadReadState.shared.isUnread(selectedThread)
             if isCacheAllowed {
                 await model.waitForInitialContent()
@@ -303,7 +306,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         } catch {
             guard !Task.isCancelled, isSessionCurrent else { return }
             skeletonView.isHidden = true
-            loadErrorView.show(AgentV2Copy.displayError(error)?.text ?? lang("$agent_error_generic"))
+            loadErrorView.show(AgentV2Copy.loadErrorText(error))
         }
     }
 
@@ -311,8 +314,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     /// does, and the headset before it in a chat that offers Contact Support. A new chat that offers it shows both, as
     /// its loaded header has them, so neither moves in.
     private func makeNavigationPlaceholders() -> [UIBarButtonItem] {
-        let isSupportVisible = AgentV2HostContextProvider.supportsSupportHandoff
-            && !AgentSupportPresentation.getState(for: thread?.support).isActive
+        let isSupportVisible = AgentSupportRequest.isEntryVisible(client: client, support: thread?.support)
         guard thread != nil || isSupportVisible else { return [] }
         let menu = AgentChatNavigation.makeMenuItem(menu: nil)
         guard isSupportVisible else { return [menu] }
@@ -327,6 +329,16 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     func walletCore(event: WalletCoreData.Event) {
+        if case .configChanged = event {
+            guard isViewLoaded else { return }
+            let hasSupportItem = navigationItem.rightBarButtonItems?.contains {
+                AgentChatNavigation.findButton(in: $0)?.accessibilityIdentifier == AgentChatNavigation.supportButtonIdentifier
+            } == true
+            if AgentSupportRequest.isEntryVisible(client: client, support: thread?.support) != hasSupportItem {
+                navigationItem.rightBarButtonItems = makeNavigationPlaceholders()
+            }
+            return
+        }
         guard case .agentThreadDeleted(let threadId) = event, selectedThreadId == threadId else { return }
         closeDeletedThread()
     }

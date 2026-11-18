@@ -451,6 +451,7 @@ export async function tryUpdateConfig() {
       knowledgeBaseVersion,
       agentProtocolVersion,
       preferredAgent,
+      isAgentSupportEnabled,
       allowedOnOffRampCurrencies,
     } = config;
 
@@ -467,6 +468,7 @@ export async function tryUpdateConfig() {
       knowledgeBaseVersion,
       agentProtocolVersion,
       preferredAgent,
+      isAgentSupportEnabled,
       allowedOnOffRampCurrencies,
     };
 

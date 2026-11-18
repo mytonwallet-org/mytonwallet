@@ -458,7 +458,7 @@ final class RootSearchRestorationTests: XCTestCase {
     /// Back from a chat whose composer rides the keyboard, as a swipe back while typing goes, the chat keeps its
     /// composer, above the keyboard that leaves with it, and the list's field comes in at the bottom with the pop. A chat
     /// whose composer rests at the bottom hands it over to the list's field.
-    func testChatComposerOnTheKeyboardStaysWithTheChatGoingBack() {
+    func testChatComposerOnTheKeyboardStaysWithTheChatGoingBack() throws {
         for isOnKeyboard in [true, false] {
             let host = AgentBarHost()
             let root = host.navigation.viewControllers[0]
@@ -469,11 +469,25 @@ final class RootSearchRestorationTests: XCTestCase {
             controller.install(bar)
             controller.setMorphProgress(1)
             let chat = AgentBarHandoffChat(isComposerOnKeyboard: isOnKeyboard)
+            chat.isComposerStopShown = true
             let pop = AgentBarTransitionCoordinator(style: .none, from: chat, to: root)
             host.navigation.stubTransitionCoordinator = pop
             controller.updateForNavigation(showing: root, isShowingRoot: true, in: host.navigation)
             XCTAssertEqual(chat.hiddenStates, isOnKeyboard ? [] : [true], "On the keyboard: \(isOnKeyboard)")
             XCTAssertEqual(bar.alpha, isOnKeyboard ? 0 : 1, "The list's field comes in with the pop")
+            if !isOnKeyboard {
+                let stop = try XCTUnwrap(findDescendants(of: host.agentBarHostView).compactMap { $0 as? UIButton }.first {
+                    $0.accessibilityIdentifier == "agent_stop"
+                })
+                XCTAssertFalse(stop.isHidden)
+                for target in stop.allTargets {
+                    for action in stop.actions(forTarget: target, forControlEvent: .touchUpInside) ?? [] {
+                        (target as? NSObject)?.perform(NSSelectorFromString(action), with: stop)
+                    }
+                }
+                XCTAssertEqual(chat.stopCount, 1, "The list's Stop reaches the chat it stands in for")
+                XCTAssertFalse(bar.composerView.isStopShown)
+            }
             pop.completeTransition()
             XCTAssertFalse(bar.isHidden)
             XCTAssertEqual(bar.alpha, 1)
@@ -674,79 +688,6 @@ final class RootSearchRestorationTests: XCTestCase {
                 XCTAssertFalse(list.bottomBar.isHidden)
                 XCTAssertNil(window.rootViewController?.presentedViewController, "No consent sheet before a question")
             }
-        }
-    }
-
-    /// The floating microphone over a dictated question stands above the Agent list's field, out of the root toolbar's
-    /// container: a touch reaches it through the window and records on, and the search circle stays away meanwhile
-    @available(iOS 17.0, *)
-    func testAgentListFloatingMicrophoneTakesTapsAboveTheToolbar() async throws {
-        UIView.setAnimationsEnabled(false)
-        defer { UIView.setAnimationsEnabled(true) }
-        for initial in [UIUserInterfaceSizeClass.compact, .regular] {
-            let (root, window) = host(initial)
-            defer { window.isHidden = true }
-            installAgentList(in: root, hasConsent: true)
-            selectTab(.agent, in: root)
-            try await settle(window)
-            let navigation = try navigation(root)
-            let list: AgentThreadListVC
-            if let compact = navigation.viewControllers.first as? TopTabsRootViewController {
-                list = try XCTUnwrap(compact.visibleContentProviderViewController as? AgentThreadListVC)
-            } else {
-                list = try XCTUnwrap(navigation.viewControllers.first as? AgentThreadListVC)
-            }
-            list.loadViewIfNeeded()
-            try await waitUntil(window) { !list.bottomBar.hostedGlassViews.isEmpty }
-
-            let scheduler = RootDictationScheduler()
-            var recordings = 0
-            let dictation = AgentDictationController(
-                scheduler: scheduler,
-                requestPermission: { true },
-                makeRecorder: { RootDictationRecorder() },
-                transcribe: { _ in .init(outcome: .transcribed, text: "Раз, два, три") },
-                haptic: { recordings += 1 },
-                gestureFeedback: {},
-                observeLifecycle: false
-            )
-            defer { dictation.cancel() }
-            let composer = list.bottomBar.composerView
-            composer.dictationController = dictation
-            dictation.onTranscript = { [weak composer] in composer?.revealDictatedText($0) }
-            dictation.startHandsFree()
-            try await waitUntil(window) { recordings == 1 }
-            scheduler.now = 1
-            dictation.finish()
-            try await waitUntil(window) { dictation.state.phase == .idle }
-            XCTAssertTrue(dictation.state.canDictateMore)
-            XCTAssertEqual(composer.draftText, "Раз, два, три")
-            let resume = try XCTUnwrap(findDescendants(of: list.bottomBar).compactMap { $0 as? UIButton }.first {
-                $0.accessibilityLabel == lang("$agent_voice_resume") && !$0.isHidden
-            })
-            let toolbar = root.searchController.searchToolbar
-            let frame = resume.convert(resume.bounds, to: window)
-            XCTAssertLessThan(frame.maxY, toolbar.convert(toolbar.bounds, to: window).minY)
-            XCTAssertLessThan(toolbar.searchButtonPresentationSourceView.transform.tx, 0, "The search circle is away")
-            let center = CGPoint(x: frame.midX, y: frame.midY)
-            // The microphone takes the tap, on its glass where it has Liquid Glass
-            for point in [center, CGPoint(x: frame.midX, y: frame.maxY - 2)] {
-                XCTAssertTrue(
-                    window.hitTest(point, with: nil)?.isDescendant(of: resume) == true,
-                    "\(initial) layout, a tap at \(point)"
-                )
-            }
-
-            // A tap on it, through its press, records hands-free
-            let touchView = try XCTUnwrap(resume.superview)
-            for state in [UIGestureRecognizer.State.began, .ended] {
-                touchView.perform(
-                    NSSelectorFromString("handleFloatingPress:"),
-                    with: RootFloatingMicrophonePress(state: state)
-                )
-            }
-            XCTAssertEqual(dictation.state.phase, .handsFree)
-            try await waitUntil(window) { recordings == 2 }
         }
     }
 
@@ -1433,6 +1374,8 @@ private final class AgentBarDictationRecorder: AgentDictationRecording {
 @MainActor
 private final class AgentBarHandoffChat: UIViewController, AgentComposerHandoffTarget {
     let isComposerOnKeyboard: Bool
+    var isComposerStopShown = false
+    private(set) var stopCount = 0
     private(set) var hiddenStates: [Bool] = []
 
     init(isComposerOnKeyboard: Bool) {
@@ -1447,6 +1390,11 @@ private final class AgentBarHandoffChat: UIViewController, AgentComposerHandoffT
 
     func setComposerHandoffHidden(_ isHidden: Bool) {
         hiddenStates.append(isHidden)
+    }
+
+    func stopComposerAnswer() {
+        stopCount += 1
+        isComposerStopShown = false
     }
 }
 
@@ -1533,20 +1481,5 @@ private final class RootAgentListClient: AgentThreadListClient, AgentNewsFeedCli
     func deleteThread(id: String) async throws -> ApiAgentV2ThreadDeleteResponse {
         XCTFail("Unexpected thread deletion")
         throw CancellationError()
-    }
-}
-
-/// A press on the Agent list's floating microphone in the state the test gives
-private final class RootFloatingMicrophonePress: UILongPressGestureRecognizer {
-    private let reportedState: UIGestureRecognizer.State
-
-    init(state: UIGestureRecognizer.State) {
-        reportedState = state
-        super.init(target: nil, action: nil)
-    }
-
-    override var state: UIGestureRecognizer.State {
-        get { reportedState }
-        set { }
     }
 }

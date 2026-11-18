@@ -106,6 +106,9 @@ final class AgentChatActions {
 
     /// Keeps the support sheet's Call enabled only while the chat can ask, as the chat changes under it
     func updateSupportConfirmation() {
+        if let model = model as? AgentV2Model, !model.isAgentSupportEnabled {
+            supportConfirmation?.dismiss(animated: false)
+        }
         AgentSupportRequest.findCallAction(in: supportConfirmation)?.isEnabled = canConfirmSupportRequest()
     }
 

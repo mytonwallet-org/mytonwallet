@@ -332,7 +332,9 @@ describe('useAgentV2Dictation', () => {
     expect(dictation.notice).toEqual({ kind: 'microphoneDenied' });
     expect(dictation.failure).toEqual({ kind: 'microphoneDenied' });
     expect(mockShowToast).toHaveBeenCalledTimes(1);
-    expect(mockShowToast).toHaveBeenCalledWith({ message: getTranslation('$agent_dictation_microphone_denied') });
+    expect(mockShowToast).toHaveBeenCalledWith({
+      message: getTranslation('$agent_dictation_microphone_denied_browser'),
+    });
     expect(dictation.phase).toBe('idle');
   });
 

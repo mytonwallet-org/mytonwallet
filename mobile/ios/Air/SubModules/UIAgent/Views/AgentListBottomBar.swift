@@ -12,20 +12,27 @@ public protocol AgentComposerHandoffTarget: AnyObject {
     func setComposerHandoffHidden(_ isHidden: Bool)
     /// Where the composer's field rests, in `window`'s coordinates, for the list's field to land on
     func getComposerHandoffFrame(in window: UIWindow) -> CGRect?
+    /// The screen's composer shows Stop in Send's place, which the list's field then shows as it stands in for it
+    var isComposerStopShown: Bool { get }
+    func stopComposerAnswer()
 }
 
 public extension AgentComposerHandoffTarget {
     var isComposerOnKeyboard: Bool { false }
     func getComposerHandoffFrame(in window: UIWindow) -> CGRect? { nil }
+    var isComposerStopShown: Bool { false }
+    func stopComposerAnswer() {}
 }
 
-/// The Agent list's bottom bar: the question field and the microphone beside the root toolbar's search circle.
+/// The Agent list's bottom bar: the question field, with its microphone, beside the root toolbar's search circle, and
+/// support's headset beside the field once the list has chats.
 ///
 /// The root lays the bar over its toolbar and can host the bar's glass in the toolbar's glass container, so the field,
-/// the microphone and the search circle are one piece of Liquid Glass that flows together where they meet.
+/// the headset's circle and the search circle are one piece of Liquid Glass that flows together where they meet.
 /// `morphProgress` splits the toolbar's search field into the search circle and the question field while paging to
 /// the Agent tab: the question field starts as the search field's glass and parts from the circle the search field
-/// shrinks into, and the microphone's circle takes the trailing button's place, the plus giving way to the microphone.
+/// shrinks into, and the composer's trailing circle takes the trailing button's place, the plus giving way to the
+/// headset, or merging into the field without it.
 /// The bar follows the progress on a spring, so the pieces swell through the morph and settle with a slight bounce,
 /// as in Telegram.
 /// `expansion` widens the field to a thread composer's full width, for focus and for the push into a chat.
@@ -88,6 +95,14 @@ public final class AgentListBottomBar: UIView {
     private let plusImageView = UIImageView()
     /// The shown progress, which follows the requested one on a spring and may overshoot it
     public private(set) var morphProgress: CGFloat = 1
+    /// A limit blocks new questions: the field's content is at half its opacity and sends nothing, as a chat's composer
+    var isInputBlockedByLimit = false {
+        didSet {
+            guard isInputBlockedByLimit != oldValue else { return }
+            composerView.setSendEnabled(!draftText.isEmpty && !isInputBlockedByLimit)
+            applyMorph()
+        }
+    }
     private var targetMorphProgress: CGFloat = 1
     private var morphVelocity: CGFloat = 0
     private var lastMorphFrameTime: CFTimeInterval?
@@ -138,11 +153,16 @@ public final class AgentListBottomBar: UIView {
         composerView.setSendEnabled(false)
         composerView.onDraftTextChanged = { [weak self] in
             guard let self else { return }
-            composerView.setSendEnabled(!draftText.isEmpty)
+            composerView.setSendEnabled(!draftText.isEmpty && !isInputBlockedByLimit)
             scheduleQuestionReport()
         }
         composerView.onDictationPhaseChanged = { [weak self] in self?.scheduleQuestionReport() }
         composerView.onSend = { [weak self] in self?.send() }
+        composerView.onStop = { [weak self] in
+            guard let self else { return }
+            handoffTarget?.stopComposerAnswer()
+            applyHandoffStop()
+        }
         composerView.onBeginEditing = { [weak self] in
             self?.onEditingChange?(true)
             self?.onHostEditingChange?(true)
@@ -187,7 +207,7 @@ public final class AgentListBottomBar: UIView {
         if window == nil { settleMorph() }
     }
 
-    /// Places the field's and the microphone's glass in `host`, the content view of the toolbar's glass container,
+    /// Places the field's and the trailing circle's glass in `host`, the content view of the toolbar's glass container,
     /// so they merge with the toolbar's glass. Nil gives the bar its own container again.
     public func setGlassHost(_ host: UIView?) {
         glassHost = host
@@ -196,8 +216,8 @@ public final class AgentListBottomBar: UIView {
         layoutIfNeeded()
     }
 
-    /// 0: the field and the microphone's circle are the root toolbar's search field and trailing button; 1: the
-    /// Agent list's field and microphone
+    /// 0: the field and the trailing circle are the root toolbar's search field and trailing button; 1: the Agent
+    /// list's field and its headset or none
     public func setMorphProgress(_ progress: CGFloat) {
         let progress = min(1, max(0, progress))
         guard progress != targetMorphProgress else { return }
@@ -219,11 +239,31 @@ public final class AgentListBottomBar: UIView {
         let expansion = min(1.15, max(-0.15, expansion))
         guard expansion != self.expansion else { return }
         self.expansion = expansion
+        // Widened to a chat's composer, the field keeps Send in place as a chat's does, or Stop where the chat shows it,
+        // which comes in as Stop rather than out of the arrow
+        let isChatComposer = expansion > 0.5
+        if isChatComposer { applyHandoffStop() }
+        composerView.isSendAlwaysShown = isChatComposer
+        if !isChatComposer { applyHandoffStop() }
         setNeedsLayout()
     }
 
+    /// Routes Stop to the chat whose composer the field stands in for
+    public func setHandoffTarget(_ target: (any AgentComposerHandoffTarget)?) {
+        handoffTarget = target
+        UIView.performWithoutAnimation {
+            applyHandoffStop()
+        }
+    }
+
+    private weak var handoffTarget: (any AgentComposerHandoffTarget)?
+
+    private func applyHandoffStop() {
+        composerView.setStopAvailable(handoffTarget?.isComposerStopShown == true && expansion > 0.5)
+    }
+
     /// Search opening over the list: 0 is the bar as it rests; 1 has the field flown off past the trailing edge and
-    /// the microphone turned into the search's close cross, which the search's own button then takes over. A spring
+    /// the trailing circle turned into the search's close cross, which the search's own button then takes over. A spring
     /// may carry it a little past either end.
     public func setSearchHandoff(_ progress: CGFloat) {
         let flight = min(1.1, max(-0.1, progress))
@@ -264,8 +304,8 @@ public final class AgentListBottomBar: UIView {
         // the search field it comes out of while it settles
         let shown = shownMorphProgress
         let progress = min(1, max(0, shown))
-        // The field starts where the toolbar's search field is, beside the trailing button the microphone's circle
-        // stands in for, and its leading edge parts from the circle the search field shrinks into
+        // The field starts where the toolbar's search field is, beside the trailing button the trailing circle stands
+        // in for, and its leading edge parts from the circle the search field shrinks into
         let listX = Self.height + Self.spacing
         let restingX = max(listX * progress, toolbarLeadingInset * (1 - Self.getSearchCircleCollapse(at: progress)))
         let minX = restingX - restingX * expansion
@@ -280,6 +320,8 @@ public final class AgentListBottomBar: UIView {
             height: fieldHeight
         ))
         composerView.actionCircleHold = 1 - progress
+        // A chat's composer has no trailing circle: the headset merges into the field as it widens to the chat's
+        composerView.actionCircleRelease = expansion
         composerView.fieldTrailingReserve = toolbarActionsWidth * (1 - Self.getSearchCircleCollapse(at: progress))
         composerView.glassScale = Self.swell(at: min(1.15, max(-0.1, shown)))
         composerView.layoutIfNeeded()
@@ -357,7 +399,7 @@ public final class AgentListBottomBar: UIView {
         let shown = shownMorphProgress
         let progress = min(1, max(0, shown))
         // The field's own content appears in the second half, as the field parts from the circle; the plus shrinks
-        // away on the microphone's circle before the microphone grows in with it, as the header capsules swap their
+        // away on the trailing circle before the headset grows in with it, as the header capsules swap their
         // content
         let hidden = GlassMotion.matchScale
         let plusSwap = min(1, progress / 0.35)
@@ -368,7 +410,7 @@ public final class AgentListBottomBar: UIView {
             ? .identity
             : CGAffineTransform(rotationAngle: .pi / 4 * progress).scaledBy(x: plusScale, y: plusScale)
         let content = max(0, (progress - 0.45) / 0.55)
-        composerView.contentAlpha = content
+        composerView.contentAlpha = content * (isInputBlockedByLimit ? 0.5 : 1)
         composerView.actionContentScale = hidden + (1 - hidden) * content
         composerView.isHeightUpdateSuspended = targetMorphProgress < 1 || morphProgress < 0.99
         composerView.isUserInteractionEnabled = morphProgress > 0.99

@@ -3,6 +3,7 @@ import Dependencies
 import XCTest
 import UIKit
 import Kingfisher
+import ObjectiveC
 @testable import UIAgent
 @testable import UIComponents
 import WalletContext
@@ -576,6 +577,68 @@ final class AgentV2ThreadChatTests: XCTestCase {
         }
     }
 
+    /// A news discussion the user has written in shows its post with its history: the feed's copy of the post alone would
+    /// have the history push in under it, with another date over it. Placeholders hold the post's place until then.
+    @MainActor
+    func testStartedNewsDiscussionShowsItsPostWithItsHistory() async throws {
+        let messages = [
+            newsMessage(text: "News"),
+            newsMessage(id: "question", role: "user", text: "What does this mean?", isPost: false),
+            newsMessage(id: "answer", text: "Here is the context", isPost: false),
+        ]
+        for count in [1, 3] {
+            let response = try newsResponse(headline: "News", messageCount: count)
+            let client = try ThreadChatClient(threadId: "news-thread", messages: Array(messages.prefix(count)), news: response.thread.news)
+            client.blocksMessages = true
+            let preloader = AgentPreloader(client: client)
+            defer {
+                preloader.setWalletReady(false)
+                client.releasePendingRequests()
+            }
+            let model = try XCTUnwrap(preloader.acquireModel(thread: client.hydration.thread, news: (newsItem(), "en")))
+            try await waitUntil { client.pendingMessages != nil }
+
+            let isStarted = count > 1
+            XCTAssertEqual(model.hasMessages, !isStarted, "A discussion with \(count) messages")
+            XCTAssertEqual(model.isAwaitingDiscussionPost, isStarted, "A discussion with \(count) messages")
+            client.resumeMessages(with: .success(client.hydration))
+            await model.waitForInitialLoad()
+            XCTAssertTrue(model.hasMessages)
+            XCTAssertFalse(model.isAwaitingDiscussionPost)
+            XCTAssertGreaterThanOrEqual(model.itemIDs.count, count, "A discussion with \(count) messages")
+        }
+    }
+
+    /// A headline opens its news item's discussion without the chat list's copy of its thread: the post waits for the
+    /// thread, and for the history of one the user has written in, while one the user hasn't shows with the thread
+    @MainActor
+    func testHeadlineDiscussionHoldsItsPostUntilItsThreadSaysWhetherItIsStarted() async throws {
+        for count in [1, 3] {
+            let response = try newsResponse(headline: "News", messageCount: count)
+            let client = try ThreadChatClient(threadId: "news-thread", news: response.thread.news)
+            client.blocksNewsCreation = true
+            client.blocksMessages = true
+            let model = AgentV2Model(client: client, news: newsItem(), locale: "en", holdsPostForExistingThread: true) { _ in }
+            defer {
+                model.stop()
+                client.releasePendingRequests()
+            }
+            try await waitUntil { client.pendingNewsCreation != nil }
+            XCTAssertFalse(model.hasMessages, "A discussion with \(count) messages")
+            XCTAssertTrue(model.isAwaitingDiscussionPost, "A discussion with \(count) messages")
+
+            client.resumeNewsCreation(with: .success(response))
+            if count > 1 {
+                try await waitUntil { client.pendingMessages != nil }
+                XCTAssertFalse(model.hasMessages, "The started discussion's post waits for its history")
+                client.resumeMessages(with: .success(client.hydration))
+                await model.waitForInitialLoad()
+            }
+            try await waitUntil { model.hasMessages }
+            XCTAssertFalse(model.isAwaitingDiscussionPost)
+        }
+    }
+
     @MainActor
     func testDiscussionPostSkeletonStaysUntilTheArrivingPostIsInTheList() async throws {
         let response = try newsResponse(headline: "Market news", messageCount: 1)
@@ -794,7 +857,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         XCTAssertTrue(composer.accessibilityElementsHidden)
         XCTAssertFalse(descendants(of: root.view).contains { ($0 as? UIActivityIndicatorView)?.isAnimating == true })
         let titleView = try XCTUnwrap(root.navigationItem.titleView)
-        let chatTitle = try XCTUnwrap(descendants(of: titleView).compactMap { $0 as? AgentChatTitleView }.first)
+        let chatTitle = try XCTUnwrap(descendants(of: titleView).compactMap { $0 as? NavigationTitleView }.first)
         XCTAssertEqual(chatTitle.accessibilityLabel, "🐳 Large BTC transfer")
 
         // A new chat has no history to stand in for
@@ -818,6 +881,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         for count in [1, 3] {
             let response = try newsResponse(headline: "News", messageCount: count)
             let client = try ThreadChatClient(threadId: "news-thread", messages: Array(messages.prefix(count)), news: response.thread.news)
+            client.isAgentSupportEnabled = true
             let preloader = AgentPreloader(client: client)
             defer { preloader.setWalletReady(false) }
             let root = AgentRootVC(thread: client.hydration.thread, preloader: preloader)
@@ -2048,6 +2112,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         let presentation = AgentTestConsentSheetPresentation.install(in: self)
         let response = try newsResponse(headline: newsItem().headline, messageCount: 0)
         let client = try ThreadChatClient(threadId: "news-thread", messages: [], news: response.thread.news)
+        client.isAgentSupportEnabled = true
         client.hasConsent = false
         client.blocksNewsCreation = true
         client.blocksRuns = true
@@ -4156,6 +4221,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
     func testContactSupportIsHiddenWhereSupportHasTheChatAndWaitsForHistoryRunsAndRateLimits() async throws {
         for state in [ApiAgentV2ThreadSupport.State.waiting, .operator] {
             let client = try ThreadChatClient(threadId: "support-thread")
+            client.isAgentSupportEnabled = true
             client.hydration = try makeSupportPage(messageIDs: ["anchor"], state: state)
             let model = AgentV2Model(client: client, thread: client.hydration.thread)
             await model.waitForInitialLoad()
@@ -4179,6 +4245,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         }
         let news = try newsResponse(headline: newsItem().headline, messageCount: 1)
         let newsClient = try ThreadChatClient(threadId: "news-thread", messages: [], news: news.thread.news)
+        newsClient.isAgentSupportEnabled = true
         let newsModel = AgentV2Model(client: newsClient, thread: newsClient.hydration.thread)
         await newsModel.waitForInitialLoad()
         // A news discussion offers support like any other chat
@@ -4187,6 +4254,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         newsModel.stop()
 
         let client = try ThreadChatClient(threadId: "agent-thread")
+        client.isAgentSupportEnabled = true
         client.blocksMessages = true
         client.blocksRuns = true
         let model = AgentV2Model(client: client, thread: client.hydration.thread)
@@ -4215,6 +4283,129 @@ final class AgentV2ThreadChatTests: XCTestCase {
     }
 
     @MainActor
+    func testSupportConfigChangesUpdateTheLoadedAndLoadingChatHeaders() async throws {
+        for isLoading in [false, true] {
+            let client = try ThreadChatClient(threadId: "agent-thread")
+            let preloader = AgentPreloader(client: client)
+            let model: AgentV2Model?
+            let controller: UIViewController
+            if isLoading {
+                client.blocksFirstConsent = true
+                model = nil
+                controller = AgentRootVC(thread: client.hydration.thread, preloader: preloader)
+            } else {
+                let chatModel = AgentV2Model(client: client, thread: client.hydration.thread)
+                await chatModel.waitForInitialLoad()
+                model = chatModel
+                controller = AgentVC(model: chatModel)
+            }
+            let navigation = UINavigationController(rootViewController: controller)
+            let window = makeKeyWindow(showing: navigation)
+            defer {
+                window.isHidden = true
+                navigation.setViewControllers([], animated: false)
+                model?.stop()
+                preloader.setWalletReady(false)
+                client.releasePendingRequests()
+            }
+            window.layoutIfNeeded()
+            for _ in 0..<20 { await Task.yield() }
+            func getNavigationButtonIDs() -> [String?] {
+                (controller.navigationItem.rightBarButtonItems ?? []).map {
+                    AgentChatNavigation.findButton(in: $0)?.accessibilityIdentifier
+                }
+            }
+            XCTAssertEqual(getNavigationButtonIDs(), [AgentChatNavigation.menuButtonIdentifier])
+
+            for isEnabled in [true, false] {
+                client.isAgentSupportEnabled = isEnabled
+                WalletCoreData.notify(event: .configChanged)
+                let expected: [String?] = isEnabled
+                    ? [AgentChatNavigation.menuButtonIdentifier, AgentChatNavigation.supportButtonIdentifier]
+                    : [AgentChatNavigation.menuButtonIdentifier]
+                try await waitUntil { getNavigationButtonIDs() == expected }
+                XCTAssertEqual(getNavigationButtonIDs(), expected)
+
+                let originalItems = try XCTUnwrap(controller.navigationItem.rightBarButtonItems)
+                for _ in 0..<2 {
+                    WalletCoreData.notify(event: .configChanged)
+                    await withCheckedContinuation { continuation in
+                        DispatchQueue.main.async { continuation.resume() }
+                    }
+                    let currentItems = try XCTUnwrap(controller.navigationItem.rightBarButtonItems)
+                    XCTAssertEqual(currentItems.count, originalItems.count)
+                    for (original, current) in zip(originalItems, currentItems) {
+                        XCTAssertTrue(original === current)
+                    }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testSupportConfirmationStaysOpenWithCallDisabledWhenSupportTakesTheChat() async throws {
+        let client = try ThreadChatClient(threadId: "support-thread")
+        client.isAgentSupportEnabled = true
+        let model = AgentV2Model(client: client, thread: client.hydration.thread)
+        await model.waitForInitialLoad()
+        let chat = AgentVC(model: model)
+        let navigation = UINavigationController(rootViewController: chat)
+        let window = makeKeyWindow(showing: navigation)
+        defer {
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+            model.stop()
+            client.releasePendingRequests()
+            AgentThreadReadState.shared.remove(threadId: "support-thread")
+        }
+        window.layoutIfNeeded()
+        let headset = try XCTUnwrap(chat.navigationItem.rightBarButtonItems?
+            .compactMap { AgentChatNavigation.findButton(in: $0) }
+            .first { $0.accessibilityIdentifier == AgentChatNavigation.supportButtonIdentifier })
+        XCTAssertTrue(headset.isEnabled)
+        headset.sendActions(for: .primaryActionTriggered)
+        try await waitUntil { chat.presentedViewController is UIAlertController }
+        let sheet = try XCTUnwrap(chat.presentedViewController as? UIAlertController)
+        let call = try XCTUnwrap(AgentSupportRequest.findCallAction(in: sheet))
+        XCTAssertTrue(call.isEnabled)
+
+        // A scene-less test window never finishes presenting, so record dismissal attempts at UIKit's boundary
+        let selector = #selector(UIViewController.dismiss(animated:completion:))
+        let method = try XCTUnwrap(class_getInstanceMethod(UIViewController.self, selector))
+        let original = method_getImplementation(method)
+        typealias Dismiss = @convention(c) (UIViewController, Selector, Bool, (@convention(block) () -> Void)?) -> Void
+        let dismissOriginal = unsafeBitCast(original, to: Dismiss.self)
+        var sheetDismissals = 0
+        let dismiss: @convention(block) (UIViewController, Bool, (@convention(block) () -> Void)?) -> Void = { controller, animated, completion in
+            if controller === sheet {
+                sheetDismissals += 1
+                completion?()
+            } else {
+                dismissOriginal(controller, selector, animated, completion)
+            }
+        }
+        let implementation = imp_implementationWithBlock(dismiss)
+        method_setImplementation(method, implementation)
+        defer {
+            method_setImplementation(method, original)
+            imp_removeBlock(implementation)
+        }
+
+        client.hydration = try makeSupportPage(
+            messageIDs: ["anchor"], state: .waiting, revision: client.hydration.thread.revision + 1
+        )
+        WalletCoreData.notify(event: .agentV2(.threadChanged(threadId: "support-thread", thread: client.hydration.thread)))
+        try await waitUntil { model.isSupportActive && !call.isEnabled }
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+
+        XCTAssertEqual(sheetDismissals, 0)
+        XCTAssertTrue(chat.presentedViewController === sheet)
+        XCTAssertTrue(client.startedCommands.isEmpty)
+    }
+
+    @MainActor
     func testContactSupportAsksFirstSendsItsSourcesAndShowsItsFailureWithoutRetry() async throws {
         let account = MAccount(id: "wallet", title: "Wallet", type: .mnemonic, byChain: [.ton: .init(address: "ton")])
         var activeAccount: MAccount? = account
@@ -4224,6 +4415,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
             $0[SavedAddressesStore.self] = .liveValue
         } operation: {
             let client = try ThreadChatClient(threadId: "agent-thread")
+            client.isAgentSupportEnabled = true
             client.blocksRuns = true
             client.clientRunIds = ["quota-run", "header-run", "hint-run", "second-header-run"]
             let model = AgentV2Model(client: client, thread: client.hydration.thread, activeAccount: { activeAccount })
@@ -4352,6 +4544,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
     @MainActor
     func testEmptyChatsStarterHintsEndWithContactSupportThatOpensTheChatSupportHasOrAsksHere() async throws {
         let client = try ThreadChatClient(threadId: "new-thread", messages: [])
+        client.isAgentSupportEnabled = true
         client.blocksRuns = true
         client.hintsResult = try JSONDecoder().decode(ApiAgentV2StarterHints.self, from: Data("""
         {"catalogVersion":"agent-starter-hints-v2","items":[{"id":"agent.capabilities","group":"learn"},{"id":"wallet.assets","group":"wallet"}]}
@@ -4486,6 +4679,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
     @MainActor
     func testStarterHintSupportRequestWaitsForTheNewChatsHistory() async throws {
         let client = try ThreadChatClient(threadId: "new-thread", messages: [])
+        client.isAgentSupportEnabled = true
         client.blocksRuns = true
         client.messageFailuresRemaining = 1
         let model = AgentV2Model(client: client, thread: client.hydration.thread)
@@ -4509,6 +4703,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
     @MainActor
     func testStarterHintSupportRequestDropsOnceAQuestionGoesWhileTheChatsLoad() async throws {
         let client = try ThreadChatClient(threadId: "new-thread", messages: [])
+        client.isAgentSupportEnabled = true
         client.blocksRuns = true
         client.hintsResult = try JSONDecoder().decode(ApiAgentV2StarterHints.self, from: Data("""
         {"catalogVersion":"agent-starter-hints-v2","items":[{"id":"agent.capabilities","group":"learn"}]}
@@ -4550,6 +4745,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         {"catalogVersion":"agent-starter-hints-v2","items":[{"id":"agent.capabilities","group":"learn"}]}
         """.utf8))
         let client = try ThreadChatClient(threadId: "new-thread", messages: [])
+        client.isAgentSupportEnabled = true
         client.blocksRuns = true
         client.hintsResult = hints
         client.threadList = try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: Data("""
@@ -4592,6 +4788,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
 
         // Nor does the chat support has take the place of a chat left behind
         let supportClient = try ThreadChatClient(threadId: "new-thread", messages: [])
+        supportClient.isAgentSupportEnabled = true
         supportClient.hintsResult = hints
         supportClient.threadList = try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: JSONSerialization.data(withJSONObject: [
             "protocolVersion": 2,
@@ -4621,6 +4818,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
     @MainActor
     func testHeadsetComesBackEnabledOnceSupportClosesInTheChatOnScreen() async throws {
         let client = try ThreadChatClient(threadId: "support-thread")
+        client.isAgentSupportEnabled = true
         client.hydration = try makeSupportPage(messageIDs: ["anchor"], state: .operator)
         let model = AgentV2Model(
             client: client, thread: client.hydration.thread, supportPollingInterval: Self.drivenPollingInterval
@@ -4659,6 +4857,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
     @MainActor
     func testHeadsetIsEnabledOnceARetriedFirstLoadSucceeds() async throws {
         let client = try ThreadChatClient(threadId: "agent-thread")
+        client.isAgentSupportEnabled = true
         client.messageFailuresRemaining = 1
         let model = AgentV2Model(client: client, thread: client.hydration.thread)
         await model.waitForInitialLoad()
@@ -4692,6 +4891,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
     @MainActor
     func testQuestionTheQuotaHoldsKeepsItsRetryAfterASupportRequestTheServerDidNotTake() async throws {
         let client = try ThreadChatClient(threadId: "agent-thread")
+        client.isAgentSupportEnabled = true
         client.blocksRuns = true
         client.clientRunIds = ["quota-run", "support-run"]
         let model = AgentV2Model(client: client, thread: client.hydration.thread)
@@ -4738,6 +4938,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
             "content": ["kind": "markdown", "text": "Agent answer"], "createdAt": "2026-10-02T00:00:01.000Z"
         ]
         let client = try ThreadChatClient(threadId: "support-thread", messages: [question, answer])
+        client.isAgentSupportEnabled = true
         client.blocksRuns = true
         client.clientRunIds = ["support-run", "message-run"]
         let model = AgentV2Model(
@@ -4963,6 +5164,7 @@ private enum ThreadChatClientError: Error {
 
 @MainActor
 private final class ThreadChatClient: AgentV2Client, AgentThreadListClient, WalletCoreData.EventsObserver {
+    var isAgentSupportEnabled = false
     var hydration: ApiAgentV2ThreadHydration
     var hydrationByCursor: [String: ApiAgentV2ThreadHydration] = [:]
     private(set) var messageCursors: [String?] = []

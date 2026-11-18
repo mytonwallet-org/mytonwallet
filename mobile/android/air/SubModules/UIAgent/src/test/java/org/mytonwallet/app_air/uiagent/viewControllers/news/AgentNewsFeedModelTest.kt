@@ -22,11 +22,13 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Test
+import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.buildAgentNewsShareText
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationError
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsDigestHeadline
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
@@ -634,6 +636,33 @@ class AgentNewsFeedModelTest {
         model.setView(AgentNewsFeedView.All)
         assertNull(findCurrentDigest().discussion)
         assertEquals(recentThread.id, model.items.last().discussion?.threadId)
+    }
+
+    @Test
+    fun withoutANetworkTheLiveFeedShowsTheCopyOfItsFirstPageOnly() = runBlocking {
+        val cached = AgentV2NewsFeedPage("ru", emptyList(), "older")
+        var code = "network_error"
+        val reads = mutableListOf<Pair<String, String?>>()
+        val client = LiveAgentNewsFeedClient(
+            call = {
+                throw AgentV2OperationException(AgentV2MutationError(code, retryable = true))
+            },
+            readCache = { lang, _, view ->
+                reads += lang to view
+                cached
+            }
+        )
+
+        assertEquals(cached, client.getNewsFeed("ru", null, SCHEDULE, AgentNewsFeedView.Digests))
+        assertEquals(listOf("ru" to AgentNewsFeedView.Digests.value), reads)
+        assertThrows(AgentV2OperationException::class.java) {
+            runBlocking { client.getNewsFeed("ru", "older", SCHEDULE, AgentNewsFeedView.All) }
+        }
+        code = "rate_limited"
+        assertThrows(AgentV2OperationException::class.java) {
+            runBlocking { client.getNewsFeed("ru", null, SCHEDULE, AgentNewsFeedView.All) }
+        }
+        assertEquals(1, reads.size)
     }
 
     @Test

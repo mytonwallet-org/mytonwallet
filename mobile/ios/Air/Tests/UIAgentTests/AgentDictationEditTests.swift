@@ -166,8 +166,9 @@ final class AgentDictationEditTests: XCTestCase {
         XCTAssertEqual(dictation.state.phase, .holding)
         XCTAssertTrue(textView.isFirstResponder)
         scheduler.advance(by: 0.8)
-        dictation.touchEnded()
-        // Released, a held recording's transcript goes at once, here as the edit of the message
+        // Let go at Send, a held recording's transcript goes at once, here as the edit of the message
+        dictation.touchMoved(x: 300)
+        dictation.touchEnded(x: 300)
         for _ in 0..<300 where backend.sentTexts.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
 
         XCTAssertEqual(composer.draftText ?? "", "")

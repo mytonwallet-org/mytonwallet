@@ -194,21 +194,18 @@ class AgentVC(
         val SUPPORT_EVENT_CELL = WCell.Type(7)
         private const val DATE_HEADER_GAP_MS = 10 * 60 * 1000L
 
-        // The idle field's bottom sits this far above the navigation bar, on the root toolbar's line as the list's
-        // field does, and the toolbar's extra gap higher without the gradient navigation bar
-        private const val FIELD_LINE_LIFT = 1
-        private const val FIELD_LINE_EXTRA = 7
         private const val KEYBOARD_GAP = 12
         private const val MORE_BUTTON_SHIFT = 4f
         private const val COMPOSER_HEADER_CLEARANCE = 120
         private const val COMPOSER_MIN_MAX_HEIGHT = 132
         private const val HINTS_SETTLE_FALLBACK_MS = 3000L
-        private const val INCOMING_MESSAGE_DELAY_MS = 250L
+        private const val INCOMING_MESSAGE_DELAY_MS = 200L
         private const val PROBLEM_REPORT_COMMENT_LINES = 4
         private const val PROBLEM_REPORT_COMMENT_MAX_LENGTH = 1000
         private const val RETRY_CHAT_CREATION = "retryChatCreation"
         private const val SCROLL_BUTTON_THRESHOLD = 60
         private const val DISABLED_BUTTON_ALPHA = 0.5f
+        private const val INPUT_LIMIT_STATUS_ID = "inputLimitStatus"
         private const val LOAD_ERROR_SIDE_INSET = 32f
         private const val MENU_AFTER_KEYBOARD_TIMEOUT_MS = 600L
     }
@@ -227,10 +224,8 @@ class AgentVC(
     // In dp, from the navigation bar's top to the composer's bottom edge, below the field by its padding
     private val composerBottomOffset: Int
         get() {
-            if (window?.isWideLayout == true) return 0
-            val extra = if (WGlobalStorage.isGradientNavigationBarActive()) 0 else FIELD_LINE_EXTRA
             val padding = composerView.paddingBottom / context.resources.displayMetrics.density
-            return FIELD_LINE_LIFT + extra - padding.roundToInt()
+            return agentFieldLine() - padding.roundToInt()
         }
     private val discussionFollowups = discussionFollowups?.takeIf { shouldDeferCreation }
     private val discussionKey = getAgentDeferredDiscussionKey(news, digestId, shouldDeferCreation)
@@ -586,8 +581,14 @@ class AgentVC(
     private val messagesSkeleton = AgentMessagesSkeletonView(context).apply { isGone = true }
     private val historySpinner = AgentHistorySpinner(context)
     private val loadErrorView = AgentLoadErrorView(context).apply {
-        onRetry = { preparedVM?.failureRetry?.invoke() }
+        onRetry = {
+            retriedLoadError = text
+            preparedVM?.failureRetry?.invoke()
+        }
     }
+
+    // The failure Retry was tapped on, which stays, its Retry dimmed, while the chat loads again
+    private var retriedLoadError: String? = null
     private val skeletonReveal by lazy { AgentSkeletonReveal(messagesSkeleton, chatRecyclerView) }
 
     // A touch that stops a scroll opens no menu, like one stopping a fling
@@ -661,7 +662,10 @@ class AgentVC(
     private var isRegenerationStarting = false
     private var editingMessageId: String? = null
 
-    private val composerView by lazy { AgentComposerView(context, chatRecyclerView) }
+    // Send keeps its place in a chat, quiet while there is nothing to send, so the microphone stays put
+    private val composerView by lazy {
+        AgentComposerView(context, chatRecyclerView).apply { isSendAlwaysShown = true }
+    }
     private val dictationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val dictation by lazy {
         AgentDictationController(
@@ -677,6 +681,7 @@ class AgentVC(
             nowMs = SystemClock::elapsedRealtime,
             onStateChanged = composerView::renderDictation,
             onTranscript = composerView::setDictationText,
+            onSendTranscript = composerView::sendDictationText,
             onFailure = composerView::showDictationFailure,
             onRecordingStarted = { Haptics.play(composerView, HapticType.LIGHT_TAP) },
             onGestureFeedback = { Haptics.play(composerView, HapticType.LIGHT_TAP) }
@@ -713,6 +718,10 @@ class AgentVC(
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            WalletEvent.ConfigReceived -> {
+                if (preparedVM == null) chatOpening?.onWalletEvent(walletEvent)
+            }
+
             WalletEvent.AppBackground -> {
                 isAppInForeground = false
                 setMessageRenderingActive(false)
@@ -3247,22 +3256,24 @@ class AgentVC(
 
     private fun updateLoadError() {
         val model = preparedVM
-        val failure = if (model != null && agentState == AgentVM.State.ERROR) {
+        // A chat with nothing to show but its failure shows the failure in its middle
+        val failureMessages = model?.let {
             agentNewsPostMessages(
                 displayMessages,
-                model.historyCursor,
-                model.currentThread.news,
+                it.historyCursor,
+                it.currentThread.news,
                 news,
-                model.currentThread.digest ?: digestPreview
+                it.currentThread.digest ?: digestPreview
             )
-                .takeIf { messages ->
-                    messages.isNotEmpty() && messages.all { it.message.isFailure }
-                }?.lastOrNull()?.message
-        } else {
-            null
-        }
-        loadErrorView.setError(failure?.text)
-        chatRecyclerView.isInvisible = failure != null
+        }.orEmpty()
+        val isOnlyFailure = failureMessages.all { it.message.isFailure }
+        val failure = failureMessages.lastOrNull()?.message
+            ?.takeIf { agentState == AgentVM.State.ERROR && isOnlyFailure }
+        if (agentState != AgentVM.State.LOADING || model == null) retriedLoadError = null
+        val retried = retriedLoadError?.takeIf { isOnlyFailure }
+        loadErrorView.setError(failure?.text ?: retried)
+        loadErrorView.isRetrying = failure == null && retried != null
+        chatRecyclerView.isInvisible = failure != null || retried != null
     }
 
     override fun onOlderMessagesLoadingChanged() {
@@ -3279,7 +3290,50 @@ class AgentVC(
         updateComposerSubmission()
         updateHeaderButtons()
         updateVisibleHintsAvailability()
-        reloadLastFailureRowIfRetryChanged()
+        if (preparedVM?.inputLimitText != shownInputLimitText) {
+            rebuildTimeline()
+        } else {
+            reloadLastFailureRowIfRetryChanged()
+        }
+    }
+
+    // What the line that ends the chat says about the limit that blocks new questions, as the timeline last showed it
+    private var shownInputLimitText: String? = null
+
+    // The limit's row in a chat with no message keeps one date, so that the list built again holds the same row
+    private var inputLimitStatusDate: Date? = null
+
+    /**
+     * While a limit blocks new questions, the chat ends with it, with the time the daily quota resets at, as on iOS and
+     * the web. The failure of a question the limit stopped reads as the limit meanwhile; another failure keeps its text.
+     */
+    private fun appendInputLimitStatus(items: MutableList<AgentTimelineItem>) {
+        val model = preparedVM
+        val text = model?.inputLimitText
+        shownInputLimitText = text
+        if (model == null || text == null) {
+            inputLimitStatusDate = null
+            return
+        }
+        val lastIndex = items.indexOfLast { it is AgentTimelineItem.Message }
+        val last = items.getOrNull(lastIndex) as? AgentTimelineItem.Message
+        if (last != null && last.message.isFailure) {
+            if (model.isInputLimitFailure(last.message)) {
+                items[lastIndex] = last.copy(message = last.message.copy(text = text))
+            }
+            return
+        }
+        val date = last?.message?.date
+            ?: inputLimitStatusDate
+            ?: Date().also { inputLimitStatusDate = it }
+        val status = AgentMessage(
+            id = INPUT_LIMIT_STATUS_ID,
+            role = AgentMessageRole.SYSTEM,
+            text = text,
+            isFailure = true,
+            date = date
+        )
+        items.add(AgentTimelineItem.Message(status))
     }
 
     /**
@@ -3413,10 +3467,12 @@ class AgentVC(
 
     // An existing chat whose messages are still to load shows placeholder bubbles in place of its timeline, which
     // a News discussion already fills with its post. A card flying in from the feed lands on the post as it is,
-    // without placeholders turning into it under the card.
+    // without placeholders turning into it under the card. A News discussion the user has written in waits for its
+    // messages too: its post alone would have them push in under it.
     private fun showSkeletonIfLoading() {
         val model = preparedVM ?: return
-        val hasOpening = chatOpening != null
+        val hasOpening = chatOpening != null &&
+            !isAgentNewsOpeningLoadingAsChat(news, model.currentThread)
         if (newsPostArrival != null || !shouldShowAgentMessagesSkeleton(model, hasOpening)) return
         skeletonReveal.show()
         updateBlurViews(chatRecyclerView)
@@ -3485,6 +3541,7 @@ class AgentVC(
             if (message.id == unreadDividerMessageId) items.add(AgentTimelineItem.UnreadDivider)
             items.add(item)
         }
+        appendInputLimitStatus(items)
         val dismissing = dismissingHints
         if (dismissing != null) {
             // Keep the collapsing hints anchored below the message they were shown for.

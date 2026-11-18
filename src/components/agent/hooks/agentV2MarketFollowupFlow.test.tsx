@@ -45,7 +45,7 @@ jest.mock('../../../global/agentV2/buildHostContext', () => {
 });
 jest.mock('../../../global', () => ({
   ...jest.requireActual('../../../global'),
-  getGlobal: () => ({ settings: {} }),
+  getGlobal: () => ({ settings: {}, restrictions: {} }),
   getActions: () => ({
     openReceiveModal: jest.fn(),
     openTransactionInfo: jest.fn(),

@@ -38,6 +38,22 @@ const TEXT_STYLE_PROPERTIES = [
   'background-size', 'background-position', 'background-repeat', 'background-clip', '-webkit-background-clip',
 ];
 
+// The spring a sent question goes up on, as on iOS and Android: Telegram's list spring (critically damped, stiffness
+// 555.027) 1.3 times as slow, settled in 0.52 s
+const QUESTION_SPRING_FREQUENCY = Math.sqrt(555.027) / 1.3;
+export const QUESTION_SPRING_DURATION = 520;
+
+/** How far the question's spring has gone `fraction` of `QUESTION_SPRING_DURATION`, ending exactly where it rests */
+export function getQuestionSpringProgress(fraction: number) {
+  return getCriticalSpringProgress(fraction * QUESTION_SPRING_DURATION / 1000)
+    / getCriticalSpringProgress(QUESTION_SPRING_DURATION / 1000);
+}
+
+function getCriticalSpringProgress(seconds: number) {
+  const phase = QUESTION_SPRING_FREQUENCY * seconds;
+  return 1 - (1 + phase) * Math.exp(-phase);
+}
+
 /** How far Telegram's curve has gone `fraction` of its way, as the browser plays `TELEGRAM_EASING` */
 export function getTelegramProgress(fraction: number) {
   return getBezierProgress(TELEGRAM_CURVE, fraction);

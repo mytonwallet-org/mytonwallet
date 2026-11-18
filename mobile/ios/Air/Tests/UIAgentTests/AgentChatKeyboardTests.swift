@@ -281,10 +281,10 @@ final class AgentChatKeyboardTests: XCTestCase {
         XCTAssertEqual(chat.model.itemIDs, itemIDs, "Nothing went")
     }
 
-    /// A question sent with the keyboard up, as a tapped suggestion, turns the trailing circle's microphone into Stop
-    /// while the keyboard it closes takes the composer down in the same pass: the leaving glyph shrinks away and the
-    /// arriving one grows in inside the circle, frame by frame, wherever the composer is
-    func testMicrophoneTurnsIntoStopInsideTheCircleAsTheKeyboardCloses() async throws {
+    /// A question sent with the keyboard up, as a tapped suggestion, brings Stop into the send button's place while the
+    /// keyboard it closes takes the composer down in the same pass: Stop takes the place of the chat's Send inside the
+    /// field, and the microphone keeps its place before it, frame by frame within the field, wherever the composer is
+    func testStopGrowsInInsideTheFieldAsTheKeyboardCloses() async throws {
         let chat = makeChat()
         let controller = chat.controller
         // The composer stands where a keyboard holds it
@@ -292,7 +292,9 @@ final class AgentChatKeyboardTests: XCTestCase {
         try await chat.waitForStableLayout()
         let composer = controller.composerView
         let microphone = try XCTUnwrap(findDescendants(of: composer).compactMap { $0 as? AgentDictationButton }.first)
-        let circle = try XCTUnwrap(microphone.superview, "The circle's content")
+        let microphoneCircle = try XCTUnwrap(microphone.superview, "The microphone's circle")
+        let field = try XCTUnwrap(microphoneCircle.superview, "The field's content")
+        let restingMicrophoneX = microphoneCircle.frame.minX
         let raisedComposerY = composer.frame.minY
 
         composer.setStopAvailable(true)
@@ -303,29 +305,30 @@ final class AgentChatKeyboardTests: XCTestCase {
         }
         XCTAssertGreaterThan(composer.frame.minY, raisedComposerY + 100, "The composer goes down")
         XCTAssertFalse((composer.layer.animationKeys() ?? []).isEmpty, "In the keyboard's animation")
-        let leaving = try XCTUnwrap(composer.leavingActionGlyphView, "The microphone leaves")
-        XCTAssertTrue(leaving.isDescendant(of: circle), "As a view of the circle")
-        let arriving = try XCTUnwrap(
-            circle.subviews.compactMap { $0 as? UIImageView }.first { $0 !== leaving && !$0.isHidden },
+        let stop = try XCTUnwrap(
+            findDescendants(of: composer).compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == "agent_stop" },
             "Stop comes"
         )
-        XCTAssertFalse(arriving.image === leaving.image)
+        XCTAssertFalse(stop.isHidden)
+        XCTAssertTrue(stop.isDescendant(of: field), "As the field's own view")
+        XCTAssertEqual(
+            microphoneCircle.frame.minX,
+            restingMicrophoneX,
+            accuracy: 0.5,
+            "The microphone stays before Send's place, which a chat always shows"
+        )
         let start = CACurrentMediaTime()
         var sampleCount = 0
-        while leaving.superview != nil, CACurrentMediaTime() - start < 1 {
-            for (glyph, name) in [(leaving, "The microphone"), (arriving, "Stop")] {
-                let frame = glyph.layer.presentation()?.frame ?? glyph.frame
-                XCTAssertTrue(
-                    circle.bounds.insetBy(dx: -0.5, dy: -0.5).contains(frame),
-                    "\(name) stays in the circle, at \(frame) in \(circle.bounds)"
-                )
-            }
+        while CACurrentMediaTime() - start < 0.4 {
+            let frame = microphoneCircle.layer.presentation()?.frame ?? microphoneCircle.frame
+            XCTAssertTrue(
+                field.bounds.insetBy(dx: -0.5, dy: -0.5).contains(frame),
+                "The microphone stays in the field, at \(frame) in \(field.bounds)"
+            )
             sampleCount += 1
             try await Task.sleep(for: .milliseconds(16))
         }
-        XCTAssertGreaterThan(sampleCount, 1, "The swap takes several frames")
-        XCTAssertNil(leaving.superview, "The microphone is gone once it has shrunk away")
-        XCTAssertNil(composer.leavingActionGlyphView)
+        XCTAssertGreaterThan(sampleCount, 1)
         try await chat.waitForStableLayout()
     }
 

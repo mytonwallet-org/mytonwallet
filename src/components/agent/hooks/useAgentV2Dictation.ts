@@ -56,6 +56,11 @@ export interface AgentDictation {
 // The extension popup cannot show the microphone prompt
 const IS_DICTATION_PLATFORM = !IS_EXTENSION && !IS_AIR_APP && !IS_TELEGRAM_APP;
 
+/** Where the microphone is allowed again: the desktop app asks the system, the web the browser */
+export function getMicrophoneDeniedLangKey() {
+  return IS_ELECTRON ? '$agent_dictation_microphone_denied_system' : '$agent_dictation_microphone_denied_browser';
+}
+
 export function getIsAgentDictationSupported() {
   return IS_DICTATION_PLATFORM
     && (!IS_ELECTRON || Boolean(window.electron?.requestMicrophoneAccess))
@@ -105,7 +110,7 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
     setFailureCount((count) => count + 1);
     if (reason.kind === 'microphoneDenied') {
       setNotice(reason);
-      getActions().showToast({ message: getTranslation('$agent_dictation_microphone_denied') });
+      getActions().showToast({ message: getTranslation(getMicrophoneDeniedLangKey()) });
     }
   });
 

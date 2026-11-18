@@ -26,6 +26,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     public let bottomBar = AgentListBottomBar()
 
     private let model: AgentThreadListModel
+    private let client: AgentV2Client
     private let loadConsent: () async throws -> Bool
     private let acceptConsent: () async throws -> Void
     /// The consent as the app last read or gave it, as a chat's consent sheet gave it while the list was away
@@ -86,6 +87,10 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private weak var supportConfirmation: UIAlertController?
     private var hasConsent = false
     private var hasLoadedConsent = false
+    // The Agent's capacity and the user's daily quota, which hold new questions back as they do in a chat
+    private var availability = ApiAgentV2AvailabilityState(state: .available)
+    private var userQuota: ApiAgentV2UserQuota?
+    private var limitExpiryTask: Task<Void, Never>?
     /// How many times the list has gone from the screen, so a recording asked for before it went doesn't start after
     private var disappearanceCount = 0
     private var needsRefresh = false
@@ -104,7 +109,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     /// closes up a removed chat's place
     private var deletingThreadIds: Set<String> = []
     /// A deleted chat's row turns to dust here, over the list, as Telegram's deleted messages do
-    private var rowDissolveView: AgentMessageDissolveView?
+    private var rowDissolveView: DustDissolveView?
     /// A tap beside the new chat's suggestions ends composing and closes the keyboard
     private lazy var composeDismissTap: UITapGestureRecognizer = {
         let tap = UITapGestureRecognizer(target: self, action: #selector(endComposing))
@@ -147,6 +152,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         refreshInterval: TimeInterval = AgentThreadListLayout.refreshInterval
     ) {
         self.model = model
+        client = preloader.client
         self.loadConsent = loadConsent
         self.acceptConsent = acceptConsent
         self.isConsentKnownGiven = isConsentKnownGiven
@@ -260,6 +266,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         if hasConsent {
             updateList()
             refresh()
+            loadInputLimits()
         } else if isConsentKnownGiven() {
             // Given in a chat while the list was away: the list shows its chats from its first frame back
             consentTask?.cancel()
@@ -324,6 +331,16 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         switch event {
         case .agentV2(let update):
             model.handleAgentUpdate(update)
+            switch update {
+            case .availabilityChanged(let state):
+                availability = state
+                updateInputLimit()
+            case .userQuotaChanged(let quota):
+                userQuota = quota
+                updateInputLimit()
+            default:
+                break
+            }
             // The list stays current while it is away, so a chat started or written in shows in it from the first
             // frame it is back, before a load brings the chat's preview from the server
             if case .threadChanged(_, let thread) = update {
@@ -343,6 +360,13 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             }
         case .agentThreadDeleted(let threadId):
             model.removeThread(id: threadId)
+        case .configChanged:
+            configureSuggestions()
+            if !AgentSupportRequest.isEntryVisible(client: client) {
+                pendingSupportRequestDisappearanceCount = nil
+                supportConfirmation?.dismiss(animated: false)
+                supportConfirmation = nil
+            }
         case .accountsReset:
             model.handleAccountsReset()
             // The reset deletes the consent with the wallets, so the list reads it again
@@ -632,11 +656,16 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         }
     }
 
+    /// What the failure of the chats says: without a network, that the device has no connection
+    private var loadFailureText: String {
+        model.loadErrorCode == .networkError ? AgentV2Copy.loadError(.networkError) : lang("$agent_chats_unavailable")
+    }
+
     /// The failure with Retry as a link after the text, which waits while the list loads
     private func makePageFailureLine() -> AgentMessage {
         AgentMessage(
             role: .assistant,
-            text: lang("$agent_chats_unavailable"),
+            text: loadFailureText,
             isStreaming: false,
             controls: [AgentMessageControl(id: "retry-load", title: lang("Retry"), isEnabled: !model.isLoading)],
             renderingPolicy: .agentV2Safe,
@@ -757,12 +786,52 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         return false
     }
 
+    // MARK: - Limits
+
+    private var inputLimitErrorCode: ApiAgentV2ErrorCode? {
+        AgentV2Coordinator.inputLimitErrorCode(availability: availability, userQuota: userQuota)
+    }
+
+    private var userQuotaResetDate: Date? {
+        userQuota.map { AgentV2DateParser.date($0.resetAt) }
+    }
+
+    /// Asks the server for the limits, which come back as updates
+    private func loadInputLimits() {
+        Task {
+            async let availability: Void? = try? Api.getAgentV2Availability()
+            async let userQuota: Void? = try? Api.getAgentV2UserQuota()
+            _ = await (availability, userQuota)
+        }
+    }
+
+    /// Dims the field while a limit blocks new questions, and brings it back as the limit resets
+    private func updateInputLimit() {
+        bottomBar.isInputBlockedByLimit = inputLimitErrorCode != nil
+        limitExpiryTask?.cancel()
+        let now = Date()
+        let resetDates = [
+            availability.resetAt.map { Date(timeIntervalSince1970: $0 / 1_000) },
+            userQuotaResetDate,
+        ].compactMap { $0 }.filter { $0 > now }
+        guard let resetDate = resetDates.min() else {
+            limitExpiryTask = nil
+            return
+        }
+        limitExpiryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(resetDate.timeIntervalSince(now)))
+            guard !Task.isCancelled else { return }
+            self?.updateInputLimit()
+        }
+    }
+
     private func showList() {
         hasConsent = true
         hasLoadedConsent = true
         collectionView.isHidden = false
         updateList()
         refresh()
+        loadInputLimits()
         if isOnScreen { startRefreshTimer() }
     }
 
@@ -809,6 +878,12 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         hasConsent && !model.hasLoaded && dataSource.snapshot().numberOfItems > 0
     }
 
+    /// The list loads its chats with nothing to show, not even the SDK's copy of them, and has the skeleton. While the
+    /// copy is read the list shows nothing, so a list with a copy opens on its chats.
+    private var isLoadingWithoutCopy: Bool {
+        hasConsent && !model.hasLoaded && !isKeepingShownList && model.hasReadCachedThreads
+    }
+
     private func updateList() {
         guard isViewLoaded else { return }
         let isKeepingShownList = isKeepingShownList
@@ -834,7 +909,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             dissolveRows(of: deletedIds)
             dissolveTitlesOfSections(emptiedBy: deletedIds, from: oldSnapshot, to: snapshot)
         }
-        let isShowingSkeleton = hasConsent && !model.hasLoaded && !isKeepingShownList
+        let isShowingSkeleton = isLoadingWithoutCopy
         let listAlpha: CGFloat = bottomBar.isEditing || shouldKeepSuggestionsForComposedChat ? 0 : 1
         let shouldRevealFromSkeleton = isAnimated && hasConsent && !isShowingSkeleton && skeletonView.isShowing
             && !UIAccessibility.isReduceMotionEnabled
@@ -885,7 +960,11 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             applyKeepingRowsOnScreen(snapshot, from: oldSnapshot)
         }
         updateVisibleSectionHeaders()
-        loadErrorView.show(hasConsent && model.hasLoadFailed && model.items.isEmpty ? lang("$agent_chats_unavailable") : nil)
+        // The failure stays, its Retry dimmed, while the list loads again
+        loadErrorView.show(
+            hasConsent && model.hasLoadFailed && model.items.isEmpty ? loadFailureText : nil,
+            isRetrying: model.isLoading
+        )
         setSuggestionsVisible(bottomBar.isEditing || shouldKeepSuggestionsForComposedChat, animated: isAnimated)
         if isShowingSkeleton {
             collectionView.layer.removeAllAnimations()
@@ -1038,6 +1117,12 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     /// keyboard back.
     private func sendQuestion(_ query: String, from origin: QuestionOrigin) {
         guard !query.isEmpty, navigationController != nil else { return }
+        if let code = inputLimitErrorCode {
+            bottomBar.composerView.showToast(ToastConfig(
+                style: .overlay, message: AgentV2Copy.error(code, resetAt: userQuotaResetDate)
+            ))
+            return
+        }
         let wasEditing = origin.isField && bottomBar.isEditing
         performWithConsent(onCancel: { [weak self] in
             if wasEditing { self?.bottomBar.focus() }
@@ -1138,7 +1223,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private func pickSuggestions() {
         suggestionsTask?.cancel()
         suggestions = []
-        // Contact Support shows at once, as on the web, and the suggestions come before it once they load
+        // Contact Support can show before the server's suggestions load
         configureSuggestions()
         suggestionsTask = Task { [weak self] in
             guard let self else { return }
@@ -1152,7 +1237,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
 
     /// The server's suggestions, then Contact Support, which the client adds outside their limit
     private func configureSuggestions() {
-        let hints = suggestions + (AgentV2HostContextProvider.supportsSupportHandoff ? [.supportRequest] : [])
+        let hints = suggestions + (AgentSupportRequest.isEntryVisible(client: client) ? [.supportRequest] : [])
         suggestionsView.configure(with: hints) { [weak self] hint in
             if hint.isSupportRequest {
                 self?.confirmSupportRequest()
@@ -1161,6 +1246,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             }
         }
         suggestionsHeightConstraint.constant = AgentHintsSectionView.calculateContentHeight(for: hints.count)
+        suggestionsView.isHidden = !isShowingSuggestions || hints.isEmpty
         updateSupportRequestAvailability()
     }
 
@@ -1168,7 +1254,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
 
     /// Contact Support can be asked for once the consent is known and, with consent, the server's chats have loaded
     private var canRequestSupport: Bool {
-        AgentV2HostContextProvider.supportsSupportHandoff
+        AgentSupportRequest.isEntryVisible(client: client)
             && hasLoadedConsent
             && (!hasConsent || model.serverListState == .loaded)
     }
@@ -1198,6 +1284,10 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     /// Opens the chat support has, active last, or a new chat that asks for support, once the server's chats have
     /// loaded: the SDK's copy may lack the chat support has. A list that fails to load drops the request.
     private func resolvePendingSupportRequest() {
+        guard AgentSupportRequest.isEntryVisible(client: client) else {
+            pendingSupportRequestDisappearanceCount = nil
+            return
+        }
         guard let requestDisappearanceCount = pendingSupportRequestDisappearanceCount, hasConsent else { return }
         guard requestDisappearanceCount == disappearanceCount else {
             pendingSupportRequestDisappearanceCount = nil
@@ -1261,7 +1351,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private func setSuggestionsVisible(_ isEditing: Bool, animated: Bool) {
         let shouldHideList = isEditing
         let isKeepingShownList = isKeepingShownList
-        let isLoadingList = hasConsent && !model.hasLoaded && !isKeepingShownList
+        let isLoadingList = isLoadingWithoutCopy
         // Without consent the list has News alone, and the suggestions show as they do in an empty list; a list kept
         // on screen while its chats load keeps them as they are
         let isEmpty = !hasConsent || model.hasLoaded && model.items.isEmpty && !model.hasLoadFailed
@@ -1277,7 +1367,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             if !wasShowingSuggestions { pickSuggestions() }
             closeSwipedRows(except: nil)
         }
-        suggestionsView.isHidden = false
+        suggestionsView.isHidden = suggestionsHeightConstraint.constant == 0
         suggestionsView.isUserInteractionEnabled = isVisible
         collectionView.accessibilityElementsHidden = shouldHideList
         loadErrorView.accessibilityElementsHidden = shouldHideList
@@ -1289,7 +1379,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         }
         guard animated, !UIAccessibility.isReduceMotionEnabled else {
             updates()
-            suggestionsView.isHidden = !isVisible
+            suggestionsView.isHidden = !isVisible || suggestionsHeightConstraint.constant == 0
             return
         }
         if isVisible, !wasShowingSuggestions {
@@ -1494,8 +1584,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         }
     }
 
-    private func makeRowDissolveView() -> AgentMessageDissolveView {
-        let dissolveView = AgentMessageDissolveView(frame: collectionView.frame)
+    private func makeRowDissolveView() -> DustDissolveView {
+        let dissolveView = DustDissolveView(frame: collectionView.frame)
         dissolveView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         dissolveView.onEmpty = { [weak self, weak dissolveView] in
             guard let self, let dissolveView, rowDissolveView === dissolveView else { return }

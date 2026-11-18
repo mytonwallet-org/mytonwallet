@@ -1,17 +1,16 @@
-import UIComponents
 import UIKit
 
-/// Shows rows leaving the chat, over the messages and clipped to them: each turns to dust where it stood, as Telegram's
+/// Shows views leaving their container, over it and clipped to it: each turns to dust where it stood, as Telegram's
 /// deleted messages do, or, with Reduce Motion or without the effect, fades out
-final class AgentMessageDissolveView: UIView {
+public final class DustDissolveView: UIView {
     private static let fadeDuration: TimeInterval = 0.2
 
-    /// Called when the last row has gone, so the chat can remove the view
-    var onEmpty: (() -> Void)?
+    /// Called when the last view has gone, so the container can remove this one
+    public var onEmpty: (() -> Void)?
 
     private var dustEffectView: DustEffectView?
 
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
         isUserInteractionEnabled = false
         clipsToBounds = true
@@ -20,13 +19,13 @@ final class AgentMessageDissolveView: UIView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// Takes `image`, a row as it stood at `frame` in this view's coordinates, out of the chat. It shows with the current
-    /// transaction, so the row's own cell is hidden in the same one.
-    func dissolve(_ image: UIImage, at frame: CGRect) {
+    /// Takes `image`, a view as it stood at `frame` in this view's coordinates, away. It shows with the current
+    /// transaction, so the view itself can be hidden in the same one.
+    public func dissolve(_ image: UIImage, at frame: CGRect) {
         if !UIAccessibility.isReduceMotionEnabled, DustEffectView.isAvailable {
             let existingDustEffectView = dustEffectView
             if (existingDustEffectView ?? makeDustEffectView()).addItem(frame: frame, image: image) {

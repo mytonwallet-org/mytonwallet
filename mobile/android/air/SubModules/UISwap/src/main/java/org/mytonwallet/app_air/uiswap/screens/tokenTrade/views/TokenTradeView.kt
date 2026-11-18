@@ -593,7 +593,10 @@ class TokenTradeView(
             LocaleController.getString("Direct exchange unavailable"),
             LocaleController.getStringWithKeyValues(
                 "To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.",
-                listOf("%buy_token%" to (hint.buyingToken.symbol ?: ""), "%token%" to token)
+                listOf(
+                    "%buy_token%" to (hint.buyingToken.symbol ?: ""),
+                    "%token%" to SwapHint.formatTokenWithChain(hint.token)
+                )
             ),
             LocaleController.getStringWithKeyValues("Receive %value%", listOf("%value%" to token))
         )

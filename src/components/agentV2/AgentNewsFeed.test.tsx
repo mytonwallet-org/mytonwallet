@@ -432,7 +432,9 @@ describe('AgentNewsFeed', () => {
     renderFeed({ items: mergeAgentNewsFeedEntries(ITEMS), errorCode: 'network_error', onRetry });
 
     const { loadFailure } = getShellProps().conversation;
-    expect(loadFailure).toMatchObject({ text: '$agent_connection_lost', isRetrying: false });
+    expect(loadFailure).toMatchObject({
+      text: 'No internet connection. Please check your connection and try again.', isRetrying: false,
+    });
     loadFailure!.onRetry();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });

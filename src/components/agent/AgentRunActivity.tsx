@@ -55,8 +55,6 @@ const CLOSE_DURATION = 200;
 // Each step stays at least this long before the next replaces it, as on mobile
 const MIN_STEP_DURATION = 1200;
 const STEP_LEAVE_DURATION = 250;
-// The indicator rises into place this long after it mounts (`agent-activity-appear`)
-const ENTRANCE_DELAY = 180;
 // A glint of light crosses each step once, this long after it comes, as it comes into focus, and takes
 // `GLINT_DURATION` (`agent-activity-glint`), as on iOS
 const GLINT_DELAY = 300;
@@ -118,7 +116,6 @@ function AgentRunActivity({
   } = useActivitySteps(
     renderedActivity && getAgentRunActivityLangKey(renderedActivity),
     handedOffStep,
-    isAnswerPlaceholder ? 0 : ENTRANCE_DELAY,
   );
 
   useLayoutEffect(() => {
@@ -228,13 +225,12 @@ interface ActivitySteps {
 }
 
 /**
- * The step shown, the one leaving, and when the shown step's glint starts: `entranceDelay` and `GLINT_DELAY` after the
- * first step comes, `GLINT_DELAY` after each later one, and where it stood for a step handed over that goes on
+ * The step shown, the one leaving, and when the shown step's glint starts: `GLINT_DELAY` after each step comes, and
+ * where it stood for a step handed over that goes on
  */
 function useActivitySteps(
   langKey: string | undefined,
   handedOffStep: HandedOffStep | undefined,
-  entranceDelay: number,
 ) {
   // The step handed over goes on, or blurs away as the step that came with the move comes into focus
   const isHandedOffStepLeaving = Boolean(handedOffStep && langKey && handedOffStep.langKey !== langKey);
@@ -252,7 +248,7 @@ function useActivitySteps(
         glintStartsAt: handedOffStep.glintStartsAt,
       };
     }
-    return { currentKey: langKey, hasChanged: false, ...buildGlint(entranceDelay + GLINT_DELAY) };
+    return { currentKey: langKey, hasChanged: false, ...buildGlint(GLINT_DELAY) };
   });
   const shownAtRef = useRef(handedOffStep && !isHandedOffStepLeaving ? handedOffStep.shownAt : Date.now());
   const { currentKey, leavingKey } = steps;
@@ -263,7 +259,7 @@ function useActivitySteps(
     // The first step shows at once
     if (!currentKey) {
       shownAtRef.current = Date.now();
-      setSteps({ currentKey: langKey, hasChanged: false, ...buildGlint(entranceDelay + GLINT_DELAY) });
+      setSteps({ currentKey: langKey, hasChanged: false, ...buildGlint(GLINT_DELAY) });
       return undefined;
     }
 
@@ -277,7 +273,7 @@ function useActivitySteps(
     }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [currentKey, entranceDelay, langKey]);
+  }, [currentKey, langKey]);
 
   useEffect(() => {
     if (!leavingKey) return undefined;

@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.json.JSONObject
+import org.junit.After
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -75,8 +76,14 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsFeedView
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
 class AgentNewChatLoaderTest {
+    @After
+    fun resetSupportConfig() {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig())
+    }
+
     @Test
     fun createsOrReusesThreadOnlyAfterExplicitConsent() = runBlocking {
         val calls = mutableListOf<String>()
@@ -180,6 +187,58 @@ class AgentNewChatLoaderTest {
     fun deferredDigestDiscussionCanRequestHeaderSupport() = verifyDeferredHeaderSupport(true)
 
     @Test
+    fun deferredDiscussionsOfferNoSupportUntilConfigEnablesIt() =
+        testDeferredDiscussions { isDigest ->
+            val client = FakeNewsClient(createDiscussionThread(isDigest))
+            val opening = createDeferredDiscussionOpening(client, isDigest)
+            opening.readConsent()
+            val shownSupport = mutableListOf<Boolean>()
+            opening.onChange = { shownSupport += opening.isSupportRequestVisible }
+            for (isEnabled in listOf(null, false)) {
+                ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = isEnabled))
+                opening.onWalletEvent(WalletEvent.ConfigReceived)
+                assertFalse(opening.isSupportRequestVisible)
+                assertFalse(opening.canRequestSupport)
+                assertFalse(opening.stageSupportRequest())
+                assertTrue(opening.messages.isEmpty())
+            }
+            assertTrue(shownSupport.isEmpty())
+
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
+            opening.onWalletEvent(WalletEvent.ConfigReceived)
+            assertEquals(listOf(true), shownSupport)
+            assertTrue(opening.isSupportRequestVisible)
+            for (countryCode in listOf("US", "GB")) {
+                ConfigStore.init(
+                    ApiUpdate.ApiUpdateConfig(
+                        isAgentSupportEnabled = true,
+                        countryCode = countryCode
+                    )
+                )
+                opening.onWalletEvent(WalletEvent.ConfigReceived)
+            }
+            assertEquals(listOf(true), shownSupport)
+            assertTrue(opening.stageSupportRequest())
+            shownSupport.clear()
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            opening.onWalletEvent(WalletEvent.ConfigReceived)
+            assertEquals(listOf(false), shownSupport)
+            assertFalse(opening.isSupportRequestVisible)
+            assertTrue(opening.messages.isEmpty())
+            assertNull(opening.create())
+            assertTrue(client.newsRequests.isEmpty())
+
+            opening.onChange = null
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
+            opening.onChange = { shownSupport += opening.isSupportRequestVisible }
+            assertTrue(opening.isSupportRequestVisible)
+            shownSupport.clear()
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            opening.onWalletEvent(WalletEvent.ConfigReceived)
+            assertEquals(listOf(false), shownSupport)
+        }
+
+    @Test
     fun deferredHeaderSupportDropsAfterWalletChangesDuringCreation() =
         verifyDeferredHeaderSupportWalletChanges(shouldSwitchDuringHydration = false)
 
@@ -219,8 +278,6 @@ class AgentNewChatLoaderTest {
                                 recordingStarted.complete(Unit)
                             }
                             override fun amplitude() = 2000
-                            override fun pause() = Unit
-                            override fun resume() = Unit
                             override suspend fun finish() = "audio"
                             override fun cancel() = Unit
                         }
@@ -1747,6 +1804,7 @@ class AgentNewChatLoaderTest {
 
     @Test
     fun emptyOrdinaryThreadLoadsAndShowsStarterHints() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val thread = AgentV2ThreadSummary("empty-thread", 1)
         val client = FakeNewsClient(thread)
         val model = newModel(client, thread)
@@ -1915,7 +1973,9 @@ class AgentNewChatLoaderTest {
             }
             assertEquals("network_error", model.startupErrorCode)
             assertEquals(
-                LocaleController.getString("\$agent_connection_lost"),
+                LocaleController.getString(
+                    "No internet connection. Please check your connection and try again."
+                ),
                 model.messages.last().text
             )
 
@@ -2017,6 +2077,7 @@ class AgentNewChatLoaderTest {
 
     @Test
     fun failedNewsHydrationCanBeRetriedWithoutSending() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeNewsClient(newsThread()).apply {
             onMessages = { error("offline") }
         }
@@ -2254,6 +2315,7 @@ class AgentNewChatLoaderTest {
     }
 
     private fun verifyDeferredHeaderSupport(isDigest: Boolean) = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val created = CompletableDeferred<Unit>()
         val historyRequested = CompletableDeferred<Unit>()
         val historyLoaded = CompletableDeferred<Unit>()
@@ -2363,6 +2425,7 @@ class AgentNewChatLoaderTest {
 
     private fun verifyDeferredHeaderSupportWalletChanges(shouldSwitchDuringHydration: Boolean) =
         testDeferredDiscussions { isDigest ->
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
             val originalAccountId = AccountStore.activeAccountId
             try {
                 for (shouldReturnToWallet in listOf(false, true)) {

@@ -3,13 +3,17 @@ package org.mytonwallet.app_air.uiagent.viewControllers.news
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Rect
+import android.graphics.Shader
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import java.util.Date
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
@@ -35,10 +39,30 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsDigestHeadline
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
+
+// The digest's top in the look of the Agent's suggestions, as on iOS and the web: a light sheen and
+// the Agent's gradient, melting into the card's fill toward the headlines, and the title in the
+// suggestions' gradient. Each pair is for the light theme, then the dark one.
+private const val DIGEST_GLOW_HEIGHT = 150f
+private val DIGEST_GLOW_POSITIONS = floatArrayOf(0f, 0.48f, 1f)
+private val DIGEST_GLOW_LIGHT = intArrayOf(0x1F0088FF, 0x2E00BEFF, 0x24B656FF)
+private val DIGEST_GLOW_DARK = intArrayOf(0x2E0088FF, 0x3D00BEFF, 0x33B656FF)
+private const val DIGEST_SHEEN_LIGHT = 0xB3FFFFFF.toInt()
+private const val DIGEST_SHEEN_DARK = 0x00FFFFFF
+private val DIGEST_TITLE_LIGHT =
+    intArrayOf(0xFF005DAF.toInt(), 0xFF007BA5.toInt(), 0xFF7D2EBA.toInt())
+private val DIGEST_TITLE_DARK =
+    intArrayOf(0xFF6DADE6.toInt(), 0xFF5EB6D4.toInt(), 0xFFC48CEE.toInt())
+private val DIGEST_TITLE_POSITIONS = floatArrayOf(0f, 0.4f, 1f)
+
+// How much of the title's gradient the news count takes, as much contrast as the grey has
+private const val DIGEST_META_ALPHA_LIGHT = 0.65f
+private const val DIGEST_META_ALPHA_DARK = 0.9f
 
 /** What a daily digest's card in the News feed shows */
 internal data class AgentNewsDigestCardContent(
@@ -78,17 +102,22 @@ internal data class AgentNewsDigestCardContent(
 }
 
 /**
- * A daily digest in the News feed, in the bubble the feed's news cards have: its title, how many news it covers, its
- * top headlines, each opening its news item's discussion, the news it leaves out, the time it came in the bubble's
- * trailing corner, as a news card's, and the Discuss strip, which opens the digest's own discussion. A tap or a long
- * press on the bubble opens its menu, as on a news card.
+ * A daily digest in the News feed, in the bubble the feed's news cards have, topped in the look of
+ * the suggestions: its title, how many news it covers, its top headlines, each opening its news
+ * item's discussion, the news it leaves out, the time it came in the bubble's trailing corner, as a
+ * news card's, and the Discuss strip, which opens the digest's own discussion. A tap or a long press
+ * on the bubble opens its menu, as on a news card.
  */
 @SuppressLint("ViewConstructor")
 internal class AgentNewsDigestCell(context: Context) :
     WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView,
     AgentNewsFlightSource {
-    private val bubbleDrawable = AgentBubbleDrawable(isOutgoing = false)
+    private val bubbleDrawable = AgentBubbleDrawable(isOutgoing = false).apply {
+        glowPositions = DIGEST_GLOW_POSITIONS
+        glowHeight = DIGEST_GLOW_HEIGHT.dp
+    }
+    private var titleGradientColors = DIGEST_TITLE_LIGHT
     private val bubble = LinearLayout(context).apply {
         id = generateViewId()
         orientation = LinearLayout.VERTICAL
@@ -101,12 +130,22 @@ internal class AgentNewsDigestCell(context: Context) :
         isSingleLine = false
         maxLines = Int.MAX_VALUE
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        // The gradient paints over an opaque color
+        setTextColor(Color.BLACK)
+        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            updateTitleShader()
+            // The count's gradient runs across the title
+            updateMetaShader()
+        }
     }
+    private var metaGradientAlpha = DIGEST_META_ALPHA_LIGHT
     private val metaLabel = WLabel(context).apply {
         setStyle(META_TEXT_SIZE)
         isSingleLine = false
         maxLines = Int.MAX_VALUE
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        setTextColor(Color.BLACK)
+        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateMetaShader() }
     }
     private val header = LinearLayout(context).apply {
         id = generateViewId()
@@ -208,7 +247,9 @@ internal class AgentNewsDigestCell(context: Context) :
     fun configure(content: AgentNewsDigestCardContent) {
         menuContent = content
         titleLabel.text = content.title
+        updateTitleShader()
         metaLabel.text = content.meta
+        updateMetaShader()
         timeLabel.text = content.time
         header.contentDescription = "${content.title}, ${content.meta}, ${content.time}"
         headlinesView.configure(content.headlines, content.remainder)
@@ -250,10 +291,52 @@ internal class AgentNewsDigestCell(context: Context) :
         bubble.alpha = if (isHidden) 0f else 1f
     }
 
+    private fun updateTitleShader() {
+        applyTextGradient(titleLabel, titleGradientColors)
+    }
+
+    private fun updateMetaShader() {
+        val alpha = (255 * metaGradientAlpha).toInt()
+        val colors = IntArray(titleGradientColors.size) {
+            ColorUtils.setAlphaComponent(titleGradientColors[it], alpha)
+        }
+        // Across the title, so the count takes the title's colours where the two lines overlap
+        applyTextGradient(metaLabel, colors, widthSource = titleLabel)
+    }
+
+    // The suggestions' gradient across the longest line of widthSource, the label's own by default, from where the
+    // label's lines start
+    private fun applyTextGradient(label: WLabel, colors: IntArray, widthSource: WLabel = label) {
+        val layout = widthSource.layout ?: return
+        val textWidth = (0 until layout.lineCount).maxOfOrNull { layout.getLineWidth(it) } ?: return
+        if (textWidth <= 0f) return
+        val start = if (LocaleController.isRTL) {
+            (label.width - label.paddingRight).toFloat()
+        } else {
+            label.paddingLeft.toFloat()
+        }
+        val end = start + if (LocaleController.isRTL) -textWidth else textWidth
+        label.paint.shader = LinearGradient(
+            start,
+            0f,
+            end,
+            0f,
+            colors,
+            DIGEST_TITLE_POSITIONS,
+            Shader.TileMode.CLAMP
+        )
+        label.invalidate()
+    }
+
     override fun updateTheme() {
+        val isDark = ThemeManager.isDark
         bubbleDrawable.setBubbleColor(agentIncomingBubbleColor)
-        titleLabel.setTextColor(WColor.PrimaryText)
-        metaLabel.setTextColor(WColor.SecondaryText)
+        bubbleDrawable.glowColors = if (isDark) DIGEST_GLOW_DARK else DIGEST_GLOW_LIGHT
+        bubbleDrawable.glowSheenColor = if (isDark) DIGEST_SHEEN_DARK else DIGEST_SHEEN_LIGHT
+        titleGradientColors = if (isDark) DIGEST_TITLE_DARK else DIGEST_TITLE_LIGHT
+        metaGradientAlpha = if (isDark) DIGEST_META_ALPHA_DARK else DIGEST_META_ALPHA_LIGHT
+        updateTitleShader()
+        updateMetaShader()
         timeLabel.setTextColor(WColor.SecondaryText)
         headlinesView.updateTheme()
         discussStrip.updateTheme()

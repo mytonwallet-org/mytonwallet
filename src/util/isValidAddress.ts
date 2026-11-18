@@ -20,14 +20,37 @@ export function getChainFromAddress(
   address: string,
   availableChains: Partial<Record<ApiChain, unknown>>,
   allowDomain?: boolean,
+  preferredChain?: ApiChain,
 ): ApiChain | undefined {
   const availableChainsArray = getSupportedChains().filter((chain) => chain in availableChains);
 
-  return availableChainsArray.find((chain) => (
+  const matchingChain = availableChainsArray.find((chain) => (
     allowDomain
       ? isValidAddressOrDomain(address, chain)
       : isValidAddress(address, chain)
   ));
+
+  if (!matchingChain || !preferredChain || !(preferredChain in availableChains)) {
+    return matchingChain;
+  }
+
+  return getPreferredChainForAddress(address, matchingChain, preferredChain);
+}
+
+export function getPreferredChainForAddress(
+  address: string,
+  matchingChain: ApiChain,
+  preferredChain: ApiChain,
+): ApiChain {
+  return getAddressFormat(matchingChain) === getAddressFormat(preferredChain) && isValidAddress(address, preferredChain)
+    ? preferredChain
+    : matchingChain;
+}
+
+function getAddressFormat(chain: ApiChain) {
+  const { addressFormat, chainStandard } = getChainConfig(chain);
+
+  return addressFormat ?? chainStandard ?? chain;
 }
 
 export function isTonsiteAddress(address: string) {

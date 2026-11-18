@@ -1,21 +1,23 @@
 import UIKit
-import UIComponents
 
+/// A navigation bar title with an optional emoji before it and an optional second line under it, centred on the bar. A
+/// new title rises into place as a picture of the old one rises away and fades; a new emoji pops in, and a kept one
+/// slides to its new place.
 @MainActor
-final class AgentChatTitleView: UIView {
+public final class NavigationTitleView: UIView {
     private let textLabel: UILabel = {
         let label = NavigationHeader2.makeTitleLabel("")
         label.font = .systemFont(ofSize: 17, weight: .semibold)
         label.textColor = .label
         return label
     }()
-    /// The thread emoji is larger than the title, as in the design
+    /// The emoji is larger than the title, as in the design
     private let iconLabel: UILabel = {
         let label = NavigationHeader2.makeTitleLabel("")
         label.font = .systemFont(ofSize: 22)
         return label
     }()
-    /// What the chat is in under its title, as support while support has the chat
+    /// The second line, under the title
     private let subtitleLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 12)
@@ -26,15 +28,15 @@ final class AgentChatTitleView: UIView {
     }()
     private var currentText: String?
     private var currentIcon: String?
-    private(set) var subtitle: String?
+    public private(set) var subtitle: String?
     private var outgoingView: UIImageView?
     private var animationStartedAt: CFTimeInterval = 0
     private var iconAnimationStartedAt: CFTimeInterval?
     private var iconOffsetAtStart: CGFloat = 0
     private var iconHorizontalOffset: CGFloat = 0
-    private var displayLinkSubscriptionID: UUID?
+    private lazy var clock = GlassMotionClock(frameRateRange: nil) { [weak self] _ in self?.updateAnimation() }
 
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = true
         isAccessibilityElement = true
@@ -50,22 +52,14 @@ final class AgentChatTitleView: UIView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
-        if let id = displayLinkSubscriptionID {
-            DispatchQueue.main.async {
-                AgentDisplayLinkDriver.shared.remove(id)
-            }
-        }
-    }
-
-    var onFittingWidthChange: (() -> Void)?
+    public var onFittingWidthChange: (() -> Void)?
 
     /// The width the title needs, icon included
-    var fittingWidth: CGFloat {
+    public var fittingWidth: CGFloat {
         let iconWidth = currentIcon == nil ? 0 : ceil(iconLabel.intrinsicContentSize.width)
         let spacing: CGFloat = currentIcon == nil ? 0 : 6
         let titleWidth = iconWidth + spacing + ceil(textLabel.intrinsicContentSize.width)
@@ -73,7 +67,7 @@ final class AgentChatTitleView: UIView {
     }
 
     /// Shows `subtitle` under the title, or the title alone with `nil`
-    func setSubtitle(_ subtitle: String?) {
+    public func setSubtitle(_ subtitle: String?) {
         guard subtitle != self.subtitle else { return }
         self.subtitle = subtitle
         subtitleLabel.text = subtitle
@@ -83,11 +77,11 @@ final class AgentChatTitleView: UIView {
         onFittingWidthChange?()
     }
 
-    override var intrinsicContentSize: CGSize {
+    public override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.layoutFittingExpandedSize.width, height: 44)
     }
 
-    override func layoutSubviews() {
+    public override func layoutSubviews() {
         super.layoutSubviews()
         // The coordinates start at the middle: as the pill grows or shrinks around its middle on its spring, the title
         // stays where it is instead of riding on the pill's leading edge
@@ -136,7 +130,7 @@ final class AgentChatTitleView: UIView {
 
     /// Copies of the title's labels where they show, for a transition that draws the pill's glass itself. Drawn as
     /// views of their own, they take their colors from where the transition places them, as the title does.
-    func makeTransitionCopy() -> UIView {
+    public func makeTransitionCopy() -> UIView {
         layoutIfNeeded()
         let copy = UIView(frame: CGRect(origin: .zero, size: bounds.size))
         copy.bounds = bounds
@@ -165,7 +159,7 @@ final class AgentChatTitleView: UIView {
         previousTitle != nil && previousTitle != title && isVisible && !reduceMotion
     }
 
-    func setTitle(_ text: String, icon: String?, animated: Bool) {
+    public func setTitle(_ text: String, icon: String?, animated: Bool) {
         let fullTitle = icon.map { "\($0) \(text)" } ?? text
         let shouldAnimate = Self.shouldAnimateChange(
             previousTitle: accessibilityLabel,
@@ -217,18 +211,13 @@ final class AgentChatTitleView: UIView {
             iconHorizontalOffset = iconOffsetAtStart
             iconLabel.center.x = previousIconX
         }
-        if displayLinkSubscriptionID == nil {
-            displayLinkSubscriptionID = AgentDisplayLinkDriver.shared.add { [weak self] in
-                self?.updateAnimation()
-            }
+        if !clock.isRunning {
+            clock.start()
         }
     }
 
-    func cancelAnimation() {
-        if let displayLinkSubscriptionID {
-            AgentDisplayLinkDriver.shared.remove(displayLinkSubscriptionID)
-            self.displayLinkSubscriptionID = nil
-        }
+    public func cancelAnimation() {
+        clock.stop()
         outgoingView?.removeFromSuperview()
         outgoingView = nil
         textLabel.alpha = 1
@@ -240,7 +229,7 @@ final class AgentChatTitleView: UIView {
         setNeedsLayout()
     }
 
-    override func didMoveToWindow() {
+    public override func didMoveToWindow() {
         super.didMoveToWindow()
         if window == nil { cancelAnimation() }
     }

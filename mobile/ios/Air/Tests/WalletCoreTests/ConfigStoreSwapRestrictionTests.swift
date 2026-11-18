@@ -7,6 +7,24 @@ extension OnRampCurrencyPolicyTests {
 @Suite("Config Store Swap Restriction")
 struct ConfigStoreSwapRestrictionTests {
 
+    @Test(arguments: [
+        (#"{"isAgentSupportEnabled": true}"#, true as Bool?),
+        (#"{"isAgentSupportEnabled": false}"#, false as Bool?),
+        (#"{}"#, nil as Bool?),
+        (#"{"isAgentSupportEnabled": "true"}"#, nil as Bool?),
+        (#"{"isAgentSupportEnabled": 1}"#, nil as Bool?),
+    ])
+    func `agent support accepts only booleans and survives config caching`(json: String, isEnabled: Bool?) throws {
+        let config = try JSONDecoder().decode(ApiUpdate.UpdateConfig.self, from: Data(json.utf8))
+        #expect(config.isAgentSupportEnabled == isEnabled)
+
+        let restored = try JSONDecoder().decode(
+            ApiUpdate.UpdateConfig.self,
+            from: JSONEncoder().encode(ConfigStore.cacheableConfig(config))
+        )
+        #expect(restored.isAgentSupportEnabled == isEnabled)
+    }
+
     private func setConfig(json: String) throws {
         ConfigStore.shared.isLimitedOverride = nil
         ConfigStore.shared.config = try JSONDecoder().decode(ApiUpdate.UpdateConfig.self, from: Data(json.utf8))

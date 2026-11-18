@@ -554,7 +554,7 @@ final class AgentThreadCell: AgentThreadRowCell, UIGestureRecognizerDelegate {
     /// joins the row only then, so its gradient and spinning top animate only on rows that show them.
     let activityView = UIView()
     let activityIndicatorView = AgentThreadActivityTopView()
-    let activityLabel = AgentGradientLabel()
+    let activityLabel = AnimatedGradientLabel()
     private var activityViewConstraints: [NSLayoutConstraint] = []
     private(set) var activityText: String?
     private var isPinnedThread = false

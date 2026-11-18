@@ -225,5 +225,19 @@ class ApiUpdateDecodingTest {
         assertEquals(3, update?.swapVersion)
         assertEquals("newYear", update?.seasonalTheme)
         assertNull(update?.countryCode)
+        assertNull(update?.isAgentSupportEnabled)
+    }
+
+    @Test
+    fun configDecodesAgentSupportFlagThroughBridgeAdapter() {
+        val enabled = decode<ApiUpdate>(
+            """{"type":"updateConfig","isAgentSupportEnabled":true}"""
+        ) as ApiUpdate.ApiUpdateConfig
+        val disabled = decode<ApiUpdate>(
+            """{"type":"updateConfig","isAgentSupportEnabled":false}"""
+        ) as ApiUpdate.ApiUpdateConfig
+
+        assertEquals(true, enabled.isAgentSupportEnabled)
+        assertEquals(false, disabled.isAgentSupportEnabled)
     }
 }

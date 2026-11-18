@@ -30,6 +30,10 @@ extension AgentVC: AgentComposerHandoffTarget {
         composerView.alpha = isHidden ? 0 : 1
     }
 
+    public var isComposerStopShown: Bool {
+        isViewLoaded ? composerView.isStopShown : model.canStopAnswer || thinkingTypingIndicatorID != nil
+    }
+
     /// Shows `overlay` under the messages, and so under the header's backdrop and the composer
     func insertUnderMessages(_ overlay: UIView) {
         view.insertSubview(overlay, belowSubview: collectionView)

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from '../../lib/teact/teact';
 
-import type { AgentThreadListItemV2, AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
+import type { AgentThreadListItemV2, AgentThreadSummaryV2, AgentV2ErrorCode } from '../../api/agentV2/protocol/types';
 import type { AgentV2OperationError } from '../../api/agentV2/types';
 
 import { getIsAgentV2SupportActive } from '../../global/agentV2/uiCapabilities';
@@ -52,6 +52,13 @@ interface UseAgentV2ThreadListResult extends AgentV2ThreadListState {
   isCacheShown: boolean;
   /** The latest first-page load failed while the list was empty or showed cached rows */
   hasLoadFailed: boolean;
+  /** What failed the latest first-page load, when it failed */
+  loadErrorCode?: AgentV2ErrorCode;
+  /**
+   * The device's copy of the chats is being read for a list with nothing to show: the list shows nothing in its place
+   * until then rather than the skeleton, which a list with a copy to show doesn't have
+   */
+  isReadingCache: boolean;
   /** The next page failed to load: the list ends with a line that loads it again */
   hasPageLoadFailed: boolean;
   /** The list loads again after its failure, as the user asked */
@@ -78,6 +85,9 @@ export default function useAgentV2ThreadList({
   const [list, setList] = useState<AgentV2ThreadListState>({});
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [hasLoadFailed, setHasLoadFailed] = useState(false);
+  const [loadErrorCode, setLoadErrorCode] = useState<AgentV2ErrorCode | undefined>();
+  // An enabled list reads the device's copy from its first render, before the skeleton has shown
+  const [isReadingCache, setIsReadingCache] = useState(isEnabled);
   const [hasPageLoadFailed, setHasPageLoadFailed] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isCacheShown, setIsCacheShown] = useState(false);
@@ -142,10 +152,16 @@ export default function useAgentV2ThreadList({
     }
     const loadCount = ++loadCountRef.current;
     let hasFreshPage = false;
-    if (!list.items?.length && freshPageLocalStateRef.current !== localState) {
-      void callApi('getAgentV2CachedThreads').then((threads) => {
-        if (!threads?.length || hasFreshPage || requestId !== firstPageRequestIdRef.current
+    let cacheRead: Promise<void> | undefined;
+    const shouldReadCache = !list.items?.length && freshPageLocalStateRef.current !== localState;
+    setIsReadingCache(shouldReadCache);
+    if (shouldReadCache) {
+      cacheRead = callApi('getAgentV2CachedThreads').then((threads) => {
+        if (hasFreshPage || requestId !== firstPageRequestIdRef.current
           || localState !== getAgentV2LocalState()) return;
+
+        setIsReadingCache(false);
+        if (!threads?.length) return;
 
         setIsCacheShown(true);
         updateItems(() => threads);
@@ -154,16 +170,23 @@ export default function useAgentV2ThreadList({
     }
     const result = await callApi('listAgentV2Threads', { limit: THREAD_LIST_PAGE_SIZE });
     if (localState !== getAgentV2LocalState() || requestId !== firstPageRequestIdRef.current) return;
-    setIsRetrying(false);
     if (!result?.ok) {
+      // A failed first page, as without a network, leaves the device's copy being read to show in place of the failure
+      await cacheRead;
+      if (localState !== getAgentV2LocalState() || requestId !== firstPageRequestIdRef.current) return;
+      setIsRetrying(false);
+      setIsReadingCache(false);
       handleFirstPageFailure(result?.error);
       return;
     }
 
     hasFreshPage = true;
     freshPageLocalStateRef.current = localState;
+    setIsRetrying(false);
+    setIsReadingCache(false);
     setIsCacheShown(false);
     setHasLoadFailed(false);
+    setLoadErrorCode(undefined);
     const { threads, nextCursor: pageCursor } = result.value;
     const summaries = threads.map(({ thread }) => thread);
     observeAgentThreadCounts(summaries, tracker.getAnsweringThreadIds());
@@ -199,6 +222,7 @@ export default function useAgentV2ThreadList({
     if (list.items?.length && !isCacheShown) return;
 
     setHasLoadFailed(true);
+    setLoadErrorCode(error?.code ?? 'network_error');
     if (error && !error.retryable) return;
     if (!isEnabled || !isVisible || getIsInBackground()) return;
 
@@ -219,6 +243,7 @@ export default function useAgentV2ThreadList({
     if (!result?.ok) {
       // The list keeps the chats it has loaded and ends with the failure, whose Retry asks for the page again
       setHasPageLoadFailed(true);
+      setLoadErrorCode(result?.error.code ?? 'network_error');
       // A failure that retrying cannot fix waits for the user to ask for the page again
       if (result && !result.error.retryable) {
         isLoadingPageRef.current = false;
@@ -387,6 +412,8 @@ export default function useAgentV2ThreadList({
     hasMore: Boolean(nextCursor),
     isCacheShown,
     hasLoadFailed,
+    loadErrorCode,
+    isReadingCache,
     hasPageLoadFailed,
     isRetrying,
     retry,

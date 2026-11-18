@@ -24,7 +24,7 @@ public final class AgentChatTitlePill: UIView {
         addSubview(glassView)
         titleView.translatesAutoresizingMaskIntoConstraints = true
         glassView.contentView.addSubview(titleView)
-        (titleView as? AgentChatTitleView)?.onFittingWidthChange = { [weak self] in
+        (titleView as? NavigationTitleView)?.onFittingWidthChange = { [weak self] in
             self?.handleTitleWidthChange()
         }
     }
@@ -35,12 +35,12 @@ public final class AgentChatTitlePill: UIView {
     }
 
     private var contentWidth: CGFloat {
-        (contentView as? AgentChatTitleView)?.fittingWidth ?? ceil(contentView.intrinsicContentSize.width)
+        (contentView as? NavigationTitleView)?.fittingWidth ?? ceil(contentView.intrinsicContentSize.width)
     }
 
     /// A copy of the title for a transition that draws the glass itself; nil for a title that isn't laid out
     public func makeContentCopy() -> UIView? {
-        guard let title = contentView as? AgentChatTitleView, title.bounds.width > 0, title.bounds.height > 0 else {
+        guard let title = contentView as? NavigationTitleView, title.bounds.width > 0, title.bounds.height > 0 else {
             return nil
         }
         return title.makeTransitionCopy()

@@ -132,10 +132,10 @@ final class AgentTypingAnswerMorph {
             status.transform = CGAffineTransform(translationX: offset.x, y: offset.y)
         }
         move.startAnimation()
-        AgentBlurTransition.animateOut(status.layer, duration: Self.statusDissolveDuration) { [weak status] in
+        BlurTransition.animateOut(status.layer, duration: Self.statusDissolveDuration) { [weak status] in
             status?.removeFromSuperview()
         }
-        AgentBlurTransition.animateIn(bubble.contentView.layer, duration: Self.statusDissolveDuration, delay: Self.contentDelay)
+        BlurTransition.animateIn(bubble.contentView.layer, duration: Self.statusDissolveDuration, delay: Self.contentDelay)
     }
 
     /// The bubble shows within the row's frame at first, which grows into the bubble's frame

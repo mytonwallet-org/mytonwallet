@@ -121,6 +121,13 @@ export function getAgentV2ErrorText(code: AgentV2ErrorCode, lang: LangFn, resetA
   }
 }
 
+/** What a failed load says: without a network, that the device has no connection */
+export function getAgentV2LoadErrorText(code: AgentV2ErrorCode, lang: LangFn) {
+  return code === 'network_error'
+    ? lang('No internet connection. Please check your connection and try again.')
+    : getAgentV2ErrorText(code, lang);
+}
+
 function assertUnreachable(value: never): never {
   throw new Error(`Unsupported Agent V2 copy code: ${String(value)}`);
 }

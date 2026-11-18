@@ -85,8 +85,8 @@ extension AgentVC {
         }
     }
 
-    private func makeMessageDissolveView() -> AgentMessageDissolveView {
-        let dissolveView = AgentMessageDissolveView(frame: collectionView.frame)
+    private func makeMessageDissolveView() -> DustDissolveView {
+        let dissolveView = DustDissolveView(frame: collectionView.frame)
         dissolveView.translatesAutoresizingMaskIntoConstraints = false
         dissolveView.onEmpty = { [weak self, weak dissolveView] in
             guard let self, let dissolveView, self.messageDissolveView === dissolveView else { return }

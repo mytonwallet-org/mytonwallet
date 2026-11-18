@@ -428,6 +428,7 @@ final class AgentNewsPostArrival {
     }
 
     private func land(on cell: AgentNewsPostCell) {
+        cell.finishLayoutAnimations()
         // The suggestions under the post, hidden with it so far, appear as the post takes over from the card
         cell.revealFollowups()
         CATransaction.begin()

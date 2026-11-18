@@ -22,7 +22,7 @@ import type { AgentV2StarterHintEntryPoint } from '../agent/hooks/agentV2RunCont
 import type { AgentV2ChatTarget } from '../agent/hooks/useAgentV2Messages';
 import type { AgentThreadUnreadStart } from './agentThreadReadState';
 
-import { getIsAgentV2SupportActive } from '../../global/agentV2/uiCapabilities';
+import { getIsAgentV2SupportActive, getIsAgentV2SupportEntryVisible } from '../../global/agentV2/uiCapabilities';
 import { getIsAgentV2ThreadStarted } from '../../api/agentV2/threadStarted';
 import { formatAgentDigestDiscussionTitle } from '../agent/helpers/agentDateFormat';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
@@ -98,6 +98,7 @@ interface OwnProps {
 interface StateProps {
   animationLevel: AnimationLevel;
   hasWallet?: boolean;
+  isSupportEntryVisible?: boolean;
 }
 
 const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingRequest' };
@@ -128,6 +129,7 @@ export function AgentV2Classic({
   session,
   animationLevel,
   hasWallet = false,
+  isSupportEntryVisible = false,
   onInitialMessageSent,
   onUnreadStartResolved,
   onScroll,
@@ -609,16 +611,22 @@ export function AgentV2Classic({
   // The header's button asks before the chat is handed to an operator
   const [supportRequestSource, setSupportRequestSource] = useState<AgentV2SupportRequestSource>();
   const closeSupportRequest = useLastCallback(() => setSupportRequestSource(undefined));
+  useEffect(() => {
+    if (!isSupportEntryVisible) closeSupportRequest();
+  }, [closeSupportRequest, isSupportEntryVisible]);
   const confirmSupportRequest = useLastCallback(() => {
     if (supportRequestSource && canRequestSupport) requestSupport(supportRequestSource);
   });
   const actions = useMemo(() => ({
     onBack: onBack ?? switchToWallet,
     onReportProblem: reportProblem,
-    onRequestSupport: isSupportRequestVisible ? setSupportRequestSource : undefined,
+    onRequestSupport: isSupportEntryVisible && isSupportRequestVisible ? setSupportRequestSource : undefined,
     onScroll,
     onDelete: canDelete ? handleDelete : undefined,
-  }), [canDelete, handleDelete, isSupportRequestVisible, onBack, onScroll, reportProblem, switchToWallet]);
+  }), [
+    canDelete, handleDelete, isSupportEntryVisible, isSupportRequestVisible,
+    onBack, onScroll, reportProblem, switchToWallet,
+  ]);
 
   return (
     <>
@@ -636,7 +644,7 @@ export function AgentV2Classic({
         noLiveTail={isWithSupport}
       />
       <AgentSupportRequestModal
-        isOpen={Boolean(supportRequestSource)}
+        isOpen={isSupportEntryVisible && Boolean(supportRequestSource)}
         // The server sends the operator no addresses without consent or a wallet
         hasWalletAddresses={isConsentAccepted === true && hasWallet}
         canConfirm={canRequestSupport}
@@ -651,6 +659,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
     animationLevel: global.settings.animationLevel,
     hasWallet: Boolean(global.currentAccountId),
+    isSupportEntryVisible: getIsAgentV2SupportEntryVisible(),
   };
 })(AgentV2Classic));
 

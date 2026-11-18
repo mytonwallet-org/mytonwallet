@@ -1,9 +1,19 @@
 import { expect, getAgentV2Conversation, test } from './fixtures';
 
 test.describe('Agent V2 support request', () => {
-  test('calls support from the chat header once the user confirms', async ({ agentV2, page }) => {
+  test('calls support from the chat header once the user confirms', async ({ agentV2, page, context }) => {
     await agentV2.reset();
     await agentV2.seedWallet();
+    await context.route('**/utils/get-config*', (route) => route.fulfill({
+      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' },
+      json: {
+        isLimited: false,
+        now: Date.now(),
+        country: 'US',
+        isUpdateRequired: false,
+        isAgentSupportEnabled: true,
+      },
+    }));
     await agentV2.open();
     await agentV2.send('What is TON?');
     await expect(getAgentV2Conversation(page).getByText('Deterministic response: What is TON?', { exact: true }))

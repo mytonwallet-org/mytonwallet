@@ -464,6 +464,7 @@ export type ApiUpdateConfig = {
   knowledgeBaseVersion?: string;
   agentProtocolVersion?: ApiBackendConfig['agentProtocolVersion'];
   preferredAgent?: ApiBackendConfig['preferredAgent'];
+  isAgentSupportEnabled?: ApiBackendConfig['isAgentSupportEnabled'];
   allowedOnOffRampCurrencies?: string[];
 };
 

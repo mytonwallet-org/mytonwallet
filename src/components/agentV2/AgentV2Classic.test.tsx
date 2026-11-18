@@ -1,11 +1,13 @@
 import React, { useState, type VirtualElementComponent } from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
+import { getGlobal, setGlobal } from '../../global';
 
 import type { AgentPublicFollowUpV2, AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
 import type { AgentMessage } from '../../global/types';
 import type { AgentConversation, AgentConversationShellProps } from '../agent/AgentConversationShell';
 import type { UseAgentV2MessagesResult } from '../agent/hooks/useAgentV2Messages';
 
+import { INITIAL_STATE } from '../../global/initialState';
 import { getAgentV2LocalState, resetAgentV2LocalState } from '../../util/agent/agentV2LocalState';
 import Deferred from '../../util/Deferred';
 import { openUrl } from '../../util/openUrl';
@@ -20,7 +22,7 @@ import useAgentV2Messages from '../agent/hooks/useAgentV2Messages';
 import AgentConversationShell from '../agent/AgentConversationShell';
 import AgentInputBar from '../agent/AgentInputBar';
 import AgentNewsPost from './AgentNewsPost';
-import { AgentV2Classic } from './AgentV2Classic';
+import ConnectedAgentV2Classic, { AgentV2Classic } from './AgentV2Classic';
 import AgentV2IncomingMessage from './AgentV2IncomingMessage';
 
 const mockSwitchToWallet = jest.fn();
@@ -28,7 +30,6 @@ const mockSwitchToWallet = jest.fn();
 jest.mock('../../global', () => ({
   ...jest.requireActual('../../global'),
   getActions: () => ({ switchToWallet: mockSwitchToWallet }),
-  withGlobal: () => (Component: unknown) => Component,
 }));
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
@@ -91,6 +92,7 @@ const useAgentV2MessagesMock = jest.mocked(useAgentV2Messages);
 const AgentConversationShellMock = jest.mocked(AgentConversationShell);
 const AgentInputBarMock = jest.mocked(AgentInputBar);
 const AgentV2IncomingMessageMock = jest.mocked(AgentV2IncomingMessage);
+const SHELL_IMPLEMENTATION = AgentConversationShellMock.getMockImplementation()!;
 
 describe('AgentV2Classic', () => {
   let root: HTMLDivElement;
@@ -109,6 +111,7 @@ describe('AgentV2Classic', () => {
     TeactDOM.render(undefined, root);
     root.remove();
     portals.remove();
+    AgentConversationShellMock.mockImplementation(SHELL_IMPLEMENTATION);
     jest.clearAllMocks();
   });
 
@@ -1458,14 +1461,21 @@ describe('AgentV2Classic', () => {
   });
 
   describe('support request', () => {
+    beforeEach(() => {
+      setGlobal({
+        ...INITIAL_STATE,
+        settings: { ...INITIAL_STATE.settings, animationLevel: 0 },
+        restrictions: { ...INITIAL_STATE.restrictions, isAgentSupportEnabled: true },
+      });
+    });
+
     async function renderChat(overrides: Partial<UseAgentV2MessagesResult> = {}, hasWallet = true) {
       const messagesResult = buildMessagesResult(overrides);
       useAgentV2MessagesMock.mockReturnValue(messagesResult);
+      setGlobal({ ...getGlobal(), currentAccountId: hasWallet ? 'account-1' : undefined });
       TeactDOM.render(
-        <AgentV2Classic
+        <ConnectedAgentV2Classic
           isActive
-          animationLevel={0}
-          hasWallet={hasWallet}
           target={{ kind: 'thread', threadId: 'thread-1' }}
         />,
         root,
@@ -1491,6 +1501,28 @@ describe('AgentV2Classic', () => {
     function findPortalButton(text: string) {
       return [...portals.querySelectorAll('button')].find(({ textContent }) => textContent === text);
     }
+
+    it.each([undefined, false])('renders no support entry points when the backend flag is %s', async (
+      isAgentSupportEnabled,
+    ) => {
+      const global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled } });
+      AgentConversationShellMock.mockImplementation(
+        jest.requireActual<{ default: typeof AgentConversationShell }>('../agent/AgentConversationShell').default,
+      );
+      await renderChat();
+      await pause(50);
+
+      expect(root.querySelector('button[aria-label="$agent_support_contact"]')).toBeNull();
+      expect(root.querySelector('[data-agent-support-hint]')).toBeNull();
+      expect(root.querySelector('[data-agent-hints]')).toBeNull();
+      const menuButton = root.querySelector<HTMLButtonElement>('button[aria-label="Open Menu"]')!;
+      expect(menuButton.parentElement!.children).toHaveLength(1);
+      menuButton.click();
+      expect(await waitFor(() => Boolean(findPortalButton('Report a Problem')), 10, 300)).toBe(true);
+      expect(findPortalButton('$agent_support_contact')).toBeUndefined();
+      expect(findPortalButton('$agent_support_confirm_action')).toBeUndefined();
+    });
 
     it('keeps support in the header of an empty chat whose hints did not load', async () => {
       await renderChat({
@@ -1523,6 +1555,23 @@ describe('AgentV2Classic', () => {
       (await openSheet()).call.click();
       expect(messagesResult.requestSupport).toHaveBeenCalledTimes(1);
       expect(messagesResult.requestSupport).toHaveBeenCalledWith('header');
+    });
+
+    it('keeps the support sheet closed when the backend flag turns off and on again', async () => {
+      await renderChat();
+      await openSheet();
+      expect(portals.querySelector('[role="dialog"]')).not.toBeNull();
+
+      let global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: false } });
+      expect(await waitFor(() => !portals.querySelector('[role="dialog"]'), 10, 1000)).toBe(true);
+
+      global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: true } });
+      expect(await waitFor(() => Boolean(getShellProps().actions.onRequestSupport), 10, 300)).toBe(true);
+      await rafPromise();
+      await rafPromise();
+      expect(portals.querySelector('[role="dialog"]')).toBeNull();
     });
 
     it('sends nothing once the chat cannot call support with the sheet open', async () => {

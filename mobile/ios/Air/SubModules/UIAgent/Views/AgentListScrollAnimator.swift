@@ -15,6 +15,8 @@ import UIComponents
 @MainActor
 final class AgentListScrollAnimator {
     static let spring = GlassSpring(dampingRatio: 1, response: 2 * .pi / 555.027.squareRoot())
+    /// A sent question goes up on the same spring 1.3 times as slow, as on Android and Classic
+    static let questionSpring = GlassSpring(dampingRatio: 1, response: 1.3 * spring.response)
     static let departingViewIdentifier = "agent_departing_rows"
 
     private enum Motion {
@@ -38,10 +40,11 @@ final class AgentListScrollAnimator {
     var isRunning: Bool { curve != nil }
 
     /// Scrolls to the offset `getTargetOffsetY` returns, asked again on every frame as the rows on the way settle their
-    /// heights. After a long scroll's jump, `settleJump` lets the destination's rows settle before they slide in.
-    /// `completion` gets whether the scroll reached its target rather than being stopped.
+    /// heights, on `spring`. After a long scroll's jump, `settleJump` lets the destination's rows settle before they
+    /// slide in. `completion` gets whether the scroll reached its target rather than being stopped.
     func scroll(
         to getTargetOffsetY: @escaping () -> CGFloat?,
+        spring: GlassSpring = AgentListScrollAnimator.spring,
         settleJump: () -> Void = {},
         completion: @escaping (Bool) -> Void
     ) {
@@ -80,7 +83,7 @@ final class AgentListScrollAnimator {
         } else {
             motion = .scroll(startOffsetY: startOffsetY, appliedOffsetY: startOffsetY)
         }
-        curve = GlassSpringCurve(startTime: CACurrentMediaTime(), from: 0, target: 1, spring: Self.spring)
+        curve = GlassSpringCurve(startTime: CACurrentMediaTime(), from: 0, target: 1, spring: spring)
         step(at: CACurrentMediaTime())
         clock.start()
     }

@@ -1,14 +1,16 @@
 import React, {
   memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
-import { getGlobal } from '../../global';
+import { getActions, getGlobal } from '../../global';
 
 import type {
   AgentNewsFeedDigestV2,
   AgentNewsFeedItemV2,
   AgentThreadListItemV2,
   AgentThreadSummaryV2,
+  AgentV2ErrorCode,
 } from '../../api/agentV2/protocol/types';
+import type { AgentV2ComposerStatus } from '../../api/agentV2/types';
 import type { AgentHint } from '../../global/types';
 import type { AgentV2StarterHintEntryPoint } from '../agent/hooks/agentV2RunController';
 
@@ -28,6 +30,7 @@ import { createSnapGhost, getSnapEffectKind, getSnapEffectLayer } from '../agent
 import { startOpeningSuggestionMorph, startOpeningTextFlight } from './agentOpeningQuestion';
 import { buildAgentThreadListSections } from './agentThreadListSections';
 import { getIsAgentThreadUnread, subscribeToAgentThreadReadState } from './agentThreadReadState';
+import { getAgentV2LoadErrorText } from './agentV2Copy';
 import useAgentSuggestions from './useAgentSuggestions';
 import useAgentThreadListMotion from './useAgentThreadListMotion';
 import { closeAgentThreadSwipe } from './useAgentThreadSwipe';
@@ -47,7 +50,7 @@ import AgentHints from '../agent/AgentHints';
 import AgentLoadFailure from '../agent/AgentLoadFailure';
 import { getIsAnyModalOpen } from '../ui/Modal';
 import AgentNewsRow from './AgentNewsRow';
-import { AgentFailureCaption } from './AgentStatusNotice';
+import { AgentFailureCaption, getComposerStatusTitle } from './AgentStatusNotice';
 import AgentThreadListItem from './AgentThreadListItem';
 import AgentThreadListSkeleton from './AgentThreadListSkeleton';
 import AgentV2Composer from './AgentV2Composer';
@@ -67,6 +70,10 @@ interface OwnProps {
   hasMore: boolean;
   /** The first page failed to load: empty lists show the failure in place; cached rows keep it below */
   hasLoadFailed?: boolean;
+  /** What failed the first page */
+  loadErrorCode?: AgentV2ErrorCode;
+  /** The device's copy of the chats is being read: until then the list shows nothing rather than the skeleton */
+  isReadingCache?: boolean;
   /** The next page failed to load: the list ends with its failure line */
   hasPageLoadFailed?: boolean;
   isRetrying?: boolean;
@@ -78,6 +85,8 @@ interface OwnProps {
   newsUnreadCount: number;
   /** The user has not allowed the Agent yet, so a question or a recording asks for consent first */
   isDictationHeld?: boolean;
+  /** A limit that holds for new questions, or an Agent that may be unstable */
+  composerStatus?: AgentV2ComposerStatus;
   onSelect: (threadId: string) => void;
   onOpenNews: NoneToVoidFunction;
   /**
@@ -118,6 +127,8 @@ function AgentThreadList({
   dissolvingThreadIds = NO_THREAD_IDS,
   hasMore,
   hasLoadFailed,
+  loadErrorCode,
+  isReadingCache,
   hasPageLoadFailed,
   isRetrying,
   activityLangKeys,
@@ -125,6 +136,7 @@ function AgentThreadList({
   latestNewsDigest,
   newsUnreadCount,
   isDictationHeld,
+  composerStatus,
   onSelect,
   onOpenNews,
   onStartChat,
@@ -147,11 +159,19 @@ function AgentThreadList({
   const [isComposing, setIsComposing] = useState(Boolean(switchedLayout?.isComposing));
   // Chats that failed to load show the failure in place of the suggestions, which would say there are none
   const isLoadFailureShown = Boolean(hasLoadFailed) && !items?.length;
+  const loadFailureText = loadErrorCode === 'network_error'
+    ? getAgentV2LoadErrorText(loadErrorCode, lang)
+    : lang('$agent_chats_unavailable');
   const isListEmpty = items?.length === 0 && !isLoadFailureShown;
   const shouldShowSuggestions = isComposing || isListEmpty;
   const suggestions = useAgentSuggestions(lang, isActive && shouldShowSuggestions);
   const rootRef = useRef<HTMLElement>();
   const inputRef = useRef<HTMLTextAreaElement>();
+  // While a limit holds, the field is dimmed and a question goes nowhere: a toast says why, as on iOS and Android
+  const isLimitHolding = composerStatus?.mode === 'blocked';
+  const showLimitToast = useLastCallback(() => {
+    getActions().showToast({ message: getComposerStatusTitle(lang, composerStatus!) });
+  });
 
   const bodyRef = useRef<HTMLDivElement>();
   const { isScrolled, handleScroll: handleScrolledState } = useScrolledState();
@@ -302,6 +322,10 @@ function AgentThreadList({
   const handleSend = useLastCallback(() => {
     const text = getDraft().trim();
     if (!text) return;
+    if (isLimitHolding) {
+      showLimitToast();
+      return;
+    }
     // The question flies out of the field into the new chat's first bubble, as a question sent in a chat does. One with
     // secret words shows there without them, so it doesn't fly.
     if (inputRef.current && !hasSecretPhrase(text, getSecretPhraseWordList())) {
@@ -331,6 +355,10 @@ function AgentThreadList({
   }, [isActive, isComposing]);
 
   const handleSuggestionClick = useLastCallback((hint: AgentHint, button: HTMLElement) => {
+    if (isLimitHolding) {
+      showLimitToast();
+      return;
+    }
     const hintEntryPoint = suggestions && buildAgentV2StarterHintEntryPoint(suggestions.starterHints, hint.id);
     onRequestConsent(() => {
       startOpeningSuggestionMorph(button, hint.title);
@@ -424,7 +452,7 @@ function AgentThreadList({
       // A chat's failure line, as the news feed ends with one when it fails to refresh
       (hasLoadFailed || hasPageLoadFailed) && items?.length ? (
         <div key="page-failure" className={styles.pageFailure}>
-          <AgentFailureCaption text={lang('$agent_chats_unavailable')} onRetry={onRetry} />
+          <AgentFailureCaption text={loadFailureText} onRetry={onRetry} />
         </div>
       ) : undefined,
     ];
@@ -451,10 +479,10 @@ function AgentThreadList({
       >
         {renderBody()}
       </div>
-      <AgentThreadListSkeleton isOpen={!hasBody && !isComposing} />
+      <AgentThreadListSkeleton isOpen={!hasBody && !isComposing && !isReadingCache} />
       {isLoadFailureShown && !isComposing && (
         <div className={styles.loadFailure}>
-          <AgentLoadFailure text={lang('$agent_chats_unavailable')} isRetrying={isRetrying} onRetry={onRetry} />
+          <AgentLoadFailure text={loadFailureText} isRetrying={isRetrying} onRetry={onRetry} />
         </div>
       )}
       <div
@@ -479,6 +507,7 @@ function AgentThreadList({
         inputValue={draft}
         isActive={isActive}
         isDisabled={false}
+        isDimmed={isLimitHolding}
         onRequestConsent={isDictationHeld ? onRequestConsent : undefined}
         onInput={setDraft}
         onKeyDown={handleDraftKeyDown}

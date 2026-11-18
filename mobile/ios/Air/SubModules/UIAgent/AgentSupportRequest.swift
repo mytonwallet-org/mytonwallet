@@ -8,6 +8,12 @@ enum AgentSupportRequest {
     /// The server's chats a request chooses from, as many as the chat list's first page has
     static let threadPageSize = 30
 
+    static func isEntryVisible(client: AgentV2Client, support: ApiAgentV2ThreadSupport? = nil) -> Bool {
+        client.isAgentSupportEnabled
+            && AgentV2HostContextProvider.supportsSupportHandoff
+            && !AgentSupportPresentation.getState(for: support).isActive
+    }
+
     /// The chat support has that was active last: a request from the starter hints opens it rather than a new one
     static func findSupportThread(in threads: [ApiAgentV2ThreadSummary]) -> ApiAgentV2ThreadSummary? {
         threads

@@ -127,6 +127,14 @@ export interface ChainConfig {
   addressRegex: RegExp;
   /** The same regular expression but matching any prefix of a valid address */
   addressPrefixRegex: RegExp;
+  /**
+   * Chains with the same address format accept the same addresses. When a pasted address fits several of them,
+   * the selected chain stays. For example, an `0x…` address keeps Base selected and does not switch to Ethereum.
+   *
+   * By default, the format is `chainStandard` or the chain itself. Set this field only for a chain that has
+   * its own wallet but accepts another chain's addresses, such as `'bitcoin'` for Bitcoin Cash.
+   */
+  addressFormat?: ApiChain;
   /** The native token of the chain, i.e. the token that pays the fees */
   nativeToken: ApiToken;
   /** Token addresses whose balances represent foreign staking positions */
@@ -197,10 +205,13 @@ export interface ChainConfig {
   };
 }
 
-// Address-matching precedence order (NOT the display order — see `CHAIN_DISPLAY_ORDER` below).
-// A pasted address is matched against chains in this order and the first match wins, so the chain with the more
-// specific address regex must come first: e.g. a Bitcoin address can match Solana's regex, so `bitcoin` must precede
-// `solana`; and all EVM chains share the same regex, so the first EVM chain (`ethereum`) is the default match.
+// The order in which a pasted address is matched against chains. This is not the display order,
+// see `CHAIN_DISPLAY_ORDER` below.
+//
+// The address goes to the first chain that accepts it. If the selected chain has the same `addressFormat`,
+// the selected chain stays instead. A chain with a stricter address regex must come first. For example,
+// a Bitcoin address can also match the Solana regex, so `bitcoin` comes before `solana`. All EVM chains share
+// one regex, so `ethereum`, the first of them, is the default match.
 export const CHAIN_ORDER: ApiChain[] = [
   'ton',
   'tron',
@@ -1275,6 +1286,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   },
   bitcoincash: {
     title: 'Bitcoin Cash',
+    addressFormat: 'bitcoin',
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,

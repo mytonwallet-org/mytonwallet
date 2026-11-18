@@ -15,6 +15,7 @@ import {
   selectHasPassword,
   selectIsEnclaveSessionValid,
   selectIsMnemonicAccount,
+  selectIsMultichainAccount,
   selectNetworkAccounts,
   selectOrderedAccounts,
 } from '../../../../global/selectors';
@@ -694,7 +695,9 @@ export default memo(withGlobal(
     const currentAccountId = selectCurrentAccountId(global)!;
     const networkAccounts = selectNetworkAccounts(global);
     const hasPassword = selectHasPassword(global);
-    const canAddSubwallet = selectIsMnemonicAccount(global);
+    // Same rule as the Subwallets item in Settings: a single-chain account usually holds TON-native words
+    // or a private key, and the API derives no subwallets from those
+    const canAddSubwallet = selectIsMnemonicAccount(global) && selectIsMultichainAccount(global, currentAccountId);
     const accountWalletVersions = walletVersions?.byId?.[currentAccountId];
     const { isLoading, error } = accounts ?? {};
 

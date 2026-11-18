@@ -20,6 +20,12 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
+/**
+ * The spring a sent question goes up on: Telegram's list spring (critically damped, stiffness 555.027) 1.3 times as slow,
+ * which iOS's and Classic's chats bring a question up on too
+ */
+internal const val AGENT_QUESTION_SPRING_STIFFNESS = 555.027f / (1.3f * 1.3f)
+
 internal class AgentTimelineViewport(private val host: Host) {
     interface Host {
         val recyclerView: RecyclerView
@@ -1032,16 +1038,24 @@ internal class AgentTimelineViewport(private val host: Host) {
                     lm.scrollToPositionWithOffset(firstPosition, firstOffset)
                 }
             }
-            if (animated) {
+            if (animated && outgoingEditMessageId != messageId) {
+                // As iOS's chat does, the list stands at the question at once, and the rows that were on screen slide
+                // out by the list's height as the question's rows slide in after them
+                val isDown = anchorIndex > lm.findLastVisibleItemPosition()
+                latestScroll.finish()
+                val offset = pinnedItemOffset(anchorIndex, messageHeight)
+                latestScroll.relay(isDown) { lm.scrollToPositionWithOffset(anchorIndex, offset) }
+                doOnNextLayout {
+                    if (pendingPinMessageId == messageId) {
+                        evaluatePinning(messageId, isRetry = true, animated = false)
+                    }
+                }
+            } else if (animated) {
                 val scroller = object : LinearSmoothScroller(context) {
                     override fun getVerticalSnapPreference(): Int = SNAP_TO_START
 
                     override fun calculateSpeedPerPixel(displayMetrics: DisplayMetrics): Float =
-                        if (outgoingEditMessageId == messageId) {
-                            90f / displayMetrics.densityDpi
-                        } else {
-                            super.calculateSpeedPerPixel(displayMetrics)
-                        }
+                        90f / displayMetrics.densityDpi
 
                     override fun calculateDyToMakeVisible(view: View, snapPreference: Int): Int {
                         val currentIndex = pinAnchorIndex(messageId)
@@ -1153,6 +1167,7 @@ internal class AgentTimelineViewport(private val host: Host) {
             if (dy == null || dy != 0) {
                 lm.scrollToPositionWithOffset(idx, targetOffset)
             }
+            riseIntoPlace(messageId)
             finishInitialHintsDismissal(messageId)
             notifyMessagePinned(messageId)
             return
@@ -1161,7 +1176,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         pinScrollSpring?.cancel()
         pinScrollSpring = SpringAnimation(FloatValueHolder()).apply {
             spring = SpringForce(dy.toFloat()).apply {
-                stiffness = SpringForce.STIFFNESS_LOW
+                stiffness = AGENT_QUESTION_SPRING_STIFFNESS
                 dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
             }
             addUpdateListener { _, value, _ ->
@@ -1195,6 +1210,20 @@ internal class AgentTimelineViewport(private val host: Host) {
                 }
             }
             start()
+        }
+    }
+
+    /**
+     * A question just sent with nothing to come out of, which the list has no room to bring up, rises into its place
+     * from under the field, as on iOS and Classic
+     */
+    private fun riseIntoPlace(messageId: String) {
+        if (!canAnimatePin) return
+        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        val cell = lm.findViewByPosition(timelineIndexOf(messageId)) as? AgentMessageCell ?: return
+        cell.riseIntoPlace {
+            val visibleBottom = chatRecyclerView.height - baseChatBottomPadding(appliedBottom)
+            (visibleBottom - cell.top).toFloat().coerceAtLeast(0f)
         }
     }
 
