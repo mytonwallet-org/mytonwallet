@@ -9,27 +9,112 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.isAgentFieldI
 
 class AgentComposerButtonsTest {
     @Test
-    fun draftWhileAnsweringTradesStopForSendWithoutTheMicrophone() {
-        // The circle merges into the field still holding Stop as the send button comes, and comes back with it
+    fun stopStandsInTheSendButtonsPlaceBesideTheMicrophone() {
         assertEquals(
-            AgentComposerButtons(isSendShown = false, isCircleApart = true, isStopShown = true),
+            AgentComposerButtons(
+                isSendShown = false,
+                isStopShown = true,
+                isMicrophoneShown = true,
+                isCircleApart = false
+            ),
             agentComposerButtons(AgentDictationPhase.IDLE, hasText = false, isAnswering = true)
         )
+        val pressing = agentComposerButtons(
+            AgentDictationPhase.PRESSING,
+            hasText = false,
+            isAnswering = true
+        )
+        assertEquals(true, pressing.isMicrophoneShown)
+        assertEquals(false, pressing.isStopShown)
+        // A draft written during the answer trades Stop for its send button
         assertEquals(
-            AgentComposerButtons(isSendShown = true, isCircleApart = false, isStopShown = true),
+            AgentComposerButtons(
+                isSendShown = true,
+                isStopShown = false,
+                isMicrophoneShown = true,
+                isCircleApart = false
+            ),
             agentComposerButtons(AgentDictationPhase.IDLE, hasText = true, isAnswering = true)
         )
     }
 
     @Test
-    fun withoutAnAnswerTheMicrophoneTradesPlacesWithSend() {
+    fun theSupportCircleStandsBesideTheListsEmptyFieldOnly() {
         assertEquals(
-            AgentComposerButtons(isSendShown = false, isCircleApart = true, isStopShown = false),
+            AgentComposerButtons(
+                isSendShown = false,
+                isStopShown = false,
+                isMicrophoneShown = true,
+                isCircleApart = true
+            ),
+            agentComposerButtons(
+                AgentDictationPhase.IDLE,
+                hasText = false,
+                isAnswering = false,
+                isSupportOffered = true
+            )
+        )
+        val draft = agentComposerButtons(
+            AgentDictationPhase.IDLE,
+            hasText = true,
+            isAnswering = false,
+            isSupportOffered = true
+        )
+        assertEquals(false, draft.isCircleApart)
+        assertEquals(true, draft.isSendShown)
+        val recording = agentComposerButtons(
+            AgentDictationPhase.RECORDING,
+            hasText = false,
+            isAnswering = false,
+            isSupportOffered = true
+        )
+        assertEquals(false, recording.isCircleApart)
+        // A chat has no circle
+        assertEquals(
+            false,
             agentComposerButtons(AgentDictationPhase.IDLE, hasText = false, isAnswering = false)
+                .isCircleApart
+        )
+    }
+
+    @Test
+    fun aFieldThatKeepsSendKeepsItWhileARecordingIsRecognized() {
+        assertEquals(
+            true,
+            agentComposerButtons(
+                AgentDictationPhase.RECOGNIZING,
+                hasText = false,
+                isAnswering = false,
+                isSendAlwaysShown = true
+            ).isSendShown
         )
         assertEquals(
-            AgentComposerButtons(isSendShown = true, isCircleApart = false, isStopShown = false),
-            agentComposerButtons(AgentDictationPhase.IDLE, hasText = true, isAnswering = false)
+            false,
+            agentComposerButtons(
+                AgentDictationPhase.RECOGNIZING,
+                hasText = false,
+                isAnswering = false
+            ).isSendShown
+        )
+    }
+
+    @Test
+    fun theMicrophoneGivesWayToTheRecognition() {
+        assertEquals(
+            false,
+            agentComposerButtons(
+                AgentDictationPhase.RECOGNIZING,
+                hasText = false,
+                isAnswering = false
+            ).isMicrophoneShown
+        )
+        assertEquals(
+            true,
+            agentComposerButtons(
+                AgentDictationPhase.RECORDING,
+                hasText = false,
+                isAnswering = false
+            ).isMicrophoneShown
         )
     }
 

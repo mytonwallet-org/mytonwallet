@@ -66,7 +66,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     /// The chat's column: as wide as the screen up to the content's maximum width, centred
     private let contentLayoutGuide = UILayoutGuide()
     /// Where a chat's field rests above the bottom edge. The feed has no field, so what a chat keeps above its field the
-    /// feed keeps above this line: the latest news and the scroll button.
+    /// feed keeps above this line: the latest news. The scroll button stands on it, in a chat's microphone's place.
     private let fieldLineGuide = UILayoutGuide()
     private lazy var fieldLineConstraint = fieldLineGuide.topAnchor.constraint(equalTo: view.bottomAnchor)
     private var navigationBarBackground: UIView?
@@ -444,15 +444,12 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            // On the trailing edge of a chat's microphone circle, where a chat's scroll button stands
+            // In a chat's microphone's place, as the feed has no field for the button to stand over
             scrollToBottomButton.trailingAnchor.constraint(
                 equalTo: contentLayoutGuide.trailingAnchor,
                 constant: -AgentComposerMetrics.threadHorizontalInset
             ),
-            scrollToBottomButton.bottomAnchor.constraint(
-                equalTo: fieldLineGuide.topAnchor,
-                constant: -AgentVCLayout.scrollToBottomButtonSpacing
-            ),
+            scrollToBottomButton.bottomAnchor.constraint(equalTo: fieldLineGuide.topAnchor),
             scrollToBottomButton.widthAnchor.constraint(equalToConstant: AgentScrollToBottomButton.size),
             scrollToBottomButton.heightAnchor.constraint(equalToConstant: AgentScrollToBottomButton.size),
             pinnedDigestBar.topAnchor.constraint(
@@ -1314,17 +1311,19 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         push(controller)
     }
 
-    /// The thread of a discussion with messages in it, which opens as it is; nil for one to open as a new visit
+    /// The thread of a discussion with messages in it, which opens as it is; nil for one to open as a new visit. A loaded
+    /// discussion whose post waits for its history has them.
     private func findDiscussionThread(threadId: String) -> ApiAgentV2ThreadSummary? {
         if let discussion = preloader.model(threadId: threadId) {
-            return discussion.hasMessages || discussion.hasActiveRun ? discussion.thread : nil
+            let hasMessages = discussion.hasMessages || discussion.hasActiveRun || discussion.isAwaitingDiscussionPost
+            return hasMessages ? discussion.thread : nil
         }
         guard let summary = model.findThread(threadId), summary.messageCount > 0 else { return nil }
         return summary
     }
 
     /// Opens a digest headline's news item over the feed: as its card does when the feed has it, otherwise once the
-    /// item's discussion loads
+    /// item's discussion loads, with its post, and its history when the user has written in it
     private func openHeadline(eventId: Int) {
         if let locale = model.locale, model.items.contains(where: { $0.eventId == eventId }) {
             openDiscussion(eventId: eventId, locale: locale)
@@ -1336,6 +1335,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             guard let self else { return }
             do {
                 let controller = try await loadNewsChatViewController(eventId)
+                try await AgentVC.waitForDiscussionPost(in: controller)
                 guard view.window != nil else {
                     isOpeningDiscussion = false
                     return
@@ -1500,7 +1500,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     }
 
     static func errorText(_ error: Error) -> String {
-        if AgentV2Copy.isConnectionError(error) { return AgentV2Copy.error(.networkError) }
+        if AgentV2Copy.isConnectionError(error) { return AgentV2Copy.loadError(.networkError) }
         if (error as? ApiAgentV2MutationError)?.code == .newsUnavailable
             || (error as? SdkError)?.backendMessage == "news_unavailable" {
             return lang("$agent_news_unavailable")

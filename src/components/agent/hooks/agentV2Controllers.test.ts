@@ -1,3 +1,5 @@
+import { getGlobal, setGlobal } from '../../../global';
+
 import type {
   AgentThreadClearResponseV2,
   AgentThreadSummaryV2,
@@ -18,6 +20,7 @@ import type {
 import type { TextRevealPresentations } from './textRevealPresentation';
 
 import { getIsAgentV2SupportEntryVisible } from '../../../global/agentV2/uiCapabilities';
+import { INITIAL_STATE } from '../../../global/initialState';
 import { AgentClientTrace, type ClientTimingEvent } from '../../../api/agentV2/developmentTelemetry';
 import { decodeHttpError } from '../../../api/agentV2/identity';
 import { getAgentV2ErrorText } from '../../agentV2/agentV2Copy';
@@ -43,6 +46,35 @@ const INPUT_MESSAGE_ID = '44444444-4444-4444-8444-444444444444';
 const ASSISTANT_MESSAGE_ID = '55555555-5555-4555-8555-555555555555';
 
 describe('Agent V2 controllers', () => {
+  beforeEach(() => {
+    setGlobal({
+      ...INITIAL_STATE,
+      restrictions: { ...INITIAL_STATE.restrictions, isAgentSupportEnabled: true },
+    });
+  });
+
+  afterEach(() => {
+    setGlobal(INITIAL_STATE);
+  });
+
+  it.each([false, undefined])('does not offer or request support when the backend flag is %s', async (isEnabled) => {
+    const global = getGlobal();
+    setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: isEnabled } });
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE, isConsentAccepted: true, thread: threadSummary(1),
+    });
+    const { controller, startRun } = createSupportRunHarness(state);
+
+    expect(getIsAgentV2SupportEntryVisible(state.getState().thread)).toBe(false);
+    expect(selectCanRequestAgentV2Support(state.getState())).toBe(false);
+    expect(controller.requestSupport('header')).toBe(false);
+    await flushPromises();
+
+    expect(startRun).not.toHaveBeenCalled();
+    expect(state.getState().messages).toEqual([]);
+    controller.dispose();
+  });
+
   it.each([false, true])('requests support with an optimistic message, including at the daily quota (%s)', async (
     isQuotaExhausted,
   ) => {

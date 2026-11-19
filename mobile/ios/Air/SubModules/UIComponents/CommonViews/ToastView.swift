@@ -40,8 +40,11 @@ public final class ToastController {
         bottomBoundary = BottomBoundary(guide: guide, spacing: spacing)
     }
 
-    public func showToast(_ config: ToastConfig) {
+    /// Shows the toast, resting it `spacing` above `guide` when one is given, as above a field that floats over the
+    /// screen, in place of the boundary `keepAbove` set
+    public func showToast(_ config: ToastConfig, keepingAbove guide: UILayoutGuide? = nil, spacing: CGFloat = 12) {
         guard let containerView else { return }
+        let bottomBoundary = guide.map { BottomBoundary(guide: $0, spacing: spacing) } ?? self.bottomBoundary
 
         let identity = ToastIdentity(style: config.style, icon: config.icon, message: config.message, actionTitle: config.actionTitle)
 

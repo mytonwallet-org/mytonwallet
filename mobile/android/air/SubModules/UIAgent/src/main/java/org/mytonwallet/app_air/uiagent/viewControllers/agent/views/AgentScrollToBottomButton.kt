@@ -109,7 +109,7 @@ class AgentScrollToBottomButton(context: Context) :
     }
 
     companion object {
-        const val SIZE = 44
+        const val SIZE = 48
         private const val HIDDEN_SCALE = 0.2f
         private const val SCALE_DURATION_MS = 300L
         private const val FADE_DURATION_MS = 150L

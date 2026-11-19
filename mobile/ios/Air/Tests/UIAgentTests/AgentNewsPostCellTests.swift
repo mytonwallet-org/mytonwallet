@@ -429,7 +429,7 @@ final class AgentNewsPostCellTests: XCTestCase {
             // Each comes into focus out of its own blur and rises into place, as a suggestion does
             for placeholder in shown {
                 let blur = try XCTUnwrap(placeholder.layer.animation(forKey: "agentFollowupRevealBlur") as? CABasicAnimation)
-                XCTAssertEqual(blur.fromValue as? CGFloat, AgentBlurTransition.radius)
+                XCTAssertEqual(blur.fromValue as? CGFloat, BlurTransition.radius)
                 XCTAssertNotNil(placeholder.layer.animation(forKey: "agentFollowupRevealOffset"))
             }
         }

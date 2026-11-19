@@ -145,6 +145,7 @@ const SupportSheetMock = jest.mocked(AgentSupportRequestModal);
 const FeedMock = jest.mocked(AgentNewsFeed);
 const callApiMock = jest.mocked(callApi);
 const INPUT_BAR_IMPLEMENTATION = InputBarMock.getMockImplementation()!;
+const HINTS_IMPLEMENTATION = jest.mocked(AgentHints).getMockImplementation()!;
 const THREAD_LIST_ITEM_IMPLEMENTATION = jest.mocked(AgentThreadListItem).getMockImplementation()!;
 const NEWS_ROW_IMPLEMENTATION = jest.mocked(AgentNewsRow).getMockImplementation()!;
 
@@ -187,6 +188,7 @@ describe('Agent chat state across mounts', () => {
     getBoundingClientRectMock?.mockRestore();
     getBoundingClientRectMock = undefined;
     InputBarMock.mockImplementation(INPUT_BAR_IMPLEMENTATION);
+    jest.mocked(AgentHints).mockImplementation(HINTS_IMPLEMENTATION);
     jest.mocked(AgentThreadListItem).mockImplementation(THREAD_LIST_ITEM_IMPLEMENTATION);
     jest.mocked(AgentNewsRow).mockImplementation(NEWS_ROW_IMPLEMENTATION);
     FeedMock.mockImplementation(() => undefined);
@@ -323,6 +325,8 @@ describe('Agent chat state across mounts', () => {
     });
 
     it('shows none when the pick fails to load, and keeps Contact Support', async () => {
+      const global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: true } });
       jest.mocked(useAgentSuggestions).mockImplementation(
         jest.requireActual<{ default: typeof useAgentSuggestions }>('./useAgentSuggestions').default,
       );
@@ -336,6 +340,28 @@ describe('Agent chat state across mounts', () => {
       expect(hints.isOpen).toBe(true);
       expect(hints.hints).toBeUndefined();
       expect(hints.onSupportClick).toBeDefined();
+    });
+
+    it.each([undefined, false])('hides Contact Support and its empty hints block when the flag is %s', async (
+      isAgentSupportEnabled,
+    ) => {
+      const global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled } });
+      jest.mocked(AgentHints).mockImplementation(
+        jest.requireActual<{ default: typeof AgentHints }>('../agent/AgentHints').default,
+      );
+      await mountChats();
+      await pause(50);
+
+      expect(jest.mocked(AgentHints).mock.calls.at(-1)![0].isOpen).toBe(true);
+      expect(root.querySelector('[data-agent-support-hint]')).toBeNull();
+      expect(root.querySelector('[data-agent-hints]')).toBeNull();
+
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: true } });
+      expect(await waitFor(() => Boolean(root.querySelector('[data-agent-support-hint]')), 10, 300)).toBe(true);
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled } });
+      expect(await waitFor(() => !root.querySelector('[data-agent-support-hint]'), 10, 300)).toBe(true);
+      expect(root.querySelector('[data-agent-hints]')).toBeNull();
     });
 
     it.each([
@@ -376,6 +402,8 @@ describe('Agent chat state across mounts', () => {
     let portals: HTMLDivElement;
 
     beforeEach(() => {
+      const global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: true } });
       portals = document.createElement('div');
       portals.id = 'portals';
       document.body.appendChild(portals);
@@ -447,6 +475,23 @@ describe('Agent chat state across mounts', () => {
       findSheetButton('$agent_support_confirm_action')!.click();
       expect(await waitFor(() => ChatMock.mock.calls.length > 0, 10, 300)).toBe(true);
       expect(ChatMock.mock.calls.at(-1)![0]).toMatchObject({ target: { kind: 'new' }, shouldRequestSupport: true });
+    });
+
+    it('keeps the support sheet closed when the backend flag turns off and on again', async () => {
+      mockThreadListItems = [buildListItem('plain')];
+      await mountChats();
+      await openSheet();
+
+      let global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: false } });
+      expect(await waitFor(() => !findSheetButton('Cancel'), 10, 1000)).toBe(true);
+
+      global = getGlobal();
+      setGlobal({ ...global, restrictions: { ...global.restrictions, isAgentSupportEnabled: true } });
+      expect(await waitFor(() => Boolean(getHints().onSupportClick), 10, 300)).toBe(true);
+      await rafPromise();
+      expect(SupportSheetMock.mock.calls.at(-1)![0].isOpen).toBe(false);
+      expect(portals.querySelector('[role="dialog"]')).toBeNull();
     });
 
     it('opens the chat support already has', async () => {

@@ -19,8 +19,8 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextBuilder
 import org.mytonwallet.app_air.uiagent.agentV2.AgentHostContextSnapshot
+import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
-import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
 import org.mytonwallet.app_air.uiagent.agentV2.loadAgentV2StarterHints
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentPromptChatRequest
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSession
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.findAgentSupportThread
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.isAgentSupportVisible
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.makeAgentSupportHint
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
@@ -118,10 +119,11 @@ internal class AgentThreadListModel(
     var starterHints: List<AgentHint> = emptyList()
         private set
     private var hasStarterHintsSettled = false
+    private var isSupportFeatureVisible = isAgentSupportVisible
 
     // The server's suggestions, then Contact Support, which the client offers outside their limit
     val shownStarterHints: List<AgentHint>
-        get() = if (isAgentSupportHandoffDeclared && hasStarterHintsSettled) {
+        get() = if (isAgentSupportVisible && hasStarterHintsSettled) {
             starterHints + makeAgentSupportHint()
         } else {
             starterHints
@@ -135,6 +137,20 @@ internal class AgentThreadListModel(
     /** The chats are the device's copy of the first page, shown until the page itself loads */
     var isCacheShown = false
         private set
+
+    /**
+     * The device's copy of the first page has been read, or a first page has loaded or failed to: until then the list
+     * shows nothing in place of the chats rather than the skeleton, which a list with a copy to show doesn't have
+     */
+    var hasReadCachedThreads = false
+        private set
+
+    /** The error code of the latest failure of the first page, when it failed */
+    var loadErrorCode: String? = null
+        private set
+
+    // The first page failed, and its load waits for the device's copy, which shows in place of the failure
+    private var isFirstPageFailing = false
     private var loadJob: Job? = null
     private var loadChanges: MutableMap<String, AgentV2ThreadSummary?>? = null
 
@@ -169,6 +185,8 @@ internal class AgentThreadListModel(
         items = emptyList()
         nextCursor = null
         isCacheShown = false
+        hasReadCachedThreads = false
+        loadErrorCode = null
         hasLoaded = false
         hasLoadFailed = false
         hasPageLoadFailed = false
@@ -202,6 +220,14 @@ internal class AgentThreadListModel(
         }
     }
 
+    fun updateSupportVisibility() {
+        val isVisible = isAgentSupportVisible
+        if (isSupportFeatureVisible == isVisible) return
+        isSupportFeatureVisible = isVisible
+        if (!isVisible) supportRequest = null
+        onStarterHintsChange?.invoke()
+    }
+
     fun makeHintChatRequest(hint: AgentHint) = AgentPromptChatRequest(
         hint.prompt,
         AgentV2EntryPoint(
@@ -222,6 +248,7 @@ internal class AgentThreadListModel(
      * request waits for them behind the device's copy and is dropped when they fail to load.
      */
     fun requestSupportThread(open: (AgentV2ThreadSummary?) -> Unit) {
+        if (!isAgentSupportVisible) return
         if (hasLoaded && !isCacheShown && !hasLoadFailed && !isLoading) {
             open(findAgentSupportThread(items))
             return
@@ -443,8 +470,10 @@ internal class AgentThreadListModel(
             val cacheJob = if (cursor == null && items.isEmpty()) {
                 launch { showCachedThreads() }
             } else {
+                hasReadCachedThreads = true
                 null
             }
+            isFirstPageFailing = false
             var released = emptySet<String>()
             var hasLoadedFirstPage = false
             try {
@@ -457,12 +486,21 @@ internal class AgentThreadListModel(
                 val requestedCursors = mutableSetOf<String>()
                 do {
                     pageCursor?.let(requestedCursors::add)
-                    // Any end of the first page's request makes the device's copy outdated
                     val response = try {
                         client.list(pageCursor)
-                    } finally {
-                        cacheJob?.cancel()
+                    } catch (error: Throwable) {
+                        // A failed first page, as without a network, leaves the device's copy being read to show in
+                        // place of the failure
+                        if (error !is CancellationException && cacheJob != null) {
+                            isFirstPageFailing = true
+                            cacheJob.join()
+                        } else {
+                            cacheJob?.cancel()
+                        }
+                        throw error
                     }
+                    // A page makes the device's copy outdated
+                    cacheJob?.cancel()
                     currentCoroutineContext().ensureActive()
                     if (loadJob !== owner) return@launch
                     response.threads.forEach { item ->
@@ -478,6 +516,10 @@ internal class AgentThreadListModel(
                 items = sortAgentThreads(merged.values.toList())
                 hasLoadedFirstPage = cursor == null
                 nextCursor = pageCursor
+                if (cursor == null) {
+                    hasReadCachedThreads = true
+                    loadErrorCode = null
+                }
                 isCacheShown = false
                 hasLoadFailed = false
                 hasPageLoadFailed = false
@@ -503,10 +545,12 @@ internal class AgentThreadListModel(
                 released = takeHeldActivities(answered.keys)
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Throwable) {
+            } catch (error: Throwable) {
                 // A failed refresh keeps the chats shown without a word
                 if (loadJob === owner) {
                     if (cursor == null) {
+                        hasReadCachedThreads = true
+                        loadErrorCode = (error as? AgentV2OperationException)?.error?.code
                         hasLoadFailed = items.isEmpty()
                     } else {
                         hasPageLoadFailed = true
@@ -533,7 +577,7 @@ internal class AgentThreadListModel(
     private fun settleSupportRequest(hasLoadedFirstPage: Boolean) {
         val open = supportRequest ?: return
         supportRequest = null
-        if (hasLoadedFirstPage) open(findAgentSupportThread(items))
+        if (hasLoadedFirstPage && isAgentSupportVisible) open(findAgentSupportThread(items))
     }
 
     /**
@@ -549,6 +593,7 @@ internal class AgentThreadListModel(
             null
         }
         currentCoroutineContext().ensureActive()
+        hasReadCachedThreads = true
         // The copy takes the changes made while it was read, as the page does
         val changes = loadChanges.orEmpty()
         val shown = cached.orEmpty().mapNotNull { item ->
@@ -558,7 +603,11 @@ internal class AgentThreadListModel(
                 item
             }
         }
-        if (shown.isEmpty()) return
+        if (shown.isEmpty()) {
+            // Without a copy the skeleton shows while the page loads; a page that failed shows its failure next
+            if (!isFirstPageFailing) onChange?.invoke(AgentThreadListChange.DATA)
+            return
+        }
         items = sortAgentThreads(shown)
         nextCursor = null
         isCacheShown = true

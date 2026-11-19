@@ -167,8 +167,8 @@ describe('AgentRunActivity', () => {
 
     TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} />, root);
     await waitForCondition(() => getStepText(root) === 'Analyzing your request…');
-    // The first step's glint waits for the indicator to rise into place as well
-    expect(getGlintDelays(root)).toEqual([480]);
+    // The first step's glint comes as late after it as each later step's
+    expect(getGlintDelays(root)).toEqual([300]);
 
     TeactDOM.render(<AgentRunActivity activity={{ kind: 'tool', toolName: 'wallet.data.query' }} />, root);
     await waitForCondition(() => getStepText(root) === 'Reading wallet data…', { timeout: STEP_TIMEOUT });
@@ -239,7 +239,7 @@ describe('AgentRunActivity handoff', () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(startedAt);
 
     TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} handoff={handoff} />, footer);
-    expect(getGlintDelays(footer)).toEqual([480]);
+    expect(getGlintDelays(footer)).toEqual([300]);
     now.mockReturnValue(startedAt + 100);
 
     TeactDOM.render(
@@ -248,7 +248,7 @@ describe('AgentRunActivity handoff', () => {
     );
     TeactDOM.render(undefined, footer);
     // The glint keeps its time rather than starting over, which would put it 300 ms away
-    expect(getGlintDelays(message)).toEqual([380]);
+    expect(getGlintDelays(message)).toEqual([200]);
     now.mockRestore();
 
     // Past the glint, a step that goes on has none

@@ -66,6 +66,7 @@ object AgentNavigation {
         sources: List<AgentV2NewsFeedItem.Source>? = null,
         discussionNaming: AgentV2NewsFeedItem.DiscussionNaming? = null,
         shouldDeferCreation: Boolean = false,
+        messageCount: Int = 0,
         beforePush: (AgentVC) -> Unit = {}
     ) {
         val chat = AgentVC(
@@ -82,7 +83,8 @@ object AgentNavigation {
                 body = body,
                 sources = sources,
                 discussionNaming = discussionNaming,
-                shouldDeferCreation = shouldDeferCreation
+                shouldDeferCreation = shouldDeferCreation,
+                messageCount = messageCount
             ),
             onThreadCreated = onThreadCreated,
             onThreadMissing = onThreadMissing

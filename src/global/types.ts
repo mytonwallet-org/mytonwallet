@@ -1569,6 +1569,7 @@ export type GlobalState = {
     isOffRampDisabled: boolean;
     isNftBuyingDisabled: boolean;
     isCopyStorageEnabled?: boolean;
+    isAgentSupportEnabled?: boolean;
     supportAccountsCount?: number;
     countryCode?: ApiCountryCode;
     allowedOnOffRampCurrencies?: ApiBaseCurrency[];

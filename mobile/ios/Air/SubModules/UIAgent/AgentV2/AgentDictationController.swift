@@ -10,12 +10,19 @@ struct AgentDictationState: Equatable {
         case idle
         /// Recording while the finger is on the microphone, from touch-down
         case holding
-        /// Recording after a tap, with VoiceOver or from the floating microphone, until the trailing circle's stop is
-        /// tapped
+        /// Recording after a tap, or with VoiceOver, until its stop is tapped
         case handsFree
         case recognizing
         /// A recording that produced no transcript: the recording circle shows it briefly, then the microphone returns
         case failed
+    }
+
+    /// Where releasing a held microphone takes the recording: its transcript into the field where the finger started,
+    /// nowhere at the field's cross toward the leading end, and off as the question at Send toward the trailing end
+    enum HoldZone: Equatable {
+        case stop
+        case cancel
+        case send
     }
 
     /// Why a recording produced no transcript
@@ -31,30 +38,18 @@ struct AgentDictationState: Equatable {
     var levels: [Float] = []
     /// How far the recording waves swell, from 0 to 1: Telegram's level, the peak amplitude against 16000 of 32767
     var waveLevel: Float = 0
+    /// The signal's peak since the last reading, from 0 to 1 of full scale
+    var peakLevel: Float = 0
+    /// How far the held finger has gone along the field from where it came down
     var dragX: Double = 0
-    var dragY: Double = 0
     var failure: Failure?
-    /// The finger has stayed on the microphone past a tap's time: releasing it sends the question, and a hint shows
-    /// that a swipe up keeps it in the field instead
+    /// The finger has stayed on the microphone past a tap's time: where it lets go decides, by `holdZone`
     var isHeld = false
-    /// The field has text, typed, pasted or dictated, or a transcript is on its way there while recognized: the
-    /// floating microphone dictates more after it. Sending or clearing the field ends it.
-    var canDictateMore = false
-    /// The recording is on the floating microphone, which stays where it rests: held, or hands-free after a tap on it,
-    /// as the recording's stop. It has no hints, pause or swipe-to-cancel, its transcript goes into the field, and the
-    /// composer's trailing microphone gives way to it meanwhile.
-    var isFloating = false
-
-    /// Recording on the floating microphone, held or hands-free
-    var isRecordingFloating: Bool {
-        isFloating && (phase == .holding || phase == .handsFree)
-    }
-
-    /// The floating microphone shows while the field holds a dictated transcript or one is on its way there, also
-    /// while a further dictation's failure shows, after which it is at rest again
-    var showsFloatingMicrophone: Bool {
-        canDictateMore && (phase == .idle || phase == .recognizing || phase == .failed)
-    }
+    var holdZone: HoldZone = .stop
+    /// While recognized, the transcript goes as the question rather than into the field
+    var isSending = false
+    /// The recording has heard speech, so there is something to recognize and send
+    var hasSpeech = false
 }
 
 extension AgentDictationState.Failure {
@@ -119,25 +114,20 @@ final class AgentDictationController {
     private var hasSpeech = false
     private var isTouchDown = false
     private var isRightToLeft = false
-    private var hasPassedCancelFeedback = false
-    private var isFloatingTouch = false
     /// The recording has started under a touch that isn't yet a tap or a hold: its haptic waits for the touch to be one
     private var isHapticPending = false
-    /// The field holds text, typed or dictated, so the floating microphone returns after a further dictation that
-    /// fails or is cancelled
-    private var isFieldHoldingText = false
 
     /// A touch on the microphone released sooner than this is a tap, which records on hands-free; one held longer is
     /// push-to-talk, as in the Claude app. The recording's look for either waits for it, so nothing plays and reverses.
     static let tapDuration: TimeInterval = 0.2
-    /// Telegram's voice recording gestures: a slide this far toward the leading edge cancels, this far up keeps the
-    /// question in the field
-    static let cancelDistance: Double = 150
-    static let pauseDistance: Double = 110
-    /// Releasing a held microphone after this much travel, or with this speed, cancels or pauses as well
-    static let releaseCancelDistance: Double = 100
-    static let releasePauseDistance: Double = 60
-    static let releaseVelocity: Double = 400
+    /// A held microphone slid this far toward the field's cross cancels on release, and this far toward Send sends;
+    /// let go nearer its place, its transcript goes into the field. Send stands next to the microphone, the cross across
+    /// the field.
+    static let cancelZoneDistance: Double = 90
+    static let sendZoneDistance: Double = 24
+    /// The zones as the field lays them out: halfway from the microphone to the cross, and to Send
+    var cancelZoneTravel = AgentDictationController.cancelZoneDistance
+    var sendZoneTravel = AgentDictationController.sendZoneDistance
     /// A continuous recording stops after this long, and its transcript goes into the field
     static let recordingLimit: TimeInterval = 60
     /// How long a failed recording stays in the `failed` phase, which the recording circle's failure animation spans
@@ -196,16 +186,13 @@ final class AgentDictationController {
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
     }
 
-    /// Recording starts at touch-down, so the first words aren't lost; the release decides between a tap and a hold.
-    /// `isFloating` is a touch on the floating microphone, whose hold records into the field.
-    func touchBegan(isRightToLeft: Bool = false, isFloating: Bool = false) {
+    /// Recording starts at touch-down, so the first words aren't lost; the release decides between a tap and a hold
+    func touchBegan(isRightToLeft: Bool = false) {
         guard state.phase == .idle || state.phase == .failed, !isTouchDown else { return }
         endFailure()
         self.isRightToLeft = isRightToLeft
         isTouchDown = true
-        isFloatingTouch = isFloating
-        hasPassedCancelFeedback = false
-        start(phase: .holding, isFloating: isFloating)
+        start(phase: .holding)
         holdTimer = scheduler.schedule(after: Self.tapDuration, repeating: nil) { [weak self] in
             guard let self else { return }
             self.holdTimer = nil
@@ -215,83 +202,63 @@ final class AgentDictationController {
         }
     }
 
-    func touchMoved(x: Double, y: Double) {
-        // The floating microphone follows the finger instead
-        guard isTouchDown, state.phase == .holding, !isFloatingTouch else { return }
-        let cancelTravel = isRightToLeft ? x : -x
-        if cancelTravel >= Self.cancelDistance {
-            cancel()
-        } else if y <= -Self.pauseDistance {
-            isTouchDown = false
-            pause()
-        } else {
-            state.dragX = x
-            state.dragY = min(0, y)
-            // A light tap marks the point where releasing would cancel
-            let isPastCancel = cancelTravel >= Self.releaseCancelDistance
-            if isPastCancel && !hasPassedCancelFeedback { gestureFeedback() }
-            hasPassedCancelFeedback = isPastCancel
-        }
+    /// The recording circle follows the finger along the field, and the zone it is in decides what releasing does
+    func touchMoved(x: Double) {
+        guard isTouchDown, state.phase == .holding else { return }
+        let zone = getHoldZone(x: x)
+        var nextState = state
+        nextState.dragX = x
+        nextState.holdZone = zone
+        // A light tap marks each change of what releasing would do, once the touch is a hold
+        if zone != state.holdZone, state.isHeld { gestureFeedback() }
+        state = nextState
     }
 
-    func touchEnded(x: Double = 0, y: Double = 0, velocityX: Double = 0, velocityY: Double = 0) {
+    private func getHoldZone(x: Double) -> AgentDictationState.HoldZone {
+        let towardLeadingEnd = isRightToLeft ? x : -x
+        if towardLeadingEnd >= cancelZoneTravel { return .cancel }
+        if -towardLeadingEnd >= sendZoneTravel { return .send }
+        return .stop
+    }
+
+    func touchEnded(x: Double = 0) {
         guard isTouchDown else { return }
         isTouchDown = false
         holdTimer?.cancel()
         holdTimer = nil
         guard state.phase == .holding else { return }
         guard state.isHeld else {
-            // A tap records on hands-free until the next tap, on the floating microphone where it stands after a tap on it
+            // A tap records on hands-free until the stop is tapped
             var nextState = state
             nextState.phase = .handsFree
-            nextState.isFloating = isFloatingTouch
             nextState.dragX = 0
-            nextState.dragY = 0
-            isFloatingTouch = false
             state = nextState
             playPendingHaptic()
             return
         }
-        // A hold of the floating microphone dictates more into the field
-        guard !isFloatingTouch else {
-            endRecording(isSending: false)
-            return
-        }
-        // Only the dominant direction of the release counts, as in Telegram
-        let isHorizontal = abs(x) > abs(y)
-        let cancelTravel = isRightToLeft ? x : -x
-        let cancelVelocity = isRightToLeft ? velocityX : -velocityX
-        if isHorizontal && (cancelVelocity > Self.releaseVelocity || cancelTravel > Self.releaseCancelDistance) {
+        switch getHoldZone(x: x) {
+        case .cancel:
             cancel()
-        } else if !isHorizontal && (velocityY < -Self.releaseVelocity || y < -Self.releasePauseDistance) {
-            pause()
-        } else {
+        case .send:
             endRecording(isSending: true)
+        case .stop:
+            endRecording(isSending: false)
         }
     }
 
-    /// Records hands-free until `finish`: for VoiceOver, on the microphone, or `isFloating` on the floating one, where
-    /// it stays as the recording's stop, and after the consent sheet a recording asked for
-    func startHandsFree(isFloating: Bool = false) {
+    /// Records hands-free until `finish`: for VoiceOver, and after the consent sheet a recording asked for
+    func startHandsFree() {
         guard state.phase == .idle || state.phase == .failed else { return }
         endFailure()
         holdTimer?.cancel()
         holdTimer = nil
         isTouchDown = false
-        start(phase: .handsFree, isFloating: isFloating)
+        start(phase: .handsFree)
     }
 
     func cancel() {
         stopEverything()
         finishWithoutTranscript()
-    }
-
-    /// The swipe up of a held microphone: the recording stops, and its transcript goes into the field instead of being
-    /// sent
-    func pause() {
-        guard state.phase == .holding || state.phase == .handsFree else { return }
-        gestureFeedback()
-        endRecording(isSending: false)
     }
 
     /// Stops a hands-free recording, whose transcript goes into the field
@@ -300,19 +267,10 @@ final class AgentDictationController {
         endRecording(isSending: false)
     }
 
-    /// The field is empty, its question sent or cleared, so the floating microphone goes
-    func endDictatingMore() {
-        isFieldHoldingText = false
-        guard state.canDictateMore, state.phase == .idle else { return }
-        state.canDictateMore = false
-    }
-
-    /// The field has text: typed, pasted, dictated, or a transcript meant to be sent that stayed there, as the question
-    /// couldn't be sent yet. The floating microphone dictates more after it.
-    func offerDictatingMore() {
-        isFieldHoldingText = true
-        guard state.phase == .idle else { return }
-        state.canDictateMore = true
+    /// Send during a hands-free recording: it stops, and its transcript goes as the question
+    func finishAndSend() {
+        guard state.phase == .handsFree else { return }
+        endRecording(isSending: true)
     }
 
     private func playPendingHaptic() {
@@ -321,15 +279,13 @@ final class AgentDictationController {
         haptic()
     }
 
-    private func start(phase: AgentDictationState.Phase, isFloating: Bool = false) {
+    private func start(phase: AgentDictationState.Phase) {
         attempt += 1
         isHapticPending = false
         let currentAttempt = attempt
         pendingPermissionAttempt = currentAttempt
         hasSpeech = false
-        var startingState = AgentDictationState(phase: phase)
-        startingState.isFloating = isFloating
-        state = startingState
+        state = AgentDictationState(phase: phase)
         let permission = requestPermission
         let makeRecorder = makeRecorder
         startTask = Task { [weak self] in
@@ -388,8 +344,11 @@ final class AgentDictationController {
         let level = min(1, max(0, (power + 50) / 40))
         var nextState = state
         nextState.level = level
+        nextState.hasSpeech = hasSpeech
         nextState.levels = Array(state.levels.suffix(47)) + [level]
-        nextState.waveLevel = Self.getWaveLevel(peakPower: recorder.getPeakPower())
+        let peakPower = recorder.getPeakPower()
+        nextState.waveLevel = Self.getWaveLevel(peakPower: peakPower)
+        nextState.peakLevel = peakPower.isFinite ? min(1, max(0, pow(10, peakPower / 20))) : 0
         state = nextState
     }
 
@@ -404,7 +363,6 @@ final class AgentDictationController {
         holdTimer?.cancel()
         holdTimer = nil
         isTouchDown = false
-        isFloatingTouch = false
         guard let recorder else {
             if pendingPermissionAttempt == attempt {
                 cancel()
@@ -429,9 +387,8 @@ final class AgentDictationController {
         }
         attempt += 1
         let currentAttempt = attempt
-        // A transcript bound for the field brings the floating microphone up as its recognition starts
         var recognizingState = AgentDictationState(phase: .recognizing)
-        recognizingState.canDictateMore = !isSending
+        recognizingState.isSending = isSending
         state = recognizingState
         let language = language()
         let transcribe = transcribe
@@ -462,10 +419,7 @@ final class AgentDictationController {
                     self.fail(.noSpeech)
                     return
                 }
-                if !isSending {
-                    self.isFieldHoldingText = true
-                }
-                self.state = self.makeIdleState()
+                self.state = AgentDictationState()
                 if isSending {
                     self.onSendTranscript?(text)
                 } else {
@@ -488,37 +442,26 @@ final class AgentDictationController {
     /// or a cancellation ends it sooner
     private func fail(_ failure: AgentDictationState.Failure) {
         stopEverything()
-        // The field keeps what was dictated into it before, and the floating microphone for more
-        var failedState = AgentDictationState(phase: .failed, failure: failure)
-        failedState.canDictateMore = isFieldHoldingText
-        state = failedState
+        state = AgentDictationState(phase: .failed, failure: failure)
         onFinishedWithoutTranscript?()
         failureFeedback()
         failureTimer = scheduler.schedule(after: Self.failureDuration, repeating: nil) { [weak self] in
             guard let self else { return }
             self.failureTimer = nil
-            if self.state.phase == .failed { self.state = self.makeIdleState() }
+            if self.state.phase == .failed { self.state = AgentDictationState() }
         }
     }
 
     private func endFailure() {
         failureTimer?.cancel()
         failureTimer = nil
-        if state.phase == .failed { state = makeIdleState() }
-    }
-
-    /// At rest, with the floating microphone while the field holds a dictated transcript
-    private func makeIdleState() -> AgentDictationState {
-        var idleState = AgentDictationState()
-        idleState.canDictateMore = isFieldHoldingText
-        return idleState
+        if state.phase == .failed { state = AgentDictationState() }
     }
 
     private func stopEverything() {
         attempt += 1
         pendingPermissionAttempt = nil
         isTouchDown = false
-        isFloatingTouch = false
         startTask?.cancel()
         startTask = nil
         recognitionTask?.cancel()
@@ -533,7 +476,7 @@ final class AgentDictationController {
     }
 
     private func finishWithoutTranscript() {
-        state = makeIdleState()
+        state = AgentDictationState()
         onFinishedWithoutTranscript?()
     }
 

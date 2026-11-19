@@ -253,7 +253,7 @@ $followupRingWidth: 0.0375rem;
 
   display: inline-flex;
   gap: 0.25rem;
-  align-items: center;
+  align-items: flex-start;
 
   max-width: 100%;
   padding: 0.5625rem 0.75rem;
@@ -276,11 +276,13 @@ $followupRingWidth: 0.0375rem;
   }
 }
 
+// The arrow stands by the first line of a question that wraps, as on iOS: the label's lines are 1.25rem high
 .followupArrowIcon {
   flex-shrink: 0;
 
   width: 1rem;
   height: 1rem;
+  margin-top: 0.125rem;
 
   background-image: var(--followup-icon);
 

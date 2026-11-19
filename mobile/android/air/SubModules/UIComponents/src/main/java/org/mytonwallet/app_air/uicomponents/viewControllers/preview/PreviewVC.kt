@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Rect
+import android.os.Build
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -313,7 +314,14 @@ class PreviewVC(
             }
             doOnEnd {
                 window?.dismissLastNav(animated = false)
-                animationView?.resetPivot()
+                animationView?.let {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        it.resetPivot()
+                    } else {
+                        it.pivotX = it.width / 2f
+                        it.pivotY = it.height / 2f
+                    }
+                }
                 view.removeView(animationView)
                 onPreviewDismissed()
             }

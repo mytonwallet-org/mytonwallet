@@ -14,7 +14,7 @@ public final class AgentComposeHeaderView: UIView {
     /// The title's glass pill, and the title inside it
     public let titlePill: UIView
     public var titleContent: UIView { pill.contentView }
-    private let chatTitleView = AgentChatTitleView()
+    private let chatTitleView = NavigationTitleView()
     private let pill: AgentChatTitlePill
 
     public override init(frame: CGRect) {

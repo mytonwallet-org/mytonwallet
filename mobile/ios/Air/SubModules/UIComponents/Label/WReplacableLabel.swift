@@ -102,29 +102,20 @@ public class WReplacableLabel: UIView {
         }
         let isLonger = text.count > (label.attributedText?.string ?? label.text)?.count ?? 0
 
-        // Fade out and move left
         animatingTextTo = text
         func setNewText() {
             beforeNewTextAppearance?()
-            // Set the new text and reset the transform
             self.animatingTextTo = nil
             self.setTextWithPadding(text: text)
-            self.label.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
 
-            // Fade in and grow
             func fadeInAndGrow() {
-                UIViewPropertyAnimator.runningPropertyAnimator(withDuration: animatedWithDuration,
-                                                               delay: 0,
-                                                               options: [],
-                                                               animations: {
-                    self.label.alpha = 1
-                    self.label.transform = .identity
+                TitleReplaceMotion.show(self.label, duration: animatedWithDuration) {
                     if !isLonger {
                         self.invalidateIntrinsicContentSize()
                     }
                     self.superview?.setNeedsLayout()
                     self.superview?.layoutIfNeeded()
-                })
+                }
             }
 
             if !animateResize {
@@ -151,11 +142,7 @@ public class WReplacableLabel: UIView {
                 setNewText()
             }
         } else {
-            UIViewPropertyAnimator.runningPropertyAnimator(withDuration: animatedWithDuration,
-                                                           delay: 0, options: [.beginFromCurrentState], animations: {
-                self.label.alpha = 0
-                self.label.transform = CGAffineTransform(translationX: 0, y: -12)
-            }) { _ in
+            TitleReplaceMotion.hide(label, duration: animatedWithDuration) {
                 setNewText()
             }
         }

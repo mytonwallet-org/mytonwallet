@@ -7,6 +7,7 @@ import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunActivityEvent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 
 internal data class AgentV2ConsentCopy(
     val features: List<String>,
@@ -196,6 +197,16 @@ internal fun agentV2ErrorText(code: String?): String = LocaleController.getStrin
     }
 )
 
+private const val NO_CONNECTION_KEY =
+    "No internet connection. Please check your connection and try again."
+
+/** What a failed load says: without a network, that the device has no connection */
+internal fun agentV2LoadErrorText(code: String?): String = if (code == "network_error") {
+    LocaleController.getString(NO_CONNECTION_KEY)
+} else {
+    agentV2ErrorText(code)
+}
+
 /** What TalkBack announces for a recording that produced no transcript; on screen its circle turns red */
 internal fun getAgentDictationFailureText(failure: AgentDictationFailure): String = when (failure) {
     AgentDictationFailure.TooShort -> LocaleController.getString("\$agent_dictation_too_short")
@@ -207,3 +218,10 @@ internal fun getAgentDictationFailureText(failure: AgentDictationFailure): Strin
 
     is AgentDictationFailure.Error -> agentV2ErrorText(failure.code)
 }
+
+internal fun agentV2QuotaResetAt(userQuota: AgentV2UserQuota): Long? =
+    parseAgentV2Timestamp(userQuota.resetAt)?.time
+
+/** What a limit that blocks sending says; the daily quota says the time it resets at */
+internal fun agentV2InputLimitText(code: String, quotaResetAt: Long?): String =
+    agentV2ErrorText(code, quotaResetAt?.let(::Date))

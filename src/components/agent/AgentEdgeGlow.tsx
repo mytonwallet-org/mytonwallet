@@ -7,7 +7,7 @@ import type { AnimationLevel } from '../../global/types';
 import { ANIMATION_LEVEL_MIN } from '../../config';
 import { forceMutation } from '../../lib/fasterdom/fasterdom';
 import buildClassName from '../../util/buildClassName';
-import { createAgentEdgeGlowRenderer } from './helpers/agentEdgeGlowRenderer';
+import { createAgentEdgeGlowRenderer, MOTION_PERIOD } from './helpers/agentEdgeGlowRenderer';
 import { getIsDarkTheme } from './helpers/agentGlowPalette';
 
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -54,7 +54,8 @@ function AgentEdgeGlow({ isActive, animationLevel }: OwnProps) {
       return undefined;
     }
 
-    const startedAt = performance.now();
+    // Each glow starts at a random point of its motion, so that the lights are never where they were the last time
+    const startedAt = performance.now() - Math.random() * MOTION_PERIOD * 1000;
     let frame: number | undefined;
     let lastFrameAt = 0;
     const render = (now: number) => {

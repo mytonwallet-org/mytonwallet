@@ -135,7 +135,7 @@ describe('useAgentV2ThreadList', () => {
     expect(result.items).toBeUndefined();
   });
 
-  it.each([false, true])('keeps failure and Retry when cache arrives afterward: nonempty %s', async (hasRows) => {
+  it.each([false, true])('shows the failure once the cache read it outran ends: nonempty %s', async (hasRows) => {
     const cachedPage = new Deferred<AgentThreadListItemV2[] | undefined>();
     const retriedPage = new Deferred<AgentV2MutationResult<AgentThreadListResponseV2>>();
     const freshThread = buildThread('after-empty-cache');
@@ -144,11 +144,15 @@ describe('useAgentV2ThreadList', () => {
       .mockReturnValueOnce(retriedPage.promise);
 
     TeactDOM.render(React.createElement(Harness, {}) as VirtualElementComponent, root);
-    expect(await waitFor(() => result?.hasLoadFailed, 10, 100)).toBe(true);
+    expect(await waitFor(() => callApiMock.mock.calls.length === 1, 10, 100)).toBe(true);
+    await pause(50);
+    expect(result.hasLoadFailed).toBe(false);
+    expect(result.isReadingCache).toBe(true);
     const cachedItems = hasRows ? [{ thread: buildThread('late-cache') }] : undefined;
     cachedPage.resolve(cachedItems ?? []);
-    await pause(50);
-    expect(result.hasLoadFailed).toBe(true);
+    expect(await waitFor(() => result.hasLoadFailed, 10, 100)).toBe(true);
+    expect(result.isReadingCache).toBe(false);
+    expect(result.loadErrorCode).toBe('network_error');
     expect(result.items).toEqual(cachedItems);
 
     result.retry();
@@ -355,6 +359,8 @@ describe('useAgentV2ThreadList', () => {
     expect(result.items?.[0].thread.id).toBe(thread.id);
     expect(result.hasLoadFailed).toBe(false);
     expect(result.hasPageLoadFailed).toBe(false);
+    // A failure that is not shown leaves no code for a later one to say
+    expect(result.loadErrorCode).toBeUndefined();
   });
 
   it('asks for a failed page again by itself once the delay the server asked for ends', async () => {
@@ -399,6 +405,7 @@ describe('useAgentV2ThreadList', () => {
 
     result.loadMore();
     expect(await waitFor(() => result.hasPageLoadFailed, 10, 100)).toBe(true);
+    expect(result.loadErrorCode).toBe('client_update_required');
     result.loadMore();
     await pause(30);
     expect(callApiMock).toHaveBeenCalledTimes(2);

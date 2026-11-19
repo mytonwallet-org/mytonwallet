@@ -32,20 +32,25 @@ struct SwapHintContent {
         switch hint {
         case .receive(_, let hasAlternativeToken):
             if hasAlternativeToken {
-                lang("Buy crypto or choose another token to sell.")
-            } else {
-                lang("Buy with a card or receive crypto to fund this swap.")
+                return lang("Buy crypto or choose another token to sell.")
             }
+            return lang("Buy with a card or receive crypto to fund this swap.")
         case .belowMinimum:
-            lang("Your balances are small. Add funds or choose another token to swap.")
+            return lang("Your balances are small. Add funds or choose another token to swap.")
         case .intermediate(let token, let buyingToken):
+            let tokenLabel = token.chain.isEvm
+                ? "\(token.symbol) (\(token.chain.title))"
+                : token.symbol
             if tradeDirection == .sell {
-                L10n.toReceiveBuyTokenFirstReceiveTokenThenExchangeItForBuyToken(buyToken: buyingToken.symbol, token: token.symbol)
-            } else {
-                L10n.toBuyBuyTokenFirstBuyTokenThenSwapItForBuyToken(buyToken: buyingToken.symbol, token: token.symbol)
+                return L10n.toReceiveBuyTokenFirstReceiveTokenThenExchangeItForBuyToken(
+                    buyToken: buyingToken.symbol, token: tokenLabel
+                )
             }
+            return L10n.toBuyBuyTokenFirstBuyTokenThenSwapItForBuyToken(
+                buyToken: buyingToken.symbol, token: tokenLabel
+            )
         case .external(let providerName, _):
-            L10n.openProviderToSwapThisPairInTheBrowser(provider: providerName)
+            return L10n.openProviderToSwapThisPairInTheBrowser(provider: providerName)
         }
     }
 

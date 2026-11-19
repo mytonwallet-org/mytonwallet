@@ -1,17 +1,15 @@
 import UIKit
-import UIComponents
 
-/// Brings a transcript into a text view character by character, after the text before it, as the Agent's answers come
-/// in: each character comes out of a blur in the accent colour, transparent and blurred, sharp within
-/// `sharpenDuration`, and then turns to the text colour. A transcript comes back whole, so its characters come
-/// `characterStep` apart, closer for a long one so the last starts within `maxDuration`. The text grows character by
-/// character, and the field with it.
+/// Brings text that arrives whole, such as a dictated transcript, into a text view character by character, after the
+/// text before it: each character comes out of a blur in the view's tint colour, transparent and blurred, sharp within
+/// `sharpenDuration`, and then turns to the text colour. Characters come `characterStep` apart, closer for a long text so
+/// the last starts within `maxDuration`. The text grows character by character, and the field with it.
 @MainActor
-final class AgentDictationTextReveal {
+public final class TextViewCharacterReveal {
     static let characterStep: TimeInterval = 0.006
     static let maxDuration: TimeInterval = 0.8
-    static let sharpenDuration: TimeInterval = 0.15
-    static let colorDuration: TimeInterval = 0.5
+    public static let sharpenDuration: TimeInterval = 0.15
+    public static let colorDuration: TimeInterval = 0.5
 
     /// The time between the starts of two characters of a transcript of `characterCount` characters
     static func getCharacterStep(characterCount: Int) -> TimeInterval {
@@ -32,12 +30,12 @@ final class AgentDictationTextReveal {
     private var shownCount = 0
     private var firstAnimatingIndex = 0
     /// The reveal is changing the view's text, which a caller watching the view's selection can tell from the user's
-    private(set) var isEditingText = false
+    public private(set) var isEditingText = false
     private lazy var clock = GlassMotionClock(frameRateRange: nil) { [weak self] _ in self?.advance() }
 
     /// Starts showing `text` after `prefix` in `textView`, whose text becomes `prefix`. `onTextGrown` follows each
     /// frame text comes in, and `onFinished` the end, when the view holds the whole text as plain text again.
-    init(
+    public init(
         text: String,
         after prefix: String = "",
         in textView: UITextView,
@@ -63,21 +61,21 @@ final class AgentDictationTextReveal {
         baseAttributes = textView.typingAttributes
     }
 
-    func start() {
+    public func start() {
         startTime = CACurrentMediaTime()
         advance()
         if startTime != nil { clock.start() }
     }
 
     /// Stops the reveal where it is, leaving the view to whoever changes its text next
-    func cancel() {
+    public func cancel() {
         startTime = nil
         clock.stop()
     }
 
     /// Ends the reveal with the whole text in, as plain text: every character in the text colour and sharp, and what is
     /// typed next too, wherever the caret went meanwhile
-    func complete() {
+    public func complete() {
         guard startTime != nil else { return }
         cancel()
         settleText()

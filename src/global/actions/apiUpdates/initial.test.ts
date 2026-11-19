@@ -548,6 +548,26 @@ describe('updateConfig api update', () => {
     return updatedGlobal as GlobalState;
   }
 
+  it.each([false, undefined])('stores the Agent support flag and clears a cached true with %s', (isEnabled) => {
+    const update = {
+      type: 'updateConfig' as const,
+      isLimited: false,
+      isCopyStorageEnabled: false,
+      isAppUpdateRequired: false,
+      seasonalTheme: undefined,
+    };
+    getApiUpdateHandler()(makeGlobalWithRestrictions(), {}, { ...update, isAgentSupportEnabled: true });
+    const enabledGlobal = (setGlobal as jest.Mock).mock.calls.at(-1)![0] as GlobalState;
+    expect(enabledGlobal.restrictions.isAgentSupportEnabled).toBe(true);
+
+    getApiUpdateHandler()(enabledGlobal, {}, {
+      ...update,
+      ...(isEnabled === false ? { isAgentSupportEnabled: false } : {}),
+    });
+    const updatedGlobal = (setGlobal as jest.Mock).mock.calls.at(-1)![0] as GlobalState;
+    expect(updatedGlobal.restrictions.isAgentSupportEnabled).toBe(isEnabled);
+  });
+
   it('normalizes the allowed ramp currencies into upper-case known codes', () => {
     const updatedGlobal = dispatchUpdateConfig(makeGlobalWithRestrictions(undefined), ['usd', 'rub', 'xyz']);
 

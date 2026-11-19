@@ -5,6 +5,8 @@
 @use "../agent/agentMark";
 
 $feedMaxWidth: agentBubble.$maxWidth;
+// How far down a digest's card the Agent's gradient melts into its fill, as on mobile
+$digestGlowHeight: 9.375rem;
 
 // The News mark
 
@@ -223,22 +225,107 @@ $feedMaxWidth: agentBubble.$maxWidth;
   @include mixins.rtl-mirror();
 }
 
+// A daily digest in the look of the Agent's suggestions: over its top, a light sheen and the Agent's gradient melt into
+// the bubble's fill toward its headlines
+.news.digestCard {
+  --digest-sheen: rgba(255, 255, 255, 0.7);
+  --digest-glow: linear-gradient(
+    111deg,
+    rgba(0, 136, 255, 0.12) 0%,
+    rgba(0, 190, 255, 0.18) 48%,
+    rgba(182, 86, 255, 0.14) 100%
+  );
+  // The bubble's fill comes back over the gradient, eased where `color-mix()` is supported so that it leaves no edge
+  --digest-fade: linear-gradient(to bottom, transparent, var(--agent-bubble-background));
+
+  background-image:
+    var(--digest-fade),
+    var(--digest-glow),
+    linear-gradient(var(--digest-sheen), var(--digest-sheen));
+  background-repeat: no-repeat;
+  background-size: 100% $digestGlowHeight;
+
+  @supports (color: color-mix(in srgb, red 45%, transparent)) {
+    --digest-fade: linear-gradient(
+      to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--agent-bubble-background) 45%, transparent) 45%,
+      var(--agent-bubble-background) 100%
+    );
+  }
+
+  :global(html.theme-dark) & {
+    --digest-sheen: transparent;
+    --digest-glow: linear-gradient(
+      111deg,
+      rgba(0, 136, 255, 0.18) 0%,
+      rgba(0, 190, 255, 0.24) 48%,
+      rgba(182, 86, 255, 0.2) 100%
+    );
+  }
+}
+
+// The digest's title in the suggestions' gradient, across its text
+.digestTitle {
+  width: fit-content;
+
+  color: transparent;
+
+  background-image: linear-gradient(var(--agent-digest-gradient-angle, 90deg), #005DAF 0%, #007BA5 40%, #7D2EBA 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  :global(html.theme-dark) & {
+    background-image: linear-gradient(var(--agent-digest-gradient-angle, 90deg), #6DADE6 0%, #5EB6D4 40%, #C48CEE 100%);
+  }
+}
+
 // A daily digest's card, in the bubble the news cards have: its title and meta line, its headlines, each a button with
 // a bullet by its first line and a gray arrow where the "Discuss" strip has its own, and the news it leaves out. The
 // digest's post lists them under its title, from the bubble's sides as on the card.
 
+// The title's and the count's gradients run from the start of the text, from the right in right-to-left languages
 .digestHeader {
+  --agent-digest-gradient-angle: 90deg;
+
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
+
+  // As wide as the title, which the count's line stretches across
+  width: fit-content;
   padding: 0.875rem 1rem 0.375rem;
+
+  :global(html[dir="rtl"]) & {
+    --agent-digest-gradient-angle: 270deg;
+  }
 }
 
+// How many news the digest covers, in the title's gradient, muted to the grey's contrast. The gradient runs across the
+// title's width, so the count takes the title's colours where the two lines overlap.
 .digestMeta {
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.125rem;
-  color: var(--color-gray-2);
+  color: transparent;
+
+  background-image: linear-gradient(
+    var(--agent-digest-gradient-angle, 90deg),
+    rgba(0, 93, 175, 0.65) 0%,
+    rgba(0, 123, 165, 0.65) 40%,
+    rgba(125, 46, 186, 0.65) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  :global(html.theme-dark) & {
+    background-image: linear-gradient(
+      var(--agent-digest-gradient-angle, 90deg),
+      rgba(109, 173, 230, 0.9) 0%,
+      rgba(94, 182, 212, 0.9) 40%,
+      rgba(196, 140, 238, 0.9) 100%
+    );
+  }
 }
 
 .digestHeadlines {

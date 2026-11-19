@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 @testable import UIAgent
+@testable import UIComponents
 import WalletContext
 import WalletResources
 
@@ -28,7 +29,7 @@ final class AgentChatTitleTests: XCTestCase {
     }
 
     func testTitleIsSemiboldSeventeenBesideALargerEmoji() throws {
-        let view = AgentChatTitleView(frame: CGRect(x: 0, y: 0, width: 300, height: 44))
+        let view = NavigationTitleView(frame: CGRect(x: 0, y: 0, width: 300, height: 44))
         view.setTitle("Portfolio review", icon: "💼", animated: false)
         let labels = view.subviews.compactMap { $0 as? UILabel }
         let title = try XCTUnwrap(labels.first { $0.text == "Portfolio review" })
@@ -45,37 +46,37 @@ final class AgentChatTitleTests: XCTestCase {
     }
 
     func testFirstTitleDoesNotAnimate() {
-        XCTAssertFalse(AgentChatTitleView.shouldAnimateChange(
+        XCTAssertFalse(NavigationTitleView.shouldAnimateChange(
             previousTitle: nil, title: "New Chat", isVisible: true, reduceMotion: false
         ))
     }
 
     func testUnchangedTitleDoesNotAnimate() {
-        XCTAssertFalse(AgentChatTitleView.shouldAnimateChange(
+        XCTAssertFalse(NavigationTitleView.shouldAnimateChange(
             previousTitle: "Bitcoin news", title: "Bitcoin news", isVisible: true, reduceMotion: false
         ))
     }
 
     func testRenameAnimatesWhileVisible() {
-        XCTAssertTrue(AgentChatTitleView.shouldAnimateChange(
+        XCTAssertTrue(NavigationTitleView.shouldAnimateChange(
             previousTitle: "Bitcoin news", title: "Large BTC transfer", isVisible: true, reduceMotion: false
         ))
     }
 
     func testAddingEmojiAnimatesWhileVisible() {
-        XCTAssertTrue(AgentChatTitleView.shouldAnimateChange(
+        XCTAssertTrue(NavigationTitleView.shouldAnimateChange(
             previousTitle: "Large BTC transfer", title: "🐳 Large BTC transfer", isVisible: true, reduceMotion: false
         ))
     }
 
     func testTitleChangedWhileHiddenDoesNotAnimate() {
-        XCTAssertFalse(AgentChatTitleView.shouldAnimateChange(
+        XCTAssertFalse(NavigationTitleView.shouldAnimateChange(
             previousTitle: "Bitcoin news", title: "Large BTC transfer", isVisible: false, reduceMotion: false
         ))
     }
 
     func testReduceMotionDisablesAnimation() {
-        XCTAssertFalse(AgentChatTitleView.shouldAnimateChange(
+        XCTAssertFalse(NavigationTitleView.shouldAnimateChange(
             previousTitle: "Bitcoin news", title: "Large BTC transfer", isVisible: true, reduceMotion: true
         ))
     }

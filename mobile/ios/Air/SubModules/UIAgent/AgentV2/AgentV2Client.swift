@@ -3,6 +3,7 @@ import WalletCore
 
 @MainActor
 protocol AgentV2Client: AnyObject, Sendable {
+    var isAgentSupportEnabled: Bool { get }
     func consent() async throws -> Bool
     /// The user's consent as the app last read or gave it, known at once: false until then
     var isConsentKnownGiven: Bool { get }
@@ -52,6 +53,7 @@ protocol AgentV2Client: AnyObject, Sendable {
 }
 
 extension AgentV2Client {
+    var isAgentSupportEnabled: Bool { false }
     var isConsentKnownGiven: Bool { false }
     func forgetKnownConsent() {}
 
@@ -73,6 +75,10 @@ extension AgentV2Client {
 
 @MainActor
 final class LiveAgentV2Client: AgentV2Client {
+    var isAgentSupportEnabled: Bool {
+        ConfigStore.shared.config?.isAgentSupportEnabled == true
+    }
+
     /// The consent as the app last read or gave it, shared by every chat and list
     private static var isConsentKnownGiven = false
 

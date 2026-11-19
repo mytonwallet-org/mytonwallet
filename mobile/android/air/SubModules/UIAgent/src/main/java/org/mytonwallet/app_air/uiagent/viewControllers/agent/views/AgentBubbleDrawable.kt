@@ -1,14 +1,18 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.views
 
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorFilter
+import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import android.view.View
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentIncomingBubbleColor
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
@@ -39,6 +43,47 @@ class AgentBubbleDrawable(
         style = Paint.Style.FILL
         isAntiAlias = true
     }
+
+    private val glowSheenPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glowFadePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    /**
+     * The colors of a gradient over the body's top, from its top corner across, melting into the
+     * fill over [glowHeight], as the Agent's gradient over a digest's card; null for none
+     */
+    var glowColors: IntArray? = null
+        set(value) {
+            if (field.contentEquals(value)) return
+            field = value
+            updateShaders()
+            invalidateSelf()
+        }
+
+    /** Where each of [glowColors] lies along the gradient, from 0 to 1; null spreads them evenly */
+    var glowPositions: FloatArray? = null
+        set(value) {
+            field = value
+            updateShaders()
+            invalidateSelf()
+        }
+
+    /** A light laid under [glowColors], melting into the fill with them, as a digest's card has it */
+    var glowSheenColor = Color.TRANSPARENT
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidateSelf()
+        }
+
+    /** How far down the body [glowColors] melt into the fill, in px */
+    var glowHeight = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            updateShaders()
+            invalidateSelf()
+        }
 
     private val tail = Path()
     private val body = Path()
@@ -73,6 +118,7 @@ class AgentBubbleDrawable(
     override fun onBoundsChange(bounds: Rect) {
         super.onBoundsChange(bounds)
         rebuildPaths(bounds.width().toFloat(), bounds.height().toFloat())
+        updateShaders()
     }
 
     // Drawn with the tail on the right; [draw] mirrors it for the other side
@@ -163,6 +209,20 @@ class AgentBubbleDrawable(
             canvas.scale(-1f, 1f)
         }
         canvas.drawPath(body, paint)
+        if (glowColors != null && glowHeight > 0f) {
+            val width = bounds.width() - AGENT_BUBBLE_TAIL_WIDTH.dp.toFloat()
+            val height = minOf(glowHeight, bounds.height().toFloat())
+            glowSheenPaint.color = glowSheenColor
+            glowSheenPaint.alpha = Color.alpha(glowSheenColor) * paint.alpha / 255
+            glowPaint.alpha = paint.alpha
+            glowFadePaint.alpha = paint.alpha
+            canvas.save()
+            canvas.clipPath(body)
+            canvas.drawRect(0f, 0f, width, height, glowSheenPaint)
+            canvas.drawRect(0f, 0f, width, height, glowPaint)
+            canvas.drawRect(0f, 0f, width, height, glowFadePaint)
+            canvas.restore()
+        }
         if (tailProgress > 0f) {
             val alpha = paint.alpha
             paint.alpha = (alpha * tailProgress).toInt()
@@ -177,8 +237,53 @@ class AgentBubbleDrawable(
 
     fun setBubbleColor(color: Int) {
         paint.color = color
+        updateShaders()
         invalidateSelf()
     }
+
+    private fun updateShaders() {
+        val colors = glowColors
+        if (colors == null || glowHeight <= 0f) {
+            glowPaint.shader = null
+            glowFadePaint.shader = null
+            return
+        }
+        val width = bounds.width() - AGENT_BUBBLE_TAIL_WIDTH.dp.toFloat()
+        // The colours run from the top left on screen, as on iOS and the web, also on a mirrored canvas
+        val startX = if (isMirrored) width else 0f
+        glowPaint.shader = LinearGradient(
+            startX,
+            0f,
+            width - startX,
+            glowHeight,
+            colors,
+            glowPositions,
+            Shader.TileMode.CLAMP
+        )
+        // The fill comes back over the gradient, eased so that it leaves no edge
+        val fill = paint.color
+        glowFadePaint.shader = LinearGradient(
+            0f,
+            0f,
+            0f,
+            glowHeight,
+            intArrayOf(
+                fill.withOpacity(0f),
+                fill.withOpacity(GLOW_FADE_MIDDLE),
+                fill.withOpacity(1f)
+            ),
+            floatArrayOf(0f, GLOW_FADE_MIDDLE, 1f),
+            Shader.TileMode.CLAMP
+        )
+    }
+
+    // The fill's alpha is the drawable's, which the paints that draw it take
+    private fun Int.withOpacity(fraction: Float): Int = Color.argb(
+        (255 * fraction).roundToInt(),
+        Color.red(this),
+        Color.green(this),
+        Color.blue(this)
+    )
 
     override fun setAlpha(alpha: Int) {
         paint.alpha = alpha
@@ -224,6 +329,9 @@ class AgentBubbleDrawable(
         const val ACTION_RADIUS = 8f
         const val TAIL_SCALE = AGENT_BUBBLE_TAIL_WIDTH / 6f
         const val TAIL_START_SCALE = 0.4f
+
+        // Partway down the glow: both where and how much the fill has come back over it
+        const val GLOW_FADE_MIDDLE = 0.45f
 
         // Where the corner curves' control points sit along their tangents, as the design's corners have them
         const val CORNER_K = 0.62f

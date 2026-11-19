@@ -140,10 +140,12 @@ export function createAgentV2HydrationController(
       return false;
     }
     const threadId = resolvedThreadId.value;
-    // The device's copy shows only while the history is being read; a copy shown before a failed read stays
+    // The device's copy shows while the history is being read, and under the failure of a read that failed, as
+    // without a network, even when the failure came first. A thread the server no longer has shows no copy.
     let isCachedHistoryStale = false;
+    let cachedHistoryRead: Promise<void> | undefined;
     if (dependencies.getCachedMessages && canShowCachedHistory()) {
-      void dependencies.getCachedMessages(threadId).catch(() => undefined).then((cached) => {
+      cachedHistoryRead = dependencies.getCachedMessages(threadId).catch(() => undefined).then((cached) => {
         if (cached && !isCachedHistoryStale && isHydrationCurrent(requestId)) showCachedHistory(cached);
       });
     }
@@ -151,8 +153,9 @@ export function createAgentV2HydrationController(
     const hintsRequestId = nextHintsRequestId;
     takeStarterHintsPick();
     const [hydrationResult] = await Promise.all([
-      dependencies.getMessages(threadId).finally(() => {
-        isCachedHistoryStale = true;
+      dependencies.getMessages(threadId).then((result) => {
+        if (result?.ok || result?.error.code === 'thread_not_found') isCachedHistoryStale = true;
+        return result;
       }),
       dependencies.loadAvailability().catch(() => undefined),
       dependencies.loadUserQuota().catch(() => undefined),
@@ -165,6 +168,10 @@ export function createAgentV2HydrationController(
       return false;
     }
     if (!hydrationResult?.ok) {
+      if (!isCachedHistoryStale) {
+        await cachedHistoryRead;
+        if (!isHydrationCurrent(requestId)) return false;
+      }
       finishHydrationFailure(
         isFailureSilent,
         dependencies.buildHistoryError(hydrationResult?.error).message,

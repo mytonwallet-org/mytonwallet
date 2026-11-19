@@ -2263,11 +2263,15 @@ function findQueueMotionFailures(frames: QueueFrame[]) {
     return index !== -1 && frame.rows.slice(index + 1).some(({ role }) => role === 'activity');
   }));
   if (goneIndices[1] === -1) failures.push(`"${firstWaitingQuestion}" did not go while the list was recorded`);
-  // The rows above a question that goes hold still on screen in the frame it goes, before the list scrolls to it
-  goneIndices.forEach((goneIndex, questionIndex) => {
-    if (goneIndex < 1 || !questionIndex) return;
+  // The rows above a question that goes hold still on screen in the frame it goes, the one the live tail becomes its
+  // turn in, before they move up into the space it takes, its activity comes in and the list scrolls to it
+  QUEUE_WAITING_QUESTIONS.forEach((question) => {
+    const goneIndex = frames.findIndex((frame) => {
+      const row = findQuestion(frame, question);
+      return row !== undefined && frame.liveTailKey === row.key;
+    });
+    if (goneIndex < 1) return;
 
-    const question = pinnedQuestions[questionIndex];
     const [shownFrame, frame] = [frames[goneIndex - 1], frames[goneIndex]];
     const index = frame.rows.findIndex((row) => row.role === 'user' && row.text.includes(question));
     frame.rows.slice(0, index).forEach((row) => {

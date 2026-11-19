@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.findFollowupOwner
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentComposerPlaceholder
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentSupportSubtitle
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.hasSupportOperatorJoined
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.isAgentSupportVisible
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.arrivingRichBlockIndex
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
@@ -30,8 +31,26 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageError
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
 class AgentV2CopyTest {
+    @Test
+    fun supportEntryPointsRequireAnExplicitlyEnabledConfig() {
+        assertNull(ConfigStore.isAgentSupportEnabled)
+        assertFalse(isAgentSupportVisible)
+        try {
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig())
+            assertFalse(isAgentSupportVisible)
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            assertFalse(isAgentSupportVisible)
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
+            assertTrue(isAgentSupportVisible)
+        } finally {
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig())
+        }
+    }
+
     @Test
     fun showsTheDailyQuotaResetOnlyWhileItIsKnownAndInTheFuture() {
         val dictionary = LocaleController::class.java.getDeclaredField("dictionary").apply {

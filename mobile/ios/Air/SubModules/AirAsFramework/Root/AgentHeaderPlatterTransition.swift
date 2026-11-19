@@ -48,6 +48,9 @@ final class AgentHeaderPlatterTransition {
         /// With no capsule at the trailing edge, the other bar's capsule there grows out of the pill and collapses back
         /// into it, as the threads button does, rather than materializing in place
         var isTrailingGrowingFromPill = false
+        /// The capsule at the trailing edge is a chat's more button: between two chats it is the same button in the same
+        /// place, kept as it is, as the threads button is
+        var isTrailingChatMoreButton = false
 
         subscript(role: Role) -> Capsule? {
             switch role {
@@ -230,6 +233,8 @@ final class AgentHeaderPlatterTransition {
     /// The outgoing bar won: a swipe back that was cancelled
     private var isOutgoingKept = false
     private var isTrailingGrowingFromPill = false
+    /// The outgoing bar's trailing capsule is a chat's more button
+    private var isOutgoingTrailingChatMoreButton = false
 
     /// `outgoing` is the bar on screen as the transition starts; `incoming` the one it brings, read once it is laid out.
     /// `pillSwellStrength` scales the wide capsule's swell as it moves, per axis: 1 is Telegram's full swell.
@@ -332,6 +337,7 @@ final class AgentHeaderPlatterTransition {
     private func captureOutgoing() {
         let bar = outgoing()
         isTrailingGrowingFromPill = isTrailingGrowingFromPill || bar.isTrailingGrowingFromPill
+        isOutgoingTrailingChatMoreButton = bar.isTrailingChatMoreButton && bar.trailing != nil
         for role in Role.allCases {
             guard let capsule = bar[role], let frame = Self.getFrame(of: capsule.view, in: overlayView) else { continue }
             let platter = Platter(frame: frame)
@@ -410,12 +416,14 @@ final class AgentHeaderPlatterTransition {
         if isNavigation {
             applyRestingSideTargets(to: &targets)
         }
+        let keepsTrailing = isOutgoingTrailingChatMoreButton && bar.isTrailingChatMoreButton
         // The pill goes first, so a threads button growing out of it or collapsing into it starts from its shape
         for role in [Role.pill, .trailing, .leading] {
             let existing = platters[role]
             if let target = targets[role] {
-                if let platter = existing, role == .leading {
-                    // The threads button is on both bars: the same glyph in the same place, kept as it is
+                if let platter = existing, role == .leading || role == .trailing && keepsTrailing {
+                    // The threads button is on both bars, and so is the more button between two chats: the same glyph
+                    // in the same place, kept as it is
                     platter.animateFrame(from: platter.getFrame(at: now), to: target, at: now, spring: spring)
                 } else if let platter = existing {
                     // On both bars: one shape morphing to the new frame while its content changes in place
@@ -826,7 +834,9 @@ extension AgentHeaderPlatterTransition.Bar {
                 }
                 return AgentHeaderPlatterTransition.Capsule.snapshot(pill, content: chat?.navigationHandoffTitleContent ?? pill)
             },
-            trailing: chat?.navigationHandoffTrailingView.map { AgentHeaderPlatterTransition.Capsule.button($0) }
+            trailing: chat?.navigationHandoffTrailingView.map { AgentHeaderPlatterTransition.Capsule.button($0) },
+            // The News feed has its bell there
+            isTrailingChatMoreButton: chat is AgentVC
         )
     }
 }

@@ -11,13 +11,13 @@ import { selectCurrentAccount } from '../selectors';
  */
 export function parsePlainAddressQr(global: GlobalState, qrData: string) {
   const availableChains = selectCurrentAccount(global)?.byChain ?? {};
-  const newChain = getChainFromAddress(qrData, availableChains, true);
+  const currentTokenSlug = global.currentTransfer.tokenSlug;
+  const currentChain = getChainBySlug(currentTokenSlug);
+  const newChain = getChainFromAddress(qrData, availableChains, true, currentChain);
   if (!newChain) {
     return undefined;
   }
 
-  const currentTokenSlug = global.currentTransfer.tokenSlug;
-  const currentChain = getChainBySlug(currentTokenSlug);
   const newTokenSlug = newChain !== currentChain ? getNativeToken(newChain).slug : currentTokenSlug;
 
   return {

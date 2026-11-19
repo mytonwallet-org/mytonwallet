@@ -220,7 +220,7 @@ private final class AgentEdgeGlowOverlayView: UIView {
     private lazy var clock = GlassMotionClock(
         frameRateRange: CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
     ) { [weak self] _ in self?.tick() }
-    private let startTime = CACurrentMediaTime()
+    private var startTime = CACurrentMediaTime()
     private var fadeStart: CFTimeInterval = 0
     private var fadeFrom: Float = 0
     private var fadeTarget: Float = 0
@@ -276,8 +276,13 @@ private final class AgentEdgeGlowOverlayView: UIView {
         }
     }
 
-    /// Fades in from the current opacity
+    /// Fades in from the current opacity. A glow that comes anew starts at a random point of its motion, so that the
+    /// lights are never where they were the last time; one that comes back while it still fades out goes on.
     func show() {
+        let now = CACurrentMediaTime()
+        if getOpacity(at: now) <= 0 {
+            startTime = now - .random(in: 0..<Self.motionPeriod)
+        }
         fade(to: 1)
     }
 

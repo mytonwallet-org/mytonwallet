@@ -20,6 +20,8 @@ object ConfigStore : IStore {
         private set
     var supportAccountsCount: Double? = null
         private set
+    var isAgentSupportEnabled: Boolean? = null
+        private set
     var isLimited: Boolean? = null
         private set
     var countryCode: String? = null
@@ -41,6 +43,7 @@ object ConfigStore : IStore {
     fun init(config: ApiUpdate.ApiUpdateConfig) {
         isCopyStorageEnabled = config.isCopyStorageEnabled
         supportAccountsCount = config.supportAccountsCount
+        isAgentSupportEnabled = config.isAgentSupportEnabled
         isLimited = config.isLimited
         countryCode = config.countryCode
         isAppUpdateRequired = config.isAppUpdateRequired

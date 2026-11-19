@@ -233,9 +233,9 @@ final class AgentNewsFeedParityTests: XCTestCase {
     }
 
     /// The latest news ends as far above the bottom edge as a chat's latest message ends above its field, less the
-    /// field: 16 pt above the line where the field rests. The scroll button stands over that line as a chat's stands
-    /// over its field, and nothing fades the news under it. Checked against a chat laid out the same, with and without
-    /// a home indicator.
+    /// field: 16 pt above the line where the field rests. The scroll button stands on that line, in a chat's
+    /// microphone's place, and nothing fades the news under it. Checked against a chat laid out the same, with and
+    /// without a home indicator.
     func testLatestNewsEndsWhereAChatsLatestMessageWouldWithoutItsField() async throws {
         for safeAreaBottom: CGFloat in [34, 0] {
             let feed = try await makeFeed(count: 8, safeAreaBottom: safeAreaBottom)
@@ -260,7 +260,7 @@ final class AgentNewsFeedParityTests: XCTestCase {
             XCTAssertEqual(lastCard.convert(lastCard.bounds, to: feedView).maxY, fieldLine - AgentVCLayout.bottomMessageSpacing, accuracy: 1)
 
             let button = feed.controller.scrollToBottomButton
-            XCTAssertEqual(button.convert(button.bounds, to: feedView).maxY, fieldLine - AgentVCLayout.scrollToBottomButtonSpacing, accuracy: 0.5)
+            XCTAssertEqual(button.convert(button.bounds, to: feedView).maxY, fieldLine, accuracy: 0.5)
             let chatButton = chat.controller.scrollToBottomButton
             XCTAssertEqual(chatButton.convert(chatButton.bounds, to: chatView).maxY, field.minY - AgentVCLayout.scrollToBottomButtonSpacing, accuracy: 0.5)
             XCTAssertFalse(findDescendants(of: feedView).contains {
@@ -471,7 +471,7 @@ final class AgentNewsFeedParityTests: XCTestCase {
         let lastIndexPath = try XCTUnwrap(feed.controller.lastItemIndexPath)
         let line = try XCTUnwrap(list.cellForItem(at: lastIndexPath) as? AgentSystemMessageCell)
         let caption = try XCTUnwrap(findDescendants(of: line).compactMap { $0 as? UITextView }.first { !$0.isHidden })
-        XCTAssertTrue(caption.text.hasPrefix(lang("$agent_error_generic")), caption.text)
+        XCTAssertTrue(caption.text.hasPrefix(AgentV2Copy.loadError(.networkError)), caption.text)
         XCTAssertTrue(caption.text.hasSuffix(lang("Retry")), caption.text)
         XCTAssertTrue(feed.controller.isNearBottom())
         XCTAssertEqual(list.visibleCells.filter { $0 is AgentNewsFeedCardCell }.count, 3)

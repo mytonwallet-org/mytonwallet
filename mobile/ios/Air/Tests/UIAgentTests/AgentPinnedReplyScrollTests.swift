@@ -163,7 +163,7 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         let typingID = try XCTUnwrap(thinking.backend.typingIndicatorID)
         let typingRow = try XCTUnwrap(thinking.collectionView.visibleCells.compactMap { $0 as? AgentTypingIndicatorCell }.first)
         let rowTop = typingRow.topView
-        let status = try XCTUnwrap(descendants(of: typingRow).compactMap { $0 as? AgentGradientLabel }.first)
+        let status = try XCTUnwrap(descendants(of: typingRow).compactMap { $0 as? AnimatedGradientLabel }.first)
         let largeTop = try XCTUnwrap(findTops(in: thinking.controller.view).first { $0.showsGround })
         XCTAssertFalse(rowTop.isRecoveringFromKnock)
         XCTAssertFalse(largeTop.isRecoveringFromKnock)
@@ -203,7 +203,7 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
             if !rowTop.isShowingImageAtItsSize { staleFrames += 1 }
             let rowLayer = typingRow.contentView.layer
             // The exit leaves the row transparent, unlike its entrance, which can still be playing at the Stop
-            if rowLayer.animation(forKey: "agentBlurTransition") != nil, rowLayer.opacity == 0 {
+            if rowLayer.animation(forKey: "blurTransition") != nil, rowLayer.opacity == 0 {
                 if !didBlurAway {
                     didBlurAway = true
                     scaleWhenTheRowStartedLeaving = rowTop.shownScale
@@ -829,7 +829,7 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
 
             let scrollToLatest = try XCTUnwrap(view.subviews.compactMap { $0 as? AgentScrollToBottomButton }.first)
             // As large as the composer's microphone circle
-            let microphoneSize = AgentComposerMetrics.microphoneSize
+            let microphoneSize = AgentComposerMetrics.actionCircleSize
             XCTAssertEqual(scrollToLatest.bounds.size, CGSize(width: microphoneSize, height: microphoneSize))
             XCTAssertEqual(scrollToLatest.center.y + scrollToLatest.bounds.height / 2, inputFrame.minY - 12, accuracy: 1)
 
@@ -1878,6 +1878,8 @@ private final class PinnedReplyTestBackend: AgentBackend {
     var typingIndicatorStatusText: String?
     var supportState: AgentSupportState = .none
     var sentTexts: [String] = []
+    /// Stop works on any answer here, as on one whose run the chat has heard of
+    var canStopAnswer: Bool { true }
 
     func attach(to context: AgentBackendContext) { self.context = context }
     func detach() { context = nil }

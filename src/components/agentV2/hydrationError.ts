@@ -1,7 +1,7 @@
 import type { AgentV2OperationError } from '../../api/agentV2/types';
 import type { LangFn } from '../../util/langProvider';
 
-import { getAgentV2ErrorText } from './agentV2Copy';
+import { getAgentV2LoadErrorText } from './agentV2Copy';
 
 export interface AgentV2HydrationError {
   code: AgentV2OperationError['code'];
@@ -33,6 +33,6 @@ function getHistoryErrorText(code: AgentV2OperationError['code'], lang: LangFn) 
       // Here these codes come from the history request, so they mean the chat failed to load, not a wallet operation
       return lang('Failed to load chat');
     default:
-      return getAgentV2ErrorText(code, lang);
+      return getAgentV2LoadErrorText(code, lang);
   }
 }

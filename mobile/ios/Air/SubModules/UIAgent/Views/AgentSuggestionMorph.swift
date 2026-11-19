@@ -19,7 +19,7 @@ final class AgentSuggestionMorph {
     /// The part of the morph over which the bubble's tail grows out of its corner, after the fill has become the bubble's
     private static let tailGrowth: ClosedRange<CGFloat> = 0.6...1
     /// The blur of the title as it fades out, and of the text before it fades in
-    static let crossfadeBlurRadius: CGFloat = AgentBlurTransition.radius / 2
+    static let crossfadeBlurRadius: CGFloat = BlurTransition.radius / 2
 
     /// The question's cell as it shows now, or nil while the chat has none on screen
     private let getCell: () -> AgentMessageCell?
@@ -359,7 +359,7 @@ final class AgentSuggestionMorph {
         /// Each one leaves this much after the one nearer the tapped suggestion
         static let stagger: CFTimeInterval = 0.03
         static let endScale: CGFloat = 0.95
-        static let blurRadius: CGFloat = AgentBlurTransition.radius / 2
+        static let blurRadius: CGFloat = BlurTransition.radius / 2
     }
 
     /// The suggestions beside the tapped one leave as a ripple away from the finger, starting with the nearest: each

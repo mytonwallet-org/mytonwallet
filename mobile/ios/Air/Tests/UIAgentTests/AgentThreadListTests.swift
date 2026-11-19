@@ -349,6 +349,8 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertFalse(model.isLoading)
         XCTAssertFalse(model.hasLoadFailed)
         XCTAssertFalse(model.hasPageLoadFailed)
+        // A failure that is not shown leaves no code for a later one to say
+        XCTAssertNil(model.loadErrorCode)
         XCTAssertEqual(errorCount, 0)
         XCTAssertEqual(client.listRequests.map(\.cursor), [nil, nil, nil])
     }
@@ -374,6 +376,7 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertFalse(model.isLoading)
         XCTAssertTrue(model.hasPageLoadFailed)
         XCTAssertFalse(model.hasLoadFailed)
+        XCTAssertEqual(model.loadErrorCode, .networkError)
         XCTAssertEqual(model.sections().last?.id, .pageFailure)
         XCTAssertEqual(model.sections().last?.itemIdentifiers, [AgentThreadListSection.pageFailureItemId])
         XCTAssertEqual(errorCount, 0)
@@ -570,19 +573,6 @@ final class AgentThreadListTests: XCTestCase {
         supersededClient.resumeList(with: try makePage([]))
         await refresh.value
 
-        // A copy that comes after the first page failed leaves the failure and its Retry
-        let failedClient = ThreadListClient()
-        failedClient.cachedThreadItems = [cached]
-        failedClient.blocksCachedThreads = true
-        failedClient.listError = ThreadListError.unavailable
-        let failedModel = AgentThreadListModel(client: failedClient)
-        await failedModel.refresh()
-        XCTAssertTrue(failedModel.hasLoadFailed)
-        failedClient.resumeCachedThreads()
-        for _ in 0..<20 { await Task.yield() }
-        XCTAssertTrue(failedModel.hasLoadFailed)
-        XCTAssertTrue(failedModel.items.isEmpty)
-
         let emptyClient = ThreadListClient()
         emptyClient.cachedThreadItems = []
         emptyClient.listError = ThreadListError.unavailable
@@ -591,6 +581,40 @@ final class AgentThreadListTests: XCTestCase {
         for _ in 0..<20 { await Task.yield() }
         XCTAssertTrue(emptyModel.hasLoadFailed)
         XCTAssertFalse(emptyModel.isShowingCachedThreads)
+    }
+
+    /// A first page that fails before the SDK's copy is read, as without a network, waits for the copy, which shows in
+    /// place of the failure; the list shows nothing rather than the skeleton until the copy is read
+    @MainActor
+    func testCachedChatsReadAfterTheFirstPageFailedShowInPlaceOfTheFailure() async throws {
+        let cached = try makeItem("cached", date: "2026-10-19T10:00:00Z")
+        let client = ThreadListClient()
+        client.cachedThreadItems = [cached]
+        client.blocksCachedThreads = true
+        client.listError = try makeMutationError(.networkError)
+        let model = AgentThreadListModel(client: client)
+        let refresh = Task { await model.refresh() }
+        await waitForCondition { client.listRequests.count == 1 }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertFalse(model.hasReadCachedThreads)
+        XCTAssertFalse(model.hasLoaded)
+        XCTAssertFalse(model.hasLoadFailed)
+
+        client.resumeCachedThreads()
+        await refresh.value
+        XCTAssertTrue(model.hasReadCachedThreads)
+        XCTAssertEqual(model.items.map(\.thread.id), [cached.thread.id])
+        XCTAssertTrue(model.isShowingCachedThreads)
+        XCTAssertFalse(model.hasLoadFailed)
+
+        let emptyClient = ThreadListClient()
+        emptyClient.cachedThreadItems = []
+        emptyClient.listError = try makeMutationError(.networkError)
+        let emptyModel = AgentThreadListModel(client: emptyClient)
+        await emptyModel.refresh()
+        XCTAssertTrue(emptyModel.hasReadCachedThreads)
+        XCTAssertTrue(emptyModel.hasLoadFailed)
+        XCTAssertEqual(emptyModel.loadErrorCode, .networkError)
     }
 
     /// Once a first page has loaded, even an empty one, the SDK's older copy isn't read again until the wallets reset;

@@ -1,7 +1,11 @@
-import type { ApiBaseCurrency, ApiChain } from '../../api/types';
+import type { ApiBaseCurrency, ApiChain, ApiTokenWithPrice } from '../../api/types';
 import type { GlobalState } from '../types';
 
 import {
+  BASE,
+  BITCOIN,
+  BITCOINCASH,
+  ETH,
   SOLANA,
   SOLANA_USDT_MAINNET,
   TON_USDT_MAINNET,
@@ -22,10 +26,17 @@ const ACCOUNT_ID = 'test-account';
 const TON_ADDRESS = 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S';
 const TRON_ADDRESS = 'TBvwz11CKdgBymTtF7Q6UfhGWQyEqNrodT';
 const SOL_ADDRESS = '35YT7tt9edJbroEKaC3T3XY4cLNWKtVzmyTEfW8LHPEA';
+const EVM_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e';
+const BITCOIN_LEGACY_ADDRESS = '1BoatSLRHtKNngkdXEeobR76b53LETtpyT';
+const BITCOIN_SEGWIT_ADDRESS = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
 const TRON_ORDINARY_TOKEN_SLUG = 'tron-ordinary';
 const TON_18_DECIMALS_TOKEN_SLUG = 'ton-18decimals';
 
-const TOKEN_INFO: Record<string, object> = {
+const TOKEN_INFO: Record<string, Partial<ApiTokenWithPrice>> = {
+  [BASE.slug]: { ...BASE, priceUsd: 3000, percentChange24h: 0 },
+  [BITCOIN.slug]: { ...BITCOIN, priceUsd: 60_000, percentChange24h: 0 },
+  [BITCOINCASH.slug]: { ...BITCOINCASH, priceUsd: 400, percentChange24h: 0 },
+  [ETH.slug]: { ...ETH, priceUsd: 3000, percentChange24h: 0 },
   [TONCOIN.slug]: { ...TONCOIN, priceUsd: 5, percentChange24h: 0 },
   [TON_USDT_MAINNET.slug]: { ...TON_USDT_MAINNET, priceUsd: 1, percentChange24h: 0 },
   [TRX.slug]: { ...TRX, priceUsd: 0.1, percentChange24h: 0 },
@@ -53,10 +64,8 @@ function buildGlobal(
 ): GlobalState {
   const byChain: Record<string, unknown> = {};
   for (const slug of Object.keys(balances)) {
-    const info = TOKEN_INFO[slug] as any;
-    if (info?.chain === 'ton') byChain.ton = { address: TON_ADDRESS };
-    if (info?.chain === 'tron') byChain.tron = { address: TRON_ADDRESS };
-    if (info?.chain === 'solana') byChain.solana = { address: SOL_ADDRESS };
+    const info = TOKEN_INFO[slug];
+    if (info?.chain) byChain[info.chain] = { address: getChainConfig(info.chain).feeCheckAddress };
   }
 
   const tokenInfoBySlug = Object.fromEntries(
@@ -118,6 +127,44 @@ describe('selectTokenMatchingCurrentTransferAddressSlow', () => {
 
       expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(TRX.slug);
     });
+
+    it('keeps Base when pasting an address shared with Ethereum', () => {
+      const global = buildGlobal(BASE.slug, EVM_ADDRESS, {
+        [BASE.slug]: 1_000_000_000_000_000_000n,
+        [ETH.slug]: 1_000_000_000_000_000_000n,
+      });
+
+      expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(BASE.slug);
+    });
+
+    it('keeps BCH when pasting a legacy address shared with Bitcoin', () => {
+      const global = buildGlobal(BITCOINCASH.slug, BITCOIN_LEGACY_ADDRESS, {
+        [BITCOINCASH.slug]: 100_000_000n,
+        [BITCOIN.slug]: 100_000_000n,
+      });
+
+      expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(BITCOINCASH.slug);
+    });
+
+    it('keeps Base while entering a shared address prefix', () => {
+      // The account has TON because TON is checked first and the start of an EVM address also fits the TON format
+      const global = buildGlobal(BASE.slug, EVM_ADDRESS.slice(0, 8), {
+        [BASE.slug]: 1_000_000_000_000_000_000n,
+        [ETH.slug]: 1_000_000_000_000_000_000n,
+        [TONCOIN.slug]: 1_000_000_000n,
+      });
+
+      expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(BASE.slug);
+    });
+  });
+
+  it('selects BTC from BCH when the address format is exclusive to Bitcoin', () => {
+    const global = buildGlobal(BITCOINCASH.slug, BITCOIN_SEGWIT_ADDRESS, {
+      [BITCOINCASH.slug]: 100_000_000n,
+      [BITCOIN.slug]: 100_000_000n,
+    });
+
+    expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(BITCOIN.slug);
   });
 
   describe('chain switching from TON', () => {
@@ -141,6 +188,15 @@ describe('selectTokenMatchingCurrentTransferAddressSlow', () => {
   });
 
   describe('chain switching from Solana (Bug 1: TRON address overlaps Solana regex)', () => {
+    it('selects BTC when a legacy Bitcoin address also matches the Solana format', () => {
+      const global = buildGlobal(SOLANA.slug, BITCOIN_LEGACY_ADDRESS, {
+        [SOLANA.slug]: 1_000_000_000n,
+        [BITCOIN.slug]: 100_000_000n,
+      });
+
+      expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(BITCOIN.slug);
+    });
+
     it('selects TRX when pasting a TRON address while SOL is current', () => {
       const global = buildGlobal(SOLANA.slug, TRON_ADDRESS, {
         [SOLANA.slug]: 1_000_000_000n,

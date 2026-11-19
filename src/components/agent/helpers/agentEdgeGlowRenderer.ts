@@ -4,7 +4,7 @@ import { getAgentGlowColors } from './agentGlowPalette';
 // bottom one tall enough for the lights that drift behind the composer
 
 /** The motion repeats every this many seconds: every stretch and light goes round a whole number of times in it */
-const MOTION_PERIOD = 24;
+export const MOTION_PERIOD = 24;
 /** How far in from the rounded edge the edge's light reaches, in CSS pixels */
 const GLOW_DEPTH = 32;
 /** How far up from the bottom the drifting lights reach, in CSS pixels */

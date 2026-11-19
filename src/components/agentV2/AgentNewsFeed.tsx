@@ -21,7 +21,7 @@ import { requestMeasure } from '../../lib/fasterdom/fasterdom';
 import { isAnimatingScroll } from '../../util/animateScroll';
 import { formatFullDay } from '../../util/dateFormat';
 import { buildAgentNewsPictures, getAgentNewsPictureId } from './agentNewsPictures';
-import { getAgentV2ErrorText } from './agentV2Copy';
+import { getAgentV2LoadErrorText } from './agentV2Copy';
 
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
@@ -197,7 +197,7 @@ function AgentNewsFeed({
       : unreadDigestId !== undefined ? getDigestMessageId(unreadDigestId) : undefined,
     scrollRequest,
     loadFailure: errorCode && {
-      text: getAgentV2ErrorText(errorCode, lang),
+      text: getAgentV2LoadErrorText(errorCode, lang),
       isRetrying: isLoading,
       onRetry,
     },

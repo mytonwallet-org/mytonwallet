@@ -425,6 +425,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       const {
         isLimited: isLimitedRegion,
         isCopyStorageEnabled,
+        isAgentSupportEnabled,
         supportAccountsCount,
         countryCode,
         isAppUpdateRequired,
@@ -445,6 +446,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         // to survive a shallow merge with a cached state
         isNftBuyingDisabled: false,
         isCopyStorageEnabled,
+        isAgentSupportEnabled,
         supportAccountsCount,
         countryCode,
         // Keep the previous reference for an unchanged list so connected containers do not re-render on every poll

@@ -1,24 +1,18 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.views
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.drawable.GradientDrawable
-import android.os.SystemClock
+import android.os.Build
 import android.text.TextUtils
-import android.view.Choreographer
 import android.view.Gravity
 import android.view.View
+import android.view.View.MeasureSpec.EXACTLY
 import android.view.animation.PathInterpolator
 import androidx.core.view.doOnPreDraw
-import kotlin.math.abs
-import kotlin.math.ceil
 import kotlin.math.max
-import kotlin.math.min
-import org.mytonwallet.app_air.uiagent.agentV2.AGENT_DICTATION_MAX_DURATION_MS
-import org.mytonwallet.app_air.uiagent.agentV2.AGENT_DICTATION_WARNING_START_MS
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationHoldZone
 import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationPhase
 import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationState
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -28,498 +22,225 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 
 /**
- * The field's content while a question is recorded, as Telegram's recording panel: a blinking red
- * dot, the time with centiseconds and "‹ Slide to cancel", which follows the finger. Locked, the
- * hint gives way to "Cancel"; near the limit it counts down in red; paused, the dot goes and the
- * time stops; while recognizing it reads "Recognizing…".
+ * The field's content while a question is recorded or recognized, as on iOS: while the finger holds the microphone,
+ * what letting go there does; for a hands-free recording, the voice as a thread of light out of the stop button; and
+ * "Recognizing…" while the recording becomes text, which nothing cancels.
  */
 @SuppressLint("ViewConstructor")
 internal class AgentDictationStrip(context: Context) :
     WFrameLayout(context),
     WThemedView {
 
-    var onCancel: (() -> Unit)? = null
+    /** The recognition's status, for TalkBack to move to */
+    val statusView: View get() = hintLabel
 
-    /** The strip's "Cancel", for TalkBack to move to while recognizing */
-    val cancelView: View get() = cancelLabel
+    /**
+     * From the strip's leading edge to the centre of the recording circle, the stop button of a hands-free recording,
+     * in px: the hint keeps clear of the circle, and the thread comes out of the stop button
+     */
+    var stopCenter = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            requestLayout()
+        }
 
     private var state = AgentDictationState()
-    private var isAnimating = false
-    private var blinkAnimator: ValueAnimator? = null
-    private var wobbleAnimator: ValueAnimator? = null
-    private var wobble = 0f
-    private var drag = 0f
     private var slide = 0f
-
-    // While locking turns the hint into Cancel, the hint keeps its place as it rises away
-    private var cancelReveal: ValueAnimator? = null
-    private var isTimerFrameScheduled = false
-    private val timerFrame = Choreographer.FrameCallback {
-        isTimerFrameScheduled = false
-        updateTimer()
-        scheduleTimerFrame()
-    }
-
-    private val recordingDot = View(context).apply {
-        id = generateViewId()
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-    }
-
-    private val timerLabel = WLabel(context).apply {
-        setStyle(TEXT_SIZE, WFont.Regular)
-        gravity = Gravity.CENTER_VERTICAL or Gravity.START
-        fontFeatureSettings = "tnum"
-        setSingleLine()
-    }
+    private var slideAnimator: ValueAnimator? = null
 
     private val hintLabel = WLabel(context).apply {
         setStyle(TEXT_SIZE, WFont.Regular)
-        gravity = Gravity.CENTER
+        gravity = Gravity.CENTER_VERTICAL or Gravity.START
         ellipsize = TextUtils.TruncateAt.END
         setSingleLine()
     }
 
-    private val cancelLabel = WLabel(context).apply {
-        setStyle(CANCEL_TEXT_SIZE, WFont.Regular)
-        text = LocaleController.getString("Cancel")
-        gravity = Gravity.CENTER
-        isClickable = true
-        isFocusable = true
-        setSingleLine()
-        setOnClickListener { onCancel?.invoke() }
-    }
+    // It reaches past the strip's end, which the field's end clips, so it can slide on into Send
+    private val ribbonView = AgentVoiceRibbonView(context)
 
     init {
         minimumHeight = HEIGHT.dp
         clipChildren = false
         clipToPadding = false
-        addView(recordingDot, LayoutParams(DOT.dp, DOT.dp))
-        addView(timerLabel, LayoutParams(LayoutParams.WRAP_CONTENT, HEIGHT.dp))
+        addView(ribbonView, LayoutParams(LayoutParams.MATCH_PARENT, HEIGHT.dp))
         addView(hintLabel, LayoutParams(LayoutParams.WRAP_CONTENT, HEIGHT.dp))
-        addView(cancelLabel, LayoutParams(LayoutParams.WRAP_CONTENT, HEIGHT.dp))
         updateTheme()
     }
 
     fun render(newState: AgentDictationState) {
-        val previousPhase = state.phase
-        val wasLocked = state.locked
-        val wasPaused = state.isPaused
+        val previous = state
         state = newState
-        val isRecording = newState.phase == AgentDictationPhase.RECORDING
+        val isHolding = newState.isHolding
         val isRecognizing = newState.phase == AgentDictationPhase.RECOGNIZING
-        val isLocked = isRecording && newState.locked
-        val canAnimate = isAttachedToWindow && isShown && WGlobalStorage.getAreAnimationsActive()
-        // Locking turns "Slide to cancel" into "Cancel", as in Telegram
-        val shouldRevealCancel = isLocked && !wasLocked &&
-            previousPhase == AgentDictationPhase.RECORDING && canAnimate
-        val isComingIn = isRecording && previousPhase != AgentDictationPhase.RECORDING && canAnimate
-        val isNearLimit = isRecording && newState.elapsedMs >= AGENT_DICTATION_WARNING_START_MS
-        if (!isLocked) cancelReveal?.cancel()
-        val shouldKeepHint = shouldRevealCancel || cancelReveal != null
-
-        recordingDot.visibility = if (isRecognizing) GONE else VISIBLE
-        if (!isRecording) {
-            recordingDot.scaleX = 1f
-            recordingDot.scaleY = 1f
-        } else if (newState.isPaused != wasPaused) {
-            showDot(isShown = !newState.isPaused)
-        }
-        timerLabel.visibility = if (isRecognizing) GONE else VISIBLE
-        cancelLabel.visibility = if (isRecognizing || isLocked) VISIBLE else GONE
-        if (!shouldKeepHint) hintLabel.visibility = if (isLocked && !isNearLimit) GONE else VISIBLE
-        hintLabel.text = when {
-            isRecognizing -> LocaleController.getString("\$agent_dictation_recognizing")
-
-            isNearLimit -> {
-                val remainingMs = AGENT_DICTATION_MAX_DURATION_MS - newState.elapsedMs
-                formatCountdown(
-                    max(0, ceil(remainingMs / 1000.0).toInt()),
-                    isCancelShown = isLocked
-                )
+        hintLabel.visibility = if (isHolding || isRecognizing) VISIBLE else GONE
+        // A held microphone tells what letting go does where the finger is
+        hintLabel.text = LocaleController.getString(
+            when {
+                isRecognizing -> "\$agent_dictation_recognizing"
+                newState.holdZone == AgentDictationHoldZone.CANCEL -> RELEASE_TO_CANCEL
+                newState.holdZone == AgentDictationHoldZone.SEND -> RELEASE_TO_SEND
+                else -> RELEASE_TO_STOP
             }
-
-            // The arrow is isolated so that RTL text doesn't mirror its direction
-            LocaleController.isRTL ->
-                "\u2066›\u2069 " + LocaleController.getString("\$agent_dictation_slide_to_cancel")
-
-            else -> "‹ " + LocaleController.getString("\$agent_dictation_slide_to_cancel")
-        }
-        hintLabel.gravity = if (isRecognizing) {
-            Gravity.CENTER_VERTICAL or Gravity.START
-        } else {
-            Gravity.CENTER
-        }
-        drag = if (isRecording && !newState.locked) {
-            cancelSign * max(0f, newState.cancelDragDp).dp
-        } else {
-            0f
-        }
-        if (!shouldKeepHint) {
-            hintLabel.alpha = if (isRecording && !newState.locked) {
-                max(0f, 1f - abs(drag) / measureHintFadeTravel())
-            } else {
-                1f
-            }
-        }
-        applyHintTranslation()
-        updateTimer()
-        applyTextColors()
-        updateAnimations()
-        requestLayout()
-        if (shouldRevealCancel) revealCancel()
-        // Starts from its first frame, once the strip is laid out
-        if (isComingIn) doOnPreDraw { animateComingIn() }
-    }
-
-    // The long form where it fits between the timer and Cancel, as in a chat's composer, else the short one, so the
-    // countdown never ends in "…"
-    private fun formatCountdown(seconds: Int, isCancelShown: Boolean): String {
-        val long = LocaleController.getString("\$agent_dictation_time_left")
-            .replace("%seconds%", seconds.toString())
-        if (width <= 0) return long
-        val cancelSpace = if (isCancelShown) {
-            cancelLabel.measuredWidth + CANCEL_PADDING.dp + HINT_CANCEL_GAP.dp
-        } else {
-            0
-        }
-        val room = width - (DOT.dp + GAP.dp + measureTimerWidth() + GAP.dp) - cancelSpace
-        val longWidth = ceil(hintLabel.paint.measureText(long)).toInt() +
-            hintLabel.paddingLeft + hintLabel.paddingRight
-        if (longWidth <= room) return long
-        return LocaleController.getString("\$agent_dictation_time_left_short")
-            .replace("%seconds%", seconds.toString())
-    }
-
-    // The hint is gone by the time its text reaches the timer, and 110 dp along at most
-    private fun measureHintFadeTravel(): Float {
-        val textWidth = hintLabel.paint.measureText(hintLabel.text.toString())
-        val textStart = max(0f, (hintLabel.width - textWidth) / 2f)
-        return min(HINT_FADE_TRAVEL.dp, textStart + GAP.dp)
-    }
-
-    // Toward the start of the line in reading order
-    private val cancelSign: Float
-        get() = if (LocaleController.isRTL) 1f else -1f
-
-    private fun applyHintTranslation() {
-        hintLabel.translationX = drag + wobble + slide
-    }
-
-    private fun updateTimer() {
-        val isRunning = state.phase == AgentDictationPhase.RECORDING && !state.isPaused
-        val elapsed = if (isRunning && state.startedAtMs > 0L) {
-            (SystemClock.elapsedRealtime() - state.startedAtMs)
-                .coerceIn(0L, AGENT_DICTATION_MAX_DURATION_MS)
-        } else {
-            state.elapsedMs
-        }
-        val seconds = elapsed / 1000
-        val centiseconds = min(99L, elapsed % 1000 / 10)
-        // "m:ss,cc", every frame without formatting
-        timerText.setLength(0)
-        timerText.append(seconds / 60).append(':')
-        if (seconds % 60 < 10) timerText.append('0')
-        timerText.append(seconds % 60).append(',')
-        if (centiseconds < 10) timerText.append('0')
-        timerText.append(centiseconds)
-        timerLabel.text = timerText
-    }
-
-    private val timerText = StringBuilder()
-
-    // As wide as the widest time, so a new time only redraws the label
-    private fun measureTimerWidth(): Int {
-        val paint = timerLabel.paint
-        val digit = (0..9).maxOf { paint.measureText(it.toString()) }
-        val text = TIMER_DIGITS * digit + paint.measureText(":") + paint.measureText(",")
-        return ceil(text).toInt() + timerLabel.paddingLeft + timerLabel.paddingRight
-    }
-
-    private fun scheduleTimerFrame() {
-        if (isTimerFrameScheduled || !isAnimating) return
-        isTimerFrameScheduled = true
-        Choreographer.getInstance().postFrameCallback(timerFrame)
-    }
-
-    // Telegram's recording panel coming in: the hint slides in from past the end, the timer fades
-    // in on its layout spring, and the dot grows in before it starts blinking
-    private fun animateComingIn() {
-        if (!isAttachedToWindow) return
-        val textWidth = min(
-            hintLabel.width.toFloat(),
-            hintLabel.paint.measureText(hintLabel.text.toString())
         )
-        val startX = if (LocaleController.isRTL) {
-            -textWidth - hintLabel.left
-        } else {
-            width + textWidth - hintLabel.left
+        updateRibbon(previous)
+        requestLayout()
+        val isRecognitionStarting =
+            isRecognizing && previous.phase != AgentDictationPhase.RECOGNIZING
+        when {
+            // "Recognizing…" fades in over what letting go said, as the field starts to glow
+            isRecognitionStarting && isShown && isMotionOn -> fadeHintIn()
+
+            // Its fade goes on as the recognition's state changes
+            isRecognizing && !isRecognitionStarting -> Unit
+
+            !isHolding -> {
+                slideAnimator?.cancel()
+                hintLabel.animate().cancel()
+                applySlide(0f, alpha = 1f)
+            }
+
+            // Starts from its first frame, once the strip is laid out
+            !previous.isHolding && isAttachedToWindow && isShown && isMotionOn ->
+                doOnPreDraw { slideHintIn() }
         }
-        ValueAnimator.ofFloat(startX, 0f).apply {
-            duration = SLIDE_IN_MS
+    }
+
+    /**
+     * The thread comes out of the stop button as a hands-free recording starts. As it ends, the thread gathers back
+     * into the button for a transcript to go into the field, slides into Send for one to be sent, or fades otherwise.
+     */
+    private fun updateRibbon(previous: AgentDictationState) {
+        ribbonView.setLevel(state.peakLevel)
+        val wasHandsFree = previous.isHandsFreeRecording
+        val isHandsFree = state.isHandsFreeRecording
+        if (wasHandsFree == isHandsFree) return
+        when {
+            isHandsFree -> ribbonView.start()
+            state.phase != AgentDictationPhase.RECOGNIZING -> ribbonView.cancel()
+            state.isSending -> ribbonView.send()
+            else -> ribbonView.stop()
+        }
+    }
+
+    // Once the touch is a hold, the hint comes in from behind the recording circle at the trailing end, as on iOS
+    private fun slideHintIn() {
+        if (!state.isHolding || !isAttachedToWindow) return
+        hintLabel.animate().cancel()
+        val travel = HINT_TRAVEL.dp.toFloat() * LocaleController.rtlMultiplier
+        slideAnimator?.cancel()
+        slideAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = HINT_SLIDE_MS
             interpolator = TELEGRAM_CURVE
             addUpdateListener {
-                slide = it.animatedValue as Float
-                applyHintTranslation()
-            }
-            start()
-        }
-        timerLabel.alpha = 0f
-        timerLabel.animate().alpha(1f).setDuration(TIMER_FADE_MS)
-            .setInterpolator(TELEGRAM_SPRING).start()
-        blinkAnimator?.cancel()
-        recordingDot.alpha = 0f
-        recordingDot.scaleX = DOT_FROM_SCALE
-        recordingDot.scaleY = DOT_FROM_SCALE
-        recordingDot.animate().alpha(1f).scaleX(1f).scaleY(1f)
-            .setDuration(DOT_APPEARANCE_MS)
-            .setInterpolator(WInterpolator.easeInOut)
-            .withEndAction { if (isAnimating) startBlink() }
-            .start()
-    }
-
-    // Telegram's paused recording: the dot shrinks away, and grows back as the recording resumes
-    private fun showDot(isShown: Boolean) {
-        val scale = if (isShown) 1f else 0f
-        recordingDot.animate().cancel()
-        if (!isAttachedToWindow || !WGlobalStorage.getAreAnimationsActive()) {
-            recordingDot.scaleX = scale
-            recordingDot.scaleY = scale
-            return
-        }
-        recordingDot.animate().scaleX(scale).scaleY(scale).setDuration(DOT_APPEARANCE_MS)
-            .setInterpolator(WInterpolator.easeInOut).start()
-    }
-
-    // Telegram's `updateIsDisplayingCancel`: the hint rises and shrinks away while Cancel rises in
-    private fun revealCancel() {
-        val hint = hintLabel
-        hint.animate().cancel()
-        hint.pivotX = hint.width / 2f
-        hint.pivotY = hint.height / 2f
-        hint.animate().translationY(-CANCEL_REVEAL_OFFSET.dp.toFloat())
-            .setDuration(HINT_RISE_MS).start()
-        cancelReveal = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = CANCEL_REVEAL_MS
-            addUpdateListener {
-                val fade = it.animatedValue as Float
-                hint.alpha = fade
-                val scale = CANCEL_REVEAL_SCALE + (1 - CANCEL_REVEAL_SCALE) * fade
-                hint.scaleX = scale
-                hint.scaleY = scale
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    if (cancelReveal === animation) cancelReveal = null
-                    hint.animate().cancel()
-                    hint.translationY = 0f
-                    hint.scaleX = 1f
-                    hint.scaleY = 1f
-                    hint.alpha = 1f
-                    val isNearLimit = state.elapsedMs >= AGENT_DICTATION_WARNING_START_MS
-                    if (state.locked && !isNearLimit) hint.visibility = GONE
-                    requestLayout()
-                }
-            })
-            start()
-        }
-        cancelLabel.translationY = CANCEL_REVEAL_OFFSET.dp.toFloat()
-        cancelLabel.scaleX = CANCEL_REVEAL_SCALE
-        cancelLabel.scaleY = CANCEL_REVEAL_SCALE
-        cancelLabel.alpha = 0f
-        cancelLabel.animate().translationY(0f).scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(CANCEL_REVEAL_MS).start()
-    }
-
-    private fun updateAnimations() {
-        val shouldAnimate = isAttachedToWindow && state.phase == AgentDictationPhase.RECORDING &&
-            !state.isPaused
-        val isMotionOn = WGlobalStorage.getAreAnimationsActive()
-        if (shouldAnimate == isAnimating) return
-        isAnimating = shouldAnimate
-        if (!shouldAnimate) {
-            blinkAnimator?.cancel()
-            blinkAnimator = null
-            wobbleAnimator?.cancel()
-            wobbleAnimator = null
-            wobble = 0f
-            recordingDot.alpha = 1f
-            applyHintTranslation()
-            return
-        }
-        scheduleTimerFrame()
-        if (!isMotionOn) return
-        startBlink()
-        // The wobble rides on the slide that follows the finger
-        wobbleAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = WOBBLE_MS
-            repeatCount = ValueAnimator.INFINITE
-            addUpdateListener {
-                val t = it.animatedValue as Float
-                val half = if (t < 0.5f) t * 2 else (1 - t) * 2
-                wobble =
-                    cancelSign * HINT_WOBBLE.dp * WInterpolator.easeInOut.getInterpolation(half)
-                applyHintTranslation()
+                val progress = it.animatedValue as Float
+                val elapsed = it.currentPlayTime.toFloat()
+                val fade = (elapsed / HINT_FADE_MS).coerceIn(0f, 1f)
+                applySlide(travel * (1 - progress), alpha = fade)
             }
             start()
         }
     }
 
-    // Telegram's recording dot: on for half the cycle, then off, back and forth
-    private fun startBlink() {
-        blinkAnimator?.cancel()
-        if (!WGlobalStorage.getAreAnimationsActive()) return
-        blinkAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = BLINK_MS
-            repeatCount = ValueAnimator.INFINITE
-            repeatMode = ValueAnimator.REVERSE
-            addUpdateListener {
-                val t = it.animatedValue as Float
-                recordingDot.alpha = when {
-                    t <= BLINK_ON_END -> 1f
-                    t >= BLINK_OFF_START -> 0f
-                    else -> 1f - (t - BLINK_ON_END) / (BLINK_OFF_START - BLINK_ON_END)
-                }
-            }
-            start()
-        }
+    private fun fadeHintIn() {
+        slideAnimator?.cancel()
+        slideAnimator = null
+        hintLabel.translationX = 0f
+        hintLabel.alpha = 0f
+        hintLabel.animate().alpha(1f).setDuration(RECOGNIZING_FADE_MS).start()
     }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        updateAnimations()
+    private fun applySlide(value: Float, alpha: Float) {
+        slide = value
+        hintLabel.translationX = slide
+        hintLabel.alpha = alpha
     }
+
+    private val isMotionOn: Boolean
+        get() = WGlobalStorage.getAreAnimationsActive() &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled())
 
     override fun onDetachedFromWindow() {
-        isAnimating = false
-        blinkAnimator?.cancel()
-        wobbleAnimator?.cancel()
-        Choreographer.getInstance().removeFrameCallback(timerFrame)
-        isTimerFrameScheduled = false
+        slideAnimator?.cancel()
+        hintLabel.animate().cancel()
+        applySlide(0f, alpha = 1f)
         super.onDetachedFromWindow()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
         val height = HEIGHT.dp
-        val wrap = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
-        val exactHeight = MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
-        recordingDot.measure(
-            MeasureSpec.makeMeasureSpec(DOT.dp, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(DOT.dp, MeasureSpec.EXACTLY)
-        )
-        val timerWidth = measureTimerWidth()
-        // A fixed width keeps the label from asking for a layout with every new time
-        if (timerLabel.layoutParams.width != timerWidth) timerLabel.layoutParams.width = timerWidth
-        timerLabel.measure(
-            MeasureSpec.makeMeasureSpec(timerWidth, MeasureSpec.EXACTLY),
-            exactHeight
-        )
-        cancelLabel.measure(wrap, exactHeight)
-        val hintWidth = max(0, computeHintWidth(MeasureSpec.getSize(widthMeasureSpec)))
-        hintLabel.measure(MeasureSpec.makeMeasureSpec(hintWidth, MeasureSpec.EXACTLY), exactHeight)
-        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), height)
+        val exactHeight = MeasureSpec.makeMeasureSpec(height, EXACTLY)
+        val ribbonWidth = computeRibbonWidth(width)
+        val hintWidth = computeHintWidth(width)
+        ribbonView.measure(MeasureSpec.makeMeasureSpec(ribbonWidth, EXACTLY), exactHeight)
+        hintLabel.measure(MeasureSpec.makeMeasureSpec(hintWidth, EXACTLY), exactHeight)
+        setMeasuredDimension(width, height)
     }
 
-    private fun computeContentStart(): Int = if (state.phase == AgentDictationPhase.RECOGNIZING) {
-        0
-    } else {
-        DOT.dp + GAP.dp + timerLabel.measuredWidth + GAP.dp
-    }
+    // To the field's end at least, where Send stands
+    private fun computeRibbonWidth(width: Int): Int =
+        max(width, (stopCenter + RIBBON_OVERHANG.dp).roundToInt())
 
-    // Cancel rises into the middle, where the hint fades, unless the countdown stays beside it
-    private val isCancelCentred: Boolean
-        get() = state.phase == AgentDictationPhase.RECORDING && state.locked &&
-            (hintLabel.visibility == GONE || cancelReveal != null)
-
-    private fun computeCancelWidth(available: Int): Int = min(
-        cancelLabel.measuredWidth + CANCEL_PADDING.dp,
-        max(0, available - computeContentStart())
-    )
-
-    private fun computeCancelX(available: Int): Int {
-        val contentStart = computeContentStart()
-        val cancelWidth = computeCancelWidth(available)
-        return if (isCancelCentred) {
-            contentStart + (available - contentStart - cancelWidth) / 2
-        } else {
-            available - cancelWidth
-        }
-    }
-
-    private fun computeHintWidth(available: Int): Int {
-        val end = if (cancelLabel.visibility == VISIBLE && !isCancelCentred) {
-            computeCancelX(available) - HINT_CANCEL_GAP.dp
-        } else {
-            available
-        }
-        return end - computeContentStart()
+    // The hint ends short of the circle the finger holds; "Recognizing…" has the strip to itself
+    private fun computeHintWidth(width: Int): Int {
+        if (stopCenter <= 0f || state.phase == AgentDictationPhase.RECOGNIZING) return width
+        val end = stopCenter - (CIRCLE_RADIUS + CIRCLE_SPACING).dp
+        return end.roundToInt().coerceIn(0, width)
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         val width = right - left
         val height = bottom - top
         val isRtl = LocaleController.isRTL
-        fun place(view: View, x: Int, viewWidth: Int, viewHeight: Int) {
-            val start = if (isRtl) width - x - viewWidth else x
-            val y = (height - viewHeight) / 2
-            view.layout(start, y, start + viewWidth, y + viewHeight)
+        fun place(view: View, viewWidth: Int) {
+            val start = if (isRtl) width - viewWidth else 0
+            view.layout(start, 0, start + viewWidth, height)
         }
-        place(recordingDot, 0, DOT.dp, DOT.dp)
-        place(timerLabel, DOT.dp + GAP.dp, timerLabel.measuredWidth, height)
-        place(cancelLabel, computeCancelX(width), computeCancelWidth(width), height)
-        place(hintLabel, computeContentStart(), max(0, computeHintWidth(width)), height)
-    }
-
-    private fun applyTextColors() {
-        val isNearLimit = state.phase == AgentDictationPhase.RECORDING &&
-            state.elapsedMs >= AGENT_DICTATION_WARNING_START_MS
-        timerLabel.setTextColor(if (isNearLimit) WColor.Error else WColor.PrimaryText)
-        hintLabel.setTextColor(if (isNearLimit) WColor.Error else WColor.SecondaryText)
+        place(ribbonView, ribbonView.measuredWidth)
+        place(hintLabel, hintLabel.measuredWidth)
+        ribbonView.stopCenter = stopCenter
     }
 
     override fun updateTheme() {
-        recordingDot.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(RECORDING_DOT_COLOR)
-        }
-        cancelLabel.setTextColor(WColor.Tint)
-        applyTextColors()
+        hintLabel.setTextColor(WColor.SecondaryText)
+        ribbonView.updateTheme()
     }
 
     private companion object {
-        // "m:ss,cc"
-        const val TIMER_DIGITS = 5
         const val HEIGHT = 48
-        const val DOT = 10
-        const val GAP = 8
         const val TEXT_SIZE = 15f
-        const val CANCEL_TEXT_SIZE = 17f
-        const val CANCEL_PADDING = 12
-        const val HINT_CANCEL_GAP = 4
-        const val HINT_FADE_TRAVEL = 110f
-        const val HINT_WOBBLE = 6f
-        const val CANCEL_REVEAL_OFFSET = 22
-        const val CANCEL_REVEAL_SCALE = 0.25f
-        const val DOT_FROM_SCALE = 0.3f
-        const val RECORDING_DOT_COLOR = 0xFFFF2D55.toInt()
+        const val RELEASE_TO_STOP = "\$agent_dictation_release_to_stop"
+        const val RELEASE_TO_CANCEL = "\$agent_dictation_release_to_cancel"
+        const val RELEASE_TO_SEND = "\$agent_dictation_release_to_send"
 
-        const val SLIDE_IN_MS = 400L
-        const val TIMER_FADE_MS = 500L
-        const val DOT_APPEARANCE_MS = 150L
-        const val HINT_RISE_MS = 200L
-        const val CANCEL_REVEAL_MS = 250L
-        const val WOBBLE_MS = 1500L
-        const val BLINK_MS = 500L
-        const val BLINK_ON_END = 0.4546f
-        const val BLINK_OFF_START = 0.9091f
+        // The recording circle the finger holds, and the hint's room before it, in dp
+        const val CIRCLE_RADIUS = 27
+        const val CIRCLE_SPACING = 8
+
+        // Past the stop button's centre, for the thread to slide into Send
+        const val RIBBON_OVERHANG = 120
+
+        // The hint comes in from this far, in dp, on Telegram's curve, fading in quickly
+        const val HINT_TRAVEL = 100
+        const val HINT_SLIDE_MS = 400L
+        const val HINT_FADE_MS = 100f
+
+        // As iOS fades the strip's hint
+        const val RECOGNIZING_FADE_MS = 200L
 
         val TELEGRAM_CURVE = PathInterpolator(0.38f, 0.7f, 0.125f, 1f)
-
-        // Telegram's layout spring (mass 1, stiffness 555, damping 47): critically damped, ~0.4 s
-        val TELEGRAM_SPRING = WInterpolator.spring(0.99f, 9f)
     }
 }
+
+/** The finger holds the microphone, and the circle follows it */
+private val AgentDictationState.isHolding: Boolean
+    get() = phase == AgentDictationPhase.RECORDING && !locked
+
+/** A tap's recording, from the moment it waits for the microphone until it stops */
+private val AgentDictationState.isHandsFreeRecording: Boolean
+    get() = locked &&
+        (phase == AgentDictationPhase.PRESSING || phase == AgentDictationPhase.RECORDING)

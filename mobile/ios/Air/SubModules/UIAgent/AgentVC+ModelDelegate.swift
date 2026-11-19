@@ -3,6 +3,7 @@ import UIComponents
 
 extension AgentVC: AgentModelDelegate {
     func agentModelDidReloadTimeline(animated: Bool, reconfigureItemIDs: [AgentItemID]) {
+        discardPendingAnswerStopIfNeeded()
         defer {
             updateThinkingGlow()
             updateNavigationMenuAvailability()
@@ -295,6 +296,7 @@ extension AgentVC: AgentModelDelegate {
         updateOpeningConsentView()
         updateVisibleTypingIndicator()
         updateAccessibilityStatus()
+        stopPendingAnswerIfReady()
     }
 
     /// The typing row kept for its top's knock: its top shrinks back, the row then blurs away as it came in, or fades
@@ -315,7 +317,7 @@ extension AgentVC: AgentModelDelegate {
         }
         let isMotionReduced = UIAccessibility.isReduceMotionEnabled
         guard !isMotionReduced else {
-            AgentBlurTransition.animateOut(
+            BlurTransition.animateOut(
                 cell.contentView.layer,
                 duration: Self.stoppedTypingRowExitDuration,
                 shouldSkipBlur: true,
@@ -370,7 +372,15 @@ extension AgentVC: AgentModelDelegate {
                 finish()
                 return
             }
-            bringSentUserMessageUp(userMessageID, isShownInPlace: true, then: finish)
+            // As on Android, the answer's typing row comes in a moment after the question goes, as the chat brings the
+            // question up
+            DispatchQueue.main.asyncAfter(deadline: .now() + AgentVCLayout.sentUserMessagePinDelay) { [weak self] in
+                guard let self else { return completion() }
+                completion()
+                self.bringSentUserMessageUp(userMessageID, isShownInPlace: true) { [weak self] in
+                    self?.isRevealingSentUserMessage = false
+                }
+            }
             return
         }
         // A question that left the field, or a tapped suggestion, turns into its bubble as Telegram's send does
@@ -425,7 +435,12 @@ extension AgentVC: AgentModelDelegate {
             let delay = appearanceDuration + AgentVCLayout.sentUserMessagePinDelay
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self else { return completion() }
-                self.bringSentUserMessageUp(userMessageID, isShownInPlace: true, then: finish)
+                // As on Android, the answer's typing row comes in as the chat brings the question up, rather than once
+                // the question is up
+                completion()
+                self.bringSentUserMessageUp(userMessageID, isShownInPlace: true) { [weak self] in
+                    self?.isRevealingSentUserMessage = false
+                }
             }
             return
         }
@@ -435,8 +450,7 @@ extension AgentVC: AgentModelDelegate {
         }
         revealsSentMessageFromBottom = false
         // A tapped suggestion turns into its question's bubble also where the chat brings the question up from below,
-        // following it as the chat scrolls, and so does a question that left the field, its text flying out of it on
-        // Telegram iOS's 0.4 s
+        // following it as the chat scrolls, and so does a question that left the field, its text flying out of it
         let isMorphing: Bool
         if let source, case .text = source.kind {
             isMorphing = textPicture.flatMap {
@@ -448,7 +462,33 @@ extension AgentVC: AgentModelDelegate {
         if !isMorphing {
             revealSentMessageWithoutMorph(userMessageID)
         }
-        bringSentUserMessageUp(userMessageID, isShownInPlace: isMorphing, then: finish)
+        // As on Android, the answer's typing row comes in a moment after the question has appeared, while the chat
+        // may still be bringing the question up
+        let appearanceDuration: TimeInterval
+        if UIAccessibility.isReduceMotionEnabled {
+            appearanceDuration = 0
+        } else if isMorphing, let source, case .text = source.kind {
+            appearanceDuration = AgentSentMessageMorph.duration
+        } else if isMorphing {
+            appearanceDuration = AgentSuggestionMorph.duration
+        } else {
+            appearanceDuration = AgentSentMessageAppearance.duration
+        }
+        // The question stays pinned until it is up and its typing row is in, whichever comes last: a scroll that ends
+        // at once, as with Reduce Motion, would otherwise let the chat follow the keyboard before the row comes
+        var isTypingRowIn = false
+        var isQuestionUp = false
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + appearanceDuration + AgentVCLayout.sentUserMessagePinDelay
+        ) { [weak self] in
+            completion()
+            isTypingRowIn = true
+            if isQuestionUp { self?.isRevealingSentUserMessage = false }
+        }
+        bringSentUserMessageUp(userMessageID, isShownInPlace: isMorphing) { [weak self] in
+            isQuestionUp = true
+            if isTypingRowIn { self?.isRevealingSentUserMessage = false }
+        }
     }
 
     /// A question sent while an answer is written, or before its discussion's thread exists, turns into its bubble at the
@@ -617,7 +657,7 @@ extension AgentVC: AgentModelDelegate {
         listScrollAnimator.scroll(to: { [weak self] in
             guard let self, let offsetY = self.pinnedOffsetY(for: userMessageID) else { return nil }
             return self.clampedContentOffsetY(offsetY)
-        }) { _ in
+        }, spring: AgentListScrollAnimator.questionSpring) { _ in
             finish()
         }
     }

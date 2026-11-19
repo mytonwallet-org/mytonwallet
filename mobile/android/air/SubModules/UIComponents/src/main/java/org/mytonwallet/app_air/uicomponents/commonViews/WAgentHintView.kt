@@ -183,7 +183,8 @@ class WAgentHintView(
 
         content.apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            // The icon stands by the title's first line, as on iOS, which `alignIconWithFirstLine` centers it on
+            gravity = Gravity.TOP
             setPaddingRelative(
                 contentHorizontalPadding,
                 contentVerticalPadding,
@@ -201,6 +202,9 @@ class WAgentHintView(
                     if (hasIcon) marginStart = 6.dp
                 }
             )
+            if (hasIcon) {
+                addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> alignIconWithFirstLine() }
+            }
         }
 
         isClickable = true
@@ -364,6 +368,18 @@ class WAgentHintView(
         super.onAttachedToWindow()
         updateBorderAnimation()
         scheduleShimmerFrame()
+    }
+
+    // Centers the icon on the title's first line: between the line's top and its glyphs' descent, without the spacing
+    // under the line
+    private fun alignIconWithFirstLine() {
+        val layout = titleLabel.layout ?: return
+        if (iconView.parent == null || iconView.height == 0) return
+        val lineTop = titleLabel.top + titleLabel.totalPaddingTop + layout.getLineTop(0)
+        val lineBottom = titleLabel.top + titleLabel.totalPaddingTop + layout.getLineBaseline(0) +
+            titleLabel.paint.fontMetrics.descent
+        val lineCenter = (lineTop + lineBottom) / 2f
+        iconView.translationY = lineCenter - (iconView.top + iconView.height / 2f)
     }
 
     override fun onDetachedFromWindow() {

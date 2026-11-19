@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.graphics.Path
 import android.graphics.RectF
+import android.os.Build
 import android.text.Spanned
 import android.text.TextPaint
 import android.util.TypedValue
@@ -244,7 +245,7 @@ internal class AgentLinkMenu private constructor(
         animator = null
         running?.cancel()
         if (target == progress || !WGlobalStorage.getAreAnimationsActive() ||
-            !ValueAnimator.areAnimatorsEnabled()
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled())
         ) {
             setProgress(target)
             if (target == 0f) finish()

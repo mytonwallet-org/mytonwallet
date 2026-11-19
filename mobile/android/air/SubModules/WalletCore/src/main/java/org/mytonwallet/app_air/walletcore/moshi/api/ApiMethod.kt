@@ -1815,6 +1815,32 @@ sealed class ApiMethod<T> {
             }
         }
 
+        /** The SDK's copy of the feed view's first page that last loaded for the same request, `null` without one */
+        class GetCachedNewsFeed private constructor(
+            request: AgentV2NewsFeedRequest,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2NewsFeedPage?>() {
+            constructor(
+                lang: String,
+                digestHour: Int? = null,
+                digestMinute: Int? = null,
+                timeZone: String? = null,
+                view: String? = null
+            ) : this(
+                AgentV2NewsFeedRequest(lang, null, digestHour, digestMinute, timeZone, view),
+                ArgumentsBuilder()
+            )
+
+            internal constructor(request: AgentV2NewsFeedRequest, moshi: Moshi) :
+                this(request, ArgumentsBuilder(moshi))
+
+            override val name = "getAgentV2CachedNewsFeed"
+            override val type: Type = AgentV2NewsFeedPage::class.java
+            override val arguments by lazy {
+                argumentsBuilder.jsObject(request, AgentV2NewsFeedRequest::class.java).build()
+            }
+        }
+
         class CreateThread private constructor(
             news: AgentV2ThreadNewsRequest?,
             digest: AgentV2ThreadDigestRequest?,

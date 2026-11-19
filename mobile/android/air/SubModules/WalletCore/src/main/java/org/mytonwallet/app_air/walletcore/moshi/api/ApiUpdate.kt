@@ -195,6 +195,7 @@ sealed class ApiUpdate {
         val isLimited: Boolean? = null,
         val isCopyStorageEnabled: Boolean? = null,
         val supportAccountsCount: Double? = null,
+        val isAgentSupportEnabled: Boolean? = null,
         val countryCode: String? = null,
         val isAppUpdateRequired: Boolean? = null,
         val swapVersion: Int? = null,

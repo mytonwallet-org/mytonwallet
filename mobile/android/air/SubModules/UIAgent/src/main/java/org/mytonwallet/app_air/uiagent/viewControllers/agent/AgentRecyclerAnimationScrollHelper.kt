@@ -2,13 +2,16 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.view.View
 import android.view.ViewTreeObserver
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentPreDrawBinding
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -16,7 +19,8 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 /**
  * Port of Telegram's `RecyclerAnimationScrollHelper`. The destination lays out at once, and the rows on screen slide
  * out in the list's overlay, where the layout manager never finds them, as the destination's rows slide in after them:
- * from below for a destination further down and from above for one further up.
+ * from below for a destination further down and from above for one further up. A relay, as iOS's chat brings up a
+ * sent question more than a screen away, slides them by the list's height on the question's spring.
  */
 internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: RecyclerView) {
     private var pendingLayout: View.OnLayoutChangeListener? = null
@@ -25,6 +29,7 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
     private val movedViews = mutableSetOf<View>()
     private val heldHolders = mutableListOf<RecyclerView.ViewHolder>()
     private var isDown = true
+    private var isRelay = false
     private var scrollLength = 0
     private var progress = 0f
 
@@ -41,11 +46,13 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
     val isRunning: Boolean get() = pendingLayout != null || animator != null
 
     /** With animations off or nothing on screen, the list just jumps. */
-    fun scrollDown(jump: () -> Unit) = startScroll(isDown = true, jump)
+    fun scrollDown(jump: () -> Unit) = startScroll(isDown = true, isRelay = false, jump)
 
-    fun scrollUp(jump: () -> Unit) = startScroll(isDown = false, jump)
+    fun scrollUp(jump: () -> Unit) = startScroll(isDown = false, isRelay = false, jump)
 
-    private fun startScroll(isDown: Boolean, jump: () -> Unit) {
+    fun relay(isDown: Boolean, jump: () -> Unit) = startScroll(isDown, isRelay = true, jump)
+
+    private fun startScroll(isDown: Boolean, isRelay: Boolean, jump: () -> Unit) {
         if (isRunning) return
         val count = recyclerView.childCount
         if (count == 0 || !WGlobalStorage.getAreAnimationsActive() ||
@@ -56,6 +63,7 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
         }
         recyclerView.stopScroll()
         this.isDown = isDown
+        this.isRelay = isRelay
         // Kept from the recycler so the destination's layout can't reuse them
         val oldViews = ArrayList<View>(count)
         val oldTops = HashMap<View, Int>(count)
@@ -130,6 +138,7 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
             leavingViews.add(view)
         }
         scrollLength = when {
+            isRelay && leavingViews.isNotEmpty() -> recyclerView.height
             leavingViews.isEmpty() -> abs(scrollDiff)
             isDown -> oldBottom - top
             else -> bottom - oldTop
@@ -143,8 +152,12 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
         progress = 0f
         frameBinding = AgentPreDrawBinding(recyclerView, frameUpdater)
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = calculateDuration(hasSameViews)
-            interpolator = CubicBezierInterpolator.EASE_OUT_QUINT
+            duration = if (isRelay) RELAY_DURATION_MS else calculateDuration(hasSameViews)
+            interpolator = if (isRelay) {
+                RELAY_INTERPOLATOR
+            } else {
+                CubicBezierInterpolator.EASE_OUT_QUINT
+            }
             addUpdateListener {
                 progress = it.animatedValue as Float
                 applyFrame()
@@ -210,5 +223,20 @@ internal class AgentRecyclerAnimationScrollHelper(private val recyclerView: Recy
         const val DURATION_PER_HEIGHT_MS = 200L
         const val MIN_DURATION_MS = 300L
         const val MAX_DURATION_MS = 1300L
+
+        // The question's spring runs out in this time, by when it rests within a thousandth of its way
+        const val RELAY_DURATION_MS = 520L
+        const val MILLISECONDS_PER_SECOND = 1000f
+
+        // The question's spring as a curve over its time, ending exactly where it rests
+        val RELAY_INTERPOLATOR = TimeInterpolator { fraction ->
+            val duration = RELAY_DURATION_MS / MILLISECONDS_PER_SECOND
+            getQuestionSpringProgress(fraction * duration) / getQuestionSpringProgress(duration)
+        }
+
+        fun getQuestionSpringProgress(seconds: Float): Float {
+            val phase = sqrt(AGENT_QUESTION_SPRING_STIFFNESS) * seconds
+            return 1f - (1f + phase) * exp(-phase)
+        }
     }
 }

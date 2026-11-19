@@ -1,22 +1,21 @@
 import UIKit
-import UIComponents
 
 /// Content that comes into focus as it arrives and blurs away as it leaves, drifting a little on the way.
 ///
 /// The animations are added to the layers directly, so they also play when the change happens inside a list update
 /// that runs without UIKit animations.
 @MainActor
-enum AgentBlurTransition {
+public enum BlurTransition {
     /// The blur at the far end of the transition
-    static let radius: CGFloat = 8
+    public static let radius: CGFloat = 8
 
-    private static let animationKey = "agentBlurTransition"
+    private static let animationKey = "blurTransition"
     private static let blurRadiusKeyPath = "filters.gaussianBlur.inputRadius"
 
     /// Fades `layer` in from transparency, from `radius` of blur unless `shouldSkipBlur` is set, and from `drift`
     /// points below its place. `completion` runs once it is in focus, unless a later transition on the layer replaced
     /// this one.
-    static func animateIn(
+    public static func animateIn(
         _ layer: CALayer,
         duration: CFTimeInterval,
         delay: CFTimeInterval = 0,
@@ -29,7 +28,7 @@ enum AgentBlurTransition {
 
     /// Fades `layer` out into `radius` of blur unless `shouldSkipBlur` is set, drifting it by `drift` points. It stays
     /// transparent afterwards; `completion` runs at the end, or when a later transition on the layer replaces this one.
-    static func animateOut(
+    public static func animateOut(
         _ layer: CALayer,
         duration: CFTimeInterval,
         drift: CGFloat = 0,
@@ -40,7 +39,7 @@ enum AgentBlurTransition {
     }
 
     /// Stops a running transition and brings the layer back in focus where it stands
-    static func cancel(_ layer: CALayer) {
+    public static func cancel(_ layer: CALayer) {
         layer.removeAnimation(forKey: animationKey)
         removeBlur(from: layer)
     }
@@ -124,6 +123,7 @@ enum AgentBlurTransition {
         }
 
         nonisolated func animationDidStop(_ animation: CAAnimation, finished: Bool) {
+            let completion = completion
             MainActor.assumeIsolated { completion(finished) }
         }
     }

@@ -25,29 +25,67 @@ import UIKit
 public final class AgentFieldGlowView: UIView {
     public enum Part {
         /// The lights inside the field, as Android's `AgentFieldGlowView` draws them: a soft light in the accent colour
-        /// along the field's edge, brightest at the bottom and the leading side, with lights drifting along the bottom,
-        /// through the field and up and down the leading side. They show at half the strength of Android's reference
-        /// shader and move twice as fast. The view lies over the field, which clips them to its rounded shape.
+        /// along the field's edge, brightest at the bottom and as bright near either side, with lights wandering over
+        /// the field, one low along the bottom and two through it. They show at half the strength of Android's
+        /// reference shader and move twice as fast. The view lies over the field, which clips them to its rounded
+        /// shape.
         case lights
         /// The field's border giving off light: a thin, almost white core line, a bloom in the accent colour spilling
-        /// out beyond the field and a softer haze inside it, brightest at the bottom and the leading side, with bright
-        /// stretches running along it. The view reaches `rimMargin` beyond the field on every side, over its edge.
+        /// out beyond the field and a softer haze inside it, brightest at the bottom and as bright near either side,
+        /// with bright stretches running along it both ways at paces that rise and fall. The view reaches `rimMargin`
+        /// beyond the field on every side, over its edge.
         case rim
     }
 
     /// How far the rim's view reaches beyond the field on every side, for the bloom
     public static let rimMargin: CGFloat = 28
 
-    /// Matches `AgentFieldGlowUniforms` in AgentFieldGlow.metal: three float4, 48 bytes
+    /// Matches `AgentFieldGlowUniforms` in AgentFieldGlow.metal: four float4, 64 bytes
     private struct Uniforms {
         /// xy: the field's size, points; z: drawable pixels per point; w: corner radius, points
         var geometry: SIMD4<Float>
-        /// x: time, seconds; y: opacity; z: the leading side, 0 for the left and 1 for the right; w: how far the
-        /// view reaches beyond the field on every side, points
+        /// x: time, seconds; y: opacity; z: reserved; w: how far the view reaches beyond the field on every side,
+        /// points
         var motion: SIMD4<Float>
         /// rgb: the accent colour
         var tint: SIMD4<Float>
+        /// xyz: where the rim's three bright stretches stand, as shares of its loop
+        var rimPhases: SIMD4<Float>
     }
+
+    /// Where the rim's three bright stretches stand, as shares of its loop. They move on at their paces in points along
+    /// the rim, so they keep them on a field of any size and are carried along as it grows or shrinks.
+    private struct RimSpots {
+        private(set) var phases = SIMD4<Float>(repeating: 0)
+        private var time: Float?
+
+        mutating func advance(to nextTime: Float, rimLength: Float) {
+            // A glow that starts anew starts them over
+            guard let time, nextTime >= time, rimLength > 0 else {
+                phases = SIMD4(
+                    (nextTime * 140 + 60 * sin(nextTime * 0.7)) / 800,
+                    0.45 + (-nextTime * 95 + 50 * sin(nextTime * 0.53 + 1)) / 800,
+                    0.7 + (nextTime * 60 + 40 * sin(nextTime * 0.91 + 2)) / 800,
+                    0
+                )
+                self.time = nextTime
+                return
+            }
+            let elapsed = nextTime - time
+            // Each pace rises and falls, and the second goes the other way
+            let paces = SIMD4<Float>(
+                140 + 42 * cos(nextTime * 0.7),
+                -95 + 26.5 * cos(nextTime * 0.53 + 1),
+                60 + 36.4 * cos(nextTime * 0.91 + 2),
+                0
+            )
+            phases += paces * (elapsed / rimLength)
+            phases -= phases.rounded(.towardZero)
+            self.time = nextTime
+        }
+    }
+
+    private var rimSpots = RimSpots()
 
     public override static var layerClass: AnyClass { CAMetalLayer.self }
 
@@ -66,6 +104,8 @@ public final class AgentFieldGlowView: UIView {
         frameRateRange: CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
     ) { [weak self] _ in self?.tick() }
     private var glowStart: CFTimeInterval = 0
+    /// Where in its motion the glow starts, picked at random each time it comes in, so no two glows move alike
+    private var timeOffset: Float = 0
     private var fadeStart: CFTimeInterval = 0
     private var fadeFrom: Float = 0
     private var fadeTarget: Float = 0
@@ -90,6 +130,9 @@ public final class AgentFieldGlowView: UIView {
             metalLayer.framebufferOnly = true
             metalLayer.isOpaque = false
             metalLayer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+            // Each frame shows with the layer's frame of the same transaction, so a glow that follows a field changing
+            // its size never shows the drawing of the size before, stretched or out of place
+            metalLayer.presentsWithTransaction = true
         }
         let center = NotificationCenter.default
         // The app is still in the background as it is about to enter the foreground, so the glow goes on once it is
@@ -117,6 +160,8 @@ public final class AgentFieldGlowView: UIView {
         let opacity = getOpacity(at: now)
         if isGlowing && opacity <= 0 {
             glowStart = now
+            timeOffset = Float.random(in: 0..<Self.maximumTimeOffset)
+            rimSpots = RimSpots()
         }
         fadeFrom = animated ? opacity : target
         fadeTarget = target
@@ -194,10 +239,18 @@ public final class AgentFieldGlowView: UIView {
         }
     }
 
-    /// Lays the rim over `field` where the field shows now, `rimMargin` beyond it on every side
+    /// Lays the rim over `field` where the field shows now, `rimMargin` beyond it on every side, and the lights over the
+    /// field they lie in as it shows now
     private func followField() {
-        guard part == .rim, let field, let superview, field.window != nil, field.window === window else { return }
-        let frame = field.convertAsShown(to: superview).insetBy(dx: -Self.rimMargin, dy: -Self.rimMargin)
+        let frame: CGRect
+        switch part {
+        case .rim:
+            guard let field, let superview, field.window != nil, field.window === window else { return }
+            frame = field.convertAsShown(to: superview).insetBy(dx: -Self.rimMargin, dy: -Self.rimMargin)
+        case .lights:
+            guard let superview else { return }
+            frame = CGRect(origin: .zero, size: (superview.layer.presentation() ?? superview.layer).bounds.size)
+        }
         guard frame != self.frame || layer.animationKeys()?.isEmpty == false else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -233,7 +286,13 @@ public final class AgentFieldGlowView: UIView {
         let isLights = part == .lights
         let opacity = value * value * (3 - 2 * value) * (isLights ? Self.lightsStrength : 1)
         let speed = isLights ? Self.lightsSpeed : 1
-        let time = UIAccessibility.isReduceMotionEnabled ? 0 : Float(now - glowStart) * speed
+        let time = timeOffset + (UIAccessibility.isReduceMotionEnabled ? 0 : Float(now - glowStart) * speed)
+        if part == .rim {
+            // The rounded rectangle's perimeter, as the rim shader measures its loop
+            let innerWidth = max(Float(field.size.width) / 2 - Float(field.radius), 0)
+            let innerHeight = max(Float(field.size.height) / 2 - Float(field.radius), 0)
+            rimSpots.advance(to: time, rimLength: 4 * (innerWidth + innerHeight + .pi / 2 * Float(field.radius)))
+        }
         var red: CGFloat = 0
         var green: CGFloat = 0
         var blue: CGFloat = 0
@@ -246,21 +305,23 @@ public final class AgentFieldGlowView: UIView {
                 Float(drawable.texture.width) / Float(bounds.width),
                 Float(field.radius)
             ),
-            motion: SIMD4(time, opacity, effectiveUserInterfaceLayoutDirection == .rightToLeft ? 1 : 0, Float(margin)),
+            motion: SIMD4(time, opacity, 0, Float(margin)),
             tint: SIMD4(
                 Float(min(1, max(0, red))),
                 Float(min(1, max(0, green))),
                 Float(min(1, max(0, blue))),
                 1
-            )
+            ),
+            rimPhases: rimSpots.phases
         )
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
-        command.present(drawable)
         command.addCompletedHandler { [inFlight] _ in inFlight.signal() }
         command.commit()
+        command.waitUntilScheduled()
+        drawable.present()
     }
 
     private static let fadeInDuration: CFTimeInterval = 0.3
@@ -270,4 +331,6 @@ public final class AgentFieldGlowView: UIView {
     private static let lightsStrength: Float = 0.5
     /// Twice the pace of Android's reference shader
     private static let lightsSpeed: Float = 2
+    /// The motion's swings don't repeat within this many seconds, so a start picked in it is as good as any
+    private static let maximumTimeOffset: Float = 1000
 }

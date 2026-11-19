@@ -90,6 +90,20 @@ enum AgentV2Copy {
         return DisplayError(text: lang("$agent_error_generic"))
     }
 
+    /// What a failed load says: without a network, that the device has no connection
+    static func loadError(_ code: ApiAgentV2ErrorCode) -> String {
+        code == .networkError ? lang("No internet connection. Please check your connection and try again.") : error(code)
+    }
+
+    /// What a failed load says, as `loadError(_:)` for the Agent's errors and the system's connection failures
+    static func loadErrorText(_ error: Error) -> String {
+        if isConnectionError(error) { return loadError(.networkError) }
+        if let error = error as? ApiAgentV2MutationError {
+            return loadError(error.code)
+        }
+        return lang("$agent_error_generic")
+    }
+
     static func isConnectionError(_ error: Error) -> Bool {
         if (error as? ApiAgentV2MutationError)?.code == .networkError { return true }
         guard let error = error as? URLError else { return false }

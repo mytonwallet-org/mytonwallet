@@ -7,6 +7,18 @@ import WalletContext
 /// message of a feed that loaded with nothing to show.
 final class AgentLoadErrorView: UIStackView {
     var onRetry: (() -> Void)?
+    /// The failure stays while Retry loads again, its Retry dimmed beside a spinner, rather than giving way to the
+    /// skeleton
+    var isRetrying = false {
+        didSet {
+            retryButton.isEnabled = !isRetrying
+            if isRetrying {
+                retryIndicator.startAnimating()
+            } else {
+                retryIndicator.stopAnimating()
+            }
+        }
+    }
 
     let label = UILabel()
     let retryButton = UIButton(type: .system)
@@ -69,13 +81,8 @@ final class AgentLoadErrorView: UIStackView {
     private func show(_ text: String?, hasRetry: Bool, isRetrying: Bool) {
         label.text = text
         retryButton.isHidden = !hasRetry
-        retryButton.isEnabled = !isRetrying
-        if isRetrying {
-            retryIndicator.startAnimating()
-        } else {
-            retryIndicator.stopAnimating()
-        }
         isHidden = text == nil
+        self.isRetrying = isRetrying
     }
 
     @objc private func retry() {

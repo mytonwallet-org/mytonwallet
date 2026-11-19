@@ -16,6 +16,7 @@ import { getAgentV2ErrorText } from './agentV2Copy';
 
 import useForceUpdate from '../../hooks/useForceUpdate';
 import useLang from '../../hooks/useLang';
+import { getMicrophoneDeniedLangKey } from '../agent/hooks/useAgentV2Dictation';
 
 import styles from './AgentStatusNotice.module.scss';
 
@@ -217,13 +218,14 @@ function getDictationFailureText(lang: LangFn, failure: AgentDictationFailure) {
     case 'tooShort':
       return lang('$agent_dictation_too_short');
     case 'microphoneDenied':
-      return lang('$agent_dictation_microphone_denied');
+      return lang(getMicrophoneDeniedLangKey());
     case 'error':
       return getAgentV2ErrorText(failure.code, lang);
   }
 }
 
-function getComposerStatusTitle(lang: LangFn, status: AgentV2ComposerStatus) {
+/** What a limit on new questions says first, as the chat list's toast says it on a question it holds back */
+export function getComposerStatusTitle(lang: LangFn, status: AgentV2ComposerStatus) {
   if (status.kind === 'capacity') {
     return lang(status.mode === 'degraded'
       ? '$agent_capacity_degraded_title'

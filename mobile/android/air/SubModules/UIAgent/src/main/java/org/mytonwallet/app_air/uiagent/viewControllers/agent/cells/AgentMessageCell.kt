@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentCodeColor
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentIncomingBubbleColor
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentOperatorBubbleColor
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_BUBBLE_TAIL_WIDTH
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_EASE_OUT
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_MESSAGE_AUTHOR_HEIGHT
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBubbleDrawable
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentMessageAuthorView
@@ -130,6 +131,9 @@ class AgentMessageCell internal constructor(
         // Answers whose status has come in once; scrolled back into view, the status is simply there
         private val revealedTypingMessageIds = LinkedHashSet<String>()
         private const val REVEALED_TYPING_LIMIT = 64
+
+        // As long as iOS's and Classic's questions take to rise from under the field
+        private const val RISE_DURATION_MS = 300L
     }
 
     // The first like's and the first dislike's toasts, each once on this install. A toast still waiting holds this cell,
@@ -315,6 +319,7 @@ class AgentMessageCell internal constructor(
     var onContentSettled: (() -> Unit)? = null
     val isContentSettling: Boolean
         get() = isInsertAnimationPending || insertAnimation != null || sentMorph != null ||
+            riseAnimator != null ||
             messageLabel.isRevealAnimating || deeplinkAnimator != null ||
             pendingRichMessageId != null || richTransitionAnimator?.isRunning == true ||
             typingMorph != null
@@ -328,6 +333,10 @@ class AgentMessageCell internal constructor(
 
     private var insertAnimation: SpringAnimation? = null
     private var sentMorph: AgentMorphClock? = null
+    private var riseAnimator: ValueAnimator? = null
+
+    // How far below its place a question whose row is still to open rises from, once it opens
+    private var pendingRiseOffset: (() -> Float)? = null
     private var insertAnimationOnFinished: (() -> Unit)? = null
     private var isInsertAnimationPending = false
     private var insertAnimationTargetHeight = 0
@@ -404,7 +413,7 @@ class AgentMessageCell internal constructor(
         }
         sentMorph?.setPaused(!active)
         typingMorph?.setPaused(!active)
-        for (animator in arrayOf(richTransitionAnimator, deeplinkAnimator)) {
+        for (animator in arrayOf(richTransitionAnimator, deeplinkAnimator, riseAnimator)) {
             if (active) animator?.resume() else animator?.pause()
         }
     }
@@ -1473,6 +1482,8 @@ class AgentMessageCell internal constructor(
     }
 
     private fun startInsertAnimation() {
+        // Finishing an appearance under way forgets the rise asked for before this one starts
+        val riseOffset = pendingRiseOffset
         finishInsertAnimation()
 
         val targetHeight = measureExpandedHeight()
@@ -1481,6 +1492,11 @@ class AgentMessageCell internal constructor(
         insertAnimationOnFinished = onInsertAnimationFinished
         onInsertAnimationFinished = null
         if (playSentMorph()) return
+        riseOffset?.let { getOffset ->
+            isInsertAnimationPending = false
+            startRise(getOffset())
+            return
+        }
         val startHeight = (targetHeight * 0.3f).toInt().coerceAtLeast(1)
         updateLayoutParams { height = startHeight }
 
@@ -1529,14 +1545,57 @@ class AgentMessageCell internal constructor(
         return true
     }
 
+    /**
+     * A question with nothing to come out of, which the chat has no room to bring up, rises into its place from under
+     * the field as it fades in, in place of its row opening, as iOS's and Classic's chats bring it in. [getOffset] says
+     * how far below its place it starts. Returns whether it does.
+     */
+    internal fun riseIntoPlace(getOffset: () -> Float): Boolean {
+        val hasMorph = sentMorph != null || startSentMorph != null
+        if (!WGlobalStorage.getAreAnimationsActive() || hasMorph) return false
+        if (isInsertAnimationPending) {
+            pendingRiseOffset = getOffset
+            return true
+        }
+        val opening = insertAnimation ?: return false
+        insertAnimation = null
+        opening.cancel()
+        startRise(getOffset())
+        return true
+    }
+
+    private fun startRise(offset: Float) {
+        updateLayoutParams { height = WRAP_CONTENT }
+        setInsertAppearance(alpha = 1f, scale = 1f)
+        translationY = offset
+        alpha = 0f
+        riseAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = RISE_DURATION_MS
+            interpolator = AGENT_EASE_OUT
+            addUpdateListener {
+                val progress = it.animatedValue as Float
+                translationY = offset * (1f - progress)
+                alpha = progress
+            }
+            doOnEnd { animator -> if (riseAnimator === animator) finishInsertAnimation() }
+            start()
+        }
+    }
+
     private fun finishInsertAnimation() {
         val animation = insertAnimation
         val morph = sentMorph
-        if (animation == null && morph == null) return
+        val rise = riseAnimator
+        pendingRiseOffset = null
+        if (animation == null && morph == null && rise == null) return
         insertAnimation = null
         sentMorph = null
+        riseAnimator = null
         animation?.cancel()
         morph?.cancel()
+        rise?.cancel()
+        translationY = 0f
+        alpha = 1f
         setInsertAppearance(alpha = 1f, scale = 1f)
         updateLayoutParams { height = WRAP_CONTENT }
         insertAnimationTargetHeight = 0

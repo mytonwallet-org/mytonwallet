@@ -30,6 +30,9 @@ import org.mytonwallet.app_air.uiagent.agentV2.AgentV2HostContextProvider
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2InputLimitText
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2LoadErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.agentV2QuotaResetAt
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2SemanticText
 import org.mytonwallet.app_air.uiagent.agentV2.buildAgentActionUrl
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentAnalyzingRequestText
@@ -38,7 +41,6 @@ import org.mytonwallet.app_air.uiagent.agentV2.getAgentV2RunActivityText
 import org.mytonwallet.app_air.uiagent.agentV2.getAgentWritingAnswerText
 import org.mytonwallet.app_air.uiagent.agentV2.hasPost
 import org.mytonwallet.app_air.uiagent.agentV2.hasVisibleFailure
-import org.mytonwallet.app_air.uiagent.agentV2.isAgentSupportHandoffDeclared
 import org.mytonwallet.app_air.uiagent.agentV2.isAgentV2ThreadStarted
 import org.mytonwallet.app_air.uiagent.agentV2.loadAgentV2StarterHints
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
@@ -410,16 +412,37 @@ class AgentVM internal constructor(
         get() = isBlockedByLimit(limitRetry)
 
     /** Whether a limit blocks new questions while [retry] is the question a limit held back */
-    private fun isBlockedByLimit(retry: AgentLimitRetry?): Boolean {
+    private fun isBlockedByLimit(retry: AgentLimitRetry?): Boolean =
+        getInputLimitCode(retry) != null
+
+    /** The error code of the limit that blocks new questions while [retry] is the question a limit held back */
+    private fun getInputLimitCode(retry: AgentLimitRetry?): String? {
         val now = now()
-        if ((rateLimitResetAt ?: 0L) > now) return true
+        if ((rateLimitResetAt ?: 0L) > now) return "rate_limited"
         // Operator replies cost no quota or capacity on the server, so only a rate limit's wait holds a message back
-        if (isChatWithSupport) return retry?.isRateLimit == true && (retry.resetAt ?: 0L) > now
+        if (isChatWithSupport) {
+            return "rate_limited".takeIf {
+                retry?.isRateLimit == true && (retry.resetAt ?: 0L) > now
+            }
+        }
         // A question the quota held back waits for its own reset rather than the quota's
         val quota = userQuota.takeIf { retry?.isRateLimit != false }
-        return getAgentInputLimitCode(availability, quota, now) != null ||
-            (retry?.resetAt ?: 0L) > now
+        getAgentInputLimitCode(availability, quota, now)?.let { return it }
+        if (retry == null || (retry.resetAt ?: 0L) <= now) return null
+        return if (retry.isRateLimit) "rate_limited" else "user_quota_exhausted"
     }
+
+    /** What the limit that blocks new questions says; the daily quota says the time it resets at */
+    val inputLimitText: String?
+        get() = getInputLimitCode(limitRetry)?.let { code ->
+            val quotaResetAt = limitRetry?.takeIf { !it.isRateLimit }?.resetAt
+                ?: userQuota?.let(::agentV2QuotaResetAt)
+            agentV2InputLimitText(code, quotaResetAt)
+        }
+
+    /** The failure of a question the limit that blocks new questions stopped reads as the limit does */
+    fun isInputLimitFailure(message: AgentMessage): Boolean = message.isFailure &&
+        getInputLimitCode(limitRetry)?.let { agentV2ErrorText(it) } == message.text
 
     // A rate limit holds back every request until it resets, a support request too
     private val isRateLimitWaiting: Boolean
@@ -431,7 +454,8 @@ class AgentVM internal constructor(
 
     /** Whether the chat offers to call a support operator: not while support has it */
     val isSupportRequestVisible: Boolean
-        get() = isAgentSupportHandoffDeclared && !isChatWithSupport
+        get() = isAgentSupportVisible && !isChatWithSupport
+    private var isSupportFeatureVisible = isAgentSupportVisible
 
     /**
      * Whether a support request can go now. The server skips the daily quota and the Agent's capacity for it, so
@@ -1605,6 +1629,16 @@ class AgentVM internal constructor(
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            WalletEvent.ConfigReceived -> {
+                val isVisible = isAgentSupportVisible
+                if (isSupportFeatureVisible != isVisible) {
+                    isSupportFeatureVisible = isVisible
+                    loadSupportThreads()
+                    notifyHints()
+                    notifyDelegates { it.onSupportRequestAvailabilityChanged() }
+                }
+            }
+
             is WalletEvent.AccountWillChange,
             is WalletEvent.AccountChanged,
             is WalletEvent.AccountChangedInApp,
@@ -1747,10 +1781,14 @@ class AgentVM internal constructor(
             } else {
                 hydrateAgentThread(thread, loadMessages)
             }
-        } catch (error: AgentV2OperationException) {
-            if (error.error.code == AGENT_THREAD_NOT_FOUND) {
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            if ((error as? AgentV2OperationException)?.error?.code == AGENT_THREAD_NOT_FOUND) {
                 cachedHistories.remove(threadId)
                 discardCachedMessages()
+            } else {
+                showCachedMessagesAfterFailure(threadId, cacheJob)
             }
             throw error
         } finally {
@@ -1835,6 +1873,21 @@ class AgentVM internal constructor(
 
     private fun canReadCachedMessages() = canShowCachedMessages &&
         initialOpeningEntryPoint == null && !thread.hasPost && thread.messageCount > 0
+
+    /**
+     * A chat its history failed to load, as without a network, shows the device's copy of the history under the
+     * failure: the copy read while the history loaded, or one read now in a chat that shows no copy while it loads,
+     * whose unread messages the copy can't place but which shows the copy rather than nothing
+     */
+    private suspend fun showCachedMessagesAfterFailure(threadId: String, cacheJob: Job?) {
+        if (cacheJob != null) {
+            cacheJob.join()
+        } else if (initialOpeningEntryPoint == null && !thread.hasPost && thread.messageCount > 0 &&
+            canApplyCachedMessages()
+        ) {
+            showCachedMessages(threadId)
+        }
+    }
 
     /**
      * The copy offers nothing to act on: its actions and suggestions show inactive, its actions load no presentations,
@@ -1955,7 +2008,7 @@ class AgentVM internal constructor(
         val text = when (startupErrorCode) {
             "client_update_required", "device_token_missing", "device_token_invalid",
             "device_token_expired", "profile_id_invalid", "profile_deleted", "network_error",
-            "invalid_event" -> agentV2ErrorText(startupErrorCode)
+            "invalid_event" -> agentV2LoadErrorText(startupErrorCode)
 
             else -> LocaleController.getString("Failed to load chat")
         }
@@ -3720,6 +3773,15 @@ internal fun canShowAgentCachedMessages(
     hasOpening: Boolean,
     readState: AgentThreadReadState
 ) = !hasOpening && !readState.isUnread(thread)
+
+/**
+ * A News discussion the user has written in loads as an existing chat, also when an opening found it: its post alone
+ * would have its messages push in under it
+ */
+internal fun isAgentNewsOpeningLoadingAsChat(
+    news: AgentNewsChatRequest?,
+    thread: AgentV2ThreadSummary
+) = news != null && thread.messageCount > 1
 
 /** A chat of a thread with messages shows their placeholder while it has none to show and loads */
 internal fun shouldShowAgentMessagesSkeleton(model: AgentVM, hasOpening: Boolean) = !hasOpening &&

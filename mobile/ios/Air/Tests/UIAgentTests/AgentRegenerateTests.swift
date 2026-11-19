@@ -1,6 +1,7 @@
 import ContextMenuKit
 import XCTest
 import UIKit
+import UIComponents
 @testable import UIAgent
 import WalletContext
 import WalletCore
@@ -144,7 +145,7 @@ final class AgentRegenerateTests: XCTestCase {
         XCTAssertEqual(backend.regeneratedMessageIDs, [conversation.answer.id])
         XCTAssertEqual(model.itemIDs.count, 3)
         // The rows dissolve right above the messages, under the composer and the header
-        let dissolveView = try XCTUnwrap(findDescendants(of: controller.view).compactMap { $0 as? AgentMessageDissolveView }.first)
+        let dissolveView = try XCTUnwrap(findDescendants(of: controller.view).compactMap { $0 as? DustDissolveView }.first)
         let chatViews = try XCTUnwrap(collectionView.superview).subviews
         XCTAssertEqual(chatViews.firstIndex(of: dissolveView), chatViews.firstIndex(of: collectionView).map { $0 + 1 })
         XCTAssertFalse(dissolveView.subviews.isEmpty)

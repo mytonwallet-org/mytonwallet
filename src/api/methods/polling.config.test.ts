@@ -211,6 +211,7 @@ describe('backend config polling', () => {
       if (path === '/utils/get-config') {
         return Promise.resolve({
           agentProtocolVersion: 'v2',
+          isAgentSupportEnabled: true,
           country: 'DE',
           isLimited: false,
           isUpdateRequired: false,
@@ -232,7 +233,7 @@ describe('backend config polling', () => {
     mockCallBackendGet.mockReset();
   });
 
-  it('forwards the agent protocol version from the backend config update', async () => {
+  it('forwards the agent settings from the backend config update', async () => {
     const { destroyPolling, initPolling } = await import('./polling');
     const updatePromise = new Promise<ApiUpdateConfig>((resolve) => {
       initPolling((update) => {
@@ -243,6 +244,7 @@ describe('backend config polling', () => {
     await expect(updatePromise).resolves.toMatchObject({
       type: 'updateConfig',
       agentProtocolVersion: 'v2',
+      isAgentSupportEnabled: true,
     });
 
     await destroyPolling();
@@ -300,6 +302,7 @@ describe('backend config polling', () => {
     await expect(updatePromise).resolves.toMatchObject({
       type: 'updateConfig',
       agentProtocolVersion: undefined,
+      isAgentSupportEnabled: undefined,
     });
 
     await destroyPolling();

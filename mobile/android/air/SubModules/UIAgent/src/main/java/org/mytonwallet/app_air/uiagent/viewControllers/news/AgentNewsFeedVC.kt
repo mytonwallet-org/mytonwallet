@@ -46,7 +46,6 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_COMPOSER_LIST
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_LIST_TOP_INSET
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_MESSAGE_BOTTOM_GAP
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_SCROLL_BUTTON_END
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_SCROLL_BUTTON_GAP
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHeaderHandoff
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHeaderHandoffScreen
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
@@ -61,6 +60,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVM
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.DIGEST_HEADLINE_SEPARATOR
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentChatBackgroundColor
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentFieldLine
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentHeaderBottom
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AGENT_DAY_CAPSULE_MARGIN
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentDateHeaderCell
@@ -264,8 +264,14 @@ class AgentNewsFeedVC(
     }
     private var isPopupVisible = false
     private val loadErrorView = AgentLoadErrorView(context).apply {
-        onRetry = { model.refresh() }
+        onRetry = {
+            retriedError = text
+            model.refresh()
+        }
     }
+
+    // The failure Retry was tapped on, shown with its Retry dimmed until the feed has loaded again
+    private var retriedError: String? = null
 
     private val bottomGradientView = AgentBottomFadeView(context)
     private val contentContainer = WView(context)
@@ -686,6 +692,7 @@ class AgentNewsFeedVC(
             sources = item.sources,
             discussionNaming = item.discussionNaming,
             shouldDeferCreation = item.discussion == null,
+            messageCount = item.discussion?.threadId?.let(::findStartedThread)?.messageCount ?: 0,
             beforePush = { chat ->
                 // A discussion the user hasn't written in yet starts with the news as the Agent's post, also when its
                 // thread was made on an earlier visit; the card flies into that place
@@ -820,10 +827,8 @@ class AgentNewsFeedVC(
             toTopPx(pinnedDigestBar, agentHeaderBottom() + AgentNewsPinnedDigestBar.TOP_SPACING.dp)
             toTopPx(floatingDay, top)
             toBottomPx(skeleton, bottom + AGENT_MESSAGE_BOTTOM_GAP.dp)
-            toBottomPx(
-                scrollButton,
-                bottom + (AGENT_COMPOSER_FIELD_TOP + AGENT_SCROLL_BUTTON_GAP).dp
-            )
+            // The feed has no field, so the button stands in a chat's microphone's place
+            toBottomPx(scrollButton, bottom + agentFieldLine().dp)
         }
     }
 
@@ -883,10 +888,15 @@ class AgentNewsFeedVC(
     private fun applyRows() {
         val finishedPagination = wasLoadingMore
         wasLoadingMore = model.isLoadingMore
+        if (!model.isLoading) retriedError = null
         updateSkeleton()
         val error = model.error?.takeIf { model.entries.isEmpty() }
+        val retried = retriedError?.takeIf { model.entries.isEmpty() }
         if (error != null) {
             loadErrorView.setError(agentNewsErrorText(error))
+        } else if (retried != null) {
+            loadErrorView.setError(retried)
+            loadErrorView.isRetrying = true
         } else {
             loadErrorView.setMessage(
                 LocaleController.getString(
@@ -1156,8 +1166,8 @@ class AgentNewsFeedVC(
 
     private fun updateSkeleton() {
         val hasEntries = model.entries.isNotEmpty()
-        val shouldShow =
-            model.isLoading && !hasEntries && model.error == null && !model.hasLoaded
+        val shouldShow = model.isLoading && !hasEntries && model.error == null &&
+            !model.hasLoaded && retriedError == null
         if (shouldShow == skeletonReveal.isShown) return
         if (shouldShow) {
             skeletonReveal.show()

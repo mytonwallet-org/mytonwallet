@@ -44,6 +44,7 @@ import { getAgentNewsFeedView, setAgentNewsFeedView, subscribeToAgentNewsFeedVie
 import { getAgentThreadUnreadStart, markAgentThreadHidden, markAgentThreadShown } from './agentThreadReadState';
 import useAgentNewsFeed from './useAgentNewsFeed';
 import { getCanRequestAgentV2SupportFromList, requestAgentV2Support } from './useAgentSuggestions';
+import useAgentV2ComposerLimit from './useAgentV2ComposerLimit';
 import useAgentV2ThreadList from './useAgentV2ThreadList';
 
 import useFlag from '../../hooks/useFlag';
@@ -71,6 +72,7 @@ interface OwnProps {
 
 interface StateProps {
   hasWallet: boolean;
+  isSupportEntryVisible: boolean;
   newsDiscussionRequest?: GlobalState['agentNewsDiscussionRequest'];
 }
 
@@ -103,7 +105,7 @@ const RETURN_FOCUS_FRAMES = 10;
 const KEYBOARD_HIDE_TIMEOUT_MS = 600;
 
 function AgentV2Chats({
-  isActive, onScroll, hasWallet, newsDiscussionRequest,
+  isActive, onScroll, hasWallet, isSupportEntryVisible, newsDiscussionRequest,
 }: OwnProps & StateProps) {
   const localState = useRef(getAgentV2LocalState()).current;
   const { showError, switchToWallet, clearAgentNewsDiscussionRequest } = getActions();
@@ -144,12 +146,14 @@ function AgentV2Chats({
   const { disableSwipeToClose, enableSwipeToClose } = useTelegramMiniAppSwipeToClose(isActive && canGoBack);
 
   const {
-    items, isUserChange, isCacheShown, hasMore, hasLoadFailed, hasPageLoadFailed, isRetrying, activityLangKeys,
-    loadMore, retry, removeThread, setThreadPinned, syncLoadedChat, releaseLoadedChat, scheduleRefresh,
+    items, isUserChange, isCacheShown, hasMore, hasLoadFailed, loadErrorCode, isReadingCache, hasPageLoadFailed,
+    isRetrying, activityLangKeys, loadMore, retry, removeThread, setThreadPinned, syncLoadedChat, releaseLoadedChat,
+    scheduleRefresh,
   } = useAgentV2ThreadList({
     isEnabled: isConsentAccepted === true,
     isVisible: isActive && activeLevel === StackLevel.List,
   });
+  const listComposerStatus = useAgentV2ComposerLimit(isConsentAccepted === true);
   // The feed needs no consent, only the SDK, which answers once the list knows the consent
   const newsFeed = useAgentNewsFeed({
     view: newsView,
@@ -634,6 +638,9 @@ function AgentV2Chats({
   const canRequestSupport = isConsentAccepted !== undefined && !hasLoadFailed
     && getCanRequestAgentV2SupportFromList(listItems);
   const [isSupportRequestOpen, openSupportRequest, closeSupportRequest] = useFlag();
+  useEffect(() => {
+    if (!isSupportEntryVisible) closeSupportRequest();
+  }, [closeSupportRequest, isSupportEntryVisible]);
   const [isSupportRequestPending, setIsSupportRequestPending] = useState(false);
   const confirmSupportRequest = useLastCallback(() => {
     if (!canRequestSupport) return;
@@ -852,6 +859,8 @@ function AgentV2Chats({
         dissolvingThreadIds={dissolvingThreadIds}
         hasMore={hasMore}
         hasLoadFailed={hasLoadFailed}
+        loadErrorCode={loadErrorCode}
+        isReadingCache={isReadingCache}
         hasPageLoadFailed={hasPageLoadFailed}
         isRetrying={isRetrying}
         activityLangKeys={activityLangKeys}
@@ -859,11 +868,12 @@ function AgentV2Chats({
         latestNewsDigest={newsFeed.latestDigest}
         newsUnreadCount={newsFeed.unreadCount}
         isDictationHeld={!isConsentAccepted}
+        composerStatus={listComposerStatus}
         onSelect={handleSelect}
         onOpenNews={handleOpenNews}
         onStartChat={handleStartChat}
         onRequestConsent={requestConsent}
-        onRequestSupport={getIsAgentV2SupportEntryVisible() ? openSupportRequest : undefined}
+        onRequestSupport={isSupportEntryVisible ? openSupportRequest : undefined}
         canRequestSupport={canRequestSupport}
         onLoadMore={loadMore}
         onRetry={retry}
@@ -915,7 +925,7 @@ function AgentV2Chats({
         onClose={handleConsentClose}
       />
       <AgentSupportRequestModal
-        isOpen={isSupportRequestOpen}
+        isOpen={isSupportEntryVisible && isSupportRequestOpen}
         // The server sends the operator no addresses without consent or a wallet
         hasWalletAddresses={Boolean(isConsentAccepted) && hasWallet}
         canConfirm={canRequestSupport}
@@ -939,6 +949,7 @@ function AgentV2Chats({
 
 export default memo(withGlobal<OwnProps>((global): StateProps => ({
   hasWallet: Boolean(global.currentAccountId),
+  isSupportEntryVisible: getIsAgentV2SupportEntryVisible(),
   newsDiscussionRequest: global.agentNewsDiscussionRequest,
 }))(AgentV2Chats));
 

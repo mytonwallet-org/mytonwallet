@@ -145,9 +145,12 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
         }
     }
 
+    /// With `holdsPostForExistingThread`, the post of a discussion the item already has waits for its thread, which the
+    /// user may have written in, where the feed's card would fly into it at once
     func acquireNewsModel(
         item: ApiAgentV2NewsFeedItem,
         locale: String,
+        holdsPostForExistingThread: Bool = false,
         onThreadCreated: @escaping (ApiAgentV2ThreadSummary) -> Void
     ) -> AgentV2Model {
         discussionModels = discussionModels.filter { $0.value.value != nil }
@@ -157,7 +160,13 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             return model
         }
         return acquireOpeningModel(discussionKey: .news(eventId: item.eventId), onThreadCreated: onThreadCreated) { onCreated in
-            AgentV2Model(client: client, news: item, locale: locale, onThreadCreated: onCreated)
+            AgentV2Model(
+                client: client,
+                news: item,
+                locale: locale,
+                holdsPostForExistingThread: holdsPostForExistingThread,
+                onThreadCreated: onCreated
+            )
         }
     }
 
@@ -268,6 +277,15 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
 
     func newsModel(eventId: Int) -> AgentV2Model? {
         discussionModels[.news(eventId: eventId)]?.value
+    }
+
+    /// The news item's discussion the app has loaded, still opening or on its thread
+    func loadedNewsDiscussion(eventId: Int) -> AgentV2Model? {
+        if let model = newsModel(eventId: eventId) { return model }
+        let thread = models.values.lazy.compactMap(\.value?.thread).first {
+            $0.news?.eventId == eventId && !isThreadDeleted($0.id)
+        }
+        return thread.flatMap { model(threadId: $0.id) }
     }
 
     /// The discussions waiting for their threads take the naming the feed's cards of their news have got since they

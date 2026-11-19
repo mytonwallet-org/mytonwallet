@@ -14,117 +14,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
-import SwiftUIIntrospect
 import Perception
-import Dependencies
-
-struct HomeCardContent: View {
-    
-    var headerViewModel: HomeHeaderViewModel
-    var accountContext: AccountContext
-    var layout: HomeCardLayoutMetrics
-    var minimumHomeCardFontScale: CGFloat = 1
-    @AppStorage(WalletCardSettings.topLineUserDefaultsKey)
-    private var cardTopLineRawValue = WalletCardTopLine.defaultValue.rawValue
-    
-    var progress: CGFloat { headerViewModel.collapseProgress }
-    
-    var body: some View {
-        WithPerceptionTracking {
-            ZStack {
-                _CenterContent(
-                    headerViewModel: headerViewModel,
-                    accountContext: accountContext,
-                    layout: layout,
-                    minimumHomeCardFontScale: minimumHomeCardFontScale
-                )
-                    .scaleEffect(balanceScale)
-                    .backportGeometryGroup()
-                    .offset(y: -bottomPadding)
-                    .id(accountContext.accountId)
-
-                Group {
-                    if showsWalletName {
-                        _WalletTitleLine(accountContext: accountContext)
-                    } else {
-                        _AddressLine(accountContext: accountContext)
-                    }
-                }
-                .frame(maxHeight: .infinity, alignment: .bottom)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay(alignment: .top) {
-                SeasonalOverlay(seasonalTheme: headerViewModel.seasonalTheme)
-            }
-            .overlay(alignment: .topTrailing) {
-                HomeCardPromotionHitArea(
-                    promotion: accountContext.activePromotion,
-                    cardSize: CGSize(width: layout.itemWidth, height: layout.itemHeight)
-                )
-            }
-            .opacity(headerViewModel.cardOpacity)
-        }
-    }
-    
-    var targetBottomPadding: CGFloat {
-        -16 + (IOS_26_MODE_ENABLED ? -3 : -14)
-    }
-
-    var balanceScale: CGFloat { interpolate(from: 1, to: 17.0/40.0, progress: progress) }
-    var bottomPadding: CGFloat { interpolate(from: 0, to: targetBottomPadding, progress: progress) }
-
-    private var showsWalletName: Bool {
-        guard headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs else { return false }
-        let topLine = WalletCardTopLine(rawValue: cardTopLineRawValue) ?? .defaultValue
-        return topLine == .walletName
-    }
-}
-
-private struct _CenterContent: View {
-    
-    let headerViewModel: HomeHeaderViewModel
-    let accountContext: AccountContext
-    let layout: HomeCardLayoutMetrics
-    let minimumHomeCardFontScale: CGFloat
-    
-    var body: some View {
-        WithPerceptionTracking {
-            VStack(spacing: 5) {
-                _BalanceView(accountContext: accountContext, layout: layout, minimumHomeCardFontScale: minimumHomeCardFontScale)
-                    .padding(.leading, 1)
-                    .padding(.horizontal, 32)
-                
-                _BalanceChange(
-                    accountContext: accountContext,
-                    style: .card
-                )
-            }
-            .offset(y: -5)
-        }
-    }
-}
-
-private struct _BalanceView: View {
-
-    let accountContext: AccountContext
-    let layout: HomeCardLayoutMetrics
-    let minimumHomeCardFontScale: CGFloat
-    @Dependency(\.sensitiveData.isHidden) private var isSensitiveDataHidden
-
-    var body: some View {
-        WithPerceptionTracking {
-            _BalanceViewContent(
-                accountId: accountContext.accountId,
-                balance: accountContext.balance,
-                nft: accountContext.nft,
-                isCurrent: accountContext.isCurrent,
-                cardWidth: layout.itemWidth,
-                minimumHomeCardFontScale: minimumHomeCardFontScale,
-                isSensitiveDataHidden: isSensitiveDataHidden
-            )
-        }
-    }
-}
 
 private struct _BalanceViewContent: View, Equatable {
 
@@ -206,37 +96,16 @@ extension View {
     }
 }
 
-struct _BalanceChange: View {
-
+private struct _BalanceChangeContent: View, Equatable {
     enum Style {
         case card
         case plainBackground
     }
 
-    let accountContext: AccountContext
-    var style: Style = .card
-
-    var body: some View {
-        WithPerceptionTracking {
-            _BalanceChangeContent(
-                balance: accountContext.balance,
-                balance24h: accountContext.balance24h,
-                balanceChange: accountContext.balanceChange,
-                nft: accountContext.nft,
-                style: style,
-                onTap: {
-                    AppActions.showPortfolio(accountContext: accountContext)
-                }
-            )
-        }
-    }
-}
-
-private struct _BalanceChangeContent: View, Equatable {
     let text: String?
     let nft: ApiNft?
     let isPositive: Bool
-    let style: _BalanceChange.Style
+    let style: _BalanceChangeContent.Style
     let onTap: () -> Void
     
     init(
@@ -244,7 +113,7 @@ private struct _BalanceChangeContent: View, Equatable {
         balance24h: BaseCurrencyAmount?,
         balanceChange: Double?,
         nft: ApiNft?,
-        style: _BalanceChange.Style,
+        style: _BalanceChangeContent.Style,
         onTap: @escaping () -> Void
     ) {
         self.text = Self.makeText(balance: balance, balance24h: balance24h, balanceChange: balanceChange)
@@ -460,24 +329,6 @@ private struct _WalletTitleLine: View {
     }
 }
 
-private struct _AddressLine: View {
-
-    let accountContext: AccountContext
-    
-    var body: some View {
-        WithPerceptionTracking {
-            let account = accountContext.account
-            _AddressLineContent(
-                accountId: account.id,
-                isTemporary: account.isTemporary == true,
-                addressLine: accountContext.topAddressLine,
-                accountContext: accountContext,
-                nft: accountContext.nft
-            )
-        }
-    }
-}
-
 private struct _AddressLineContent: View {
 
     var accountId: String
@@ -614,7 +465,7 @@ private struct HomeCardContentReference: View {
         }
     }
 
-    private func change(style: _BalanceChange.Style) -> some View {
+    private func change(style: _BalanceChangeContent.Style) -> some View {
         _BalanceChangeContent(balance: model.data.balance, balance24h: model.data.previousBalance,
                               balanceChange: model.data.balanceChange, nft: model.data.nft, style: style, onTap: {})
             .modifier(HomeCardReferencePrivacy(hidden: model.sensitiveDataHidden && MtwCardChangeView.text(balance: model.data.balance, previous: model.data.previousBalance, percent: model.data.balanceChange)?.isEmpty == false,

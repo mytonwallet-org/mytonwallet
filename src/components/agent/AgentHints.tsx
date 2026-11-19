@@ -40,14 +40,15 @@ function AgentHints({
   isOpen, hints, leavingFrame, onHintClick, onSupportClick, isSupportDisabled = false,
 }: OwnProps) {
   const lang = useLang();
+  const hasHints = Boolean(hints?.length || onSupportClick);
   const { ref, shouldRender } = useShowTransition<HTMLDivElement>({
-    isOpen: isOpen && Boolean(hints?.length || onSupportClick),
+    isOpen: isOpen && hasHints,
     withShouldRender: true,
     className: false,
     closeDuration: CLOSE_ANIMATION_DURATION_MS,
   });
 
-  if (!shouldRender) return undefined;
+  if (!shouldRender || !hasHints) return undefined;
 
   const frame = isOpen ? undefined : leavingFrame;
 

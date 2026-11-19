@@ -368,7 +368,7 @@ final class AgentNewsFeedUITests: XCTestCase {
         // The view switch stands in the title's place, and the header's morph takes it for the title's pill
         let titleView = try XCTUnwrap(controller.navigationItem.titleView)
         let viewSwitch = try XCTUnwrap(descendants(titleView).compactMap { $0 as? WSegmentedControl }.first)
-        XCTAssertFalse(descendants(titleView).contains { $0 is AgentChatTitleView })
+        XCTAssertFalse(descendants(titleView).contains { $0 is NavigationTitleView })
         XCTAssertTrue(controller.navigationHandoffTitlePill === viewSwitch)
         XCTAssertEqual(viewSwitch.model.items.map(\.id), ["all", "digests"])
     }

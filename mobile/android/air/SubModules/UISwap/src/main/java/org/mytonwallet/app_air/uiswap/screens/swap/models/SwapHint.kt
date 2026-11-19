@@ -38,7 +38,7 @@ sealed class SwapHint {
                 "To buy %buy_token%, first buy %token%, then swap it for %buy_token%.",
                 listOf(
                     "%buy_token%" to (buyingToken.symbol ?: ""),
-                    "%token%" to (token.symbol ?: "")
+                    "%token%" to formatTokenWithChain(token)
                 )
             )
 
@@ -123,6 +123,14 @@ sealed class SwapHint {
 
                 else -> null
             }
+        }
+
+        fun formatTokenWithChain(token: IApiToken): String {
+            val symbol = token.symbol ?: ""
+            val chain = token.mBlockchain?.takeIf {
+                MBlockchain.isEvmChain(it.name)
+            }?.displayName
+            return if (chain != null) "$symbol ($chain)" else symbol
         }
     }
 }

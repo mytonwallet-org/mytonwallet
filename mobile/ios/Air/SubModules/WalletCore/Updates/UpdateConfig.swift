@@ -19,6 +19,7 @@ extension ApiUpdate {
         public var isLimited: Bool?
         public var isSwapAndOnRampLimited: Bool?
         public var isCopyStorageEnabled: Bool?
+        public var isAgentSupportEnabled: Bool?
         public var supportAccountsCount: Int?
         public var countryCode: String?
         public var isAppUpdateRequired: Bool?
@@ -30,6 +31,7 @@ extension ApiUpdate {
             case isLimited
             case isSwapAndOnRampLimited
             case isCopyStorageEnabled
+            case isAgentSupportEnabled
             case supportAccountsCount
             case countryCode
             case isAppUpdateRequired
@@ -43,6 +45,7 @@ extension ApiUpdate {
             isLimited = try container.decodeIfPresent(Bool.self, forKey: .isLimited)
             isSwapAndOnRampLimited = try? container.decodeIfPresent(Bool.self, forKey: .isSwapAndOnRampLimited)
             isCopyStorageEnabled = try container.decodeIfPresent(Bool.self, forKey: .isCopyStorageEnabled)
+            isAgentSupportEnabled = try? container.decodeIfPresent(Bool.self, forKey: .isAgentSupportEnabled)
             supportAccountsCount = try container.decodeIfPresent(Int.self, forKey: .supportAccountsCount)
             countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode)
             isAppUpdateRequired = try container.decodeIfPresent(Bool.self, forKey: .isAppUpdateRequired)

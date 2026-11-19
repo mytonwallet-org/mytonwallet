@@ -4,10 +4,35 @@ import UIComponents
 import WalletContext
 import WalletCore
 
-/// A daily digest of the News feed, in the Agent's tailed bubble as the news cards are: its title, how many news it
-/// covers, its top headlines, each opening its news item's discussion, the time it came, and the Discuss strip that
-/// opens the digest's own discussion. A long press on the bubble opens its menu, as on a news card.
+/// A daily digest of the News feed, in the Agent's tailed bubble as the news cards are, topped in the look of the Agent's
+/// suggestions: its title, how many news it covers, its top headlines, each opening its news item's discussion, the time
+/// it came, and the Discuss strip that opens the digest's own discussion. A long press on the bubble opens its menu, as
+/// on a news card.
 final class AgentNewsDigestCardCell: UICollectionViewCell, AgentNewsFlightSource {
+    /// The card's top in the look of the suggestions, as on the other platforms: a light sheen and the Agent's gradient,
+    /// melting into the bubble's fill toward the headlines, and the title in the suggestions' gradient
+    fileprivate enum Appearance {
+        static let glowHeight: CGFloat = 150
+        static let glowColors = [
+            color("#0088FF", light: 0.12, dark: 0.18),
+            color("#00BEFF", light: 0.18, dark: 0.24),
+            color("#B656FF", light: 0.14, dark: 0.2),
+        ]
+        static let glowLocations: [NSNumber] = [0, 0.48, 1]
+        /// How much of the suggestions' gradient the news count takes, as much contrast as the grey has
+        static let metaGradientAlpha: (light: CGFloat, dark: CGFloat) = (0.65, 0.9)
+        /// Under the gradient, so that it stays clear over the bubble's grey; none in the dark
+        static let sheenColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? .clear : UIColor(white: 1, alpha: 0.7)
+        }
+
+        private static func color(_ hex: String, light: CGFloat, dark: CGFloat) -> UIColor {
+            UIColor { traits in
+                UIColor(hex: hex).withAlphaComponent(traits.userInterfaceStyle == .dark ? dark : light)
+            }
+        }
+    }
+
     private enum Metrics {
         static let horizontalInset: CGFloat = 16
         static let headerInsets = NSDirectionalEdgeInsets(top: 14, leading: 16, bottom: 6, trailing: 16)
@@ -27,11 +52,16 @@ final class AgentNewsDigestCardCell: UICollectionViewCell, AgentNewsFlightSource
     var onPreferredHeightChanged: (() -> Void)?
 
     let bubbleView = AgentBubbleBackgroundView()
+    private let glowView = AgentNewsDigestGlowView()
     private let contentLayoutGuide = UILayoutGuide()
     private let stackView = UIStackView()
     private let headerStack = UIStackView()
-    private let titleLabel = UILabel()
-    private let metaLabel = UILabel()
+    private let titleLabel = AgentNewsDigestGradientLabel()
+    /// Muted to the grey's contrast
+    private let metaLabel = AgentNewsDigestGradientLabel(
+        lightAlpha: Appearance.metaGradientAlpha.light,
+        darkAlpha: Appearance.metaGradientAlpha.dark
+    )
     private let headlinesView = AgentNewsDigestHeadlinesView()
     private let headlinesContainer = UIStackView()
     /// The digest's time in the bubble's trailing corner, as on the news cards and on the digest's post
@@ -141,11 +171,11 @@ final class AgentNewsDigestCardCell: UICollectionViewCell, AgentNewsFlightSource
         contextMenuInteraction.attach(to: bubbleView)
 
         titleLabel.applyTextStyle(.bodyStrong, scaling: .dynamic)
-        titleLabel.textColor = .label
         titleLabel.numberOfLines = 0
         metaLabel.applyTextStyle(.footnote, scaling: .dynamic)
-        metaLabel.textColor = .air.secondaryLabel
         metaLabel.numberOfLines = 0
+        // The count's gradient runs across the title, so the two lines share its colours where they overlap
+        metaLabel.gradientSource = titleLabel
         headerStack.addArrangedSubview(titleLabel)
         headerStack.addArrangedSubview(metaLabel)
         headerStack.axis = .vertical
@@ -183,6 +213,8 @@ final class AgentNewsDigestCardCell: UICollectionViewCell, AgentNewsFlightSource
         for view in [headerStack, headlinesContainer, footerContainer, discussionStrip] { stackView.addArrangedSubview(view) }
         stackView.axis = .vertical
         stackView.translatesAutoresizingMaskIntoConstraints = false
+        glowView.translatesAutoresizingMaskIntoConstraints = false
+        bubbleView.contentView.addSubview(glowView)
         bubbleView.contentView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
@@ -204,6 +236,11 @@ final class AgentNewsDigestCardCell: UICollectionViewCell, AgentNewsFlightSource
             stackView.leadingAnchor.constraint(equalTo: bubbleView.contentView.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: bubbleView.contentView.trailingAnchor),
             stackView.bottomAnchor.constraint(equalTo: bubbleView.contentView.bottomAnchor),
+            glowView.topAnchor.constraint(equalTo: bubbleView.contentView.topAnchor),
+            glowView.leadingAnchor.constraint(equalTo: bubbleView.contentView.leadingAnchor),
+            glowView.trailingAnchor.constraint(equalTo: bubbleView.contentView.trailingAnchor),
+            glowView.heightAnchor.constraint(lessThanOrEqualTo: bubbleView.contentView.heightAnchor),
+            glowView.heightAnchor.constraint(equalToConstant: Appearance.glowHeight).withPriority(.defaultHigh),
         ])
         isAccessibilityElement = false
         if #available(iOS 17.0, *) {
@@ -220,4 +257,136 @@ final class AgentNewsDigestCardCell: UICollectionViewCell, AgentNewsFlightSource
             onPreferredHeightChanged?()
         }
     }
+}
+
+/// The Agent's gradient over the top of a digest's card, as over a suggestion's pill, on a light sheen, melting into the
+/// card's fill toward its headlines
+private final class AgentNewsDigestGlowView: UIView {
+    private let gradientLayer = CAGradientLayer()
+    private let fadeLayer = CAGradientLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        gradientLayer.startPoint = .zero
+        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        gradientLayer.locations = AgentNewsDigestCardCell.Appearance.glowLocations
+        // Whole at the top, gone by the bottom, eased so that it leaves no edge
+        fadeLayer.colors = [1, 0.55, 0].map { UIColor.black.withAlphaComponent($0).cgColor }
+        fadeLayer.locations = [0, 0.45, 1]
+        layer.mask = fadeLayer
+        layer.addSublayer(gradientLayer)
+        updateColors()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradientLayer.frame = bounds
+        fadeLayer.frame = bounds
+        CATransaction.commit()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
+        updateColors()
+    }
+
+    private func updateColors() {
+        backgroundColor = AgentNewsDigestCardCell.Appearance.sheenColor
+        gradientLayer.colors = AgentNewsDigestCardCell.Appearance.glowColors.map {
+            $0.resolvedColor(with: traitCollection).cgColor
+        }
+    }
+}
+
+/// Text in the suggestions' gradient, which runs across its longest line as across a suggestion's title, at the
+/// opacity given for the light and the dark appearance
+private final class AgentNewsDigestGradientLabel: UILabel {
+    private let lightAlpha: CGFloat
+    private let darkAlpha: CGFloat
+    /// The label above whose text the gradient runs across instead of this one's, so this line takes its colours at
+    /// the same places, as the news count under the digest's title
+    weak var gradientSource: AgentNewsDigestGradientLabel? {
+        didSet {
+            gradientSource?.gradientFollower = self
+            setNeedsDisplay()
+        }
+    }
+    private weak var gradientFollower: AgentNewsDigestGradientLabel?
+
+    override var text: String? {
+        didSet { gradientFollower?.setNeedsDisplay() }
+    }
+
+    override var bounds: CGRect {
+        didSet {
+            if bounds.size != oldValue.size { gradientFollower?.setNeedsDisplay() }
+        }
+    }
+
+    init(lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) {
+        self.lightAlpha = lightAlpha
+        self.darkAlpha = darkAlpha
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func drawText(in rect: CGRect) {
+        guard let context = UIGraphicsGetCurrentContext() else {
+            super.drawText(in: rect)
+            return
+        }
+        let alpha = traitCollection.userInterfaceStyle == .dark ? darkAlpha : lightAlpha
+        let colors = AgentSuggestionAppearance.titleGradientColors(for: traitCollection).map {
+            $0.copy(alpha: alpha) ?? $0
+        }
+        guard let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: colors as CFArray,
+            locations: Self.gradientLocations
+        ) else {
+            super.drawText(in: rect)
+            return
+        }
+        let widthSource = gradientSource ?? self
+        let textWidth = widthSource.textRect(
+            forBounds: widthSource.bounds, limitedToNumberOfLines: widthSource.numberOfLines
+        ).width
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let start = isRightToLeft ? rect.maxX : rect.minX
+        let end = start + (isRightToLeft ? -1 : 1) * textWidth * Self.gradientReach
+        // The text is drawn as a shape and the gradient fills only that shape
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
+        super.drawText(in: rect)
+        context.setBlendMode(.sourceIn)
+        context.drawLinearGradient(
+            gradient,
+            start: CGPoint(x: start, y: 0),
+            end: CGPoint(x: end, y: 0),
+            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+        )
+        context.endTransparencyLayer()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
+        setNeedsDisplay()
+    }
+
+    /// As `AgentSuggestionAppearance.configureTitleGradient` lays the suggestions' gradient over their titles
+    private static let gradientLocations: [CGFloat] = [0, 0.39547, 1]
+    private static let gradientReach: CGFloat = 1.28324
 }

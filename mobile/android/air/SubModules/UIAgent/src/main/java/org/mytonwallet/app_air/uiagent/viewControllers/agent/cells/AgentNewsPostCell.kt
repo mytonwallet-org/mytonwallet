@@ -278,8 +278,17 @@ internal class AgentNewsPostCell(
         image.onFinalImageSet = { info ->
             imageAspectRatio = info?.takeIf { it.width > 0 && it.height > 0 }
                 ?.let { it.width.toFloat() / it.height }
+            // A picture that failed before and loads now shows again
+            imageUrl?.let(failedImageUrls::remove)
+            if (imageFailed) {
+                val previousHeight = height
+                imageFailed = false
+                setImageHidden(false)
+                onSizeTransitionFrame?.invoke(previousHeight)
+            }
         }
         image.onFailure = {
+            imageUrl?.let(::rememberFailedImage)
             if (!imageContainer.isGone) {
                 val previousHeight = height
                 imageFailed = true
@@ -348,7 +357,9 @@ internal class AgentNewsPostCell(
         val nextImageUrl = post.imageUrl?.takeIf { it.isNotBlank() }
         // The same picture binds without loading again, so a post rebound under the card flying in keeps it
         if (nextImageUrl != imageUrl) {
-            imageFailed = false
+            // A feed reloaded binds its posts to other cells, where a picture that failed would show its place again
+            // until it fails once more
+            imageFailed = nextImageUrl in failedImageUrls
             imageAspectRatio = null
             imageZoom.cancel()
             if (nextImageUrl == null) {
@@ -640,5 +651,16 @@ internal class AgentNewsPostCell(
         private const val IMAGE_ASPECT_RATIO = 9f / 16f
         private const val PICTURE_CORNER_RADIUS = AGENT_BUBBLE_RADIUS - IMAGE_INSET
         private val PICTURE_PLACEHOLDER = WColor.BackgroundRipple
+
+        // Pictures whose last load failed, which bind without showing their place until one loads. Only the latest
+        // are kept, so a long session doesn't collect them without end.
+        private const val MAX_FAILED_IMAGE_URLS = 100
+        private val failedImageUrls = LinkedHashSet<String>()
+
+        private fun rememberFailedImage(url: String) {
+            if (failedImageUrls.add(url) && failedImageUrls.size > MAX_FAILED_IMAGE_URLS) {
+                failedImageUrls.remove(failedImageUrls.first())
+            }
+        }
     }
 }

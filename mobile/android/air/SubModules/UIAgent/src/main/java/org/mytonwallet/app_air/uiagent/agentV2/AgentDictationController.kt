@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uiagent.agentV2
 
-import kotlin.math.abs
 import kotlin.math.log10
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -17,21 +16,17 @@ import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResponse
 
 internal const val AGENT_DICTATION_MAX_DURATION_MS = 60_000L
-internal const val AGENT_DICTATION_WARNING_START_MS = 50_000L
 
-// Telegram's voice recording gestures: a slide this far toward the start cancels, this far up locks
-private const val AGENT_DICTATION_CANCEL_DISTANCE_DP = 150f
-private const val AGENT_DICTATION_LOCK_DISTANCE_DP = 110f
+// A held microphone slid this far toward the field's cross cancels on release, and this far toward
+// Send sends; let go nearer its place, its transcript goes into the field
+private const val AGENT_DICTATION_CANCEL_ZONE_DP = 90f
+private const val AGENT_DICTATION_SEND_ZONE_DP = 24f
 
 internal interface AgentDictationRecorder {
     fun start()
 
     /** The peak amplitude since the last call, out of 32767 */
     fun amplitude(): Int
-
-    /** Stops taking in sound until [resume], keeping what was recorded */
-    fun pause()
-    fun resume()
     suspend fun finish(): String
     fun cancel()
 }
@@ -56,6 +51,16 @@ internal sealed interface AgentDictationFailure {
     data class Error(val code: String?) : AgentDictationFailure
 }
 
+/**
+ * Where letting go of a held microphone takes the recording: its transcript into the field where
+ * the finger started, nowhere at the field's cross, and off as the question at Send
+ */
+internal enum class AgentDictationHoldZone {
+    STOP,
+    CANCEL,
+    SEND
+}
+
 internal enum class AgentDictationCancelDirection(val sign: Int) {
     LEFT(-1),
     RIGHT(1)
@@ -64,19 +69,22 @@ internal enum class AgentDictationCancelDirection(val sign: Int) {
 internal data class AgentDictationState(
     val phase: AgentDictationPhase = AgentDictationPhase.IDLE,
     val locked: Boolean = false,
-    /** The time recorded so far, without its pauses */
+    /** The time recorded so far */
     val elapsedMs: Long = 0,
-    /** When the recording would have started without its pauses, on the controller's clock */
-    val startedAtMs: Long = 0,
-    /** A locked recording waits, keeping what it has, until it resumes or finishes */
-    val isPaused: Boolean = false,
     val level: Float = 0f,
     /** How far the recording waves swell, from 0 to 1: Telegram's peak amplitude against 16000 */
     val waveLevel: Float = 0f,
-    /** The finger's travel toward cancelling, negative away from it */
+    /** The voice's peak amplitude since the last sample, from 0 to 1, which the hands-free thread spins with */
+    val peakLevel: Float = 0f,
+    /** The recording being recognized goes as the question once it is text, rather than into the field */
+    val isSending: Boolean = false,
+    /** The recording has heard speech, so there is something to recognize and send */
+    val hasSpeech: Boolean = false,
+    /** The finger's travel toward cancelling, negative toward Send */
     val cancelDragDp: Float = 0f,
-    /** The finger's travel up, toward locking */
+    /** The finger's travel up, which no gesture uses any more */
     val lockDragDp: Float = 0f,
+    val holdZone: AgentDictationHoldZone = AgentDictationHoldZone.STOP,
     val failure: AgentDictationFailure? = null
 ) {
     /** The field shows the recording instead of the draft */
@@ -86,9 +94,9 @@ internal data class AgentDictationState(
 }
 
 /**
- * Hold-to-talk dictation after Telegram's voice recording: a hold starts recording, a slide toward
- * the start cancels, a slide up locks it hands-free, and letting go transcribes it into the draft.
- * A transcript never sends by itself.
+ * Hold-to-talk dictation: a hold starts recording, and where the finger lets go decides by
+ * [AgentDictationHoldZone]: into the draft, cancelled, or sent. A tap records hands-free until
+ * Stop, into the draft, or Send.
  */
 internal class AgentDictationController(
     private val scope: CoroutineScope,
@@ -98,6 +106,8 @@ internal class AgentDictationController(
     private val nowMs: () -> Long,
     private val onStateChanged: (AgentDictationState) -> Unit,
     private val onTranscript: (String) -> Unit,
+    /** A transcript to send as the question at once */
+    private val onSendTranscript: (String) -> Unit = onTranscript,
     private val onFailure: (AgentDictationFailure) -> Unit = {},
     private val onRecordingStarted: () -> Unit = {},
     /** The finger crosses where letting go would cancel or lock, or the recording locks */
@@ -111,11 +121,8 @@ internal class AgentDictationController(
     private var currentRecorder: AgentDictationRecorder? = null
     private var finishSignal: CompletableDeferred<Boolean>? = null
     private var pendingCancelDragDp = 0f
-    private var pendingLockDragDp = 0f
-    private var hasPassedCancelFeedback = false
-    private var hasPassedLockFeedback = false
+    private var isSendingTranscript = false
     private var recordingStartedAtMs = 0L
-    private var pausedAtMs = 0L
 
     fun press() {
         if (state.phase != AgentDictationPhase.IDLE && state.phase != AgentDictationPhase.FAILED) {
@@ -123,9 +130,6 @@ internal class AgentDictationController(
         }
         endFailure()
         pendingCancelDragDp = 0f
-        pendingLockDragDp = 0f
-        hasPassedCancelFeedback = false
-        hasPassedLockFeedback = false
         start(locked = false)
     }
 
@@ -137,32 +141,24 @@ internal class AgentDictationController(
         start(locked = true)
     }
 
+    /** The recording circle follows the finger along the field, which decides what letting go does */
     fun move(horizontalDp: Float, upDp: Float, cancelDirection: AgentDictationCancelDirection) {
         if (state.locked) return
         pendingCancelDragDp = horizontalDp * cancelDirection.sign
-        pendingLockDragDp = upDp.coerceAtLeast(0f)
         if (state.phase == AgentDictationPhase.RECORDING) applyMove()
     }
 
     private fun applyMove() {
-        val cancelTravel = pendingCancelDragDp
-        val lockTravel = pendingLockDragDp
-        when {
-            cancelTravel >= AGENT_DICTATION_CANCEL_DISTANCE_DP -> cancel()
+        val zone = getHoldZone(pendingCancelDragDp)
+        // A light tap marks each change of what letting go would do
+        if (zone != state.holdZone) onGestureFeedback()
+        update(state.copy(cancelDragDp = pendingCancelDragDp, lockDragDp = 0f, holdZone = zone))
+    }
 
-            lockTravel >= AGENT_DICTATION_LOCK_DISTANCE_DP -> lock()
-
-            else -> {
-                update(state.copy(cancelDragDp = cancelTravel, lockDragDp = lockTravel))
-                // A light tap marks the point where letting go would cancel or lock
-                val isPastCancel = cancelTravel >= RELEASE_CANCEL_DISTANCE_DP
-                if (isPastCancel && !hasPassedCancelFeedback) onGestureFeedback()
-                hasPassedCancelFeedback = isPastCancel
-                val isPastLock = lockTravel >= RELEASE_LOCK_DISTANCE_DP
-                if (isPastLock && !hasPassedLockFeedback) onGestureFeedback()
-                hasPassedLockFeedback = isPastLock
-            }
-        }
+    private fun getHoldZone(cancelTravel: Float): AgentDictationHoldZone = when {
+        cancelTravel >= AGENT_DICTATION_CANCEL_ZONE_DP -> AgentDictationHoldZone.CANCEL
+        -cancelTravel >= AGENT_DICTATION_SEND_ZONE_DP -> AgentDictationHoldZone.SEND
+        else -> AgentDictationHoldZone.STOP
     }
 
     /**
@@ -181,20 +177,10 @@ internal class AgentDictationController(
 
             AgentDictationPhase.RECORDING -> {
                 if (state.locked) return
-                val isHorizontal = abs(horizontalDp) > abs(upDp)
-                val cancelTravel = horizontalDp * cancelDirection.sign
-                val cancelVelocity = horizontalVelocity * cancelDirection.sign
-                when {
-                    isHorizontal && (
-                        cancelVelocity > RELEASE_VELOCITY_DPS ||
-                            cancelTravel > RELEASE_CANCEL_DISTANCE_DP
-                        ) -> cancel()
-
-                    !isHorizontal && (
-                        upVelocity > RELEASE_VELOCITY_DPS || upDp > RELEASE_LOCK_DISTANCE_DP
-                        ) -> lock()
-
-                    else -> finish()
+                when (getHoldZone(horizontalDp * cancelDirection.sign)) {
+                    AgentDictationHoldZone.CANCEL -> cancel()
+                    AgentDictationHoldZone.SEND -> finish(isSending = true)
+                    AgentDictationHoldZone.STOP -> finish()
                 }
             }
 
@@ -202,49 +188,12 @@ internal class AgentDictationController(
         }
     }
 
-    private fun lock() {
-        hasPassedCancelFeedback = false
-        hasPassedLockFeedback = false
-        update(state.copy(locked = true, cancelDragDp = 0f, lockDragDp = 0f))
-        onGestureFeedback()
-    }
-
-    fun finish() {
-        if (state.phase == AgentDictationPhase.RECORDING) finishSignal?.complete(false)
-    }
-
-    /** Telegram's pause of a locked recording: [resume] goes on with the same recording */
-    fun pause() {
-        val recorder = currentRecorder ?: return
-        if (state.phase != AgentDictationPhase.RECORDING || !state.locked || state.isPaused) return
-        try {
-            recorder.pause()
-        } catch (error: Exception) {
-            fail(AgentDictationFailure.Error(error.message))
-            return
-        }
-        pausedAtMs = nowMs()
-        update(
-            state.copy(
-                isPaused = true,
-                elapsedMs = measureElapsed(pausedAtMs),
-                level = 0f,
-                waveLevel = 0f
-            )
-        )
-    }
-
-    fun resume() {
-        val recorder = currentRecorder ?: return
-        if (state.phase != AgentDictationPhase.RECORDING || !state.isPaused) return
-        try {
-            recorder.resume()
-        } catch (error: Exception) {
-            fail(AgentDictationFailure.Error(error.message))
-            return
-        }
-        recordingStartedAtMs += nowMs() - pausedAtMs
-        update(state.copy(isPaused = false, startedAtMs = recordingStartedAtMs))
+    /** Stops the recording: its transcript goes into the draft, or [isSending] as the question */
+    fun finish(isSending: Boolean = false) {
+        val stop = finishSignal ?: return
+        if (state.phase != AgentDictationPhase.RECORDING || stop.isCompleted) return
+        isSendingTranscript = isSending
+        stop.complete(false)
     }
 
     private fun measureElapsed(now: Long): Long =
@@ -264,6 +213,7 @@ internal class AgentDictationController(
         val cancelledOperation = operation
         operation = null
         finishSignal = null
+        isSendingTranscript = false
         failureReset?.cancel()
         failureReset = null
         releaseRecorder(currentRecorder)
@@ -316,7 +266,6 @@ internal class AgentDictationController(
                 recordingStartedAtMs = nowMs()
                 var hasSpeech = false
                 fun sample() {
-                    if (state.isPaused) return
                     val amplitude = activeRecorder.amplitude().coerceIn(0, MAX_AMPLITUDE)
                     hasSpeech = hasSpeech || amplitude >= SPEECH_AMPLITUDE
                     val dbfs = 20 * log10(amplitude.coerceAtLeast(1).toDouble() / MAX_AMPLITUDE)
@@ -324,10 +273,11 @@ internal class AgentDictationController(
                     update(
                         state.copy(
                             phase = AgentDictationPhase.RECORDING,
-                            startedAtMs = recordingStartedAtMs,
                             elapsedMs = measureElapsed(nowMs()),
                             level = level,
-                            waveLevel = (amplitude.toFloat() / FULL_WAVE_AMPLITUDE).coerceIn(0f, 1f)
+                            waveLevel = (amplitude / FULL_WAVE_AMPLITUDE).coerceIn(0f, 1f),
+                            peakLevel = amplitude.toFloat() / MAX_AMPLITUDE,
+                            hasSpeech = hasSpeech
                         )
                     )
                 }
@@ -370,7 +320,8 @@ internal class AgentDictationController(
                 update(
                     state.copy(
                         phase = AgentDictationPhase.RECOGNIZING,
-                        isPaused = false,
+                        isSending = isSendingTranscript,
+                        peakLevel = 0f,
                         cancelDragDp = 0f,
                         lockDragDp = 0f
                     )
@@ -386,8 +337,10 @@ internal class AgentDictationController(
                 } else {
                     operation = null
                     finishSignal = null
+                    val isSending = isSendingTranscript
+                    isSendingTranscript = false
                     update(AgentDictationState())
-                    onTranscript(transcript)
+                    if (isSending) onSendTranscript(transcript) else onTranscript(transcript)
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -430,10 +383,6 @@ internal class AgentDictationController(
         private const val MAX_AMPLITUDE = 32767
         private const val FULL_WAVE_AMPLITUDE = 16000f
 
-        // Letting go after this much travel, or this fast, cancels or locks as well
-        private const val RELEASE_CANCEL_DISTANCE_DP = 100f
-        private const val RELEASE_LOCK_DISTANCE_DP = 60f
-        private const val RELEASE_VELOCITY_DPS = 400f
         private const val FAILURE_DURATION_MS = 750L
     }
 }

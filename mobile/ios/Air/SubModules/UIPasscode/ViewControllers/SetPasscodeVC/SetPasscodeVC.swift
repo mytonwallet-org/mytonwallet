@@ -49,9 +49,7 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         fillBorderColor: nil
     )
     private lazy var passcodeScreenView = PasscodeScreenView(
-        title: "zzz",
-        replacedTitle: "xxx",
-        subtitle: "rrrr",
+        title: "",
         compactLayout: true,
         biometricPassAllowed: false,
         delegate: self,

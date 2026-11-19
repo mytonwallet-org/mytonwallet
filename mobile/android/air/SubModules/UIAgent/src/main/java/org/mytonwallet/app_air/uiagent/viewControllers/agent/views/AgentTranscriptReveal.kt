@@ -17,12 +17,19 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
+/** What a transcript goes after in a field holding [text], as on iOS: the text and a space, or nothing for blank text */
+internal fun getAgentDictationPrefix(text: String): String = when {
+    text.isBlank() -> ""
+    text.last().isWhitespace() -> text
+    else -> "$text "
+}
+
 /**
- * A transcript brought into [field] character by character, as iOS's `AgentDictationTextReveal` brings it: each
- * character comes out of a blur in the accent colour, transparent and blurred, sharp within 150 ms, and then turns to
- * the text colour over 500 ms. Its characters, spaces among them, come 6 ms apart, closer for a long transcript so the
- * last starts within 0.8 s, and the field grows with them. Until the last character is in, the field takes no other
- * edits.
+ * A transcript brought into [field] after its draft character by character, as iOS's `AgentDictationTextReveal` brings
+ * it: each character comes out of a blur in the accent colour, transparent and blurred, sharp within 150 ms, and then
+ * turns to the text colour over 500 ms. Its characters, spaces among them, come 6 ms apart, closer for a long
+ * transcript so the last starts within 0.8 s, and the field grows with them. Until the last character is in, the field
+ * takes no other edits.
  */
 internal class AgentTranscriptReveal(private val field: EditText) : Choreographer.FrameCallback {
     private val glyphs = ArrayList<Glyph>()
@@ -49,7 +56,7 @@ internal class AgentTranscriptReveal(private val field: EditText) : Choreographe
     fun filterEdit(original: Spanned, start: Int, end: Int): CharSequence? =
         if (isRevealing) original.subSequence(start, end) else null
 
-    /** Replaces the field's text with [text], character by character */
+    /** Puts [text] after the field's draft, a space apart, character by character; a blank draft gives way to it */
     fun start(text: String) {
         finish()
         val characters = BreakIterator.getCharacterInstance()
@@ -127,9 +134,18 @@ internal class AgentTranscriptReveal(private val field: EditText) : Choreographe
         try {
             while (appendedCount < count) {
                 val glyph = glyphs[appendedCount]
-                // The first character takes the place of the draft
-                val start = if (appendedCount == 0) 0 else editable.length
-                editable.replace(start, editable.length, glyph.text)
+                if (appendedCount == 0) {
+                    val draft = editable.toString()
+                    val prefix = getAgentDictationPrefix(draft)
+                    // Only what the prefix adds is written, so the draft keeps its spans and the keyboard its word
+                    if (prefix.isEmpty()) {
+                        editable.clear()
+                    } else if (prefix.length > draft.length) {
+                        editable.append(prefix.substring(draft.length))
+                    }
+                }
+                val start = editable.length
+                editable.append(glyph.text)
                 glyph.span?.let { span ->
                     span.update(sharpness = 0, toText = 0, accent = WColor.Tint.color)
                     editable.setSpan(

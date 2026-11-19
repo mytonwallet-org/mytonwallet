@@ -252,14 +252,18 @@ $lastAnswerLineSpace: math.max(
   overflow: hidden;
 }
 
-// The button stands 12 px above the field, however tall the field grows, as in the design and on iOS and Android, and
-// as far above the bottom or the tab bar without one
+// Over the microphone, as far above the field as the microphone stands beside it, however tall the field grows
 .scrollToBottom {
-  bottom: calc(var(--agent-input-bar-height, 3.5rem) + 0.75rem);
+  bottom: calc(var(--agent-input-bar-height, 3.5rem) + 0.5rem);
 }
 
+// Without a field, in the microphone's place
 .scrollToBottomWithoutComposer {
-  bottom: calc(0.75rem + var(--bottombar-height));
+  bottom: 1.25rem;
+
+  :global(html.with-bottombar) & {
+    bottom: calc(0.75rem + var(--bottombar-height));
+  }
 }
 
 // Without a field, the messages fade out under the tab bar from its edge, as they do under a field

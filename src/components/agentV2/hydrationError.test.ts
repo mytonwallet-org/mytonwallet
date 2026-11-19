@@ -4,13 +4,13 @@ import type { LangFn } from '../../util/langProvider';
 import { buildAgentV2HydrationError } from './hydrationError';
 
 const lang = ((key: string) => ({
-  $agent_connection_lost: 'Connection message',
+  'No internet connection. Please check your connection and try again.': 'Connection message',
   $agent_error_generic: 'Request message',
   'Failed to load chat': 'History message',
 }[key] ?? key)) as LangFn;
 
 describe('Agent V2 hydration errors', () => {
-  it('maps worker and network failures to a connection error', () => {
+  it('maps worker and network failures to the missing connection', () => {
     expect(buildAgentV2HydrationError(undefined, lang)).toEqual({
       code: 'network_error',
       message: 'Connection message',

@@ -1,5 +1,6 @@
 import UIKit
 import UIComponents
+import WalletContext
 
 /// Telegram's audio blobs, as its `ChatRecordingBlobView` draws them: a solid circle and two smooth waves that wobble
 /// and swell with the voice. The outer wave swells with the level; the inner one is the geometric mean of the circle and
@@ -8,8 +9,9 @@ import UIComponents
 /// On iOS 26 and later the waves are Telegram's liquid glass: tinted, edged with a light rim and casting a faint shadow,
 /// over the content behind them refracted along each wave's edge. Before that they are the plain tint.
 final class AgentVoiceBlobView: UIView {
-    /// Telegram's outer wave across, silent and at the loudest, in points: its 0.627 and 1.178 of a 220 pt view
-    static let outerWave: (min: CGFloat, max: CGFloat) = (138, 259)
+    /// The outer wave across, silent and at the loudest, in points: past the circle over the field, toward Telegram's
+    /// ratio of its waves to its circle
+    static let outerWave: (min: CGFloat, max: CGFloat) = (66, 108)
     /// Telegram's waves are smaller while not recording and grow to their size as recording starts
     private static let restingPresence: CGFloat = 0.75
     private static let presenceInDuration: CFTimeInterval = 0.35
@@ -33,6 +35,7 @@ final class AgentVoiceBlobView: UIView {
     private var presenceStart: (time: CFTimeInterval, from: CGFloat)?
     private var lastFrameTime: CFTimeInterval?
     private var isFailed = false
+    private var areWavesHidden = false
 
     /// The waves across as drawn now, before their outlines wobble
     private(set) var outerWaveDiameter: CGFloat = 0
@@ -150,11 +153,22 @@ final class AgentVoiceBlobView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(!animated)
         CATransaction.setAnimationDuration(0.2)
-        wavesLayer.opacity = isFailed ? 0 : 1
+        wavesLayer.opacity = isFailed || areWavesHidden ? 0 : 1
         CATransaction.commit()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         smallLayer.fillColor = fillColor
+        CATransaction.commit()
+    }
+
+    /// Lets the waves go, or brings them back, leaving the centre circle
+    func setWavesHidden(_ isHidden: Bool, animated: Bool) {
+        guard isHidden != areWavesHidden else { return }
+        areWavesHidden = isHidden
+        CATransaction.begin()
+        CATransaction.setDisableActions(!animated)
+        CATransaction.setAnimationDuration(0.2)
+        wavesLayer.opacity = isFailed || isHidden ? 0 : 1
         CATransaction.commit()
     }
 

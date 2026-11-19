@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 
 private const val RETRY_GAP = 12
 private const val RETRY_MIN_HEIGHT = 44
+private const val RETRYING_ALPHA = 0.5f
 
 @SuppressLint("ViewConstructor")
 internal class AgentLoadErrorView(context: Context) :
@@ -47,6 +48,18 @@ internal class AgentLoadErrorView(context: Context) :
 
     var onRetry: (() -> Unit)? = null
 
+    /** The failure stays while Retry loads again, its Retry dimmed, rather than giving way to the skeleton */
+    var isRetrying = false
+        set(value) {
+            field = value
+            retryButton.isEnabled = !value
+            retryButton.alpha = if (value) RETRYING_ALPHA else 1f
+        }
+
+    /** The text shown, or null while the view is hidden */
+    val text: String?
+        get() = if (isGone) null else label.text?.toString()
+
     init {
         id = generateViewId()
         orientation = VERTICAL
@@ -71,6 +84,7 @@ internal class AgentLoadErrorView(context: Context) :
         isGone = text == null
         if (text != null) label.text = text
         retryButton.isGone = !hasRetry
+        isRetrying = false
     }
 
     override fun updateTheme() {

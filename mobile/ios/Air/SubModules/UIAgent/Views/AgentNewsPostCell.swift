@@ -118,6 +118,17 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
     /// How far the post's tail hangs below the bubble's body
     var postTailOverflow: CGFloat { newsView.tailOverflow }
 
+    /// Ends at once a change of the post's layout that ran while it was hidden under a card flying onto it, as when the
+    /// chat's placeholders came in under it, so the post shows laid out as the card that lands on it
+    func finishLayoutAnimations() {
+        Self.removeAnimations(in: layer)
+    }
+
+    private static func removeAnimations(in layer: CALayer) {
+        layer.removeAllAnimations()
+        layer.sublayers?.forEach(removeAnimations)
+    }
+
     /// The suggestions appear under the post as under an answer, once a card flown in from the news feed lands on it
     func revealFollowups() {
         followupView.animateAppearance()

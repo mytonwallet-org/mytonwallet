@@ -34,7 +34,7 @@ describe('Agent V2 failure and composer status notices', () => {
   it('shows a refused microphone and reads out every dictation failure once, as an alert', async () => {
     TeactDOM.render(<AgentDictationNotice notice={{ kind: 'microphoneDenied' }} />, root);
     await pause(20);
-    expect(root.textContent).toBe('$agent_dictation_microphone_denied');
+    expect(root.textContent).toBe('$agent_dictation_microphone_denied_browser');
     expect(root.querySelector('[role="status"], [role="alert"]')).toBeNull();
     expect(root.querySelector('button')).toBeNull();
 
@@ -47,7 +47,7 @@ describe('Agent V2 failure and composer status notices', () => {
 
     TeactDOM.render(<AgentDictationAnnouncement failure={{ kind: 'microphoneDenied' }} />, root);
     await pause(20);
-    expect(root.querySelector('[role="alert"]')!.textContent).toBe('$agent_dictation_microphone_denied');
+    expect(root.querySelector('[role="alert"]')!.textContent).toBe('$agent_dictation_microphone_denied_browser');
   });
 
   it('renders a historical failure as a caption without a live status role or Retry', async () => {

@@ -20,10 +20,11 @@ import android.view.animation.AnimationUtils
 import androidx.annotation.RequiresApi
 import androidx.core.graphics.ColorUtils
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import kotlin.random.Random
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -33,13 +34,14 @@ internal const val AGENT_FIELD_RIM_MARGIN = 28f
 
 /**
  * Telegram's listening glow of the composer's field, as iOS's `AgentFieldGlowView` draws it. Inside the field, [isRim]
- * false, a soft light in the accent colour along its edge, brightest at the bottom and the leading side, with lights
- * drifting along the bottom, through the field and up and down the leading side, at half the strength of the reference
+ * false, a soft light in the accent colour along its edge, brightest at the bottom and as bright near either side, with
+ * lights wandering over the field, one low along the bottom and two through it, at half the strength of the reference
  * shader and twice its pace. Around it, [isRim] true, the field's border gives off light: a thin, almost white core
  * line, a bloom in the accent colour spilling out beyond the field and gone by the view's edge, and a softer haze
- * inside it, brightest at the bottom and the leading side, with bright stretches running along it. A rim view lies
- * [AGENT_FIELD_RIM_MARGIN] dp beyond the field on every side. A runtime shader draws it where one is available, and
- * gradients elsewhere. Its frames run only while it shows and moves; without motion its lights stand still.
+ * inside it, brightest at the bottom and as bright near either side, with bright stretches running along it both ways
+ * at paces that rise and fall. A rim view lies [AGENT_FIELD_RIM_MARGIN] dp beyond the field on every side. A runtime
+ * shader draws it where one is available, and gradients elsewhere. Its frames run only while it shows and moves;
+ * without motion its lights stand still.
  */
 @SuppressLint("ViewConstructor")
 internal class AgentFieldGlowView(context: Context, private val isRim: Boolean = false) :
@@ -47,6 +49,9 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
     Choreographer.FrameCallback {
     private val renderer: Renderer = createRenderer()
     private var glowStart = 0L
+
+    /** Where in its motion the glow starts, picked at random each time it comes in, so no two glows move alike */
+    private var timeOffset = 0f
     private var fadeStart = 0L
     private var fadeFrom = 0f
     private var fadeTarget = 0f
@@ -58,7 +63,8 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
     }
 
     private val isMoving: Boolean
-        get() = WGlobalStorage.getAreAnimationsActive() && ValueAnimator.areAnimatorsEnabled()
+        get() = WGlobalStorage.getAreAnimationsActive() &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled())
 
     /** The glow shows, or is fading in or out */
     val isLit: Boolean
@@ -70,7 +76,11 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
         if (fadeTarget == target) return
         val now = AnimationUtils.currentAnimationTimeMillis()
         fadeFrom = computeOpacity(now)
-        if (isGlowing && fadeFrom <= 0f) glowStart = now
+        if (isGlowing && fadeFrom <= 0f) {
+            glowStart = now
+            timeOffset = Random.nextFloat() * MAX_TIME_OFFSET
+            rimSpots.reset()
+        }
         fadeTarget = target
         fadeStart = now
         invalidate()
@@ -141,11 +151,59 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
         frame.height = height.toFloat()
         frame.density = resources.displayMetrics.density
         val speed = if (isRim) 1f else LIGHTS_SPEED
-        frame.time = if (isMoving) (now - glowStart) / MS_PER_SECOND * speed else 0f
+        val elapsed = if (isMoving) (now - glowStart) / MS_PER_SECOND * speed else 0f
+        frame.time = timeOffset + elapsed
         frame.opacity = shown
         frame.margin = if (isRim) AGENT_FIELD_RIM_MARGIN else 0f
-        frame.leading = if (LocaleController.isRTL) 1f else 0f
+        if (isRim) {
+            val widthDp = frame.width / frame.density - 2 * frame.margin
+            val heightDp = frame.height / frame.density - 2 * frame.margin
+            rimSpots.advance(frame.time, getRimLength(widthDp, heightDp))
+            frame.rimPhases = rimSpots.phases
+        }
         renderer.draw(canvas, frame)
+    }
+
+    /**
+     * Where the rim's three bright stretches stand, as shares of its loop. They move on at their
+     * paces in dp along the rim, so they keep them on a field of any size and are carried along as
+     * it grows or shrinks.
+     */
+    private class RimSpots {
+        val phases = FloatArray(3)
+        private var time = Float.NaN
+
+        fun reset() {
+            time = Float.NaN
+        }
+
+        fun advance(nextTime: Float, rimLength: Float) {
+            val elapsed = nextTime - time
+            // A glow that starts anew starts them over
+            if (elapsed.isNaN() || elapsed < 0f || rimLength <= 0f) {
+                val loop = RIM_START_LOOP
+                phases[0] = (nextTime * 140f + 60f * sin(nextTime * 0.7f)) / loop
+                phases[1] = 0.45f + (-nextTime * 95f + 50f * sin(nextTime * 0.53f + 1f)) / loop
+                phases[2] = 0.7f + (nextTime * 60f + 40f * sin(nextTime * 0.91f + 2f)) / loop
+            } else {
+                // Each pace rises and falls, and the second goes the other way
+                phases[0] += (140f + 42f * cos(nextTime * 0.7f)) * elapsed / rimLength
+                phases[1] += (-95f + 26.5f * cos(nextTime * 0.53f + 1f)) * elapsed / rimLength
+                phases[2] += (60f + 36.4f * cos(nextTime * 0.91f + 2f)) * elapsed / rimLength
+            }
+            for (index in phases.indices) phases[index] %= 1f
+            time = nextTime
+        }
+    }
+
+    private val rimSpots = RimSpots()
+
+    // The rounded rectangle's perimeter in dp, as the rim shader measures its loop
+    private fun getRimLength(widthDp: Float, heightDp: Float): Float {
+        val radius = min(FIELD_RADIUS, heightDp / 2f)
+        val innerWidth = max(widthDp / 2f - radius, 0f)
+        val innerHeight = max(heightDp / 2f - radius, 0f)
+        return 4f * (innerWidth + innerHeight + HALF_PI * radius)
     }
 
     private class Frame {
@@ -157,10 +215,10 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
 
         /** How far the view reaches beyond the field on each side, in dp */
         var margin = 0f
-
-        /** 0 while the leading side is the left one, 1 while it is the right one */
-        var leading = 0f
         var tint = WColor.Tint.color
+
+        /** Where the rim's bright stretches stand, for the rim's shader */
+        var rimPhases: FloatArray? = null
     }
 
     private interface Renderer {
@@ -193,8 +251,8 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
             shader.setFloatUniform("density", frame.density)
             shader.setFloatUniform("radius", min(FIELD_RADIUS, heightDp / 2f))
             shader.setFloatUniform("time", frame.time)
+            frame.rimPhases?.let { shader.setFloatUniform("rimPhases", it[0], it[1], it[2]) }
             shader.setFloatUniform("opacity", frame.opacity)
-            shader.setFloatUniform("leading", frame.leading)
             shader.setFloatUniform(
                 "tint",
                 Color.red(frame.tint) / MAX_CHANNEL,
@@ -205,7 +263,7 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
         }
     }
 
-    /** The shader's lights as radial gradients, and its edge as a few strokes fading from the leading side */
+    /** The shader's lights as radial gradients, and its edge as a few strokes fading from either side */
     private class GradientRenderer : Renderer {
         private val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -215,7 +273,6 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
         private var edgeShader: LinearGradient? = null
         private var shaderTint = 0
         private var edgeWidth = 0f
-        private var edgeLeading = -1f
 
         override fun draw(canvas: Canvas, frame: Frame) {
             val dp = frame.density
@@ -225,26 +282,26 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
             drawLight(
                 canvas,
                 light,
-                frame.fromLeading(0.35f + 0.25f * sin(time * 0.55f)),
-                frame.height,
+                frame.width * wander(time, 0.55f, 0f, 1.31f, 1.7f),
+                frame.height * (0.9f + 0.1f * sin(time * 0.83f + 0.4f)),
                 BOTTOM_LIGHT_SIGMA * dp,
                 BOTTOM_LIGHT_STRENGTH * frame.opacity
             )
             drawLight(
                 canvas,
                 light,
-                frame.fromLeading(0.575f + 0.325f * sin(time * 0.37f + 2f)),
-                frame.height * (0.725f + 0.275f * sin(time * 0.8f)),
+                frame.width * wander(time, 0.37f, 2f, 0.97f, 4.1f),
+                frame.height * (0.6f + 0.3f * sin(time * 0.8f)),
                 DRIFT_LIGHT_SIGMA * dp,
                 DRIFT_LIGHT_STRENGTH * frame.opacity
             )
             drawLight(
                 canvas,
                 light,
-                frame.fromLeading(0f),
-                frame.height * (0.65f + 0.35f * sin(time * 0.45f + 1f)),
-                SIDE_LIGHT_SIGMA * dp,
-                SIDE_LIGHT_STRENGTH * frame.opacity
+                frame.width * wander(time, 0.45f, 4.2f, 1.13f, 0.6f),
+                frame.height * (0.65f + 0.35f * sin(time * 0.61f + 1f)),
+                STRAY_LIGHT_SIGMA * dp,
+                STRAY_LIGHT_STRENGTH * frame.opacity
             )
             edgePaint.shader = obtainEdgeShader(frame)
             val radius = min(FIELD_RADIUS * dp, frame.height / 2f)
@@ -258,8 +315,14 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
             }
         }
 
-        // A share of the width from the leading side, in px
-        private fun Frame.fromLeading(fraction: Float) = abs(leading - fraction) * width
+        // A share of the width that wanders over all of it, as the shader's wander does
+        private fun wander(
+            time: Float,
+            first: Float,
+            firstPhase: Float,
+            second: Float,
+            secondPhase: Float
+        ) = 0.5f + 0.28f * sin(time * first + firstPhase) + 0.17f * sin(time * second + secondPhase)
 
         private fun drawLight(
             canvas: Canvas,
@@ -292,24 +355,21 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
         }
 
         private fun obtainEdgeShader(frame: Frame): LinearGradient {
-            edgeShader?.takeIf { edgeWidth == frame.width && edgeLeading == frame.leading }
-                ?.let { return it }
-            val strong = frame.tint
-            val weakAlpha = (TRAILING_EDGE * MAX_CHANNEL).toInt()
-            val weak = ColorUtils.setAlphaComponent(frame.tint, weakAlpha)
-            val from = frame.leading * frame.width
+            edgeShader?.takeIf { edgeWidth == frame.width }?.let { return it }
+            val side = ColorUtils.setAlphaComponent(frame.tint, (SIDE_EDGE * MAX_CHANNEL).toInt())
+            val middleAlpha = (MIDDLE_EDGE * MAX_CHANNEL).toInt()
+            val middle = ColorUtils.setAlphaComponent(frame.tint, middleAlpha)
             return LinearGradient(
-                from,
                 0f,
-                frame.width - from,
                 0f,
-                intArrayOf(strong, weak, weak),
-                floatArrayOf(0f, LEADING_EDGE_SPAN, 1f),
+                frame.width,
+                0f,
+                intArrayOf(side, middle, middle, side),
+                floatArrayOf(0f, SIDE_EDGE_SPAN, 1f - SIDE_EDGE_SPAN, 1f),
                 Shader.TileMode.CLAMP
             ).also {
                 edgeShader = it
                 edgeWidth = frame.width
-                edgeLeading = frame.leading
             }
         }
     }
@@ -387,6 +447,9 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
         // The lights inside move at twice the pace of the reference shader, the rim at its own
         const val LIGHTS_SPEED = 2f
 
+        // The motion's swings don't repeat within this many seconds, so a start picked in it is as good as any
+        const val MAX_TIME_OFFSET = 1000f
+
         // Without a shader: the rim's core and its bloom, whose strokes reach 18 dp out, within the view's margin
         const val RIM_CORE_WIDTH = 1.4f
         val RIM_BLOOM_WIDTHS = floatArrayOf(4f, 10f, 20f, 36f)
@@ -396,6 +459,10 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
 
         // How the rim's lit stretches run round it, in turns per second of the glow's time
         const val RIM_TURN_RATE = 0.2f
+
+        // The loop in dp whose shares the shader's stretches start at
+        const val RIM_START_LOOP = 800f
+        const val HALF_PI = (Math.PI / 2).toFloat()
         const val FULL_TURN = 360f
 
         // Without a shader: the rim between its lit stretches, and where they lie round it
@@ -406,18 +473,20 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
         const val FIELD_RADIUS = 24f
         const val BOTTOM_LIGHT_SIGMA = 28f
         const val DRIFT_LIGHT_SIGMA = 40f
-        const val SIDE_LIGHT_SIGMA = 22f
+        const val STRAY_LIGHT_SIGMA = 26f
         val EDGE_INSETS = floatArrayOf(1f, 3.5f, 7f)
         val EDGE_WIDTHS = floatArrayOf(2f, 3f, 4f)
 
         val EDGE_ALPHAS = floatArrayOf(0.25f, 0.125f, 0.05f)
         const val BOTTOM_LIGHT_STRENGTH = 0.225f
         const val DRIFT_LIGHT_STRENGTH = 0.11f
-        const val SIDE_LIGHT_STRENGTH = 0.175f
+        const val STRAY_LIGHT_STRENGTH = 0.175f
 
-        // The edge fades from the leading side over this share of the width, to this strength
-        const val LEADING_EDGE_SPAN = 0.3f
-        const val TRAILING_EDGE = 0.35f
+        // The edge fades from either side over this share of the width, from the first strength to the second: the
+        // two sides share the light one alone would have
+        const val SIDE_EDGE_SPAN = 0.3f
+        const val SIDE_EDGE = 0.7f
+        const val MIDDLE_EDGE = 0.35f
 
         // A gaussian drawn out to 2.5 sigma
         const val LIGHT_REACH = 2.5f
@@ -431,7 +500,6 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
             uniform float radius;
             uniform float time;
             uniform float opacity;
-            uniform float leading;
             uniform float3 tint;
 
             float roundedRectDistance(float2 p, float2 halfSize, float r) {
@@ -445,38 +513,47 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
                 return exp(-dot(d, d) / (2.0 * sigma * sigma));
             }
 
-            // A share of the width from the leading side, in dp
-            float fromLeading(float fraction) {
-                return abs(leading - fraction) * size.x;
+            // How near x lies to either side, the light along the edge reaching reach dp in from each
+            float nearSide(float x, float reach) {
+                return exp(-max(min(x, size.x - x), 0.0) / reach);
+            }
+
+            // A share of the width that wanders over all of it along two slow swings that never quite repeat
+            float wander(float first, float firstPhase, float second, float secondPhase) {
+                return 0.5 + 0.28 * sin(time * first + firstPhase) +
+                    0.17 * sin(time * second + secondPhase);
             }
 
             half4 main(float2 position) {
                 float2 xy = position / density - margin;
                 float2 halfSize = size * 0.5;
                 float inset = max(-roundedRectDistance(xy - halfSize, halfSize, radius), 0.0);
-                float leadingDistance = abs(xy.x / size.x - leading) * size.x;
                 float down = xy.y / size.y;
                 float edgeBand = exp(-inset / 5.0);
-                float nearLeading = exp(-leadingDistance / 50.0);
+                float sides = nearSide(xy.x, 50.0);
 
-                // One light drifts along the bottom, one through the field and one up and down
-                // the leading side
-                float2 bottomCentre = float2(fromLeading(0.35 + 0.25 * sin(time * 0.55)), size.y);
-                float2 driftCentre = float2(
-                    fromLeading(0.575 + 0.325 * sin(time * 0.37 + 2.0)),
-                    size.y * (0.725 + 0.275 * sin(time * 0.8))
+                // Three lights wander over the field, one low along the bottom and two through it,
+                // so neither side is favoured
+                float2 bottomCentre = float2(
+                    size.x * wander(0.55, 0.0, 1.31, 1.7),
+                    size.y * (0.9 + 0.1 * sin(time * 0.83 + 0.4))
                 );
-                float2 sideCentre = float2(
-                    fromLeading(0.0),
-                    size.y * (0.65 + 0.35 * sin(time * 0.45 + 1.0))
+                float2 driftCentre = float2(
+                    size.x * wander(0.37, 2.0, 0.97, 4.1),
+                    size.y * (0.6 + 0.3 * sin(time * 0.8))
+                );
+                float2 strayCentre = float2(
+                    size.x * wander(0.45, 4.2, 1.13, 0.6),
+                    size.y * (0.65 + 0.35 * sin(time * 0.61 + 1.0))
                 );
                 float bottomLight = glowLight(xy, bottomCentre, 28.0);
                 float driftLight = glowLight(xy, driftCentre, 40.0);
-                float sideLight = glowLight(xy, sideCentre, 22.0);
-                float haze = 0.3 * exp(-(size.y - xy.y) / 22.0) * (0.5 + 0.5 * nearLeading);
-                float glow = edgeBand * (0.35 + 1.1 * nearLeading + 0.6 * down) *
-                    (0.7 + 0.9 * bottomLight + 0.5 * driftLight + 0.6 * sideLight) +
-                    0.45 * bottomLight + 0.25 * driftLight + 0.35 * sideLight + haze;
+                float strayLight = glowLight(xy, strayCentre, 26.0);
+                // Each side is lit half as much, so the two together light the field as one alone would
+                float haze = 0.3 * exp(-(size.y - xy.y) / 22.0) * (0.5 + 0.25 * sides);
+                float glow = edgeBand * (0.35 + 0.55 * sides + 0.6 * down) *
+                    (0.7 + 0.9 * bottomLight + 0.5 * driftLight + 0.6 * strayLight) +
+                    0.45 * bottomLight + 0.25 * driftLight + 0.35 * strayLight + haze;
                 // Half the strength of the reference shader
                 float alpha = clamp(glow * 0.275, 0.0, 0.46) * opacity;
                 // The brightest light whitens
@@ -492,8 +569,9 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
             uniform float radius;
             uniform float time;
             uniform float opacity;
-            uniform float leading;
             uniform float3 tint;
+            // Where the rim's three bright stretches stand, as shares of its loop
+            uniform float3 rimPhases;
 
             const float PI = 3.14159265;
             const float HALF_PI = 1.57079633;
@@ -567,12 +645,17 @@ internal class AgentFieldGlowView(context: Context, private val isRim: Boolean =
                 float along = rimAlong(local, halfSize, radius, total);
 
                 float down = clamp(xy.y / size.y, 0.0, 1.0);
-                float across = clamp(xy.x / size.x, 0.0, 1.0);
-                float nearLeading = exp(-abs(across - leading) * size.x / 90.0);
-                float base = 0.15 + 0.45 * down + 0.6 * nearLeading;
-                float spots = rimSpot(along, time * 140.0, total, 60.0) +
-                    0.8 * rimSpot(along, total * 0.45 - time * 95.0, total, 48.0) +
-                    0.6 * rimSpot(along, total * 0.7 + time * 60.0, total, 70.0);
+                float sides = exp(-max(min(xy.x, size.x - xy.x), 0.0) / 90.0);
+                float base = 0.15 + 0.45 * down + 0.3 * sides;
+                // The stretches run both ways round the rim, each at a pace that rises and falls, so
+                // they meet and part anywhere. They stand at shares of the loop, which a field that
+                // grows or shrinks carries along with it.
+                float first = fract(rimPhases.x) * total;
+                float second = fract(rimPhases.y) * total;
+                float third = fract(rimPhases.z) * total;
+                float spots = rimSpot(along, first, total, 60.0) +
+                    0.8 * rimSpot(along, second, total, 48.0) +
+                    0.6 * rimSpot(along, third, total, 70.0);
                 float intensity = base * (0.3 + 1.2 * spots);
 
                 float core = exp(-edgeDistance * edgeDistance / (2.0 * 0.6 * 0.6));

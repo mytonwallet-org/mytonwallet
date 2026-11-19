@@ -64,10 +64,10 @@ struct AgentSentMessageSource {
 
 /// Telegram iOS's send transition, after its `ChatMessageTransitionNode`: the sent question's bubble comes out of the
 /// field. The text moves from the field into the bubble, which grows around it, and the text's picture flies with the
-/// bubble and fades into it on Telegram's 0.4 s curve.
+/// bubble and fades into it on Telegram's curve, over the 0.25 s Android's and the web's send transitions take.
 @MainActor
 enum AgentSentMessageMorph {
-    static let duration: TimeInterval = 0.4
+    static let duration: TimeInterval = 0.25
     /// A question of more lines in its bubble is sent without the flight, its bubble showing in its place, as Telegram
     /// Android leaves a longer message, and as Android and the web do here
     static let maxLineCount = 10

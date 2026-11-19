@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.json.JSONObject
+import org.junit.After
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -45,10 +46,17 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSupport
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadUpdate
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
 class AgentThreadListModelTest {
+    @After
+    fun resetSupportConfig() {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig())
+    }
+
     @Test
     fun labelsAChatWithSupportBrightWithAnOperatorAndMutedWhileItWaits() {
         assertEquals(
@@ -65,6 +73,7 @@ class AgentThreadListModelTest {
 
     @Test
     fun starterHintsStayForOneVisibleStateAndKeepTheirTapAttribution() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val response = CompletableDeferred<AgentV2HintsResponse>()
         val client = FakeClient().apply { onStarterHints = { _, _ -> response.await() } }
         val model = makeModel(client)
@@ -117,6 +126,7 @@ class AgentThreadListModelTest {
 
     @Test
     fun unknownStarterHintsAndFailedLoadsKeepContactSupport() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient().apply {
             onStarterHints = { _, _ ->
                 AgentV2HintsResponse(
@@ -139,6 +149,41 @@ class AgentThreadListModelTest {
         assertTrue(model.starterHints.isEmpty())
         assertEquals(listOf(AGENT_SUPPORT_HINT_ID), model.shownStarterHints.map { it.id })
         assertEquals(2, client.starterHintsCalls.size)
+    }
+
+    @Test
+    fun visibleStarterHintsFollowSupportConfigAndDisappearWhenNothingElseRemains() = runBlocking {
+        for (hints in listOf(
+            listOf(AgentV2StarterHint("agent.capabilities", "learn")),
+            emptyList()
+        )) {
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            val client = FakeClient().apply {
+                onStarterHints = { _, _ -> AgentV2HintsResponse("agent-starter-hints-v2", hints) }
+            }
+            val model = makeModel(client)
+            model.updateStarterHintsVisibility(true)
+            val expectedIds = if (hints.isEmpty()) emptyList() else listOf("agent.capabilities")
+            assertEquals(expectedIds, model.shownStarterHints.map { it.id })
+            model.requestSupportThread { error("Hidden support must not open a chat") }
+            assertTrue(client.listCalls.isEmpty())
+
+            val shown = mutableListOf<List<String>>()
+            model.onStarterHintsChange = { shown += model.shownStarterHints.map { it.id } }
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
+            model.updateSupportVisibility()
+            assertEquals(listOf(expectedIds + AGENT_SUPPORT_HINT_ID), shown)
+
+            model.updateSupportVisibility()
+            model.updateSupportVisibility()
+            assertEquals(1, shown.size)
+
+            ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = false))
+            model.updateSupportVisibility()
+            assertEquals(expectedIds, shown.last())
+            assertEquals(1, client.starterHintsCalls.size)
+            model.reset()
+        }
     }
 
     @Test
@@ -328,7 +373,7 @@ class AgentThreadListModelTest {
     }
 
     @Test
-    fun cachedChatsShowOnlyBeforeTheirPageEndsAndWhileTheLoadIsCurrent() = runBlocking {
+    fun cachedChatsShowBeforeTheirPageLoadsOrAfterItFailsWhileTheLoadIsCurrent() = runBlocking {
         // The page ends first, as it loads or fails, or the list starts over
         val endings = listOf<
             Pair<
@@ -354,10 +399,14 @@ class AgentThreadListModelTest {
             model.refresh()
 
             end(page, model)
+            assertFalse(case, model.hasLoadFailed)
             cache.complete(listOf(item("cached")))
 
-            assertTrue(case, model.items.isEmpty())
-            assertEquals(case, case == "failed", model.hasLoadFailed)
+            // A page that failed, as without a network, waits for the copy, which shows in place of the failure
+            val shown = if (case == "failed") listOf("cached") else emptyList()
+            assertEquals(case, shown, model.items.map { it.thread.id })
+            assertFalse(case, model.hasLoadFailed)
+            assertTrue(case, case == "reset" || model.hasReadCachedThreads)
         }
 
         // A missing, empty or unreadable copy leaves the placeholder and the failure as they are
@@ -376,6 +425,7 @@ class AgentThreadListModelTest {
             model.refresh()
 
             assertFalse(model.hasLoaded)
+            assertTrue(model.hasReadCachedThreads)
 
             page.completeExceptionally(IllegalStateException("Offline"))
 
@@ -1027,6 +1077,7 @@ class AgentThreadListModelTest {
 
     @Test
     fun contactSupportWaitsForTheServerChatsAndOpensTheLatestOneSupportHas() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val page = CompletableDeferred<AgentV2ThreadListResponse>()
         val client = FakeClient().apply {
             onCached = { listOf(supportItem("cached", "operator")) }
@@ -1062,6 +1113,7 @@ class AgentThreadListModelTest {
 
     @Test
     fun contactSupportIsDroppedWhenTheChatsFailToLoad() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val client = FakeClient().apply { onList = { error("Unavailable") } }
         val model = makeModel(client)
         val opened = mutableListOf<AgentV2ThreadSummary?>()
@@ -1075,6 +1127,7 @@ class AgentThreadListModelTest {
 
     @Test
     fun contactSupportNeverChoosesFromTheCachedChatsAPageFailedBehind() = runBlocking {
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(isAgentSupportEnabled = true))
         val page = CompletableDeferred<AgentV2ThreadListResponse>()
         val client = FakeClient().apply {
             onCached = { listOf(supportItem("cached", "operator")) }

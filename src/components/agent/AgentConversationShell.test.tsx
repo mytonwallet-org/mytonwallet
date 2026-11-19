@@ -1336,14 +1336,16 @@ describe('AgentConversationShell', () => {
       expect(bubble.style.opacity).toBe('0');
       expect(fieldText?.style.transform).toMatch(/^translate\(/);
       expect(animations.some(({ element }) => element === bubble)).toBe(false);
-      // The bubble takes the flight's place as it lands
+      // The list stands still while the question lands, and as its answer comes meanwhile
+      expect(geometry.scrollTop).toBe(0);
+      renderFlightShell([MESSAGE, SECOND_MESSAGE, question, answer]);
+      await flushUi(4);
+      expect(geometry.scrollTop).toBe(0);
+      // The bubble takes the flight's place as it lands, and the list takes the question up a moment after
       await flushUi();
       expect(bubble.style.opacity).toBe('');
       expect(findFieldTextPicture()).toBeUndefined();
-      // The list stands still while the question lands, and as its answer comes, and takes it up a moment after
-      expect(geometry.scrollTop).toBe(0);
-      renderFlightShell([MESSAGE, SECOND_MESSAGE, question, answer]);
-      await flushUi();
+      expect(geometry.scrollTop).toBeGreaterThan(0);
       await flushUi();
       await flushUi();
       expect(geometry.scrollTop).toBe(600);
@@ -2524,10 +2526,20 @@ describe('AgentConversationShell', () => {
       expect(getTranslateY(goingRow)).toBe(0);
       expect(goingRow.style.translate || '').toBe('');
 
-      // The next question goes, and the activity that comes in under it moves the question still waiting down
-      Object.assign(tops, { activity: 150, 4: 200, end: 240 });
+      // The next question goes, and the activity comes in under it a moment after, as on iOS and Android, moving the
+      // question still waiting down
+      const hasActivity = () => Boolean(root.querySelector('[data-agent-run-activity]'));
+      Object.defineProperties(tops, {
+        activity: { value: 150, configurable: true },
+        4: { get: () => (hasActivity() ? 200 : 150), configurable: true },
+        end: { get: () => (hasActivity() ? 240 : 190), configurable: true },
+      });
       render({ queuedMessageCount: 1, sentQueuedMessage: { id: 3 }, hasActivity: true });
       await flushFrame();
+      expect(hasActivity()).toBe(false);
+      for (let frame = 0; frame < 20 && !hasActivity(); frame++) {
+        await flushFrame();
+      }
       const activityRow = root.querySelector<HTMLElement>('[data-agent-run-activity]')!;
       expect(activityRow.previousElementSibling).toBe(goingRow);
       expect(getTranslateY(waitingRow)).toBe(-50);

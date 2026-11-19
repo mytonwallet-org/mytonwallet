@@ -1,6 +1,6 @@
 import XCTest
 import UIKit
-import UIComponents
+@testable import UIComponents
 import WalletCore
 @testable import UIAgent
 
@@ -116,7 +116,7 @@ final class AgentStreamingTextTests: XCTestCase {
         let phases: [CGFloat] = [0, 0.25, 0.5, 0.75, 0.999]
         for isRightToLeft in [false, true] {
             let offsets = phases.map {
-                AgentGradientLabel.getSweepOffset(phase: $0, width: width, isRightToLeft: isRightToLeft)
+                AnimatedGradientLabel.getSweepOffset(phase: $0, width: width, isRightToLeft: isRightToLeft)
             }
             for (offset, next) in zip(offsets, offsets.dropFirst()) {
                 if isRightToLeft {
@@ -131,8 +131,8 @@ final class AgentStreamingTextTests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(offset + width * 4, width)
             }
             // A full sweep moves by one tile, so the loop has no seam
-            let start = AgentGradientLabel.getSweepOffset(phase: 0, width: width, isRightToLeft: isRightToLeft)
-            let end = AgentGradientLabel.getSweepOffset(phase: 1, width: width, isRightToLeft: isRightToLeft)
+            let start = AnimatedGradientLabel.getSweepOffset(phase: 0, width: width, isRightToLeft: isRightToLeft)
+            let end = AnimatedGradientLabel.getSweepOffset(phase: 1, width: width, isRightToLeft: isRightToLeft)
             XCTAssertEqual(abs(end - start), width * 2, accuracy: 0.001)
         }
     }
@@ -141,10 +141,10 @@ final class AgentStreamingTextTests: XCTestCase {
     /// 0.75 s, and the text shows only its gradient before and after it
     func testStatusGlintCrossesTheText() throws {
         let width: CGFloat = 160
-        let halfWidth = AgentGradientLabel.glintHalfWidth
+        let halfWidth = AnimatedGradientLabel.glintHalfWidth
         for isRightToLeft in [false, true] {
             func getCentre(_ time: CFTimeInterval) -> CGFloat? {
-                AgentGradientLabel.getGlintCentre(time: time, width: width, isRightToLeft: isRightToLeft)
+                AnimatedGradientLabel.getGlintCentre(time: time, width: width, isRightToLeft: isRightToLeft)
             }
             let start = try XCTUnwrap(getCentre(0))
             let middle = try XCTUnwrap(getCentre(0.375))
@@ -160,7 +160,7 @@ final class AgentStreamingTextTests: XCTestCase {
     /// The glint plays once each time the status changes: as "Analyzing the request…" appears, and once more after it
     /// turns into another step, as the new text comes into focus. Nothing repeats while a status stays.
     func testStatusGlintPlaysOnceForEachStatus() {
-        let label = AgentGradientLabel()
+        let label = AnimatedGradientLabel()
         XCTAssertNil(label.glintTime)
         func playThrough() -> Int {
             var glintFrames = 0
@@ -172,7 +172,7 @@ final class AgentStreamingTextTests: XCTestCase {
         }
 
         label.setText("Analyzing the request…", animated: false)
-        XCTAssertEqual(label.glintTime, -AgentGradientLabel.glintDelay, "It waits for the text to come into focus")
+        XCTAssertEqual(label.glintTime, -AnimatedGradientLabel.glintDelay, "It waits for the text to come into focus")
         XCTAssertGreaterThan(playThrough(), 0, "One glint as the status appears")
         XCTAssertNil(label.glintTime, "Then none")
         XCTAssertEqual(playThrough(), 0, "Nothing repeats while the status stays")

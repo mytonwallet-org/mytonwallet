@@ -135,15 +135,9 @@ public final class UpdateStatusView: UIStackView {
                 return
             }
 
-            let animator = UIViewPropertyAnimator(duration: d, curve: .easeInOut) {
-                self.transform = CGAffineTransform(translationX: 0, y: -12)
-                self.alpha = 0
-            }
-            currentAnimator = animator
-            animator.addCompletion { [weak self] _ in
+            currentAnimator = TitleReplaceMotion.hide(self, duration: d) { [weak self] in
                 self?.animationCompletionHandler?()
             }
-            animator.startAnimation()
         } else {
             animationCompletionHandler = nil
             currentAnimator?.stopAnimation(true)
@@ -170,14 +164,6 @@ public final class UpdateStatusView: UIStackView {
     
     private func setText(_ text: String, animatedWithDuration: TimeInterval?) {
         statusLabel.text = text
-        transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
-        UIViewPropertyAnimator.runningPropertyAnimator(withDuration: animatedWithDuration ?? 0,
-                                                       delay: 0,
-                                                       options: [],
-                                                       animations: { [weak self] in
-            guard let self else { return }
-            alpha = 1
-            transform = .identity
-        })
+        TitleReplaceMotion.show(self, duration: animatedWithDuration ?? 0)
     }
 }

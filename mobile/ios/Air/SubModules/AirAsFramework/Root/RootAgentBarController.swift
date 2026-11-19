@@ -343,6 +343,7 @@ final class RootAgentBarController {
                 applySearchCircleFlight(1)
             }
             handoffTarget?.setComposerHandoffHidden(false)
+            bar.setHandoffTarget(nil)
             // A question sent or cleared during the transition moves the circle and the field once it ends
             if isRootShown { updateQuestionLayout() }
         }
@@ -364,6 +365,8 @@ final class RootAgentBarController {
             return
         }
         isNavigationHandoffActive = handoffTarget != nil
+        // The field shows Stop where the chat's composer it stands in for shows it
+        bar.setHandoffTarget(handoffTarget)
         bar.isHidden = false
         if isShowingRoot {
             bar.setExpansion(handoffTarget == nil ? restingExpansion : 1)
@@ -398,7 +401,9 @@ final class RootAgentBarController {
             guard let self, let bar else { return }
             bar.setExpansion(expansion)
             bar.layoutIfNeeded()
-            applySearchCircleFlight(dissolve)
+            // Out of sight the circle keeps its glass until the handoff ends: without it the toolbar's glass draws the
+            // field's microphone lighter
+            applySearchCircleFlight(dissolve, keepsGlass: true)
         }
         handoffMotion = motion
         var isRootShownAfterTransition: Bool?
