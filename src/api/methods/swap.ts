@@ -8,6 +8,7 @@ import type {
   ApiSwapAsset,
   ApiSwapBuildTransactionRequest,
   ApiSwapBuildTransactionResponse,
+  ApiSwapCexBuildRequest,
   ApiSwapCexLabel,
   ApiSwapDexEstimateResponse,
   ApiSwapEstimateRequest,
@@ -407,7 +408,7 @@ async function quoteSwapDiesel(
 
 export async function swapBuild(
   authToken: string,
-  request: ApiSwapBuildTransactionRequest,
+  request: Omit<ApiSwapBuildTransactionRequest, 'fromAddress'> & { fromAddress?: string },
 ): Promise<ApiSwapBuildTransactionResponse> {
   const { swapVersion } = await getBackendConfigCache();
 
@@ -459,14 +460,23 @@ export function swapCexValidateAddress(params: { slug: string; address: string; 
 export async function swapCexCreateTransaction(
   accountId: string,
   enclaveToken: string,
-  request: ApiSwapBuildTransactionRequest,
+  request: ApiSwapCexBuildRequest,
 ): Promise<{
     swap: ApiSwapHistoryItem;
     activity: ApiSwapActivity;
   }> {
-  const authToken = await getBackendAuthToken(accountId, enclaveToken);
+  const { fromChain, ...buildRequest } = request;
+  const { byChain } = await fetchStoredAccount(accountId);
+  const fromAddress = getIsSupportedChain(fromChain) ? byChain[fromChain]?.address : undefined;
+  const historyAddress = byChain.ton?.address;
+  if (!historyAddress) {
+    throw new Error('Missing TON history address for swap');
+  }
 
-  const buildResponse = await swapBuild(authToken, request);
+  const authToken = await getBackendAuthToken(accountId, enclaveToken);
+  const buildResponse = await swapBuild(
+    authToken, { ...buildRequest, historyAddress, ...(fromAddress && { fromAddress }) },
+  );
 
   if (buildResponse.route !== 'cex') {
     throw new Error('Unexpected non-CEX response for swapCexCreateTransaction');

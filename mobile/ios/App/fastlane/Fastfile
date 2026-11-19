@@ -266,18 +266,40 @@ end
 
 APP_REVIEW_NOTES_LIMIT = 4000
 
-def review_notes_with_appendix(notes, appendix)
+def review_notes_with_appendix(notes, appendix, marker = appendix)
   squash = ->(text) { text.to_s.gsub(/\s+/, ' ').strip }
-  return nil if squash.(notes).include?(squash.(appendix))
+  return nil if squash.(notes).include?(squash.(marker))
 
   [notes.to_s.rstrip, appendix.strip].reject(&:empty?).join("\n\n----\n\n")
 end
 
-# The appendix is added to whatever App Store Connect holds rather than replacing it: the notes
+# App Review asks for the index of the catalog with every submission (Guideline 4.7.4), so its
+# link is written by the lane rather than kept in the notes by hand.
+def review_notes_appendices
+  required = env_value('IOS_REVIEW_NOTES_APPENDIX').to_s.strip
+  index_url = env_value('IOS_REVIEW_CATALOG_INDEX_URL').to_s.strip
+  index = "EXPLORE CATALOG INDEX\n\nAn up-to-date index of the sites and games listed in Explore:\n#{index_url}"
+
+  # Each appendix is paired with the text that marks it as present: for the index that is the
+  # link alone, so notes naming it in other words gain no second block.
+  [[required, required], [index, index_url]].reject { |_text, marker| marker.empty? }
+end
+
+def review_notes_with_appendices(notes, appendices)
+  added = false
+  result = appendices.reduce(notes) do |held, (text, marker)|
+    extended = review_notes_with_appendix(held, text, marker)
+    added ||= !extended.nil?
+    extended || held
+  end
+  added ? result : nil
+end
+
+# The appendices are added to whatever App Store Connect holds rather than replacing it: the notes
 # also carry the reviewers' test wallet, which lives only there.
 def append_review_notes!(version)
-  appendix = env_value('IOS_REVIEW_NOTES_APPENDIX')
-  return if appendix.nil? || appendix.strip.empty?
+  appendices = review_notes_appendices
+  return if appendices.empty?
 
   app = Spaceship::ConnectAPI::App.find($app_identifier)
   edit_version = app&.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
@@ -286,7 +308,7 @@ def append_review_notes!(version)
   end
 
   detail = edit_version.fetch_app_store_review_detail
-  notes = review_notes_with_appendix(detail&.notes, appendix)
+  notes = review_notes_with_appendices(detail&.notes, appendices)
   return UI.message('App Review notes already hold the required text') if notes.nil?
 
   UI.user_error!("App Review notes would grow to #{notes.length} characters, over #{APP_REVIEW_NOTES_LIMIT}") if notes.length > APP_REVIEW_NOTES_LIMIT
@@ -308,9 +330,9 @@ def review_attachment_path
   File.expand_path(path)
 end
 
-def find_review_materials_gaps(notes:, attachment_names:, appendix:, attachment_name:)
+def find_review_materials_gaps(notes:, attachment_names:, appendices:, attachment_name:)
   gaps = []
-  gaps << 'the notes lack the required text' if appendix && review_notes_with_appendix(notes, appendix)
+  gaps << 'the notes lack the required text' if review_notes_with_appendices(notes, appendices)
   gaps << "the attachment #{attachment_name} is missing" if attachment_name && !attachment_names.include?(attachment_name)
   gaps
 end
@@ -318,10 +340,9 @@ end
 # The `deliver` action uploads the attachment and submits in one call, so what App Review received
 # is known only by reading the submitted version back
 def verify_review_materials!(version, attempts: 3, pause: 10)
-  appendix = env_value('IOS_REVIEW_NOTES_APPENDIX')
-  appendix = nil if appendix && appendix.strip.empty?
+  appendices = review_notes_appendices
   attachment_path = review_attachment_path
-  return if appendix.nil? && attachment_path.nil?
+  return if appendices.empty? && attachment_path.nil?
 
   app = Spaceship::ConnectAPI::App.find($app_identifier)
   filter = { versionString: version, platform: Spaceship::ConnectAPI::Platform::IOS }
@@ -335,7 +356,7 @@ def verify_review_materials!(version, attempts: 3, pause: 10)
     gaps = find_review_materials_gaps(
       notes: detail&.notes,
       attachment_names: Array(detail&.app_store_review_attachments).map(&:file_name),
-      appendix: appendix,
+      appendices: appendices,
       attachment_name: attachment_path && File.basename(attachment_path)
     )
     break if gaps.empty?

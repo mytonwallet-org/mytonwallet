@@ -74,8 +74,7 @@ data class SwapEstimateRequest private constructor(
         get() = MApiSwapEstimateRequest(
             from = tokenToSend.swapSlug,
             to = tokenToReceive.swapSlug,
-            fromAddress = tokenToSend.mBlockchain?.name?.let { wallet.addressByChain[it] }
-                ?: wallet.tonAddress,
+            fromAddress = wallet.addressByChain[tokenToSendChain.name],
             fromAmount = if (!reverse) {
                 CoinUtils.toBigDecimal(
                     amount,

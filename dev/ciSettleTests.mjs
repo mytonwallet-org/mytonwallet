@@ -132,19 +132,22 @@ test('Simple tests run after a failed or skipped wait and skip only a confirmed 
   const match = workflow.match(/^  test:\n[\s\S]*?^    if: >-\n((?:^      .*\n)+)/m);
   assert.ok(match, 'Simple tests condition exists');
   const condition = match[1].trim().replace(/^\$\{\{|\}\}$/g, '')
-    // Job names with dashes are valid in Actions expressions but not in JavaScript
-    .replace(/needs\.([\w-]+)/g, "needs['$1']");
-  for (const [result, current, shouldRun] of [
-    ['failure', '', true], ['skipped', '', true], ['success', 'true', true], ['success', 'false', false], ['success', '', false],
+    // Names with dashes are valid in Actions expressions but not in JavaScript
+    .replace(/needs\.([\w-]+)/g, "needs['$1']")
+    .replace(/\.([A-Za-z_]\w*-[\w-]+)/g, "['$1']");
+  for (const [result, current, simpleTests, shouldRun] of [
+    ['failure', '', 'true', true], ['skipped', '', 'true', true], ['success', 'true', 'true', true],
+    ['success', 'false', 'true', false], ['success', '', 'true', false], ['skipped', '', 'false', false],
+    ['skipped', '', '', true],
   ]) {
     const isRun = runInNewContext(condition, {
       cancelled() { return false; },
       needs: {
-        'detect-changes': { outputs: { web: 'true' } },
+        'detect-changes': { outputs: { 'simple-tests': simpleTests } },
         'settle-simple-tests': { result, outputs: { current } },
       },
     });
-    assert.equal(isRun, shouldRun, `Wait result: ${result}, current: ${current}`);
+    assert.equal(isRun, shouldRun, `Wait result: ${result}, current: ${current}, simple-tests: ${simpleTests}`);
   }
 });
 

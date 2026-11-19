@@ -1207,6 +1207,8 @@ export type GlobalState = {
     needsBatch?: boolean;
     routes?: ApiSwapRoute[][];
     currentCexLabel?: ApiSwapCexLabel;
+    /** The order is built with the slippage its quote was priced with, absent when the quote had none */
+    currentCexQuoteSlippage?: number;
     currentCexProviderName?: string;
     currentCexTermsOfUseUrl?: string;
     currentCexPrivacyPolicyUrl?: string;

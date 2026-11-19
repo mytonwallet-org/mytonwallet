@@ -485,6 +485,35 @@ describe('estimateSwap', () => {
     expect(result).toMatchObject({ errorType });
   });
 
+  it('remembers the slippage a cross-chain quote inside the wallet was priced with', async () => {
+    setGlobal(updateCurrentSwap(getGlobal(), { slippage: 3.5 }));
+    mockApi(undefined);
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({ slippage: 3.5 }));
+    expect(result).toMatchObject({ route: 'cex', currentCexQuoteSlippage: 3.5 });
+  });
+
+  it('remembers that a quote to an external address was priced without slippage', async () => {
+    const global = getGlobal();
+    setGlobal(updateCurrentSwap({
+      ...global,
+      accounts: {
+        ...global.accounts,
+        byId: { [ACCOUNT_ID]: { ...global.accounts!.byId[ACCOUNT_ID], byChain: { base: { address: '0x1' } } } },
+      },
+    }, { slippage: 3.5, toAddress: 'So1external' }));
+    mockApi(undefined);
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect((callApi as jest.Mock).mock.calls.find(([method]) => method === 'swapEstimate')![2])
+      .not.toHaveProperty('slippage');
+    expect(result).toMatchObject({ route: 'cex' });
+    expect(result).toHaveProperty('currentCexQuoteSlippage', undefined);
+  });
+
   it('calls a quote unexpected only when no answer came back', async () => {
     (callApi as jest.Mock).mockResolvedValue(undefined);
 
@@ -1126,6 +1155,31 @@ describe('submitSwapCex', () => {
 
     expect(getGlobal().currentSwap).toMatchObject({ state: SwapState.Password, isLoading: undefined });
     expect(showError).toHaveBeenCalled();
+  });
+
+  it('builds an exchange order with the slippage its quote was priced with', async () => {
+    setGlobal(updateCurrentSwap(getGlobal(), { slippage: 5, currentCexQuoteSlippage: 3.5 }));
+    mockCexSubmitResult({ swapId: SWAP_ID });
+
+    await submitSwapCex();
+
+    expect(callApi).toHaveBeenCalledWith(
+      'swapCexCreateTransaction',
+      ACCOUNT_ID,
+      ENCLAVE_TOKEN,
+      expect.objectContaining({ slippage: 3.5 }),
+    );
+  });
+
+  it('builds an exchange order without slippage when its quote was priced without one', async () => {
+    setGlobal(updateCurrentSwap(getGlobal(), { slippage: 3.5, currentCexQuoteSlippage: undefined }));
+    mockCexSubmitResult({ swapId: SWAP_ID });
+
+    await submitSwapCex();
+
+    const request = (callApi as jest.Mock).mock.calls.find(([method]) => method === 'swapCexCreateTransaction')![3];
+    expect(request).toMatchObject({ from: TON_USDT_MAINNET.tokenAddress, to: BASE.slug });
+    expect(request).not.toHaveProperty('slippage');
   });
 
   function mockCexSubmitResult(submitResult: unknown) {

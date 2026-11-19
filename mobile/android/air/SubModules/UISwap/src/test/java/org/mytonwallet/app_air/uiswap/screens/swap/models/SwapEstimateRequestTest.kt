@@ -39,13 +39,17 @@ class SwapEstimateRequestTest {
     }
 
     @Test
-    fun supportedCrossChainPairUsesUnifiedQuoteWithDestinationAddress() {
+    fun supportedCrossChainPairUsesUnifiedQuoteWithSourceAndDestinationAddresses() {
         val source = MApiSwapAsset(slug = "base", chain = "base", decimals = 18, symbol = "ETH")
         val destination =
             MApiSwapAsset(slug = "arbitrum", chain = "arbitrum", decimals = 18, symbol = "ETH")
         val wallet = SwapWalletState(
             accountId = "account",
-            addressByChain = mapOf("base" to "0xsender", "arbitrum" to "0xrecipient"),
+            addressByChain = mapOf(
+                "ton" to "ton-history",
+                "base" to "0xsender",
+                "arbitrum" to "0xrecipient"
+            ),
             balances = mapOf("base" to BigInteger("1000000000000000000")),
             assets = listOf(source, destination)
         )
@@ -60,9 +64,29 @@ class SwapEstimateRequestTest {
         )
 
         assertTrue(request.usesUnifiedQuote)
+        assertEquals("0xsender", request.estimateRequestDex.fromAddress)
         assertEquals("0xrecipient", request.estimateRequestDex.toAddress)
         assertEquals("1", request.estimateRequestDex.nativeBalance)
         assertEquals(true, request.estimateRequestDex.isFromAmountMax)
+    }
+
+    @Test
+    fun dexQuoteDoesNotUseTonAddressWhenSourceAddressIsMissing() {
+        val source = MApiSwapAsset(slug = "base", chain = "base", decimals = 18)
+        val destination = MApiSwapAsset(slug = "base-usdc", chain = "base", decimals = 6)
+        val request = requireNotNull(
+            SwapEstimateRequest.create(
+                key = "base-dex",
+                wallet = wallet.copy(addressByChain = mapOf("ton" to "ton-history")),
+                tokenToSend = source, tokenToReceive = destination,
+                nativeTokenToSend = source, nativeTokenToSendBalance = "0",
+                amount = BigInteger.ONE, slippage = 1f,
+                reverse = false, isFromAmountMax = false, prevEst = null
+            )
+        )
+
+        assertTrue(request.usesUnifiedQuote)
+        assertNull(request.estimateRequestDex.fromAddress)
     }
 
     @Test

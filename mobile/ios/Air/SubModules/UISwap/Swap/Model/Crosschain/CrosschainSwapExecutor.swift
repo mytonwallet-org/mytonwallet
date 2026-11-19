@@ -88,25 +88,11 @@ import WalletCore
         shouldTransfer: Bool,
         enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
-        guard let historyAddress = account.crosschainIdentifyingFromAddress else {
-            throw NotSubmittedError(SdkError.unexpected(message: "Missing account address"))
-        }
-        let isNearIntents = swapEstimate.cexLabel == .nearIntents
-        let fromAddress: String
-        if isNearIntents {
-            guard let sourceAddress = account.getAddress(chain: sellingToken.chain) else {
-                throw NotSubmittedError(SdkError.unexpected(message: "Missing source address"))
-            }
-            fromAddress = sourceAddress
-        } else {
-            fromAddress = historyAddress
-        }
         let networkFee = swapEstimate.realNetworkFee ?? swapEstimate.networkFee
-        let request = ApiSwapBuildRequest(
+        let request = ApiSwapCexBuildRequest(
             from: sellingToken.swapIdentifier,
             to: buyingToken.swapIdentifier,
-            fromAddress: fromAddress,
-            historyAddress: historyAddress,
+            fromChain: sellingToken.chain,
             cexLabel: swapEstimate.cexLabel,
             fromAmount: swapEstimate.fromAmount,
             toAmount: swapEstimate.toAmount,

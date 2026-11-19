@@ -107,6 +107,7 @@ class ActivityMainContentView(context: Context) :
     }
 
     private val bottomLeftLabel = WLabel(context).apply {
+        id = UIComponentsR.id.activity_row_details
         setStyle(13f, WFont.Regular)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE

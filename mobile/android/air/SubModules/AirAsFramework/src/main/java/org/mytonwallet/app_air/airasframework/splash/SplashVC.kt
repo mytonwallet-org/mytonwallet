@@ -726,6 +726,8 @@ class SplashVC(context: Context) :
     private fun handle(deeplink: Deeplink, source: DeeplinkOpenSource) {
         if (deeplink is Deeplink.E2EUnlock) {
             nextDeeplink = null
+            // Only from outside the app: not from a QR scan or the in-app browser
+            if (source != DeeplinkOpenSource.OS_EXTERNAL) return
             val next = deeplink.next
                 ?.let { DeeplinkParser.parse(it.toUri()) }
                 ?.takeIf { it !is Deeplink.E2EUnlock }

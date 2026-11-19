@@ -3,6 +3,7 @@ import type {
   ApiCheckTransactionDraftResult,
   ApiSubmitGasfullTransferOptions,
   ApiSwapBuildTransactionRequest,
+  ApiSwapCexBuildRequest,
   ApiSwapCexEstimateResponse,
   ApiSwapDexEstimateResponse,
   ApiSwapEstimateRequest,
@@ -129,6 +130,10 @@ export function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildTransact
   if (!historyAddress) {
     throw new Error('TON history address is required to build swap transaction');
   }
+  const fromAddress = getIsSupportedChain(tokenIn.chain) ? account?.byChain[tokenIn.chain]?.address : undefined;
+  if (!fromAddress) {
+    throw new Error('Source-chain address is required to build swap transaction');
+  }
   const toAddress = getIsSupportedChain(tokenOut.chain)
     ? account?.byChain[tokenOut.chain]?.address
     : global.currentSwap.toAddress;
@@ -146,7 +151,7 @@ export function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildTransact
     toMinAmount: amountOutMin!,
     swapMode: inputSource === SwapInputSource.Out ? 'exact_out' : 'exact_in',
     slippage,
-    fromAddress: account?.byChain[tokenIn.chain as ApiChain]?.address ?? historyAddress,
+    fromAddress,
     toAddress,
     historyAddress,
     shouldTryDiesel: shouldSwapBeGasless({ ...global.currentSwap, swapType, route, nativeTokenInBalance }),
@@ -545,7 +550,6 @@ addActionHandler('submitSwapCex', withEnclaveSessionRelease(async (global, actio
   const tokenOut = global.swapTokenInfo.bySlug[global.currentSwap.tokenOutSlug!];
   const isFromWallet = !!account?.byChain[tokenIn.chain as ApiChain];
   const isToWallet = !!account?.byChain[tokenOut.chain as ApiChain];
-  const tonAddress = account?.byChain.ton?.address ?? '';
   let toAddress: string;
 
   if (isToWallet) {
@@ -558,22 +562,21 @@ addActionHandler('submitSwapCex', withEnclaveSessionRelease(async (global, actio
     toAddress = global.currentSwap.toAddress;
   }
 
-  const sourceAddress = getIsSupportedChain(tokenIn.chain)
-    ? account?.byChain[tokenIn.chain]?.address
-    : undefined;
-  const cexLabel = global.currentSwap.currentCexLabel;
-
-  if (!sourceAddress && cexLabel === 'near-intents') {
-    setGlobal(updateCurrentSwap(global, { errorType: SwapErrorType.InvalidPair }));
-    return;
-  }
-
-  const swapBuildRequest = buildSwapBuildRequest(global);
-  const swapTransactionRequest: ApiSwapBuildTransactionRequest = {
-    ...swapBuildRequest,
-    fromAddress: cexLabel === 'near-intents' ? sourceAddress! : tonAddress,
-    historyAddress: tonAddress,
-    cexLabel,
+  const {
+    amountIn, amountOut, quotedAmountOut, inputSource, networkFee, realNetworkFee, swapFee, currentCexLabel,
+    currentCexQuoteSlippage,
+  } = global.currentSwap;
+  const swapTransactionRequest: ApiSwapCexBuildRequest = {
+    from: resolveSwapAssetId(tokenIn),
+    to: resolveSwapAssetId(tokenOut),
+    fromChain: tokenIn.chain,
+    fromAmount: amountIn!,
+    toAmount: quotedAmountOut ?? amountOut!,
+    ...(currentCexQuoteSlippage !== undefined && { slippage: currentCexQuoteSlippage }),
+    swapMode: inputSource === SwapInputSource.Out ? 'exact_out' : 'exact_in',
+    networkFee: realNetworkFee ?? networkFee,
+    swapFee,
+    cexLabel: currentCexLabel,
     toAddress,
   };
 
@@ -1058,6 +1061,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
         fromMax: cexEstimate.fromMax,
       },
       currentCexLabel: cexEstimate.cexLabel,
+      currentCexQuoteSlippage: estimateRequest.slippage,
       currentCexProviderName: cexEstimate.providerName,
       currentCexTermsOfUseUrl: cexEstimate.termsOfUseUrl,
       currentCexPrivacyPolicyUrl: cexEstimate.privacyPolicyUrl,

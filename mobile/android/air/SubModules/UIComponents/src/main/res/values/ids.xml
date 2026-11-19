@@ -275,6 +275,8 @@
     <item name="home_show_all" type="id" />
     <item name="activity_row" type="id" />
     <item name="activity_row_title" type="id" />
+    <item name="activity_row_details" type="id" />
+    <item name="activity_date_header" type="id" />
 
     <!-- Tokens and Collectibles tabs -->
     <item name="assets_tab_tokens" type="id" />
@@ -369,6 +371,7 @@
     <item name="earn_add_stake" type="id" />
     <item name="earn_unstake" type="id" />
     <item name="earn_staked_label" type="id" />
+    <item name="earn_staked_amount" type="id" />
     <item name="browser_menu_reload" type="id" />
     <item name="browser_menu_open_external" type="id" />
     <item name="browser_menu_copy_url" type="id" />

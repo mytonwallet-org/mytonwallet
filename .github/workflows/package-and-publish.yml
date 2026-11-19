@@ -1016,6 +1016,7 @@ jobs:
           fi
 
       - name: Run Android JVM tests
+        if: env.PUBLISH_REPO == ''
         working-directory: mobile/android
         run: ./gradlew testDebugUnitTest
 
@@ -1395,6 +1396,7 @@ jobs:
             METADATA_PATH="${IOS_GRAM_METADATA_PATH:-$METADATA_PATH}"
             if [ -n "$PUBLISH_REPO" ]; then
               export IOS_REVIEW_NOTES_APPENDIX="${GRAM_REVIEW_NOTES:-}"
+              export IOS_REVIEW_CATALOG_INDEX_URL="https://gramwallet.io/~explore-catalog-index.html"
               if [ -n "${GRAM_REVIEW_ATTACHMENT_BASE64//[[:space:]]/}" ]; then
                 mkdir -p "$RUNNER_TEMP/app-review"
                 echo -n "$GRAM_REVIEW_ATTACHMENT_BASE64" | base64 --decode -o "$RUNNER_TEMP/app-review/supplementary-3.1.5.pdf"

@@ -224,6 +224,16 @@ export type ApiSwapBuildTransactionRequest = {
   needsBatch?: boolean;
 };
 
+export type ApiSwapCexBuildRequest = Pick<ApiSwapBuildTransactionRequest,
+  'fromAmount' | 'toAmount' | 'slippage' | 'swapMode' | 'networkFee' | 'swapFee' | 'cexLabel' | 'payoutExtraId'
+> & {
+  from: string;
+  to: string;
+  /** Swap asset ids may be a bare token contract shared across networks, so the source chain is named apart */
+  fromChain: string;
+  toAddress: string;
+};
+
 export type ApiSwapTransfer = {
   toAddress: string;
   amount: string;
@@ -410,8 +420,8 @@ type ApiSwapCexTransactionStatus = 'new' | 'waiting' | 'confirming' | 'exchangin
 export type ApiSwapCexCreateTransactionRequest = {
   from: string;
   fromAmount: string;
-  /** Source-chain address used as refund/sender by providers that need it. */
-  fromAddress: string;
+  /** Source-chain address, when the account can supply it. */
+  fromAddress?: string;
   /** TON address that owns/authenticates the backend swap history row; backend auth token is checked for it. */
   historyAddress?: string;
   cexLabel?: ApiSwapCexLabel;

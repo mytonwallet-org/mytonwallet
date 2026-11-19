@@ -168,9 +168,9 @@ struct SwapCexSubmissionTests {
         try await support.swapCexCreateTransaction(
             accountId: "test-mainnet",
             sellingToken: .TON_USDT,
-            request: ApiSwapBuildRequest(
-                from: "ton-usdt", to: "ltc", fromAddress: "source-address",
-                cexLabel: .changelly, fromAmount: MDouble(36.45)
+            request: ApiSwapCexBuildRequest(
+                from: "ton-usdt", to: "ltc", fromChain: .ton,
+                cexLabel: .changelly, fromAmount: MDouble(36.45), toAddress: "recipient-address"
             ),
             shouldTransfer: shouldTransfer,
             enclaveToken: "test-token"

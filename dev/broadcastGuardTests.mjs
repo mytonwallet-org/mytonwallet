@@ -3,7 +3,7 @@ import {
   Address, beginCell, external, internal, SendMode, storeMessage, storeMessageRelaxed, toNano,
 } from '@ton/core';
 import { keyPairFromSeed } from '@ton/crypto';
-import { WalletContractV4, WalletContractV5R1 } from '@ton/ton';
+import { WalletContractV3R2, WalletContractV4, WalletContractV5R1 } from '@ton/ton';
 import { Wallet } from 'ethers';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -22,6 +22,9 @@ const TON_JETTON_WALLET = Address.parse('0:' + '33'.repeat(32));
 // Bitcoin genesis coinbase transaction
 const BTC_GENESIS_HEX = '01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000';
 const BTC_GENESIS_TXID = '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b';
+const TON_DETAILS_SEQNO = 7;
+const ENCRYPTED_COMMENT_OP = 0x2167da4b;
+const JETTON_TRANSFER_OP = 0x0f8a7ea5;
 const UPSTREAM_CORS_ORIGIN = 'https://upstream.example';
 const UPSTREAM_EXPOSED_HEADERS = 'X-Snapshot-At, Date';
 
@@ -73,7 +76,9 @@ for (const readCacheMs of [0, 2000]) describe(`broadcastGuard, read cache ${read
     const recipient = TON_RECIPIENT.toString({ bounceable: false });
     const [broadcast] = await getBroadcasts(`?chain=ton&to=${recipient}`);
     assert.equal(broadcast.details.from, TON_WALLET.toRawString());
-    assert.deepEqual(broadcast.details.messages, [{ to: TON_RECIPIENT.toRawString(), amount: toNano('1.5').toString() }]);
+    assert.deepEqual(broadcast.details.messages, [{
+      to: TON_RECIPIENT.toRawString(), amount: toNano('1.5').toString(), isBounceable: false, hasStateInit: false,
+    }]);
   });
 
   it('decodes the recipient and amount of a jetton transfer', async () => {
@@ -86,9 +91,9 @@ for (const readCacheMs of [0, 2000]) describe(`broadcastGuard, read cache ${read
     await postJson(ports.ton, '/api/v2/jsonRPC', { id: 1, jsonrpc: '2.0', method: 'sendBoc', params: { boc } });
 
     const [broadcast] = await getBroadcasts(`?chain=ton&to=${TON_RECIPIENT.toRawString()}`);
-    assert.deepEqual(broadcast.toMessages.map((message) => message.jetton), [
-      { to: TON_RECIPIENT.toRawString(), amount: '20000000' },
-    ]);
+    assert.deepEqual(broadcast.toMessages.map((message) => message.jetton), [{
+      to: TON_RECIPIENT.toRawString(), amount: '20000000', forwardTonAmount: '1', hasCustomPayload: false,
+    }]);
   });
 
   it('intercepts a gasless TON send to the backend', async () => {
@@ -405,6 +410,137 @@ for (const readCacheMs of [0, 2000]) describe(`broadcastGuard, read cache ${read
   }
 });
 
+describe('broadcastGuard TON details', () => {
+  const keyPair = keyPairFromSeed(randomBytes(32));
+  const w5 = WalletContractV5R1.create({ workchain: 0, publicKey: keyPair.publicKey });
+  const v4 = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
+  let upstream;
+  let guard;
+  let tonPort;
+
+  before(async () => {
+    upstream = await startFakeUpstream(() => {});
+    const target = `http://127.0.0.1:${upstream.address().port}`;
+    guard = await startBroadcastGuard({ upstreams: [{ env: ['ton'], port: 0, target, chain: 'ton' }], controlPort: 0 });
+    [tonPort] = guard.ports;
+  });
+
+  after(async () => {
+    await guard.close();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+
+  beforeEach(async () => {
+    await fetch(`http://127.0.0.1:${guard.controlPort}/broadcasts`, { method: 'DELETE' });
+  });
+
+  for (const [version, wallet] of [['w5', w5], ['v4', v4]]) {
+    it(`reads the version, seqno and expiry of a ${version} wallet`, async () => {
+      const { details } = await sendAndRead(wallet, [internal({ to: TON_RECIPIENT, value: toNano('1') })]);
+
+      assert.equal(details.wallet.version, version);
+      assert.equal(details.wallet.seqno, TON_DETAILS_SEQNO);
+      assert.ok(details.wallet.validUntil > Date.now() / 1000);
+    });
+  }
+
+  for (const [version, wallet] of [['w5', w5], ['v4', v4]]) {
+    it(`reads the send mode, bounce flag and state init of each message of a ${version} wallet`, async () => {
+      const init = { code: beginCell().storeUint(1, 8).endCell(), data: beginCell().endCell() };
+      const mode = SendMode.CARRY_ALL_REMAINING_BALANCE + SendMode.IGNORE_ERRORS;
+      const { details } = await sendAndRead(wallet, [
+        internal({ to: TON_RECIPIENT, value: toNano('1'), bounce: true }),
+        internal({ to: TON_JETTON_WALLET, value: toNano('1'), bounce: false, init }),
+      ], mode);
+
+      // The order follows the wallet's action list, which W5 and v4 lay out differently
+      const messages = details.messages.map(({ to, mode: messageMode, isBounceable, hasStateInit }) => ({
+        to, mode: messageMode, isBounceable, hasStateInit,
+      })).sort((first, second) => first.to.localeCompare(second.to));
+      assert.deepEqual(messages, [
+        { to: TON_RECIPIENT.toRawString(), mode, isBounceable: true, hasStateInit: false },
+        { to: TON_JETTON_WALLET.toRawString(), mode, isBounceable: false, hasStateInit: true },
+      ]);
+    });
+  }
+
+  it('lists a message the wallet sends twice once for each send', async () => {
+    const message = internal({ to: TON_RECIPIENT, value: toNano('1') });
+    const { details } = await sendAndRead(w5, [message, message]);
+
+    assert.equal(details.messages.length, 2);
+    assert.ok(details.messages.every(({ mode }) => mode === SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS));
+  });
+
+  it('leaves the wallet out for a v3 wallet', async () => {
+    const v3 = WalletContractV3R2.create({ workchain: 0, publicKey: keyPair.publicKey });
+    const { details } = await sendAndRead(v3, [internal({ to: TON_RECIPIENT, value: toNano('1') })]);
+
+    assert.equal(details.wallet, undefined);
+  });
+
+  it('keeps the recipient and amount of a jetton transfer cut short after them', async () => {
+    const jettonTransfer = beginCell()
+      .storeUint(JETTON_TRANSFER_OP, 32).storeUint(0, 64).storeCoins(5_000_000n).storeAddress(TON_RECIPIENT)
+      .endCell();
+    const { details } = await sendAndRead(w5, [internal({ to: TON_JETTON_WALLET, value: toNano('0.05'), body: jettonTransfer })]);
+
+    assert.deepEqual(details.messages[0].jetton, { to: TON_RECIPIENT.toRawString(), amount: '5000000' });
+  });
+
+  it('reads a comment longer than one cell in full', async () => {
+    const text = 'A comment that does not fit one cell. '.repeat(10);
+    const { details } = await sendAndRead(w5, [internal({ to: TON_RECIPIENT, value: toNano('1'), body: text })]);
+
+    assert.deepEqual(details.messages[0].comment, { text });
+  });
+
+  it('marks an encrypted comment and keeps its content out', async () => {
+    const body = beginCell().storeUint(ENCRYPTED_COMMENT_OP, 32).storeBuffer(randomBytes(48)).endCell();
+    const { details } = await sendAndRead(w5, [internal({ to: TON_RECIPIENT, value: toNano('1'), body })]);
+
+    assert.deepEqual(details.messages[0].comment, { isEncrypted: true });
+  });
+
+  it('reads the forward amount, custom payload and comment of a jetton transfer', async () => {
+    const comment = beginCell().storeUint(0, 32).storeStringTail('Invoice 42').endCell();
+    const jettonTransfer = beginCell()
+      .storeUint(JETTON_TRANSFER_OP, 32).storeUint(0, 64).storeCoins(5_000_000n)
+      .storeAddress(TON_RECIPIENT).storeAddress(w5.address).storeMaybeRef(beginCell().storeUint(7, 8).endCell())
+      .storeCoins(1n).storeBit(true).storeRef(comment)
+      .endCell();
+    const { details } = await sendAndRead(w5, [internal({ to: TON_JETTON_WALLET, value: toNano('0.05'), body: jettonTransfer })]);
+
+    assert.deepEqual(details.messages[0].jetton, {
+      to: TON_RECIPIENT.toRawString(), amount: '5000000', forwardTonAmount: '1', hasCustomPayload: true,
+      comment: { text: 'Invoice 42' },
+    });
+  });
+
+  it('leaves the wallet out when the body is no W5 or v4 send', async () => {
+    await postJson(tonPort, '/api/v2/jsonRPC', {
+      id: 1, jsonrpc: '2.0', method: 'sendBoc', params: { boc: buildTonExternalBoc() },
+    });
+    const [broadcast] = await getBroadcasts();
+
+    assert.equal(broadcast.details.wallet, undefined);
+    assert.equal(broadcast.details.messages[0].mode, undefined);
+  });
+
+  async function sendAndRead(wallet, messages, sendMode = SendMode.PAY_GAS_SEPARATELY) {
+    const body = wallet.createTransfer({ seqno: TON_DETAILS_SEQNO, secretKey: keyPair.secretKey, messages, sendMode });
+    const boc = beginCell().store(storeMessage(external({ to: wallet.address, body }))).endCell().toBoc().toString('base64');
+    await postJson(tonPort, '/api/v2/jsonRPC', { id: 1, jsonrpc: '2.0', method: 'sendBoc', params: { boc } });
+    const [broadcast] = await getBroadcasts();
+
+    return broadcast;
+  }
+
+  async function getBroadcasts() {
+    return (await fetch(`http://127.0.0.1:${guard.controlPort}/broadcasts?chain=ton`)).json();
+  }
+});
+
 describe('broadcastGuard fixtures', () => {
   let upstream;
   let upstreamRequests;
@@ -562,6 +698,77 @@ function startFakeUpstream(onRequest, shouldRefuse = () => false) {
     server.listen(0, '127.0.0.1', () => resolve(server));
   });
 }
+
+describe('broadcastGuard swaps allowed', () => {
+  let upstream;
+  let guard;
+
+  before(async () => {
+    upstream = await new Promise((resolve) => {
+      const server = http.createServer((req, res) => {
+        if (req.url.includes('unavailable')) {
+          res.writeHead(503, { 'content-type': 'text/plain', 'retry-after': '7', 'x-request-id': 'r1' });
+          res.end('Unavailable');
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'application/json', 'x-request-id': 'r1', etag: '"u1"', 'cache-control': 'max-age=60' });
+        res.end(JSON.stringify(req.url.startsWith('/utils/get-config')
+          ? { isLimited: true, isSwapAndOnRampLimited: true, swapVersion: 3 }
+          : { isLimited: true }));
+      });
+      server.listen(0, '127.0.0.1', () => resolve(server));
+    });
+    guard = await startBroadcastGuard({
+      upstreams: [{ env: ['backend'], port: 0, target: `http://127.0.0.1:${upstream.address().port}`, chain: 'backend' }],
+      controlPort: 0,
+    });
+  });
+
+  after(async () => {
+    await guard.close();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+
+  it('opens swaps in the backend config and keeps its other fields', async () => {
+    const response = await fetch(`http://127.0.0.1:${guard.ports[0]}/utils/get-config?platform=android`);
+
+    assert.deepEqual(await response.json(), { isLimited: false, isSwapAndOnRampLimited: false, swapVersion: 3 });
+    assert.equal(response.headers.get('x-request-id'), 'r1');
+    assert.equal(response.headers.get('etag'), null);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  });
+
+  it('passes a failed config answer through with its headers', async () => {
+    const response = await fetch(`http://127.0.0.1:${guard.ports[0]}/utils/get-config?unavailable=1`, {
+      headers: { origin: 'http://localhost:4321' },
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('retry-after'), '7');
+    assert.equal(response.headers.get('content-type'), 'text/plain');
+    assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:4321');
+    assert.equal(await response.text(), 'Unavailable');
+  });
+
+  it('keeps the swap limits when asked to', async () => {
+    const limitedGuard = await startBroadcastGuard({
+      upstreams: [{ env: ['backend'], port: 0, target: `http://127.0.0.1:${upstream.address().port}`, chain: 'backend' }],
+      controlPort: 0,
+      shouldKeepSwapLimits: true,
+    });
+
+    const response = await fetch(`http://127.0.0.1:${limitedGuard.ports[0]}/utils/get-config`);
+    await limitedGuard.close();
+
+    assert.deepEqual(await response.json(), { isLimited: true, isSwapAndOnRampLimited: true, swapVersion: 3 });
+  });
+
+  it('leaves other backend answers as the upstream sent them', async () => {
+    const response = await fetch(`http://127.0.0.1:${guard.ports[0]}/utils/other`);
+
+    assert.deepEqual(await response.json(), { isLimited: true });
+  });
+});
 
 describe('broadcastGuard read cache', () => {
   const READ_CACHE_MS = 300;
@@ -942,6 +1149,214 @@ describe('broadcastGuard mainnet pass', () => {
       BROADCAST_GUARD_PASS_TON_FROM: TON_WALLET.toString(), BROADCAST_GUARD_PASS_TON_MAX_COUNT: '1',
     }), /MAX_NANOTON/);
   });
+});
+
+describe('broadcastGuard failures', () => {
+  const keyPair = keyPairFromSeed(randomBytes(32));
+  const w5 = WalletContractV5R1.create({ workchain: 0, publicKey: keyPair.publicKey });
+  const slowDelayMs = 300;
+  const caseComment = 'e2e-failing';
+  let upstream;
+  let upstreamRequests;
+  let guard;
+
+  before(async () => {
+    upstream = await startFakeUpstream((request) => upstreamRequests.push(request));
+    guard = await startBroadcastGuard({
+      upstreams: [{ env: ['ton'], port: 0, target: `http://127.0.0.1:${upstream.address().port}`, chain: 'ton' }],
+      controlPort: 0,
+      passTon: getPassTonPolicy({
+        BROADCAST_GUARD_PASS_TON_FROM: w5.address.toString(),
+        BROADCAST_GUARD_PASS_TON_MAX_NANOTON: toNano('2').toString(),
+        BROADCAST_GUARD_PASS_TON_MAX_COUNT: '10',
+      }),
+    });
+  });
+
+  after(async () => {
+    await guard.close();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+
+  beforeEach(async () => {
+    upstreamRequests = [];
+    await fetch(`http://127.0.0.1:${guard.controlPort}/broadcasts`, { method: 'DELETE' });
+    await fetch(`http://127.0.0.1:${guard.controlPort}/failure`, { method: 'DELETE' });
+  });
+
+  it('drops the connection of an offline broadcast and records it', async () => {
+    await setFailure({ comment: caseComment, mode: 'offline' });
+
+    await assert.rejects(sendBoc(buildCommentBoc(caseComment)));
+
+    const [broadcast] = await getBroadcasts();
+    assert.equal(broadcast.details.failure, 'offline');
+    assert.equal(upstreamRequests.length, 0);
+  });
+
+  it('fails only the broadcasts that carry the comment of a failure', async () => {
+    await setFailure({ comment: caseComment, mode: 'offline' });
+
+    const other = await sendBoc(buildCommentBoc('another case'));
+    const plain = await sendBoc(buildTonExternalBoc());
+
+    assert.equal(other.result['@type'], 'raw.extMessageInfo');
+    assert.equal(plain.result['@type'], 'raw.extMessageInfo');
+    assert.deepEqual((await getBroadcasts()).map(({ details }) => details.failure), [undefined, undefined]);
+  });
+
+  it('answers HTTP 503 to a failing broadcast of every send form', async () => {
+    await setFailure({ comment: caseComment, mode: 'error' });
+
+    const rpc = await fetch(`http://127.0.0.1:${guard.ports[0]}/api/v2/jsonRPC`, {
+      method: 'POST',
+      body: JSON.stringify([
+        { id: 1, jsonrpc: '2.0', method: 'sendBoc', params: { boc: buildCommentBoc(caseComment) } },
+        { id: 2, jsonrpc: '2.0', method: 'sendBoc', params: { boc: buildCommentBoc(caseComment) } },
+      ]),
+    });
+    const rest = await fetch(`http://127.0.0.1:${guard.ports[0]}/api/v2/sendBoc`, {
+      method: 'POST', body: JSON.stringify({ boc: buildCommentBoc(caseComment) }),
+    });
+
+    assert.deepEqual([rpc.status, rest.status], [503, 503]);
+    assert.deepEqual(await rest.json(), { error: 'Failed by the broadcast guard' });
+    assert.deepEqual((await getBroadcasts()).map(({ details }) => details.failure), ['error', 'error', 'error']);
+    assert.equal(upstreamRequests.length, 0);
+  });
+
+  it('holds the usual answer of a slow broadcast and survives a client that gives up', async () => {
+    await setFailure({ comment: caseComment, mode: 'slow', delayMs: slowDelayMs });
+
+    const abandoned = fetch(`http://127.0.0.1:${guard.ports[0]}/api/v2/jsonRPC`, {
+      method: 'POST',
+      body: JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'sendBoc', params: { boc: buildCommentBoc(caseComment) } }),
+      signal: AbortSignal.timeout(slowDelayMs / 3),
+    }).then(() => 'answered', () => 'gave up');
+    const startedAt = Date.now();
+    const answer = await sendBoc(buildCommentBoc(caseComment));
+
+    assert.equal(await abandoned, 'gave up');
+    assert.ok(Date.now() - startedAt >= slowDelayMs - 10);
+    assert.equal(answer.result['@type'], 'raw.extMessageInfo');
+    assert.deepEqual((await getBroadcasts()).map(({ details }) => details.failure), ['slow', 'slow']);
+  });
+
+  it('keeps the failure of a broadcast in flight when the failure is cleared', async () => {
+    await setFailure({ comment: caseComment, mode: 'slow', delayMs: slowDelayMs });
+
+    const startedAt = Date.now();
+    const answer = sendBoc(buildCommentBoc(caseComment));
+    await waitForBroadcasts(1);
+    await fetch(`http://127.0.0.1:${guard.controlPort}/failure?comment=${caseComment}`, { method: 'DELETE' });
+
+    assert.equal((await answer).result['@type'], 'raw.extMessageInfo');
+    assert.ok(Date.now() - startedAt >= slowDelayMs - 10);
+    assert.equal((await getBroadcasts())[0].details.failure, 'slow');
+  });
+
+  it('never passes a failing broadcast to mainnet', async () => {
+    await setFailure({ comment: caseComment, mode: 'error' });
+    const body = w5.createTransfer({
+      seqno: 1,
+      secretKey: keyPair.secretKey,
+      messages: [internal({ to: TON_RECIPIENT, value: toNano('1'), bounce: false, body: caseComment })],
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+    });
+
+    await sendBoc(beginCell().store(storeMessage(external({ to: w5.address, body }))).endCell().toBoc().toString('base64'));
+
+    const [broadcast] = await getBroadcasts();
+    assert.equal(broadcast.details.failure, 'error');
+    assert.equal(broadcast.details.isPassed, undefined);
+    assert.equal(upstreamRequests.length, 0);
+  });
+
+  it('keeps a passing send off mainnet when a failing one shares its batch', async () => {
+    await setFailure({ comment: caseComment, mode: 'error' });
+    const buildPassingBoc = (seqno, comment) => {
+      const body = w5.createTransfer({
+        seqno,
+        secretKey: keyPair.secretKey,
+        messages: [internal({ to: TON_RECIPIENT, value: toNano('1'), bounce: false, body: comment })],
+        sendMode: SendMode.PAY_GAS_SEPARATELY,
+      });
+      return beginCell().store(storeMessage(external({ to: w5.address, body }))).endCell().toBoc().toString('base64');
+    };
+
+    const response = await fetch(`http://127.0.0.1:${guard.ports[0]}/api/v2/jsonRPC`, {
+      method: 'POST',
+      body: JSON.stringify([
+        { id: 1, jsonrpc: '2.0', method: 'sendBoc', params: { boc: buildPassingBoc(1, 'another case') } },
+        { id: 2, jsonrpc: '2.0', method: 'sendBoc', params: { boc: buildPassingBoc(2, caseComment) } },
+      ]),
+    });
+
+    // A forward of the rest would arrive after the answer, so the check waits for it
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
+
+    assert.equal(response.status, 503);
+    assert.equal(upstreamRequests.length, 0);
+    // The send beside the failed one is recorded as held back, so `/broadcasts` never shows it on mainnet
+    const recorded = await getBroadcasts();
+    assert.deepEqual(recorded.map(({ details }) => [details.isPassed, details.failure]), [[undefined, 'error'], [undefined, undefined]]);
+  });
+
+  it('forwards reads during a failure and lets a failure lapse after its ttlMs', async () => {
+    await setFailure({ comment: caseComment, mode: 'offline', ttlMs: 50 });
+
+    const read = await postJson(guard.ports[0], '/api/v2/jsonRPC', { id: 1, jsonrpc: '2.0', method: 'getAddressBalance' });
+    await new Promise((resolve) => { setTimeout(resolve, 100); });
+    const send = await sendBoc(buildCommentBoc(caseComment));
+
+    assert.deepEqual(read, { echo: { id: 1, jsonrpc: '2.0', method: 'getAddressBalance' } });
+    assert.equal(send.result['@type'], 'raw.extMessageInfo');
+    assert.deepEqual(await (await fetch(`http://127.0.0.1:${guard.controlPort}/failure`)).json(), []);
+  });
+
+  it('replaces the failure of a comment and clears only the one named', async () => {
+    await setFailure({ comment: caseComment, mode: 'offline' });
+    await setFailure({ comment: caseComment, mode: 'error' });
+    await setFailure({ comment: 'another case', mode: 'offline' });
+    await fetch(`http://127.0.0.1:${guard.controlPort}/failure?comment=another%20case`, { method: 'DELETE' });
+
+    const listed = await (await fetch(`http://127.0.0.1:${guard.controlPort}/failure`)).json();
+    assert.deepEqual(listed.map(({ comment, mode }) => [comment, mode]), [[caseComment, 'error']]);
+  });
+
+  it('rejects a failure without a comment, an unknown mode and a delay setTimeout cannot keep', async () => {
+    const statuses = await Promise.all([
+      { mode: 'offline' },
+      { comment: caseComment, mode: 'down' },
+      { comment: caseComment, mode: 'slow' },
+      { comment: caseComment, mode: 'slow', delayMs: 2 ** 31 },
+      { comment: caseComment, mode: 'offline', ttlMs: 2 ** 31 },
+    ].map(async (failure) => (await setFailure(failure)).status));
+
+    assert.deepEqual(statuses, [400, 400, 400, 400, 400]);
+  });
+
+  function buildCommentBoc(text) {
+    return buildTonExternalBoc(internal({ to: TON_RECIPIENT, value: toNano('1.5'), bounce: false, body: text }));
+  }
+
+  function setFailure(failure) {
+    return fetch(`http://127.0.0.1:${guard.controlPort}/failure`, { method: 'PUT', body: JSON.stringify(failure) });
+  }
+
+  function sendBoc(boc) {
+    return postJson(guard.ports[0], '/api/v2/jsonRPC', { id: 1, jsonrpc: '2.0', method: 'sendBocReturnHashNoError', params: { boc } });
+  }
+
+  async function getBroadcasts() {
+    return (await fetch(`http://127.0.0.1:${guard.controlPort}/broadcasts?chain=ton`)).json();
+  }
+
+  async function waitForBroadcasts(count) {
+    while ((await getBroadcasts()).length < count) {
+      await new Promise((resolve) => { setTimeout(resolve, 10); });
+    }
+  }
 });
 
 describe('broadcastGuard upstreams', () => {

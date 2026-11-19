@@ -1407,7 +1407,10 @@ class SwapViewModel :
             estimate.dex?.let { dex ->
                 val fromAddress = tokenToSend.mBlockchain?.name?.let {
                     estimate.request.wallet.addressByChain[it]
-                } ?: accountTonAddress
+                } ?: run {
+                    failUnexpectedSubmission("missing source-chain address")
+                    return
+                }
                 val build = WalletCore.call(
                     ApiMethod.Swap.SwapBuildTransfer(
                         accountId,
@@ -1549,17 +1552,6 @@ class SwapViewModel :
                 }
                 val cexLabel = cex.cexLabel
                 val isNearIntents = cexLabel == NEAR_INTENTS_CEX_LABEL
-                val historyAddress = accountTonAddress
-                val sourceAddress = if (isNearIntents) {
-                    estimate.request.wallet.addressByChain[tokenToSend.mBlockchain?.name]
-                        ?: run {
-                            failUnexpectedSubmission("missing source-chain refund address")
-                            return
-                        }
-                } else {
-                    accountTonAddress
-                }
-
                 swappedEstimateConfig = estimate
                 val result = WalletCore.call(
                     ApiMethod.Swap.SwapCexCreateTransaction(
@@ -1567,9 +1559,8 @@ class SwapViewModel :
                         enclaveToken,
                         MApiSwapCexCreateTransactionRequest(
                             from = tokenToSend.swapSlug,
+                            fromChain = estimate.request.tokenToSendChain.name,
                             fromAmount = fromAmount,
-                            fromAddress = sourceAddress,
-                            historyAddress = historyAddress,
                             cexLabel = cexLabel,
                             to = tokenToReceive.swapSlug,
                             toAmount = cex.toAmount,

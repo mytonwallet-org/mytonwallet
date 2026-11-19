@@ -83,6 +83,7 @@ export function getSwapEstimateResetParams(global: GlobalState) {
     route: undefined,
     maxAmountFromBackend: undefined,
     currentCexLabel: undefined,
+    currentCexQuoteSlippage: undefined,
     currentCexProviderName: undefined,
     currentCexTermsOfUseUrl: undefined,
     currentCexPrivacyPolicyUrl: undefined,
