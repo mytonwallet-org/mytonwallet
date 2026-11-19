@@ -105,6 +105,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -1786,8 +1787,19 @@ class PhoneTabsVC(context: Context) :
     // Not for an accessibility long click
     private fun startToolbarItemDrag(item: MToolbarItem): Boolean {
         val button = getToolbarView(item)
-        if (!button.isPressed || !canStartToolbarDrag()) return false
-        return toolbarEditor.startToolbarDrag(item, getScreenFrame(button))
+        val isStarted = button.isPressed && canStartToolbarDrag() &&
+            toolbarEditor.startToolbarDrag(item, getScreenFrame(button))
+        // Debug builds log each attempt and the state it depends on, for an E2E drag that lifted nothing
+        if (DEBUG_MODE) {
+            Logger.d(
+                Logger.LogTag.HomeVM,
+                "toolbarDrag: item=$item started=$isStarted pressed=${button.isPressed} " +
+                    "searchFocused=${searchEditText.hasFocus()} " +
+                    "agentEngaged=${agentBarMorph.isEngaged} " +
+                    "topChromeHidden=$isTopChromeHidden"
+            )
+        }
+        return isStarted
     }
 
     private fun getScreenFrame(view: View): RectF {

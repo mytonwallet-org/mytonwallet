@@ -171,6 +171,7 @@ abstract class WWindow :
                     } ?: (0 until windowView.width)
                 override val animationsEnabled
                     get() = WGlobalStorage.getAreAnimationsActive() && !isConfiguring
+
                 override fun canMinimize(nav: WNavigationController) =
                     navigationControllers.size > 1 && navigationControllers.last() === nav
 
@@ -509,6 +510,10 @@ abstract class WWindow :
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            @Suppress("DEPRECATION")
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
 
         setContentView(windowView)
         windowView.setFilterTouchesWhenObscured(true)

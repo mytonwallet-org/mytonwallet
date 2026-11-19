@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells.activity
 
 import android.content.Context
 import java.util.Date
+import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -16,7 +17,7 @@ class ActivityDateLabel(context: Context, private val drawsBackground: Boolean =
     WLabel(context) {
 
     init {
-        id = generateViewId()
+        id = R.id.activity_date_header
         setStyle(14f, WFont.Medium)
         setOnClickListener { }
         setPadding(20.dp, 16.dp, 20.dp, 0)

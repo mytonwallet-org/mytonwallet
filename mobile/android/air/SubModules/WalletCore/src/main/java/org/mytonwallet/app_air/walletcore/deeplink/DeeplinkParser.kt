@@ -375,7 +375,7 @@ class DeeplinkParser {
                         }
                         .encodedQuery(uri.encodedQuery)
                         .build()
-                    return handleMTW(mtwUri)
+                    return handleMTW(mtwUri, isUniversalLink = true)
                 }
 
                 host != null && host in tonconnectHosts -> {
@@ -403,11 +403,11 @@ class DeeplinkParser {
         private fun handleWalletConnectPay(uri: Uri): Deeplink =
             Deeplink.WalletConnectPay(accountAddress = null, requestUri = uri)
 
-        private fun handleMTW(uri: Uri): Deeplink? {
+        private fun handleMTW(uri: Uri, isUniversalLink: Boolean = false): Deeplink? {
             mintCardDeeplink(uri.host)?.let { return it }
             return when (uri.host) {
                 "e2e-unlock" -> uri.getQueryParameter("passcode")
-                    ?.takeIf { DEBUG_MODE && it.isNotEmpty() }
+                    ?.takeIf { DEBUG_MODE && !isUniversalLink && it.isNotEmpty() }
                     ?.let {
                         Deeplink.E2EUnlock(
                             accountAddress = null,

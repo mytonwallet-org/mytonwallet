@@ -309,11 +309,9 @@ data class MApiSwapCexEstimateResponse(
 @JsonClass(generateAdapter = true)
 data class MApiSwapCexCreateTransactionRequest(
     val from: String,
+    // Swap asset ids may be a bare token contract shared across networks, so the source chain is named apart
+    val fromChain: String,
     val fromAmount: BigDecimal,
-    /** Source-chain refund/sender address for Near Intents; TON history address for Changelly. */
-    val fromAddress: String,
-    /** TON address that owns/authenticates the backend swap history row. */
-    val historyAddress: String? = null,
     val cexLabel: String? = null,
     val to: String,
     val toAmount: BigDecimal?,

@@ -1,6 +1,6 @@
 import type { ApiChain, ApiSubmitGasfullTransferOptions, ApiSwapHistoryItem } from '../types';
 
-import { ARBITRUM_USDC_MAINNET, BASE_USDC_MAINNET, TON_USDT_MAINNET } from '../../config';
+import { ARBITRUM_USDC_MAINNET, BASE_USDC_MAINNET, ETH_USDT_MAINNET, TON_USDT_MAINNET } from '../../config';
 import { buildLocalTxId } from '../../util/activities';
 import {
   activitiesFromBackendRows,
@@ -317,6 +317,64 @@ describe('swap estimate hints', () => {
   });
 });
 
+describe('swapCexCreateTransaction', () => {
+  const request = {
+    from: ETH_USDT_MAINNET.tokenAddress,
+    to: ARBITRUM_USDC_MAINNET.tokenAddress,
+    fromChain: ETH_USDT_MAINNET.chain,
+    fromAmount: '500.45',
+    toAddress: '0x0000000000000000000000000000000000000002',
+  };
+  const historyAddress = 'EQ-ton-history-owner';
+  const ethereumAddress = '0x0000000000000000000000000000000000000001';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    initSwap(jest.fn());
+    getBackendConfigCache.mockResolvedValue({ swapVersion: 2 });
+    callBackendPost.mockResolvedValue({ route: 'cex', swap: fixtures.nearIntentsBackend.swapRowVersions[0] });
+  });
+
+  it.each(['changelly', 'near-intents'] as const)(
+    'uses the selected account for both addresses on %s',
+    async (cexLabel) => {
+      fetchStoredAccount.mockImplementation((accountId) => Promise.resolve(accountId === 'selected-mainnet'
+        ? { byChain: { ton: { address: historyAddress }, ethereum: { address: ethereumAddress } } }
+        : { byChain: {} }));
+
+      await swapCexCreateTransaction('selected-mainnet', 'enclave-token', { ...request, cexLabel });
+
+      expect(callBackendPost).toHaveBeenCalledWith('/swap/buildTransaction', expect.objectContaining({
+        fromAddress: ethereumAddress,
+        historyAddress,
+        toAddress: request.toAddress,
+        cexLabel,
+      }), { authToken: 'backend-auth-token' });
+      expect(callBackendPost.mock.calls[0][1]).not.toHaveProperty('fromChain');
+    },
+  );
+
+  it('returns a manual deposit address without sending a source address when the account has none', async () => {
+    fetchStoredAccount.mockResolvedValue({
+      byChain: { ton: { address: historyAddress }, arbitrum: { address: request.toAddress } },
+    });
+    const swap = fixtures.nearIntentsBackend.swapRowVersions[0];
+    callBackendPost.mockResolvedValue({ route: 'cex', swap: { ...swap, cexLabel: 'changelly' } });
+
+    const order = await swapCexCreateTransaction('selected-mainnet', 'enclave-token', {
+      ...request, cexLabel: 'changelly',
+    });
+
+    expect(callBackendPost).toHaveBeenCalledWith('/swap/buildTransaction', expect.objectContaining({
+      historyAddress,
+      toAddress: request.toAddress,
+      cexLabel: 'changelly',
+    }), { authToken: 'backend-auth-token' });
+    expect(callBackendPost.mock.calls[0][1]).not.toHaveProperty('fromAddress');
+    expect(order.swap.cex?.payinAddress).toBe(swap.cex!.payinAddress);
+  });
+});
+
 describe('swapCexSubmit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -324,6 +382,9 @@ describe('swapCexSubmit', () => {
     patchSwapItem.mockReset();
     chains.base.submitGasfullTransfer.mockResolvedValue({ txId: '0xbase-deposit' });
     fetchStoredWallet.mockResolvedValue({ address: 'EQ-ton-history-owner' });
+    fetchStoredAccount.mockResolvedValue({
+      byChain: { ton: { address: 'EQ-ton-history-owner' }, base: { address: '0xbase-sender' } },
+    });
     publishSignedMfaRequest.mockResolvedValue({ mfaRequestHash: 'mfa-request-hash' });
   });
 
@@ -422,7 +483,11 @@ describe('swapCexSubmit', () => {
       const row = fixtures.nearIntentsBackend.swapRowVersions[0];
       callBackendPost.mockResolvedValue({ route: 'cex', swap: row });
       const created = await swapCexCreateTransaction('0-mainnet', 'enclave-token', {
-        from: row.from, to: row.to, fromAmount: row.fromAmount, fromAddress: row.fromAddress,
+        from: BASE_USDC_MAINNET.tokenAddress,
+        fromChain: BASE_USDC_MAINNET.chain,
+        to: row.to,
+        fromAmount: row.fromAmount,
+        toAddress: row.cex!.payoutAddress,
       });
       expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
         activities: [expect.objectContaining({ id: created.activity.id, status: 'pendingTrusted' })],

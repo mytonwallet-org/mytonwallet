@@ -211,6 +211,7 @@ public class ActivityCell: WHighlightCollectionViewCell, ActivityDateDisplaying 
             detailsLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1)
         ])
         detailsLabel.applyTextStyle(.supporting)
+        detailsLabel.accessibilityIdentifier = "activity_row_details"
         detailsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailsLabel.lineBreakMode = .byTruncatingMiddle
 

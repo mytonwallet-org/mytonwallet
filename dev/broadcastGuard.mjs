@@ -25,6 +25,8 @@ const UTXO_SEND_PATH = /\/api\/v2\/sendtx$/i;
 const UTXO_GET_SEND_PATH = /\/api\/(v\d+\/)?sendtx\//i;
 const JETTON_TRANSFER_OP = 0x0f8a7ea5;
 const JETTON_BURN_OP = 0x595f07bc;
+const TEXT_COMMENT_OP = 0;
+const ENCRYPTED_COMMENT_OP = 0x2167da4b;
 const W5_SIGNED_EXTERNAL_OP = 0x7369676e;
 const W5_SEND_MESSAGE_ACTION = 0x0ec3c86d;
 const WALLET_SIGNATURE_BITS = 512;
@@ -59,6 +61,14 @@ const SEND_PATHS = {
   ton: TON_SEND_PATH, tron: new RegExp(`${TRON_SEND_PATH.source}|${TRON_HEX_SEND_PATH.source}`, 'i'), utxo: UTXO_SEND_PATH,
 };
 const BLOCKED_ERROR = 'Blocked by the broadcast guard';
+const FAILED_ERROR = 'Failed by the broadcast guard';
+const FAILURE_MODES = new Set(['offline', 'error', 'slow']);
+// The longest delay `setTimeout` keeps; a longer one fires at once
+const MAX_TIMER_MS = 2 ** 31 - 1;
+// A case killed before its `onFlowComplete` leaves its failure behind, so each one lapses on its own
+const DEFAULT_FAILURE_TTL_MS = 15 * 60 * 1000;
+const failedAnswers = new WeakSet();
+const DROPPED_FAILURE_MODES = new Set(['offline', 'error']);
 const HOP_BY_HOP_HEADERS = new Set([
   'host', 'connection', 'content-length', 'content-encoding', 'transfer-encoding', 'accept-encoding', 'keep-alive',
 ]);
@@ -73,6 +83,9 @@ const LOCAL_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$
 // The upstream's expose list stays, so the app reads headers such as `X-Snapshot-At`
 const REPLACED_CORS_HEADERS = new Set(['access-control-allow-origin', 'access-control-allow-credentials']);
 const EMULATION_PATH = '/api/emulate/v1/emulateTrace';
+const BACKEND_CONFIG_PATH = /^\/utils\/get-config$/i;
+// The backend closes swaps by region through these flags; Android reads `isLimited`, iOS the pair
+const SWAPS_ALLOWED_CONFIG = { isLimited: false, isSwapAndOnRampLimited: false };
 // Parallel cases reading the same wallet share one upstream answer instead of tripping its rate limit
 const DEFAULT_READ_CACHE_MS = 2000;
 // Emulations and estimates depend on the payload and the current chain state, so they are never shared
@@ -96,6 +109,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.incl
     recordPaths: process.env.BROADCAST_GUARD_RECORD_PATHS,
     readCacheMs: Number(process.env.BROADCAST_GUARD_READ_CACHE_MS || DEFAULT_READ_CACHE_MS),
     passTon: getPassTonPolicy(process.env),
+    shouldKeepSwapLimits: process.env.BROADCAST_GUARD_KEEP_SWAP_LIMITS === '1',
   });
   console.log('Build the app with:\n');
   console.log(guard.envLines.join('\n'));
@@ -117,9 +131,13 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.incl
  * once, with the exceptions listed in `maestro/WRITING_FLOWS.md`; a cache hit saves no recording.
  * With `passTon`, a TON broadcast from `passTon.from` within its limits reaches mainnet instead, see
  * "Real mainnet operations" in `maestro/WRITING_FLOWS.md`.
+ * The backend config the app reads says swaps are open in its region, unless `shouldKeepSwapLimits` is set.
+ * A failure added through `PUT /failure` makes the TON broadcasts whose messages carry its comment fail as a host that
+ * is offline, broken or slow would, still recorded, until `DELETE /failure?comment=<comment>` or its `ttlMs`.
  */
 export async function startBroadcastGuard({
   upstreams, controlPort, logPath, tonEmulatorUrl, fixturesDir, recordDir, recordPaths, readCacheMs, passTon,
+  shouldKeepSwapLimits,
 }) {
   const broadcasts = [];
   const proxiedCounts = {};
@@ -128,6 +146,7 @@ export async function startBroadcastGuard({
   if (recordDir) fs.mkdirSync(recordDir, { recursive: true });
   const servers = [];
   const passedTonHashes = new Set();
+  const failures = [];
 
   function log(entry) {
     if (logPath) fs.appendFileSync(logPath, `${JSON.stringify(entry)}\n`);
@@ -159,7 +178,7 @@ export async function startBroadcastGuard({
   }
 
   // `pass` sends it to mainnet, `dry` answers it as usual although it would have passed, `refuse` fails it, `intercept`
-  // answers it as usual. Counted when decided rather than when sent, so broadcasts in flight together cannot exceed
+  // answers it as usual. Counted when decided, so broadcasts in flight together cannot exceed
   // `maxCount`; a resent message takes no second slot.
   function decideTonBroadcast(boc, details) {
     if (!passTon?.from || !Address.parseRaw(details.from).equals(passTon.from)) return 'intercept';
@@ -206,16 +225,18 @@ export async function startBroadcastGuard({
     const readCache = readCacheMs > 0 ? createReadCache(readCacheMs) : undefined;
     const server = await listen(upstream.port, (req, res) => {
       proxiedCounts[upstream.chain] = (proxiedCounts[upstream.chain] ?? 0) + 1;
-      void handleProxyRequest(upstream, req, res, {
-        record, fixtures, saveResponse, readCache, decideTonBroadcast,
-      });
+      void handleProxyRequest(upstream, req, res, withFailures(res, failures, {
+        record, fixtures, saveResponse, readCache, decideTonBroadcast, shouldKeepSwapLimits,
+      }));
     });
     servers.push(server);
     envLines.push(...getEnvLines([{ ...upstream, port: server.address().port }]));
   }
 
   const control = await listen(controlPort, (req, res) => {
-    handleControlRequest(req, res, broadcasts, proxiedCounts, { fixtures, fixturesDir, passTon }).catch((err) => {
+    handleControlRequest(req, res, broadcasts, proxiedCounts, {
+      fixtures, fixturesDir, passTon, failures,
+    }).catch((err) => {
       if (!res.headersSent) sendJson(res, { error: String(err) }, 400);
     });
   });
@@ -227,12 +248,16 @@ export async function startBroadcastGuard({
     passTon,
     controlPort: control.address().port,
     ports: servers.slice(0, -1).map((server) => server.address().port),
-    close: () => Promise.all(servers.map((server) => new Promise((resolve) => server.close(resolve)))),
+    // A held `slow` answer would keep its connection, and so `close`, open until its delay ends
+    close: () => Promise.all(servers.map((server) => new Promise((resolve) => {
+      server.close(resolve);
+      server.closeAllConnections();
+    }))),
   };
 }
 
 async function handleProxyRequest(upstream, req, res, {
-  record, fixtures, saveResponse, readCache, decideTonBroadcast,
+  record, fixtures, saveResponse, readCache, decideTonBroadcast, getIsBroadcastDropped, shouldKeepSwapLimits,
 }) {
   try {
     // A browser app is served from another local port, and an upstream allows CORS only for its own origins
@@ -342,12 +367,16 @@ async function handleProxyRequest(upstream, req, res, {
       if (status >= 400) console.error(`${upstream.chain} ${req.method} ${url.pathname.slice(0, 80)}: HTTP ${status}`);
       saveResponse(upstream, req, url, status, responseBody);
     };
+    if (!shouldKeepSwapLimits && upstream.chain === 'backend' && req.method === 'GET' && BACKEND_CONFIG_PATH.test(sendPath)) {
+      await forwardPatchedJson(url, req, res, SWAPS_ALLOWED_CONFIG, onResponse);
+      return;
+    }
     // Backend answers also vary by `X-App-*` headers, so only chain hosts share reads
     const isCacheableRead = RPC_CHAINS.has(upstream.chain) && (req.method === 'GET' || (rpc && !hasRpcSend))
       && !UNCACHED_READ.test(sendPath) && ![].concat(rpc ?? []).some((call) => UNCACHED_READ.test(call?.method));
     const cache = isCacheableRead ? readCache : undefined;
     if (rpc) {
-      await handleJsonRpc(upstream, url, req, res, body, rpc, { record, decideTonBroadcast }, {
+      await handleJsonRpc(upstream, url, req, res, body, rpc, { record, decideTonBroadcast, getIsBroadcastDropped }, {
         onResponse, canRetry, readCache: cache,
       });
       return;
@@ -362,14 +391,28 @@ async function handleProxyRequest(upstream, req, res, {
   }
 }
 
-async function handleJsonRpc(upstream, url, req, res, body, rpc, { record, decideTonBroadcast }, forwardOptions) {
+async function handleJsonRpc(
+  upstream, url, req, res, body, rpc, { record, decideTonBroadcast, getIsBroadcastDropped }, forwardOptions,
+) {
   const calls = Array.isArray(rpc) ? rpc : [rpc];
+  const broadcasts = calls.map((call) => interceptJsonRpcCall(upstream.chain, call));
+  // A host that is down takes none of the batch, so a send beside a failed one is never passed and takes no pass slot
+  const present = broadcasts.filter(Boolean);
+  const dropped = present.filter((broadcast) => getIsBroadcastDropped(broadcast.details));
+  if (dropped.length) {
+    // The first recorded failure sets the answer, so a dropped one goes ahead of a `slow` one
+    for (const broadcast of [...dropped, ...present.filter((broadcast) => !dropped.includes(broadcast))]) {
+      record({ chain: upstream.chain, hash: broadcast.hash, details: broadcast.details, boc: broadcast.boc });
+    }
+    return;
+  }
+
   const answers = new Map();
   // A passed send goes on with only the method and message it was checked for
   const passedCalls = new Map();
 
-  for (const call of calls) {
-    const broadcast = interceptJsonRpcCall(upstream.chain, call);
+  for (const [index, call] of calls.entries()) {
+    const broadcast = broadcasts[index];
     if (!broadcast) continue;
 
     const decision = upstream.chain === 'ton' && broadcast.boc
@@ -619,12 +662,39 @@ function escapeHtml(text) {
 function describeTonBoc(boc) {
   const root = Cell.fromBase64(boc);
   const external = loadMessage(root.beginParse());
+  const wallet = readTonWallet(external.body);
 
   return {
     hash: root.hash().toString('base64'),
     from: external.info.dest.toRawString(),
-    messages: findTonInternalMessages(external.body),
+    ...(wallet && { wallet: wallet.header }),
+    // A wallet's own sends keep their order, repeats and send modes
+    messages: wallet
+      ? wallet.sends.filter(({ message }) => isTonInternalMessage(message))
+        .map(({ message, mode }) => describeTonMessage(message, mode))
+      : findTonInternalMessages(external.body),
   };
+}
+
+/**
+ * The version, seqno and expiry a W5 or v4 wallet body carries, with its sends, or `undefined` for another layout.
+ * A v4 body counts as one only when it reads as a plain send, the only action the app signs with v4.
+ */
+function readTonWallet(body) {
+  try {
+    const slice = body.beginParse();
+    const isW5 = slice.remainingBits >= 32 && slice.preloadUint(32) === W5_SIGNED_EXTERNAL_OP;
+    const sends = readTonWalletSends(body);
+    if (!sends) return undefined;
+
+    slice.skip(isW5 ? 64 : WALLET_SIGNATURE_BITS + 32); // W5: op and wallet id; v4: signature and subwallet id
+    const validUntil = slice.loadUint(32);
+    const seqno = slice.loadUint(32);
+
+    return { header: { version: isW5 ? 'w5' : 'v4', seqno, validUntil }, sends };
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -670,7 +740,9 @@ function readW5Sends(slice) {
     const action = actionCell.beginParse();
     actionCell = action.loadRef();
     if (action.loadUint(32) !== W5_SEND_MESSAGE_ACTION) return undefined;
-    sends.unshift({ mode: action.loadUint(8), message: loadMessageRelaxed(action.loadRef().beginParse()) });
+    const mode = action.loadUint(8);
+    const cell = action.loadRef();
+    sends.unshift({ mode, cell, message: loadMessageRelaxed(cell.beginParse()) });
     if (action.remainingBits || action.remainingRefs) return undefined;
   }
   return sends;
@@ -683,12 +755,14 @@ function readV4Sends(slice) {
 
   const sends = [];
   while (slice.remainingRefs) {
-    sends.push({ mode: slice.loadUint(8), message: loadMessageRelaxed(slice.loadRef().beginParse()) });
+    const mode = slice.loadUint(8);
+    const cell = slice.loadRef();
+    sends.push({ mode, cell, message: loadMessageRelaxed(cell.beginParse()) });
   }
   return sends;
 }
 
-// Wallet versions lay out out-actions differently, so every cell is tried as a message rather than parsed per version
+// A layout other than W5 or v4 is read by trying every cell as a message, so its messages carry no send mode
 function findTonInternalMessages(body) {
   const messages = new Map();
   const queue = [body];
@@ -699,12 +773,8 @@ function findTonInternalMessages(body) {
 
     try {
       const message = loadMessageRelaxed(cell.beginParse());
-      if (message.info.type === 'internal' && Address.isAddress(message.info.dest)) {
-        messages.set(cell.hash().toString('hex'), {
-          to: message.info.dest.toRawString(),
-          amount: message.info.value.coins.toString(),
-          jetton: describeJettonTransfer(message.body),
-        });
+      if (isTonInternalMessage(message)) {
+        messages.set(cell.hash().toString('hex'), describeTonMessage(message));
       }
     } catch {
       // Not a message cell
@@ -714,14 +784,63 @@ function findTonInternalMessages(body) {
   return [...messages.values()];
 }
 
+function isTonInternalMessage(message) {
+  return message.info.type === 'internal' && Address.isAddress(message.info.dest);
+}
+
+function describeTonMessage(message, mode) {
+  const comment = describeComment(message.body);
+
+  return {
+    to: message.info.dest.toRawString(),
+    amount: message.info.value.coins.toString(),
+    isBounceable: message.info.bounce,
+    hasStateInit: Boolean(message.init),
+    ...(mode !== undefined && { mode }),
+    ...(comment && { comment }),
+    jetton: describeJettonTransfer(message.body),
+  };
+}
+
 function describeJettonTransfer(body) {
+  let slice;
+  let transfer;
   try {
-    const slice = body.beginParse();
+    slice = body.beginParse();
     if (slice.loadUint(32) !== JETTON_TRANSFER_OP) return undefined;
     slice.skip(64);
     const amount = slice.loadCoins().toString();
+    transfer = { to: slice.loadAddress().toRawString(), amount };
+  } catch {
+    return undefined;
+  }
 
-    return { to: slice.loadAddress().toRawString(), amount };
+  // The recipient and amount stand on their own when the rest of the body does not read
+  try {
+    slice.loadMaybeAddress(); // Response destination
+    const hasCustomPayload = Boolean(slice.loadMaybeRef());
+    const forwardTonAmount = slice.loadCoins().toString();
+    const comment = describeComment(slice.loadBit() ? slice.loadRef() : slice.asCell());
+
+    return { ...transfer, forwardTonAmount, hasCustomPayload, ...(comment && { comment }) };
+  } catch {
+    return transfer;
+  }
+}
+
+/**
+ * The text of a plain comment, joined across its chain of cells, or `isEncrypted` for an encrypted one, whose content
+ * stays opaque; `undefined` for an empty body or any other op
+ */
+function describeComment(cell) {
+  try {
+    const slice = cell.beginParse();
+    if (slice.remainingBits < 32) return undefined;
+    const op = slice.loadUint(32);
+    if (op === ENCRYPTED_COMMENT_OP) return { isEncrypted: true };
+    if (op !== TEXT_COMMENT_OP) return undefined;
+
+    return { text: slice.loadStringTail() };
   } catch {
     return undefined;
   }
@@ -761,10 +880,17 @@ function getSolanaSignature(encoded, encoding = 'base58') {
   return getBase58Decoder().decode(bytes.subarray(1, 65));
 }
 
-async function handleControlRequest(req, res, broadcasts, proxiedCounts, { fixtures, fixturesDir, passTon }) {
+async function handleControlRequest(req, res, broadcasts, proxiedCounts, {
+  fixtures, fixturesDir, passTon, failures,
+}) {
   const url = new URL(req.url, `http://${HOST}`);
   if (url.pathname === '/fixtures') {
     await handleFixturesRequest(req, res, url, fixtures, fixturesDir);
+    return;
+  }
+
+  if (url.pathname === '/failure') {
+    await handleFailureRequest(req, res, url, failures);
     return;
   }
 
@@ -838,12 +964,7 @@ async function forward(url, req, res, body, { onResponse, canRetry, readCache })
   const { status, body: responseBody } = response;
 
   // Cached answers keep the upstream's CORS headers, so the local ones are applied at reply time
-  const isLocalOrigin = getIsLocalOrigin(req.headers.origin);
-  const headers = {};
-  for (const [name, value] of Object.entries(response.headers)) {
-    if (!(isLocalOrigin && REPLACED_CORS_HEADERS.has(name))) headers[name] = value;
-  }
-  if (isLocalOrigin) Object.assign(headers, getCorsHeaders(req.headers.origin));
+  const headers = buildReplyHeaders(response.headers, req);
 
   // The app would follow an absolute redirect straight to the real host, bypassing the guard
   const { location } = headers;
@@ -854,6 +975,39 @@ async function forward(url, req, res, body, { onResponse, canRetry, readCache })
   res.writeHead(status, headers);
   res.end(responseBody);
   if (isFetched) onResponse?.(status, responseBody);
+}
+
+async function forwardPatchedJson(url, req, res, patch, onResponse) {
+  const { status, headers, body: responseBody } = await fetchForwarded(url, req, Buffer.alloc(0), true);
+  onResponse(status, responseBody);
+  let parsed;
+  try {
+    parsed = JSON.parse(responseBody.toString());
+  } catch {
+    parsed = undefined;
+  }
+  const isPatchable = status < 300 && parsed && typeof parsed === 'object' && !Array.isArray(parsed);
+  // A redirect is answered without its `location`, so the app never leaves the guard
+  const { location, ...replyHeaders } = buildReplyHeaders(headers, req);
+  if (!isPatchable) {
+    res.writeHead(status, replyHeaders);
+    res.end(responseBody);
+    return;
+  }
+  // The upstream's validators describe its own body, so a cached patched answer is never revalidated against them
+  const { etag, 'last-modified': lastModified, ...patchedHeaders } = replyHeaders;
+  res.writeHead(status, { ...patchedHeaders, 'content-type': JSON_HEADERS['content-type'], 'cache-control': 'no-store' });
+  res.end(JSON.stringify({ ...parsed, ...patch }));
+}
+
+function buildReplyHeaders(upstreamHeaders, req) {
+  const isLocalOrigin = getIsLocalOrigin(req.headers.origin);
+  const headers = {};
+  for (const [name, value] of Object.entries(upstreamHeaders)) {
+    if (!(isLocalOrigin && REPLACED_CORS_HEADERS.has(name))) headers[name] = value;
+  }
+  if (isLocalOrigin) Object.assign(headers, getCorsHeaders(req.headers.origin));
+  return headers;
 }
 
 async function fetchForwarded(url, req, body, canRetry) {
@@ -967,6 +1121,122 @@ async function handlePassRequest(req, res, passTon) {
     passTon.from = from;
   }
   sendJson(res, { from: passTon.from?.toRawString(), isDry: passTon.isDry });
+}
+
+// Each failure is scoped to a comment, so cases running at once against one guard fail only their own broadcasts
+async function handleFailureRequest(req, res, url, failures) {
+  if (req.method === 'DELETE') {
+    const comment = url.searchParams.get('comment');
+    removeFailures(failures, (failure) => comment === null || failure.comment === comment);
+  }
+  if (req.method === 'PUT' || req.method === 'POST') {
+    const {
+      comment, mode, delayMs, ttlMs = DEFAULT_FAILURE_TTL_MS,
+    } = JSON.parse((await readBody(req)).toString());
+    const isDelayValid = mode !== 'slow' || isTimerDelay(delayMs);
+    if (typeof comment !== 'string' || !comment || !FAILURE_MODES.has(mode) || !isDelayValid || !isTimerDelay(ttlMs)) {
+      sendJson(res, {
+        error: 'A failure takes a comment, offline, error, or slow with a delayMs, and an optional ttlMs, each delay'
+          + ` positive and at most ${MAX_TIMER_MS} ms`,
+      }, 400);
+      return;
+    }
+    removeFailures(failures, (failure) => failure.comment === comment);
+    failures.push({
+      comment, mode, ...(mode === 'slow' && { delayMs }), expiresAt: new Date(Date.now() + ttlMs).toISOString(),
+    });
+  }
+
+  removeFailures(failures, isFailureExpired);
+  sendJson(res, failures);
+}
+
+function isTimerDelay(ms) {
+  return Number.isInteger(ms) && ms > 0 && ms <= MAX_TIMER_MS;
+}
+
+function isFailureExpired(failure) {
+  return Date.parse(failure.expiresAt) <= Date.now();
+}
+
+function removeFailures(failures, predicate) {
+  failures.splice(0, failures.length, ...failures.filter((failure) => !predicate(failure)));
+}
+
+/**
+ * Wraps a proxy request's handlers so a TON broadcast whose message carries a failure's comment fails as that failure
+ * says, and never reaches mainnet. The failure of each broadcast is fixed when the guard first decodes it, so a change
+ * to `/failure` leaves the broadcasts in flight as they were.
+ */
+function withFailures(res, failures, handlers) {
+  const failureByHash = new Map();
+  const getFailure = (details) => {
+    if (!failureByHash.has(details.hash)) {
+      failureByHash.set(details.hash, failures.find((failure) => (
+        !isFailureExpired(failure) && hasComment(details, failure.comment)
+      )));
+    }
+    return failureByHash.get(details.hash);
+  };
+
+  return {
+    ...handlers,
+    getIsBroadcastDropped: (details) => DROPPED_FAILURE_MODES.has(getFailure(details)?.mode),
+    decideTonBroadcast: (boc, details) => (
+      getFailure(details) ? 'intercept' : handlers.decideTonBroadcast(boc, details)
+    ),
+    record: (broadcast) => {
+      const failure = getFailure(broadcast.details);
+      if (!failure) {
+        handlers.record(broadcast);
+        return;
+      }
+      handlers.record({ ...broadcast, details: { ...broadcast.details, failure: failure.mode } });
+      holdFailedAnswer(res, failure);
+    },
+  };
+}
+
+function hasComment(details, comment) {
+  return (details.messages ?? []).some((message) => (
+    message.comment?.text === comment || message.jetton?.comment?.text === comment
+  ));
+}
+
+/**
+ * Replaces the answer to a broadcast: `offline` drops the connection unanswered, `error` answers HTTP 503, `slow` holds
+ * the usual answer for `delayMs`. The whole answer fails, as it would from a host that is down, so a JSON-RPC batch
+ * loses its reads too; the app sends one call per request. A batch records each of its sends, and only the first one
+ * acts.
+ */
+function holdFailedAnswer(res, { mode, delayMs }) {
+  if (failedAnswers.has(res)) return;
+  failedAnswers.add(res);
+  const answer = { writeHead: res.writeHead.bind(res), end: res.end.bind(res) };
+  const held = [];
+  let isReleased = false;
+  for (const name of Object.keys(answer)) {
+    res[name] = (...args) => {
+      if (isReleased) return answer[name](...args);
+      held.push([name, args]);
+      return res;
+    };
+  }
+
+  if (mode === 'offline') {
+    res.socket.destroy();
+  } else if (mode === 'error') {
+    answer.writeHead(503, JSON_HEADERS);
+    answer.end(JSON.stringify({ error: FAILED_ERROR }));
+  } else {
+    const timer = setTimeout(() => {
+      isReleased = true;
+      for (const [name, args] of held) answer[name](...args);
+    }, delayMs);
+    timer.unref();
+    // The app gives up on a slow answer and closes the connection, which then takes nothing
+    res.on('close', () => clearTimeout(timer));
+  }
 }
 
 async function handleFixturesRequest(req, res, url, fixtures, fixturesDir) {

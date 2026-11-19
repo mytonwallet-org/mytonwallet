@@ -4,7 +4,7 @@ import WalletContext
 
 @MainActor
 struct SwapCexSupport {
-    var createTransaction: (String, EnclaveToken, ApiSwapBuildRequest) async throws -> ApiSwapCexCreateTransactionResult = {
+    var createTransaction: (String, EnclaveToken, ApiSwapCexBuildRequest) async throws -> ApiSwapCexCreateTransactionResult = {
         try await Api.swapCexCreateTransaction(accountId: $0, enclaveToken: $1, request: $2)
     }
     var submit: (ApiChain, ApiSubmitTransferOptions, String) async throws -> ApiSwapSubmitResult = {
@@ -14,7 +14,7 @@ struct SwapCexSupport {
     func swapCexCreateTransaction(
         accountId: String,
         sellingToken: ApiToken,
-        request: ApiSwapBuildRequest,
+        request: ApiSwapCexBuildRequest,
         shouldTransfer: Bool,
         enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
@@ -44,7 +44,7 @@ struct SwapCexSupport {
     private static func makeTransferOptions(
         accountId: String,
         sellingToken: ApiToken,
-        request: ApiSwapBuildRequest,
+        request: ApiSwapCexBuildRequest,
         createResult: ApiSwapCexCreateTransactionResult,
         enclaveToken: EnclaveToken
     ) throws -> ApiSubmitTransferOptions {

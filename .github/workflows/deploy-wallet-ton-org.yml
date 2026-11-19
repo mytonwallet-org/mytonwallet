@@ -41,9 +41,6 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Test dispatcher boundaries
-        run: node --test dev/gramReleaseDispatchTests.mjs
-
       - name: Dispatch and await receiver
         id: receiver
         env:

@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "26.11.7",
+  "version": "26.11.8",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -63,6 +63,7 @@
     "test:broadcast-guard": "node --test dev/broadcastGuardTests.mjs",
     "e2e:broadcast-guard": "node dev/broadcastGuard.mjs",
     "test:testnet-proxy": "node --test dev/testnetProxyTests.mjs",
+    "test:web-e2e-summary": "node --test dev/webE2eSummaryTests.mjs",
     "e2e:testnet-proxy": "node dev/testnetProxy.mjs",
     "test": "cross-env APP_ENV=test jest --verbose",
     "contract:agent:v2:check": "node dev/checkAgentV2Contract.mjs && tsc -p dev/agentV2/tsconfig.json && cross-env APP_ENV=test jest src/api/agentV2/protocol/transportContracts.test.ts --runInBand",

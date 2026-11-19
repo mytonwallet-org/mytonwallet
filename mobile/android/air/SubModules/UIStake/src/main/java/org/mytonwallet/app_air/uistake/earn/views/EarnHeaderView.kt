@@ -83,6 +83,7 @@ class EarnHeaderView(
         layoutParams = LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         textAlignment = TEXT_ALIGNMENT_CENTER
         contentView.apply {
+            id = UIComponentsR.id.earn_staked_amount
             typeface = WFont.Balance.typeface
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 44f)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)

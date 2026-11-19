@@ -42,7 +42,7 @@ extension Api {
         try await bridge.callApi("swapCexValidateAddress", params, decoding: ApiSwapCexValidateAddressResult.self)
     }
 
-    public static func swapCexCreateTransaction(accountId: String, enclaveToken: EnclaveToken, request: ApiSwapBuildRequest) async throws -> ApiSwapCexCreateTransactionResult {
+    public static func swapCexCreateTransaction(accountId: String, enclaveToken: EnclaveToken, request: ApiSwapCexBuildRequest) async throws -> ApiSwapCexCreateTransactionResult {
         return try await bridge.callApi("swapCexCreateTransaction", accountId, enclaveToken, request, decoding: ApiSwapCexCreateTransactionResult.self)
     }
 

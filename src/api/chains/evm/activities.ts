@@ -641,7 +641,16 @@ function transformEvmGaslessTransfer(
   tx: ZerionTransaction,
   address: string,
 ): ApiActivity | undefined {
-  const paymaster = tx.attributes.paymaster;
+  let paymaster = tx.attributes.paymaster;
+
+  if (!paymaster) {
+    if (tx.attributes.delegations) {
+      paymaster = tx.attributes.acts.find((e) => e.type === 'approve'
+        && e.counterparty_address
+        && normalizeAddress(e.counterparty_address) === normalizeAddress(PIMLICO_SINGLETON_PAYMASTER_ADDRESS),
+      )?.counterparty_address;
+    }
+  }
 
   if (!paymaster || normalizeAddress(paymaster) !== normalizeAddress(PIMLICO_SINGLETON_PAYMASTER_ADDRESS)) {
     return undefined;

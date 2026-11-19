@@ -32,6 +32,7 @@ class EarnHeaderCell: UICollectionViewCell {
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .compactRounded(ofSize: 48, weight: .bold)
         lbl.text = "0"
+        lbl.accessibilityIdentifier = "earn_staked_amount"
         return lbl
     }()
     

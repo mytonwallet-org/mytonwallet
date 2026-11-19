@@ -40,6 +40,8 @@ load File.expand_path('../Fastfile', __dir__)
 class ReviewMaterialsTest < Minitest::Test
   TEST_WALLET = "Test seed phrase on balance:\n\nalpha beta gamma\n\n----\n\nExplore section catalog index\n"
   APPENDIX = "SWAP AND BUY FEATURES\n\nThe user signs each swap on their device.\n"
+  INDEX_URL = 'https://gramwallet.io/~explore-catalog-index.html'
+  BOTH = { 'IOS_REVIEW_NOTES_APPENDIX' => APPENDIX, 'IOS_REVIEW_CATALOG_INDEX_URL' => INDEX_URL }
 
   def test_appends_the_text_after_what_the_notes_already_hold
     notes = review_notes_with_appendix(TEST_WALLET, APPENDIX)
@@ -64,6 +66,47 @@ class ReviewMaterialsTest < Minitest::Test
     assert_equal APPENDIX.strip, review_notes_with_appendix(nil, APPENDIX)
   end
 
+  def test_adds_the_catalog_index_link_after_the_required_text
+    with_env(BOTH) do
+      notes = review_notes_with_appendices(TEST_WALLET, review_notes_appendices)
+
+      assert notes.start_with?(TEST_WALLET.rstrip)
+      assert_operator notes.index(APPENDIX.strip), :<, notes.index(INDEX_URL)
+      assert notes.end_with?(INDEX_URL)
+      assert_nil review_notes_with_appendices(notes, review_notes_appendices)
+    end
+  end
+
+  def test_adds_only_the_part_the_notes_lack
+    with_env(BOTH) do
+      held = review_notes_with_appendix(TEST_WALLET, APPENDIX)
+      notes = review_notes_with_appendices(held, review_notes_appendices)
+
+      assert notes.start_with?(held)
+      assert_equal 1, notes.scan('SWAP AND BUY FEATURES').length
+      assert_includes notes, INDEX_URL
+    end
+  end
+
+  def test_leaves_notes_alone_when_they_name_the_catalog_index_link_in_other_words
+    with_env(BOTH) do
+      held = "#{review_notes_with_appendix(TEST_WALLET, APPENDIX)}\n\n----\n\nExplore section catalog index\n#{INDEX_URL}"
+      full = { appendices: review_notes_appendices, attachment_name: nil }
+
+      assert_nil review_notes_with_appendices(held, review_notes_appendices)
+      assert_empty find_review_materials_gaps(notes: held, attachment_names: [], **full)
+    end
+  end
+
+  def test_asks_for_no_catalog_index_when_the_app_has_none
+    with_env('IOS_REVIEW_NOTES_APPENDIX' => APPENDIX, 'IOS_REVIEW_CATALOG_INDEX_URL' => nil) do
+      assert_equal [[APPENDIX.strip, APPENDIX.strip]], review_notes_appendices
+    end
+    with_env('IOS_REVIEW_NOTES_APPENDIX' => nil, 'IOS_REVIEW_CATALOG_INDEX_URL' => ' ') do
+      assert_empty review_notes_appendices
+    end
+  end
+
   def test_hands_deliver_the_attachment_only_when_it_exists
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'supplementary-3.1.5.pdf')
@@ -80,12 +123,15 @@ class ReviewMaterialsTest < Minitest::Test
   end
 
   def test_names_every_material_the_submission_lacks
-    notes = review_notes_with_appendix(TEST_WALLET, APPENDIX)
-    full = { appendix: APPENDIX, attachment_name: 'supplementary-3.1.5.pdf' }
+    appendices = with_env(BOTH) { review_notes_appendices }
+    notes = review_notes_with_appendices(TEST_WALLET, appendices)
+    full = { appendices: appendices, attachment_name: 'supplementary-3.1.5.pdf' }
 
     assert_empty find_review_materials_gaps(notes: notes, attachment_names: ['supplementary-3.1.5.pdf'], **full)
     assert_equal 2, find_review_materials_gaps(notes: TEST_WALLET, attachment_names: [], **full).length
-    assert_empty find_review_materials_gaps(notes: nil, attachment_names: [], appendix: nil, attachment_name: nil)
+    without_index = review_notes_with_appendix(TEST_WALLET, APPENDIX)
+    assert_equal 1, find_review_materials_gaps(notes: without_index, attachment_names: ['supplementary-3.1.5.pdf'], **full).length
+    assert_empty find_review_materials_gaps(notes: nil, attachment_names: [], appendices: [], attachment_name: nil)
   end
 
   def test_fails_the_lane_when_the_submitted_version_lacks_the_attachment
@@ -93,7 +139,7 @@ class ReviewMaterialsTest < Minitest::Test
       path = File.join(dir, 'supplementary-3.1.5.pdf')
       File.write(path, '%PDF-1.4')
       notes = review_notes_with_appendix(TEST_WALLET, APPENDIX)
-      env = { 'IOS_REVIEW_NOTES_APPENDIX' => APPENDIX, 'IOS_REVIEW_ATTACHMENT_PATH' => path }
+      env = { 'IOS_REVIEW_NOTES_APPENDIX' => APPENDIX, 'IOS_REVIEW_CATALOG_INDEX_URL' => nil, 'IOS_REVIEW_ATTACHMENT_PATH' => path }
 
       with_submitted_version(notes, []) do
         with_env(env) do
@@ -110,8 +156,19 @@ class ReviewMaterialsTest < Minitest::Test
     end
   end
 
+  def test_fails_the_lane_when_the_submitted_version_lacks_the_catalog_index_link
+    notes = review_notes_with_appendix(TEST_WALLET, APPENDIX)
+
+    with_submitted_version(notes, []) do
+      with_env(BOTH.merge('IOS_REVIEW_ATTACHMENT_PATH' => nil)) do
+        error = assert_raises(RuntimeError) { verify_review_materials!('26.11.5', pause: 0) }
+        assert_includes error.message, 'the notes lack the required text'
+      end
+    end
+  end
+
   def test_skips_the_check_when_no_materials_are_configured
-    with_env('IOS_REVIEW_NOTES_APPENDIX' => nil, 'IOS_REVIEW_ATTACHMENT_PATH' => nil) do
+    with_env('IOS_REVIEW_NOTES_APPENDIX' => nil, 'IOS_REVIEW_CATALOG_INDEX_URL' => nil, 'IOS_REVIEW_ATTACHMENT_PATH' => nil) do
       assert_nil verify_review_materials!('26.11.5')
     end
   end
