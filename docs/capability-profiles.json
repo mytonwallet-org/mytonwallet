@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "productionEnabled": false,
+  "productionProfiles": [],
+  "laboratoryProfiles": [
+    {
+      "id": "pinned-standard-nft-local-emulator",
+      "nftCodeHash": "4c9123828682fa6f43797ab41732bca890cae01766e0674100250516e0bf8d42",
+      "sourceCommit": "68cfc0cf14685fdad0e16e42e516ecf96b56e9ae",
+      "source": "contract-lab/upstream/packages/contracts/sources/nft-item.fc",
+      "artifact": "contract-lab/upstream/code.json:NftItemCodeBoc",
+      "workchain": 0,
+      "currency": "TON",
+      "transfer": "0x5fcc3d14",
+      "ownershipNotification": "0x05138d91",
+      "deliveryAcknowledgement": "0xd53276db",
+      "acknowledgementMeaning": "For this pinned fixture only: response emitted in the ownership-changing transaction, with exact query, no ignored action error. Successful receipt plus independently checked transaction/storage proves the transition, not just a naked callback.",
+      "collectionIdentity": "Synthetic seller treasury used as collection address; no real Telegram collection",
+      "mutability": "Pinned laboratory source has no code-update or privileged owner-change path; not a claim about production gifts",
+      "gasPolicy": "Laboratory constants; not verified for current production network configuration",
+      "networkAuthorization": "Local emulator only; no testnet or mainnet deployment"
+    }
+  ],
+  "unsupported": [
+    "Unknown, mutable or unreviewed NFT code",
+    "Real Telegram NFT implementations until code/data/collection/upgrade and transfer semantics are independently verified",
+    "NFTs that fail, omit or corrupt delivery acknowledgements",
+    "Getgems settlement through the v2 acknowledgement-specific receipt decoder",
+    "Jetton, auction, cross-chain and custodial settlement"
+  ],
+  "requiredForProductionProfile": [
+    "Exact code and layout/version, canonical deployment and address derivation",
+    "Authentic collection membership proof and upgrade authority analysis",
+    "Transfer, return, ownership-assigned, acknowledgement and bounce semantics",
+    "Commission recipient and fee policy verification",
+    "Current network fee/storage/gas simulation and safety plus liveness acceptance",
+    "Independent value-bearing contract security review",
+    "Maintainer agreement and explicit deployment authorization"
+  ]
+}

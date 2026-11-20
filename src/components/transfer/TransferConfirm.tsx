@@ -42,6 +42,7 @@ import modalStyles from '../ui/Modal.module.scss';
 import styles from './Transfer.module.scss';
 
 interface OwnProps {
+  laboratoryConfirm?: NoneToVoidFunction;
   isActive: boolean;
   savedAddresses?: SavedAddress[];
   token?: UserToken | ApiToken;
@@ -84,7 +85,9 @@ function TransferConfirm({
   savedAddresses,
   onBack,
   onClose,
+  laboratoryConfirm,
 }: OwnProps & StateProps) {
+  if (laboratoryConfirm && !(process.env.GIFT_TRADING_LAB === 'true' && ['localhost','127.0.0.1'].includes(location.hostname))) throw Error('Laboratory review disabled');
   const { submitTransferConfirm } = getActions();
 
   const lang = useLang();
@@ -113,6 +116,7 @@ function TransferConfirm({
   });
 
   const handleConfirm = useLastCallback(() => {
+    if (laboratoryConfirm) { laboratoryConfirm(); return; }
     vibrate();
     submitTransferConfirm();
   });
@@ -126,6 +130,9 @@ function TransferConfirm({
   }
 
   function renderAmountWithFee() {
+    if (laboratoryConfirm && token) return <AmountWithFeeTextField label={lang('Amount')}
+      amount={toDecimal(amount ?? 0n, token.decimals)} symbol={token.symbol} fractionDigits={token.decimals}
+      feeText="Synthetic operation; network fee is not quoted" />;
     if (!explainedFee?.realFee || !token) {
       return undefined;
     }
@@ -306,3 +313,9 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     accounts: selectNetworkAccounts(global),
   };
 })(TransferConfirm));
+
+/** Test-only access to the actual view; no connected live-account selector. */
+export function TransferConfirmForLaboratory(props: OwnProps & StateProps) {
+  if (!(process.env.GIFT_TRADING_LAB === 'true' && ['localhost','127.0.0.1'].includes(location.hostname)) || typeof props.laboratoryConfirm !== 'function') throw Error('Laboratory review disabled');
+  return <TransferConfirm {...props} />;
+}

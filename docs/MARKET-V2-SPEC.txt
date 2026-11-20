@@ -1,0 +1,107 @@
+Wallet gift market v2 — local laboratory specification, 2026-11-13
+
+Scope and trust
+This is an experimental TON-only fixed sale and funded per-NFT offer protocol.
+It is neither deployed nor audited. No production NFT profile is enabled.
+Getgems is a separate provider and needs its own contract/receipt decoder.
+The full pinned NFT source and the laboratory code artifact define supported callback
+semantics. Sender/query checks alone do not establish that an arbitrary NFT delivered.
+An indexer supplies discovery hints. A separate verified state reader must prove
+code, layout, collection membership, ownership, canonical state and transaction lineage.
+The current source supplies interfaces and laboratory adapters, not that production reader.
+
+Actors and privileges
+Seller: creates a fixed-price listing and transfers the NFT only after confirmed deployment.
+Buyer: purchases with exact price, identity, operation counter and short-lived quote.
+Offer creator/buyer: funds exact configured principal plus explicit gas allowance.
+Seller accepting offer: supplies minimum proceeds and bounded expiry in the NFT transfer.
+Royalty recipient: immutable in StateInit; must be verified against the chosen collection policy.
+No operator, arbitrary recovery destination, price updater, Jetton callback or code updater.
+No admin key or third-party oracle is added for ambiguous completion.
+Only listing seller/offer creator can cancel an active listing/offer. After offer expiry
+any caller may trigger its cancellation, but refund recipient remains the configured buyer.
+Anyone may fund DRIVE for the existing pending operation. It cannot choose NFT, price or recipients.
+Only initiator or the current accepting seller may retry a return that provably bounced.
+
+Listing is staged
+1. Deploy and fund a canonical contract. Only its configured initiator may initialize it.
+2. Independently verify canonical deployed code/data, WAIT_NFT, owner identity and freshness.
+3. Show a new exact intent for the NFT deposit. Never batch deployment and deposit as if atomic.
+4. Advertise an active listing only after the NFT is proved held by the READY contract.
+Cancel during WAIT_NFT refunds the unused laboratory reserve. A delayed deposit into the
+cancelled contract is returned, not sold. An unsupported/missing notification remains a
+liveness blocker; no address-only registry may claim it is a supported NFT.
+
+States and completion
+NEW -> WAIT_NFT (sale) / READY (funded offer).
+WAIT_NFT -> READY on authenticated configured-NFT notification from the seller.
+READY -> SEND -> FLIGHT after an accepted purchase or matching offer acceptance.
+FLIGHT -> PAY only on the configured NFT's matching operation acknowledgement.
+PAY -> FINISHED only when all local payout actions succeed. Local send action failure
+rolls back to PAY; it never causes a second NFT delivery. Funded DRIVE can retry PAY.
+SEND local send action failure leaves SEND retryable. Once in FLIGHT, blind resend is forbidden.
+An authenticated transfer bounce causes sale buyer refund or an offer NFT return.
+Invalid offer quotes return the deposited NFT while preserving offer principal.
+RETURN_SEND -> RETURN_FLIGHT -> READY / REFUND / CANCELLED as appropriate.
+An NFT deposit can arrive while a cancellation REFUND self-message is still pending.
+The authenticated notification starts RETURN_SEND and advances the operation counter,
+invalidating the old self-message. An offer keeps REFUND as its return destination,
+so its buyer principal stays reserved through RETURN_FLIGHT and RECOVERY. Only the
+matching return ACK resumes REFUND. Repeated deposits during that resumed REFUND
+take the same route; they must not leave an NFT in a terminal cancelled contract.
+A failed or missing return acknowledgement does not authorize a timeout refund.
+A bounced return enters RECOVERY and cannot be labelled a completed sale or cancellation.
+No timer refunds money while delivery is ambiguous. A no-ACK fixture can leave FLIGHT
+indefinitely even after ownership changed. This FAILS general liveness and is not a solved
+recovery mechanism. Production support requires proof this cannot happen for the enabled
+profile under the accepted operating assumptions, or a separately reviewed protocol design.
+
+Laboratory economics (not an approved product fee policy)
+Price and royalty factor/recipient are immutable. Royalty is floor(price*factor/100000).
+Seller principal is price minus royalty. There is no marketplace fee in this v2 contract.
+Initial sale funding is at least 0.3 TON; offer funding is price+0.5 TON.
+Purchase is price+0.5 TON. NFT deposit/offer acceptance sends 0.7 TON with 0.5 TON forward.
+These are laboratory allowances, not live fee quotes or promises of net balance change.
+Outgoing principal/royalty messages pay their send fees separately. The beneficiary's own
+contract execution/storage fees are not included in the displayed principal amount.
+After success, unspent pooled allowance goes to sale buyer or accepting offer seller.
+Cancellation returns pooled remaining allowance to the initiator; failed sale delivery
+returns it to that buyer. Rejected offer NFT returns send only the ACK's remaining value
+to the sender, retaining the funded offer's principal/reserve. Gas donations can benefit
+another party. A real review must disclose this, and maintainers must approve/change it.
+The reserve constants are not adaptive to network configuration changes. Fault tests change
+forwarding fees and balances to exercise failures; they do not certify a mainnet budget.
+
+Confirmation and receipts
+Client intent v2 hashes a length-prefixed ASCII sequence binding review economics, roles,
+account/network, state hash, expiry and exact ordered message recipient/value/payload/StateInit.
+Shared TypeScript/Kotlin vector passes; equivalent Swift source/tests await Xcode.
+Cancellation, account switch, late result, expired evidence, double click or a failed recheck
+invalidate an attempt. The final local handoff is synchronous and single-use.
+The actual wallet signing/unlock/hardware flow is not integrated or tested.
+Cell comparison in common client modules is not a production ABI decoder. The v2 laboratory
+decoder builds all six actions independently and structurally checks cells and deployment data.
+No Getgems-generated transaction is trusted merely because it parses or an API calls it safe.
+
+The acknowledgement-specific receipt checker requires a causal NFT storage transition and
+exact per-role payment messages actually arriving in child receipts. Aggregate balance and
+latest ownership are insufficient. A later onward transfer does not invalidate a settled trade.
+The current receipt adapter is for the uninterrupted v2 laboratory transaction tree only.
+Resumed settlement with independent DRIVE roots needs additional verified account-state
+lineage joining; do not declare it settled using unrelated RPC receipts or a boolean flag.
+Canonical, emulation and decoded state flags are trusted-adapter inputs, not cryptographic
+proofs. Production remains disabled until those adapters exist and pass independent review.
+
+Privacy and availability
+No real inventory, signing, keys, account login, cookies, API secret or telemetry is used.
+The read-only provider transport allows configured HTTPS origins and offer GET routes only,
+rejects redirects, limits raw JSON to 1 MiB and imposes cancellation/deadlines.
+Client pages have page/item/cursor budgets. Budgets produce an explicit incomplete error,
+never a false claim that a truncated offer list represents every available buyer.
+Wallet-operated discovery infrastructure and its storage/retention policy are not deployed.
+
+Publication gate
+No publication is authorized. These foundation patches do not add a usable trading screen.
+Missing production readers/profiles/provider integration, actual-app demonstrations, full
+native builds, Xcode and independent expert review remain blocked. Old unsafe v1 artifacts
+are retained as diagnostic evidence and are not the new settlement implementation.
