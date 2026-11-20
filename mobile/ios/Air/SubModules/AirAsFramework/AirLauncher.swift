@@ -55,6 +55,7 @@ public class AirLauncher {
         AirLauncher.window = window
         StartupTrace.mark("airLauncher.window.set")
         installRootViewControllerIfNeeded()
+        LaunchSplash.show(over: window)
         Task(priority: .userInitiated) {
             await soarIntoAir()
         }
