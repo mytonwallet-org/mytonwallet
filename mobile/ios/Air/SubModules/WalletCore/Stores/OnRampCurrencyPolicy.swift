@@ -25,7 +25,12 @@ public enum OnRampCurrencyPolicy {
         // The ruble link buys GRAM and carries the TON address, so the chain config is asked which chains that
         // provider serves; naming the ones it does not would hand the ruble to every chain added later
         let isRubSupported = chain.config.canBuyWithCardInRussia
-        return baselineCurrencies.filter { configAllowed.contains($0) && ($0 != .RUB || isRubSupported) }
+        let isCardRestricted = ConfigStore.shared.isRestricted(.cardOnRamp)
+        let isRubRestricted = ConfigStore.shared.isRestricted(.rubOnRamp)
+        return baselineCurrencies.filter { currency in
+            guard configAllowed.contains(currency) else { return false }
+            return currency == .RUB ? isRubSupported && !isRubRestricted : !isCardRestricted
+        }
     }
 
     /// The chain an entry point that carries no chain of its own ends up buying on: the account's first chain the

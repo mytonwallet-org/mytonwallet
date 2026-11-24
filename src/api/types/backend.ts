@@ -654,4 +654,6 @@ export type ApiBackendConfig = {
   isAgentSupportEnabled?: boolean;
   // Lower-case currency codes the on/off-ramp surfaces may offer; the client may only narrow its own baseline with it
   allowedOnOffRampCurrencies?: string[];
+  // Names of the compliance features the client must hide. Absent on backends that do not send it
+  restrictedFeatures?: string[];
 };

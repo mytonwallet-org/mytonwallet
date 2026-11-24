@@ -33,7 +33,7 @@ enum UniversalSearchAppEntries {
             if account.supportsSwap { actions.insert(.swap) }
             if account.supportsEarn { actions.insert(.earn) }
             if !account.isView,
-               !ConfigStore.shared.shouldRestrictSwapsAndOnRamp,
+               !ConfigStore.shared.shouldRestrictOnRamp,
                OnRampCurrencyPolicy.defaultChain(for: account) != nil {
                 actions.insert(.buyWithCard)
             }

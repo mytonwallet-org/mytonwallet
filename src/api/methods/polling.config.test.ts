@@ -277,6 +277,54 @@ describe('backend config polling', () => {
     await destroyPolling();
   });
 
+  it('forwards the list of restricted features', async () => {
+    mockCallBackendGet.mockImplementation((path: string) => {
+      if (path === '/utils/get-config') {
+        return Promise.resolve({
+          country: 'DE',
+          isLimited: false,
+          isUpdateRequired: false,
+          now: Date.now(),
+          restrictedFeatures: ['dexSwap', 'offRamp'],
+        });
+      }
+
+      if (path === '/currency-rates') return Promise.resolve({ rates: {} });
+      return Promise.resolve({});
+    });
+    const { destroyPolling, initPolling } = await import('./polling');
+    const updatePromise = new Promise<ApiUpdateConfig>((resolve) => {
+      initPolling((update) => {
+        if (update.type === 'updateConfig') resolve(update);
+      });
+    });
+
+    await expect(updatePromise).resolves.toMatchObject({ restrictedFeatures: ['dexSwap', 'offRamp'] });
+
+    await destroyPolling();
+  });
+
+  it('leaves the list absent when the backend sends none', async () => {
+    mockCallBackendGet.mockImplementation((path: string) => {
+      if (path === '/utils/get-config') {
+        return Promise.resolve({ country: 'DE', isLimited: false, isUpdateRequired: false, now: Date.now() });
+      }
+
+      if (path === '/currency-rates') return Promise.resolve({ rates: {} });
+      return Promise.resolve({});
+    });
+    const { destroyPolling, initPolling } = await import('./polling');
+    const updatePromise = new Promise<ApiUpdateConfig>((resolve) => {
+      initPolling((update) => {
+        if (update.type === 'updateConfig') resolve(update);
+      });
+    });
+
+    expect((await updatePromise).restrictedFeatures).toBeUndefined();
+
+    await destroyPolling();
+  });
+
   it('does not forward an unsupported agent protocol version', async () => {
     mockCallBackendGet.mockImplementation((path: string) => {
       if (path === '/utils/get-config') {

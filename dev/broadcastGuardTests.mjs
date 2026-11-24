@@ -713,7 +713,12 @@ describe('broadcastGuard swaps allowed', () => {
         }
         res.writeHead(200, { 'content-type': 'application/json', 'x-request-id': 'r1', etag: '"u1"', 'cache-control': 'max-age=60' });
         res.end(JSON.stringify(req.url.startsWith('/utils/get-config')
-          ? { isLimited: true, isSwapAndOnRampLimited: true, swapVersion: 3 }
+          ? {
+            isLimited: true,
+            isSwapAndOnRampLimited: true,
+            ...(req.url.includes('listed') && { restrictedFeatures: ['dexSwap', 'cexSwap'] }),
+            swapVersion: 3,
+          }
           : { isLimited: true }));
       });
       server.listen(0, '127.0.0.1', () => resolve(server));
@@ -736,6 +741,14 @@ describe('broadcastGuard swaps allowed', () => {
     assert.equal(response.headers.get('x-request-id'), 'r1');
     assert.equal(response.headers.get('etag'), null);
     assert.equal(response.headers.get('cache-control'), 'no-store');
+  });
+
+  it('empties the list of restricted features, which iOS reads instead of the two flags', async () => {
+    const response = await fetch(`http://127.0.0.1:${guard.ports[0]}/utils/get-config?listed=1`);
+
+    assert.deepEqual(await response.json(), {
+      isLimited: false, isSwapAndOnRampLimited: false, restrictedFeatures: [], swapVersion: 3,
+    });
   });
 
   it('passes a failed config answer through with its headers', async () => {

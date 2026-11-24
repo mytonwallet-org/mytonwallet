@@ -217,7 +217,8 @@ public class NftsFullScreenVC: WViewController {
             
             if case .collection(let collection) = filter {
                 if collection.chain == .ton {
-                    if let url = ExplorerHelper.getgemsNftCollectionUrl(collectionAddress: collection.address) {
+                    if !ConfigStore.shared.shouldRestrictBuyNfts,
+                       let url = ExplorerHelper.getgemsNftCollectionUrl(collectionAddress: collection.address) {
                         items += UIAction(title: "Getgems", image: .airBundle("MenuGetgems26")) { _ in AppActions.openInBrowser(url) }
                     }
                     if let url = ExplorerHelper.tonscanNftCollectionUrl(collectionAddress: collection.address) {

@@ -166,14 +166,16 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             snapshot.appendSections([.viewWalletWarning])
         }
 
-        if !ConfigStore.shared.shouldRestrictSwapsAndOnRamp && !isViewWalletMode {
+        let canBuyWithCard = !ConfigStore.shared.shouldRestrictOnRamp
+        let canBuyWithCrypto = !ConfigStore.shared.shouldRestrictSwaps
+        if (canBuyWithCard || canBuyWithCrypto) && !isViewWalletMode {
             snapshot.appendSections([.buyCrypto])
 
             var buyCryptoItems: [ReceiveItem] = []
-            if chain.isOnrampSupported && !OnRampCurrencyPolicy.supportedCurrencies(for: chain).isEmpty {
+            if canBuyWithCard, chain.isOnrampSupported, !OnRampCurrencyPolicy.supportedCurrencies(for: chain).isEmpty {
                 buyCryptoItems.append(.buyWithCard)
             }
-            if !account.isHardware {
+            if canBuyWithCrypto, !account.isHardware {
                 buyCryptoItems.append(.buyWithCrypto)
             }
             if chain.formatTransferUrl != nil {
