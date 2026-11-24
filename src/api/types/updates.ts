@@ -466,6 +466,7 @@ export type ApiUpdateConfig = {
   preferredAgent?: ApiBackendConfig['preferredAgent'];
   isAgentSupportEnabled?: ApiBackendConfig['isAgentSupportEnabled'];
   allowedOnOffRampCurrencies?: string[];
+  restrictedFeatures?: string[];
 };
 
 export type ApiUpdateWalletVersions = {

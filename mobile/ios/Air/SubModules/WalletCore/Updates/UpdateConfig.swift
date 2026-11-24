@@ -25,6 +25,7 @@ extension ApiUpdate {
         public var isAppUpdateRequired: Bool?
         public var seasonalTheme: SeasonalTheme?
         public var allowedOnOffRampCurrencies: [String]?
+        public var restrictedFeatures: [String]?
 
         private enum CodingKeys: String, CodingKey {
             case type
@@ -37,6 +38,7 @@ extension ApiUpdate {
             case isAppUpdateRequired
             case seasonalTheme
             case allowedOnOffRampCurrencies
+            case restrictedFeatures
         }
 
         public init(from decoder: Decoder) throws {
@@ -52,6 +54,8 @@ extension ApiUpdate {
             seasonalTheme = try? container.decodeIfPresent(SeasonalTheme.self, forKey: .seasonalTheme)
             // A malformed value must read as an absent field: on iOS that is the fail-closed branch.
             allowedOnOffRampCurrencies = try? container.decodeIfPresent([String].self, forKey: .allowedOnOffRampCurrencies)
+            // A malformed list reads as absent, which leaves the decision to the older limit flags.
+            restrictedFeatures = try? container.decodeIfPresent([String].self, forKey: .restrictedFeatures)
         }
     }
 }

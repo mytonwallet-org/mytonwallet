@@ -839,7 +839,8 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showSell(accountContext: AccountContext, tokenSlug: String?) {
         let tokenSlug = tokenSlug ?? TONCOIN_SLUG
-        guard getChainBySlug(tokenSlug)?.isOfframpSupported == true else {
+        // Every sell entry point funnels here, so a deeplink or a search result cannot open what the buttons hide
+        guard !ConfigStore.shared.shouldRestrictSell, getChainBySlug(tokenSlug)?.isOfframpSupported == true else {
             AppActions.showError(error: DisplayError(text: lang("Selling is not supported for this token.")))
             return
         }
@@ -1001,6 +1002,7 @@ private class AppActionsImpl: AppActionsProtocol {
 
     static func showUpgradeCard(accountContext: AccountContext) {
         log.info("showUpgradeCard")
+        guard !ConfigStore.shared.shouldRestrictBuyNfts else { return }
         guard accountContext.config.cardsInfo != nil
                 || accountContext.activePromotion?.cardOverlay?.onClickAction == .openMintCardModal else {
             AppActions.openInBrowser(
@@ -1015,7 +1017,8 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showMintCard(accountContext: AccountContext) {
-        guard !(topViewController() is MintCardVC) else { return }
+        // The card entry points and the mint link all end here, so a link cannot open what the buttons hide
+        guard !ConfigStore.shared.shouldRestrictBuyNfts, !(topViewController() is MintCardVC) else { return }
         let vc = MintCardVC(accountContext: accountContext)
         let nc = WNavigationController(rootViewController: vc)
         nc.preferredContentSize = CGSize(width: 580, height: 940)

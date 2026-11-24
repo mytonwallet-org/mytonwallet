@@ -84,8 +84,14 @@ const LOCAL_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$
 const REPLACED_CORS_HEADERS = new Set(['access-control-allow-origin', 'access-control-allow-credentials']);
 const EMULATION_PATH = '/api/emulate/v1/emulateTrace';
 const BACKEND_CONFIG_PATH = /^\/utils\/get-config$/i;
-// The backend closes swaps by region through these flags; Android reads `isLimited`, iOS the pair
-const SWAPS_ALLOWED_CONFIG = { isLimited: false, isSwapAndOnRampLimited: false };
+// The backend closes swaps by region through these flags; Android reads `isLimited`, iOS the pair.
+// An iOS build that is sent `restrictedFeatures` reads that list instead of both flags.
+const openSwaps = (config) => ({
+  ...config,
+  isLimited: false,
+  isSwapAndOnRampLimited: false,
+  ...('restrictedFeatures' in config && { restrictedFeatures: [] }),
+});
 // Parallel cases reading the same wallet share one upstream answer instead of tripping its rate limit
 const DEFAULT_READ_CACHE_MS = 2000;
 // Emulations and estimates depend on the payload and the current chain state, so they are never shared
@@ -368,7 +374,7 @@ async function handleProxyRequest(upstream, req, res, {
       saveResponse(upstream, req, url, status, responseBody);
     };
     if (!shouldKeepSwapLimits && upstream.chain === 'backend' && req.method === 'GET' && BACKEND_CONFIG_PATH.test(sendPath)) {
-      await forwardPatchedJson(url, req, res, SWAPS_ALLOWED_CONFIG, onResponse);
+      await forwardPatchedJson(url, req, res, openSwaps, onResponse);
       return;
     }
     // Backend answers also vary by `X-App-*` headers, so only chain hosts share reads
@@ -997,7 +1003,7 @@ async function forwardPatchedJson(url, req, res, patch, onResponse) {
   // The upstream's validators describe its own body, so a cached patched answer is never revalidated against them
   const { etag, 'last-modified': lastModified, ...patchedHeaders } = replyHeaders;
   res.writeHead(status, { ...patchedHeaders, 'content-type': JSON_HEADERS['content-type'], 'cache-control': 'no-store' });
-  res.end(JSON.stringify({ ...parsed, ...patch }));
+  res.end(JSON.stringify(patch(parsed)));
 }
 
 function buildReplyHeaders(upstreamHeaders, req) {

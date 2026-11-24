@@ -732,7 +732,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         let snapshot = NavigationMenuSnapshot(
             links: tokenVM.tokenInfoState.details?.links,
             explorerURL: ExplorerHelper.tokenUrl(token: currentToken),
-            isRestricted: ConfigStore.shared.shouldRestrictSwapsAndOnRamp
+            isRestricted: ConfigStore.shared.isRestricted(.dexSwap)
         )
         guard snapshot != navigationMenuSnapshot else { return }
         navigationMenuSnapshot = snapshot
@@ -757,7 +757,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         }
         var sections: [UIMenu] = []
 
-        guard !ConfigStore.shared.shouldRestrictSwapsAndOnRamp else {
+        guard !ConfigStore.shared.isRestricted(.dexSwap) else {
             return UIMenu(children: [share])
         }
 

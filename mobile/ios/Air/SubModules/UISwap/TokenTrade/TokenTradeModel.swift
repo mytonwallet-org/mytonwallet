@@ -65,7 +65,6 @@ final class TokenTradeModel {
 
     var availableCardCurrencies: [MBaseCurrency] {
         guard account.network == .mainnet, !account.isView, !account.isHardware,
-              !ConfigStore.shared.shouldRestrictSwapsAndOnRamp,
               account.supports(chain: token.chain), token.isNative else { return [] }
         if isBuying {
             guard token.chain.isOnrampSupported else { return [] }
@@ -155,12 +154,12 @@ final class TokenTradeModel {
     }
 
     var canContinue: Bool {
-        guard hasAmount, typedTokenAmount.amount > 0, !ConfigStore.shared.shouldRestrictSwapsAndOnRamp else { return false }
+        guard hasAmount, typedTokenAmount.amount > 0 else { return false }
         if let cardCurrency {
             return availableCardCurrencies.contains(cardCurrency)
                 && (isBuying || typedTokenAmount.amount <= (maximumTokenAmount?.amount ?? 0))
         }
-        return swap.currentButtonConfiguration.isEnabled
+        return !ConfigStore.shared.shouldRestrictSwaps && swap.currentButtonConfiguration.isEnabled
     }
 
     var buttonConfiguration: DraftButtonConfiguration {

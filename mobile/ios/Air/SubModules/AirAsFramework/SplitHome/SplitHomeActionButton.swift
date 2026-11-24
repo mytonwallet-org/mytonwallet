@@ -44,7 +44,7 @@ enum SplitHomeActionItem: CaseIterable, Hashable, Sendable {
         }
 
         var items: [Self] = [.deposit]
-        if !ConfigStore.shared.shouldRestrictSwapsAndOnRamp,
+        if !ConfigStore.shared.shouldRestrictOnRamp,
            OnRampCurrencyPolicy.defaultChain(for: account) != nil {
             items.append(.buy)
         }

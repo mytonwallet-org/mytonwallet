@@ -122,7 +122,7 @@ extension MAccount {
     }
     
     public var supportsSwap: Bool {
-        network == .mainnet && !isHardware && !isView && !ConfigStore.shared.shouldRestrictSwapsAndOnRamp
+        network == .mainnet && !isHardware && !isView && !ConfigStore.shared.shouldRestrictSwaps
     }
 
     public var supportsWalletConnectPay: Bool {

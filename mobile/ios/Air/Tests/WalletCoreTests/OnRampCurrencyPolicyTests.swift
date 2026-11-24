@@ -4,7 +4,13 @@ import WalletCoreTypes
 @testable import WalletCore
 
 @Suite("On-Ramp Currency Policy", .serialized)
-struct OnRampCurrencyPolicyTests {
+final class OnRampCurrencyPolicyTests {
+
+    // Every test bundle shares the preferences of the test runner, so a config left here limits the suites run next
+    deinit {
+        ConfigStore.shared.clean()
+        _ = ConfigStore.shared.config
+    }
 
     private func setConfig(json: String?) throws {
         if let json {
@@ -115,5 +121,40 @@ struct OnRampCurrencyPolicyTests {
 
         ConfigStore.shared.config = roundTripped
         #expect(OnRampCurrencyPolicy.supportedCurrencies(for: .ton) == [.USD, .EUR])
+    }
+
+    @Test(arguments: [
+        (#"["cardOnRamp"]"#, [MBaseCurrency.RUB]),
+        (#"["rubOnRamp"]"#, [.USD, .EUR]),
+        (#"["cardOnRamp", "rubOnRamp"]"#, []),
+        (#"[]"#, [.USD, .EUR, .RUB]),
+    ])
+    func `the list of restricted features closes card and ruble buying apart`(
+        restricted: String, offered: [MBaseCurrency]
+    ) throws {
+        ConfigStore.shared.isLimitedOverride = nil
+        try setConfig(json: #"{"allowedOnOffRampCurrencies": ["usd", "eur", "rub"], "restrictedFeatures": \#(restricted)}"#)
+        #expect(OnRampCurrencyPolicy.supportedCurrencies(for: .ton) == offered)
+    }
+
+    @Test
+    func `an account has nothing to buy on once both ways to buy are restricted`() throws {
+        ConfigStore.shared.isLimitedOverride = nil
+        let account = MAccount(id: "1-mainnet", title: nil, type: .mnemonic, byChain: [.ton: .init(address: "ton")])
+        try setConfig(json: #"{"allowedOnOffRampCurrencies": ["usd", "eur", "rub"], "restrictedFeatures": []}"#)
+        #expect(OnRampCurrencyPolicy.defaultChain(for: account) == .ton)
+        try setConfig(json: #"{"allowedOnOffRampCurrencies": ["usd", "eur", "rub"], "restrictedFeatures": ["cardOnRamp", "rubOnRamp"]}"#)
+        #expect(OnRampCurrencyPolicy.defaultChain(for: account) == nil)
+    }
+
+    @Test(arguments: [
+        (#"{"isLimited": true, "allowedOnOffRampCurrencies": ["usd", "eur", "rub"]}"#, [MBaseCurrency]()),
+        (#"{"isLimited": true, "isSwapAndOnRampLimited": false, "allowedOnOffRampCurrencies": ["usd", "eur", "rub"]}"#,
+         [.USD, .EUR, .RUB]),
+    ])
+    func `without the list the older limit flags decide what can be bought`(json: String, offered: [MBaseCurrency]) throws {
+        ConfigStore.shared.isLimitedOverride = nil
+        try setConfig(json: json)
+        #expect(OnRampCurrencyPolicy.supportedCurrencies(for: .ton) == offered)
     }
 }

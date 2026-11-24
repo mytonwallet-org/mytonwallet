@@ -453,6 +453,7 @@ export async function tryUpdateConfig() {
       preferredAgent,
       isAgentSupportEnabled,
       allowedOnOffRampCurrencies,
+      restrictedFeatures,
     } = config;
 
     const updateConfig: ApiUpdateConfig = {
@@ -470,6 +471,7 @@ export async function tryUpdateConfig() {
       preferredAgent,
       isAgentSupportEnabled,
       allowedOnOffRampCurrencies,
+      restrictedFeatures,
     };
 
     if (!NO_EXTRA_FEATURES) {

@@ -30,6 +30,7 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
         if let isLimitedOverride = _isLimitedOverride {
             config.isLimited = isLimitedOverride
             config.isSwapAndOnRampLimited = isLimitedOverride
+            config.restrictedFeatures = isLimitedOverride ? RestrictedFeature.allCases.map(\.rawValue) : []
         }
         if let seasonalThemeOverride = _seasonalThemeOverride {
             config.seasonalTheme = seasonalThemeOverride
@@ -79,13 +80,36 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
         }
     }
 
-    public var shouldRestrictSwapsAndOnRamp: Bool {
-        guard let config else { return false }
-        return (config.isSwapAndOnRampLimited ?? config.isLimited) == true
+    public func isRestricted(_ feature: RestrictedFeature) -> Bool {
+        Self.isRestricted(feature, in: config)
     }
-    public var shouldRestrictBuyNfts: Bool { config?.isLimited == true }
-    public var shouldRestrictSites: Bool { config?.isLimited == true }
-    public var shouldRestrictSell: Bool { config?.isLimited == true }
+
+    /// The swap entry stays while any kind of swap is open: the backend refuses the closed kinds per route.
+    public var shouldRestrictSwaps: Bool {
+        let config = config
+        return [.dexSwap, .crossChainSwap, .cexSwap].allSatisfy { Self.isRestricted($0, in: config) }
+    }
+    public var shouldRestrictOnRamp: Bool {
+        let config = config
+        return [.cardOnRamp, .rubOnRamp].allSatisfy { Self.isRestricted($0, in: config) }
+    }
+    public var shouldRestrictBuyNfts: Bool { isRestricted(.nftPurchase) }
+    public var shouldRestrictSites: Bool { isRestricted(.exploreSites) }
+    public var shouldRestrictSell: Bool { isRestricted(.offRamp) }
+
+    private static func isRestricted(_ feature: RestrictedFeature, in config: ApiUpdate.UpdateConfig?) -> Bool {
+        guard let config else { return false }
+        if let restrictedFeatures = config.restrictedFeatures {
+            return restrictedFeatures.contains(feature.rawValue)
+        }
+        // A backend that sends no list is described by its two older flags.
+        switch feature {
+        case .dexSwap, .crossChainSwap, .cexSwap, .cardOnRamp, .rubOnRamp:
+            return (config.isSwapAndOnRampLimited ?? config.isLimited) == true
+        case .offRamp, .nftPurchase, .exploreSites:
+            return config.isLimited == true
+        }
+    }
 
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         WalletCoreData.notify(event: .configChanged)
