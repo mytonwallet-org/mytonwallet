@@ -11,7 +11,7 @@ import type {
 } from '../../types';
 import { DappProtocolType } from '../../types';
 
-import { fetchStoredChainAccount, getAccountIdByAddress, getCurrentAccountId } from '../../../common/accounts';
+import { fetchStoredChainAccount, getCurrentAccountId } from '../../../common/accounts';
 import { createDappPromise } from '../../../common/dappPromises';
 import { ApiUserRejectsError } from '../../../errors';
 import { callHook } from '../../../hooks';
@@ -41,9 +41,10 @@ jest.mock('../../../chains', () => ({
 }));
 jest.mock('../../../chains/evm/util/client', () => ({}));
 jest.mock('../../../common/accounts', () => ({
-  fetchStoredAccounts: () => Promise.resolve({}),
+  fetchStoredAccounts: () => Promise.resolve({
+    '2-mainnet': { type: 'mnemonic', byChain: { ethereum: { address: '0x11a43b91414b2c7083888d8f4e963988ddee12a3' } } },
+  }),
   fetchStoredChainAccount: jest.fn(),
-  getAccountIdByAddress: jest.fn(),
   getCurrentAccountId: jest.fn(),
 }));
 jest.mock('../../../common/dappPromises', () => ({ createDappPromise: jest.fn() }));
@@ -203,7 +204,6 @@ beforeEach(() => {
   walletKit.getActiveSessions.mockReturnValue({});
   jest.mocked(WalletKit.init).mockResolvedValue(walletKit as unknown as Awaited<ReturnType<typeof WalletKit.init>>);
   jest.mocked(getCurrentAccountId).mockResolvedValue(ACCOUNT);
-  jest.mocked(getAccountIdByAddress).mockResolvedValue(ACCOUNT);
   jest.mocked(fetchStoredChainAccount).mockResolvedValue(
     { byChain: { ethereum: { address: ADDRESS } } } as unknown as Awaited<ReturnType<typeof fetchStoredChainAccount>>,
   );
@@ -351,7 +351,6 @@ it('requires the injected origin\'s stored connection before opening the popup o
     success: false,
     error: { code: 0, message: 'Please reconnect your wallet from the dapp.' },
   });
-  expect(getAccountIdByAddress).toHaveBeenCalledWith(ADDRESS, 'ethereum');
   expect(getDapp).toHaveBeenCalledWith(ACCOUNT, PAGE_ORIGIN, 'jsbridge');
   expect(updates).toEqual([]);
   expect(createDappPromise).not.toHaveBeenCalled();

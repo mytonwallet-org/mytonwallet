@@ -1,6 +1,6 @@
 import { getActions, getGlobal } from '../global';
 
-import { SUBPROJECT_URL_MASK } from '../config';
+import { IS_PRODUCTION, SUBPROJECT_URL_MASK } from '../config';
 import { closeAllOverlays } from '../global/helpers/misc';
 import { selectCurrentAccount } from '../global/selectors';
 import { isInIframeWhitelist, isTelegramUrl, safeParseUrl } from './url';
@@ -66,7 +66,7 @@ function buildSubprojectContext() {
 
 export function isSubproject(url: string) {
   const { host } = new URL(url);
-  return host.endsWith(SUBPROJECT_HOST_ENDING) || host.startsWith('localhost:432');
+  return host.endsWith(SUBPROJECT_HOST_ENDING) || (!IS_PRODUCTION && host.startsWith('localhost:432'));
 }
 
 export function handleUrlClick(

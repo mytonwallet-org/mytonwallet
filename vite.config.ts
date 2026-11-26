@@ -88,7 +88,7 @@ const cspConnectSrcExtra = APP_ENV === 'development'
   ? `http://localhost:3000 ${process.env.CSP_CONNECT_SRC_EXTRA_URL}`
   : '';
 const cspScriptSrcExtra = IS_TELEGRAM_APP ? 'https://telegram.org' : '';
-const cspFrameSrcExtra = [
+const cspFrameSrcExtra = Array.from(new Set([
   'https://buy-sandbox.moonpay.com/',
   'https://buy.moonpay.com/',
   'https://sell.moonpay.com/',
@@ -97,9 +97,10 @@ const cspFrameSrcExtra = [
   'https://dreamwalkers.io/',
   'https://avanchange.com/',
   ...WALLET_CONNECT_PAY_FRAME_ORIGINS,
+  'http://localhost:*',
   ...IFRAME_WHITELIST,
   SUBPROJECT_URL_MASK,
-].join(' ');
+])).join(' ');
 
 const cspConnectSrcHosts = Array.from(new Set([
   BRILLIANT_API_BASE_URL,

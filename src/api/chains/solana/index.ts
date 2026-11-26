@@ -21,6 +21,7 @@ import {
   submitNftTransfers,
 } from './nfts';
 import { setupActivePolling, setupInactivePolling } from './polling';
+import { getSignDataRefusal } from './signData';
 import { buildOnchainSwapTransfer, submitOnchainSwapTransfer } from './swap';
 import { fetchTransactionById } from './transactionInfo';
 import {
@@ -69,6 +70,7 @@ const solanaSdk: ChainSdk<'solana'> = {
   dapp: {
     supportedProtocols: [DappProtocolType.WalletConnect],
     signDappData,
+    getSignDataRefusal,
     signDappTransfers,
     parseTransactionForPreview,
     sendSignedTransaction,

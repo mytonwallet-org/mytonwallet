@@ -264,7 +264,7 @@ export const GETGEMS_BASE_TESTNET_URL = 'https://testnet.getgems.io/';
 export const EMPTY_HASH_VALUE = 'NOHASH';
 
 export const IFRAME_WHITELIST = [
-  'http://localhost:*',
+  ...(IS_PRODUCTION ? [] : ['http://localhost:*']),
   'https://tonscan.org',
   'https://testnet.tonscan.org',
   'https://tonviewer.com',

@@ -287,7 +287,7 @@ export interface DappProtocolConfig {
    * Adapters use this to avoid importing chain SDKs directly.
    */
   chainDappSupports?: Partial<Record<ApiChain,
-    Pick<ChainDappSupport, 'parseTransactionForPreview' | 'sendSignedTransaction'>>
+    Pick<ChainDappSupport, 'parseTransactionForPreview' | 'sendSignedTransaction' | 'getSignDataRefusal'>>
   >;
 }
 
@@ -514,6 +514,9 @@ export interface ChainDappSupport<T extends ApiChain = any> {
     payload: UnifiedSignDataPayload,
     enclaveToken?: string
   ): Promise<DappSignDataResult | { error: ApiAnyDisplayError }>;
+
+  /** Why the chain will not sign this payload whatever the user answers; `undefined` when it will */
+  getSignDataRefusal?(payload: UnifiedSignDataPayload): string | undefined;
 
   parseTransactionForPreview?(
     rawTx: string,

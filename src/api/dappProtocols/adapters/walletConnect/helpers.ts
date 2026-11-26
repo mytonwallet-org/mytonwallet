@@ -6,6 +6,7 @@ import type { StoredSessionChain } from '../../storage';
 import type { WalletConnectEip712Params } from './types';
 
 import { parseAccountId } from '../../../../util/account';
+import { getSignedTypedData, getSignedTypedDataDomain } from '../../../chains/evm/typedDataMessage';
 import { getCurrentAccountId, getCurrentAccountIdOrFail } from '../../../common/accounts';
 import { ApiUserRejectsError } from '../../../errors';
 import { findLastConnectedAccount, getDappsState } from '../../../methods/dapps';
@@ -58,6 +59,15 @@ export function parseWalletConnectTypedData(raw: unknown): WalletConnectEip712Pa
     primaryType,
     message,
   } as WalletConnectEip712Params;
+}
+
+// The typed data as it gets signed, or `undefined` when a confirmation would show another struct or message, or
+// could not read the domain
+export function getSignedWalletConnectTypedData(typedData: WalletConnectEip712Params) {
+  const domain = getSignedTypedDataDomain(typedData.domain);
+  const signedTypedData = domain && getSignedTypedData(typedData.types, typedData.primaryType, typedData.message);
+
+  return signedTypedData && { ...typedData, ...signedTypedData, domain };
 }
 
 export async function getCurrentAccountOrFail() {

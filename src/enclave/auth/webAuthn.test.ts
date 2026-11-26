@@ -124,6 +124,24 @@ describe('setup', () => {
     expect(calls).toEqual(['persist']);
   });
 
+  it('registers only a credential the authenticator verifies the user for', async () => {
+    let requested: CredentialCreationOptions | undefined;
+    mockCredentials({
+      create: (options: CredentialCreationOptions) => {
+        requested = options;
+        return Promise.resolve({
+          rawId: new Uint8Array([0xAB]).buffer,
+          response: {},
+          getClientExtensionResults: () => ({ prf: { enabled: true, results: { first: BYTES } } }),
+        });
+      },
+    });
+
+    await setup(persist);
+
+    expect(requested?.publicKey?.authenticatorSelection?.userVerification).toBe('required');
+  });
+
   // `enabled` says the PRF may be used with this credential, not that it was evaluated now
   it('evaluates the PRF in an assertion when registration enabled it without an output', async () => {
     mockRegistration({ prf: { enabled: true } }, { prf: { results: { first: BYTES } } });

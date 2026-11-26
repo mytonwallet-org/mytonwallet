@@ -20,6 +20,19 @@ extraMetadata:
   # `CFBundleName` has no say in either path. The user-visible name is `productName` above, which
   # never reaches the packaged package.json and is safe to change. Enforced by `config.test.ts`.
   productName: "MyTonWallet"
+# Without these, anyone who can launch the app runs code inside the signed main process, which the
+# keychain entry trusts, and decrypts the Touch ID secret through `safeStorage` without Touch ID:
+# `ELECTRON_RUN_AS_NODE=1`, `NODE_OPTIONS=--require=...`, `--inspect` or a modified `app.asar`.
+# `loadBrowserProcessSpecificV8Snapshot` stays off because the build ships no such snapshot, and
+# `grantFileProtocolExtraPrivileges` stays on because the `file://` mode (auto-update off) needs it.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  loadBrowserProcessSpecificV8Snapshot: false
+  resetAdHocDarwinSignature: true
 files:
   - "dist"
   - "package.json"

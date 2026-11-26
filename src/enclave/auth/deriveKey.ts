@@ -1,6 +1,7 @@
 import { bufferFromBase64, bufferFromString } from '../../util/casting';
 
-const PBKDF2_ITERATIONS = 100000;
+export const LEGACY_PBKDF2_ITERATIONS = 100000;
+export const PBKDF2_ITERATIONS = 600000;
 const KEY_MATERIAL_BYTES = 32;
 
 /**
@@ -29,12 +30,13 @@ export async function deriveKeyFromRandom(
 export async function deriveKeyFromPasscode(
   passcode: string,
   saltBase64: string,
+  iterations: number,
   keyUsages: KeyUsage[] = ['encrypt', 'decrypt'],
 ) {
   const imported = await importPasscode(passcode);
   const salt = bufferFromBase64(saltBase64);
   const key = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', hash: 'SHA-256', iterations: PBKDF2_ITERATIONS, salt },
+    { name: 'PBKDF2', hash: 'SHA-256', iterations, salt },
     imported,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -44,12 +46,12 @@ export async function deriveKeyFromPasscode(
   return key;
 }
 
-export async function deriveBitsFromPasscode(passcode: string, saltBase64: string) {
+export async function deriveBitsFromPasscode(passcode: string, saltBase64: string, iterations: number) {
   const imported = await importPasscode(passcode);
   const salt = bufferFromBase64(saltBase64);
 
   return crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', iterations: PBKDF2_ITERATIONS, salt },
+    { name: 'PBKDF2', hash: 'SHA-256', iterations, salt },
     imported,
     256,
   );

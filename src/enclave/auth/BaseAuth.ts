@@ -14,7 +14,7 @@ interface SessionWithKey extends EnclaveSession {
   remainingUsages: number;
 }
 
-export type KeyMaterial = ArrayBuffer | [string, string];
+type KeyMaterial = ArrayBuffer | [passcode: string, salt: string, iterations: number];
 
 export default abstract class BaseAuth {
   readonly abstract type: AuthType;
@@ -105,9 +105,9 @@ export default abstract class BaseAuth {
 
   #deriveKey(keyMaterial: KeyMaterial, keyUsages?: KeyUsage[]) {
     if (Array.isArray(keyMaterial)) {
-      const [passcode, salt] = keyMaterial;
+      const [passcode, salt, iterations] = keyMaterial;
 
-      return deriveKeyFromPasscode(passcode, salt, keyUsages);
+      return deriveKeyFromPasscode(passcode, salt, iterations, keyUsages);
     } else {
       return deriveKeyFromRandom(keyMaterial, keyUsages);
     }
