@@ -393,8 +393,10 @@ describe('isInIframeWhitelist', () => {
     expect(isInIframeWhitelist('https://testnet.tonviewer.com/')).toBe(true);
   });
 
-  it('accepts localhost on any port', () => {
-    expect(isInIframeWhitelist('http://localhost:4321/index.html')).toBe(true);
+  it('accepts localhost on any port outside production', async () => {
+    const { isInIframeWhitelist: isWhitelistedInDevelopment } = await importUrlFor('development');
+
+    expect(isWhitelistedInDevelopment('http://localhost:4321/index.html')).toBe(true);
   });
 
   // A whitelisted page gets the embedded dapp bridge (TonConnect connect/send), so a host that merely starts with
@@ -429,3 +431,39 @@ describe('isInIframeWhitelist', () => {
     expect(isInIframeWhitelist('https://localhost:4321')).toBe(false);
   });
 });
+
+describe('isInIframeWhitelist in a production build', () => {
+  // A whitelisted page gets the embedded dapp bridge, and on a user's machine any local process can serve localhost
+  it('rejects localhost', async () => {
+    const { isInIframeWhitelist: isWhitelistedInProduction } = await importUrlFor('production');
+
+    expect(isWhitelistedInProduction('http://localhost:4321/index.html')).toBe(false);
+    expect(isWhitelistedInProduction('http://localhost')).toBe(false);
+  });
+
+  it('keeps the whitelisted explorers', async () => {
+    const { isInIframeWhitelist: isWhitelistedInProduction } = await importUrlFor('production');
+
+    expect(isWhitelistedInProduction('https://tonscan.org/address/EQ123')).toBe(true);
+  });
+});
+
+async function importUrlFor(appEnv: string) {
+  const previousAppEnv = process.env.APP_ENV;
+  process.env.APP_ENV = appEnv;
+
+  let url: typeof import('./url') | undefined;
+  try {
+    await jest.isolateModulesAsync(async () => {
+      url = await import('./url');
+    });
+  } finally {
+    if (previousAppEnv === undefined) {
+      delete process.env.APP_ENV;
+    } else {
+      process.env.APP_ENV = previousAppEnv;
+    }
+  }
+
+  return url!;
+}

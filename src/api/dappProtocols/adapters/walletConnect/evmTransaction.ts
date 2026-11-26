@@ -5,6 +5,7 @@ import type { EvmTransactionParams } from './types';
 
 import { logDebugError } from '../../../../util/logs';
 import chains from '../../../chains';
+import { isTransactionOnChain } from '../../../chains/evm/transactionChainId';
 import { getEvmProvider } from '../../../chains/evm/util/client';
 
 const WALLET_CONNECT_EVM_FEE_BUMP_PERCENT = 10n;
@@ -36,8 +37,9 @@ export async function resolveWalletConnectEvmSerializedTx(options: {
       throw new Error('Invalid transaction fields');
     }
 
-    if (tx.isSigned()) {
-      return raw;
+    // The preview and the fees are those of `chain`; the wallet signs itself, so a signature sent along is never used
+    if (tx.isSigned() || !isTransactionOnChain(tx, network, chain)) {
+      throw new Error('Invalid transaction fields');
     }
 
     const fromAddr = chains['ethereum'].normalizeAddress(signerAddress);
@@ -88,6 +90,18 @@ export async function resolveWalletConnectEvmSerializedTx(options: {
     return updated.unsignedSerialized;
   }
 
+  // The wallet sets the chain id itself, so params that name another chain would be signed for a chain not asked for
+  if (!isParamsChainId(raw.chainId, caip2)) {
+    throw new Error('Invalid transaction fields');
+  }
+
+  // Nonce and gas are those of the wallet that signs, so a `from` that names another sender is refused
+  const fromAddr = chains[chain].normalizeAddress(signerAddress);
+
+  if (raw.from && chains[chain].normalizeAddress(raw.from) !== fromAddr) {
+    throw new Error('Invalid params: `from` is not the wallet that signs');
+  }
+
   let txParamsForHex = raw;
   let provider: ReturnType<typeof getEvmProvider> | undefined;
 
@@ -106,7 +120,7 @@ export async function resolveWalletConnectEvmSerializedTx(options: {
   if (txParamsForHex.nonce === undefined || txParamsForHex.nonce === '') {
     try {
       provider ??= getEvmProvider(network, chain);
-      const pendingNonce = await provider.getTransactionCount(txParamsForHex.from, 'pending');
+      const pendingNonce = await provider.getTransactionCount(fromAddr, 'pending');
 
       txParamsForHex = {
         ...txParamsForHex,
@@ -122,7 +136,7 @@ export async function resolveWalletConnectEvmSerializedTx(options: {
       provider ??= getEvmProvider(network, chain);
 
       const estimated = await provider.estimateGas({
-        from: txParamsForHex.from,
+        from: fromAddr,
         to: txParamsForHex.to && txParamsForHex.to.length > 0 ? txParamsForHex.to : undefined,
         value: parseOptionalHexBigInt(txParamsForHex.value) ?? 0n,
         data: txParamsForHex.data && txParamsForHex.data.length > 0 ? txParamsForHex.data : '0x',
@@ -142,6 +156,24 @@ export async function resolveWalletConnectEvmSerializedTx(options: {
   } catch (err) {
     logDebugError('walletConnect:evmTransactionParamsToUnsignedSerializedHex', err);
     throw new Error('Invalid transaction fields');
+  }
+}
+
+/** Params without a `chainId` match: JSON-RPC makes it optional */
+function isParamsChainId(chainId: unknown, caip2: string): boolean {
+  // eslint-disable-next-line no-null/no-null -- dApps send JSON
+  if (chainId === undefined || chainId === null || chainId === '') {
+    return true;
+  }
+
+  if (typeof chainId !== 'string' && typeof chainId !== 'number' && typeof chainId !== 'bigint') {
+    return false;
+  }
+
+  try {
+    return BigInt(chainId) === BigInt(caip2.replace(/^eip155:/, ''));
+  } catch {
+    return false;
   }
 }
 

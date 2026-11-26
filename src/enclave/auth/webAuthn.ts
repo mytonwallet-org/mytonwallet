@@ -99,7 +99,7 @@ function buildCreateCredentialOptions(userHandleSecret: Uint8Array): CredentialC
       }],
       authenticatorSelection: {
         requireResidentKey: true,
-        userVerification: 'preferred',
+        userVerification: 'required',
       },
       extensions: {
         credBlob: credBlobSecret,

@@ -15,6 +15,7 @@ import { ApiCommonError } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
+import { getSignDataRefusal } from './signData';
 
 export async function signPayload(
   accountId: string,
@@ -23,16 +24,16 @@ export async function signPayload(
 ): Promise<{ result: string } | { error: ApiAnyDisplayError }> {
   if (enclaveToken === undefined) return { error: ApiCommonError.InvalidPassword };
 
+  if (payloadToSign.type !== 'binary' || getSignDataRefusal(payloadToSign)) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
   const { network } = parseAccountId(accountId);
 
   const privateKey = await fetchPrivateKeyString(accountId, enclaveToken);
   if (!privateKey) return { error: ApiCommonError.InvalidPassword };
 
   const signer = getSignerFromPrivateKey(network, privateKey);
-
-  if (payloadToSign.type !== 'binary') {
-    return { error: ApiCommonError.Unexpected };
-  }
 
   const messageBytes = new Uint8Array(getBase58Encoder().encode(payloadToSign.bytes));
 

@@ -1,12 +1,16 @@
-import { getBytes, Transaction } from 'ethers';
+import { Transaction } from 'ethers';
 
 import type { DappProtocolType, UnifiedSignDataPayload } from '../../dappProtocols';
 import type { ApiAnyDisplayError, ApiNetwork, ApiSignedTransfer, EVMChain } from '../../types';
 import { ApiCommonError } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
+import { getPersonalSignBytes, isSmartAccountAuthorization } from './smartAccount/signingDomain';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
+import { isTransactionOnChain } from './transactionChainId';
 import { isTypedDataDomainOnChain } from './typedDataChainId';
+import { isValidTypedDataDomain } from './typedDataDomain';
+import { getSignedTypedDataDomain, getSignedTypedDataMessage } from './typedDataMessage';
 
 export type Eip712TypedDataFields = {
   domain: Record<string, unknown>;
@@ -36,12 +40,19 @@ export async function signPayload(
 
   const { network } = parseAccountId(accountId);
 
+  // A domain key outside EIP-712, `__proto__` for one, changes what ethers hashes but not what the checks below read
+  if (payloadToSign.type === 'eip712' && payloadToSign.domain && !isValidTypedDataDomain(payloadToSign.domain)) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
   // The confirmation shows `chain`, so typed data bound to another chain's domain is never signed here
   if (
     payloadToSign.type === 'eip712'
     && (
       (network === 'testnet' && payloadToSign.network === 'mainnet')
       || !isTypedDataDomainOnChain(payloadToSign.domain, payloadToSign.network ?? network, chain)
+      || !getSignedTypedDataDomain(payloadToSign.domain)
+      || !getSignedTypedDataMessage(payloadToSign.types, payloadToSign.primaryType, payloadToSign.message)
     )
   ) {
     return { error: ApiCommonError.Unexpected };
@@ -49,6 +60,13 @@ export async function signPayload(
 
   const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken);
   if (!privateKey) return { error: ApiCommonError.InvalidPassword };
+
+  const signer = getSignerFromPrivateKey(network, privateKey);
+
+  // The same key authorizes the account as an EIP-7702 smart account, so a dApp never gets that signature
+  if (isSmartAccountAuthorization(payloadToSign, signer.address)) {
+    return { error: ApiCommonError.Unexpected };
+  }
 
   if (payloadToSign.type === 'eip712') {
     const signature = await signEip712WithPrivateKey(network, privateKey, payloadToSign);
@@ -59,16 +77,10 @@ export async function signPayload(
     return { error: ApiCommonError.Unexpected };
   }
 
-  const signer = getSignerFromPrivateKey(network, privateKey);
-
   // personal_sign passes the message as a hex-encoded byte string; decode it to raw bytes
   // so ethers applies the EIP-191 prefix to the original bytes, not to the hex literal.
   // eth_sign uses the same EIP-191 path (params: [address, data]).
-  const messageBytes = payloadToSign.bytes.startsWith('0x')
-    ? getBytes(payloadToSign.bytes)
-    : payloadToSign.bytes;
-
-  const signature = await signer.signMessage(messageBytes);
+  const signature = await signer.signMessage(getPersonalSignBytes(payloadToSign.bytes));
   return { result: signature };
 }
 
@@ -83,12 +95,17 @@ export async function signTransfer(
 
   const { network } = parseAccountId(accountId);
 
+  const txRequest = Transaction.from(transaction);
+
+  // The confirmation shows `chain`, so a transaction for another chain id, or for none, is never signed here
+  if (!isTransactionOnChain(txRequest, network, chain)) {
+    return { error: ApiCommonError.Unexpected };
+  }
+
   const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken);
   if (!privateKey) return { error: ApiCommonError.InvalidPassword };
 
   const signer = getSignerFromPrivateKey(network, privateKey);
-
-  const txRequest = Transaction.from(transaction);
 
   const signedTx = await signer.signTransaction(txRequest);
   const signature = Transaction.from(signedTx).signature!.serialized;

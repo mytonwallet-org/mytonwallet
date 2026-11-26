@@ -13,7 +13,8 @@ import { updateActivityMetadata } from '../../common/helpers';
 import { getTokenBySlug } from '../../common/tokens';
 import { buildTokenSlug } from '../../methods';
 import { normalizeAddress } from './address';
-import { EVM_CHAIN_IDS, EVM_RPC_URLS } from './constants';
+import { EVM_RPC_URLS } from './constants';
+import { isTransactionOnChain } from './transactionChainId';
 
 function normalizeHexTx(rawTx: string): string {
   const trimmed = rawTx.trim();
@@ -79,18 +80,6 @@ async function estimateNetworkFee(
   }
 }
 
-function isWrongChain(tx: Transaction, chain: EVMChain, network: ApiNetwork): boolean {
-  const chainId = tx.chainId ? `eip155:${tx.chainId.toString()}` : undefined;
-
-  if (!chainId) {
-    return false;
-  }
-
-  const expected = EVM_CHAIN_IDS[chainId];
-
-  return chain !== expected.chain || network !== expected.network;
-}
-
 function isWrongSigner(tx: Transaction, accountAddress: string): boolean {
   const from = tx.from ?? undefined;
   if (from === undefined) {
@@ -132,10 +121,17 @@ export async function parseTransactionForPreview(
     };
   }
 
+  // A transaction for another chain id, or for none, is refused at signing, so nothing is simulated on `chain` for it
+  if (!isTransactionOnChain(tx, network, chain)) {
+    return {
+      transfers: [getFakeTransfer(chain, rawTx, true)],
+      emulation: undefined,
+    };
+  }
+
   const nativeSlug = getChainConfig(chain).nativeToken.slug;
   const wrongSigner = isWrongSigner(tx, address);
-  const wrongChain = isWrongChain(tx, chain, network);
-  const isDangerousMeta = wrongSigner || wrongChain || !tx.to;
+  const isDangerousMeta = wrongSigner || !tx.to;
 
   let emulation: ApiEmulationResult | undefined = undefined;
   const transfers: ApiDappTransfer[] = [];

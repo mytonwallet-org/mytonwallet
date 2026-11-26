@@ -3,7 +3,7 @@ import type { StoredDappConnection } from '../../storage';
 import type { DappConnectionRequest, DappProtocolConfig, DappTransactionRequest } from '../../types';
 import { DappProtocolType } from '../../types';
 
-import { getCurrentAccountId, getCurrentAccountIdOrFail } from '../../../common/accounts';
+import { fetchStoredChainAccount, getCurrentAccountId, getCurrentAccountIdOrFail } from '../../../common/accounts';
 import { createDappPromise } from '../../../common/dappPromises';
 import { addDapp, findLastConnectedAccount, getDapp } from '../../../methods/dapps';
 import { createWalletConnectAdapter } from './index';
@@ -21,10 +21,14 @@ jest.mock('../../../../util/logs', () => ({ logDebug: jest.fn(), logDebugError: 
 jest.mock('../../../../util/windowProvider/connector', () => ({}));
 jest.mock('../../../chains', () => ({
   __esModule: true,
-  default: { ethereum: { normalizeAddress: (address: string) => address.toLowerCase() } },
+  default: {
+    ethereum: { normalizeAddress: (address: string) => address.toLowerCase() },
+    solana: { normalizeAddress: (address: string) => address },
+  },
 }));
 jest.mock('../../../chains/evm/util/client', () => ({}));
 jest.mock('../../../common/accounts', () => ({
+  fetchStoredChainAccount: jest.fn(),
   getCurrentAccountId: jest.fn(),
   getCurrentAccountIdOrFail: jest.fn(),
 }));
@@ -102,6 +106,9 @@ beforeEach(() => {
   updates.length = 0;
   jest.mocked(getCurrentAccountId).mockResolvedValue(CURRENT_ACCOUNT);
   jest.mocked(getCurrentAccountIdOrFail).mockResolvedValue(CURRENT_ACCOUNT);
+  jest.mocked(fetchStoredChainAccount).mockResolvedValue({
+    byChain: { ethereum: { address: ADDRESS }, solana: { address: ADDRESS } },
+  } as unknown as Awaited<ReturnType<typeof fetchStoredChainAccount>>);
   jest.mocked(findLastConnectedAccount).mockResolvedValue(PREVIOUS_ACCOUNT);
   jest.mocked(getDapp).mockImplementation((accountId) => Promise.resolve(
     accountId === PREVIOUS_ACCOUNT ? dapp : undefined,

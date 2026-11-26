@@ -91,11 +91,16 @@ jobs:
       android-variants: ${{ steps.filter.outputs.android-variants }}
       ios-variants: ${{ steps.filter.outputs.ios-variants }}
       rc-number: ${{ steps.rc.outputs.rc-number }}
+      app-version: ${{ steps.version.outputs.app-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
+
+      - name: Read the app version
+        id: version
+        run: echo "app-version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
       - name: Compute RC ordinal
         id: rc
@@ -299,6 +304,13 @@ jobs:
     runs-on: macos-15
     environment: production
     timeout-minutes: 30
+    # The workflow lane is per ref, so two refs at one version could each find no draft and create one.
+    # Serialized by version, the later run finds the earlier run's draft and uploads into it.
+    concurrency:
+      group: electron-github-release-${{ vars.PUBLISH_REPO != '' && needs.detect-changes.outputs.app-version || github.run_id }}
+      cancel-in-progress: false
+    outputs:
+      release-id: ${{ steps.draft.outputs.release-id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -337,6 +349,46 @@ jobs:
           echo "Effective staging publish/artifactName:"
           yq '.publish, .mac.artifactName' src/electron/config.yml
 
+      # electron-builder creates the release lazily from whichever upload comes first, and its
+      # publisher cache is filled only after an await, so two concurrent uploads can each create a
+      # draft for the same tag (v26.11.5). With the draft already here, every upload finds and joins it.
+      - name: Create the draft release
+        id: draft
+        if: env.PUBLISH_REPO != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(jq -r .version package.json)
+          TAG="v$VERSION"
+
+          # electron-builder takes a release tagged with the bare version as its own too.
+          MATCHES=$(gh api --paginate "repos/$PUBLISH_REPO/releases?per_page=100" \
+            | jq -s --arg TAG "$TAG" --arg VERSION "$VERSION" \
+              '[.[][] | select(.tag_name == $TAG or .tag_name == $VERSION) | {id, tag_name, draft}]')
+
+          case "$(jq length <<< "$MATCHES")" in
+            0)
+              RELEASE_ID=$(gh api -X POST "repos/$PUBLISH_REPO/releases" \
+                -f tag_name="$TAG" -f name="$VERSION" -F draft=true --jq .id)
+              echo "Created draft release $TAG ($RELEASE_ID)"
+              ;;
+            1)
+              if [ "$(jq -r '.[0].draft' <<< "$MATCHES")" != true ]; then
+                echo "::error::$TAG is already published; this run would upload into it or nowhere. Bump the version."
+                exit 1
+              fi
+              RELEASE_ID=$(jq -r '.[0].id' <<< "$MATCHES")
+              echo "Reusing draft release $TAG ($RELEASE_ID)"
+              ;;
+            *)
+              echo "::error::Several releases carry $TAG, delete the strays first: $(jq -c . <<< "$MATCHES")"
+              exit 1
+              ;;
+          esac
+
+          echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
       - name: Build, package and publish
         env:
           ELECTRON_TONCENTER_MAINNET_KEY: ${{ secrets.ELECTRON_TONCENTER_MAINNET_KEY }}
@@ -367,11 +419,9 @@ jobs:
         if: env.PUBLISH_REPO != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.draft.outputs.release-id }}
         run: |
           set -e
-
-          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq -r 'max_by(.created_at).id')
 
           for NAME in "${{ env.ARTIFACT_NAME_BASE }}-x64.exe" "${{ env.ARTIFACT_NAME_BASE }}-x64.exe.blockmap"; do
             ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
@@ -617,10 +667,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 15
-    needs: electron-sign-for-windows
+    needs:
+      - electron-release
+      - electron-sign-for-windows
     if: vars.PUBLISH_REPO != ''
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_ID: ${{ needs.electron-release.outputs.release-id }}
     steps:
       - name: Set environment variables
         run: |
@@ -637,9 +690,6 @@ jobs:
           FILE_PATH_X64: ${{ steps.dl_win_x64.outputs.download-path }}
         run: |
           set -e
-
-          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq -r 'max_by(.created_at).id')
 
           upload () {
             local FILE_PATH="$1"
@@ -1750,10 +1800,12 @@ jobs:
     timeout-minutes: 30
     needs:
       - android-release
+      - electron-release
       - electron-publish-windows
     if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && vars.PUBLISH_REPO != ''
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_ID: ${{ needs.electron-release.outputs.release-id }}
     steps:
       - name: Download Android packages
         id: download-android
@@ -1763,15 +1815,7 @@ jobs:
           path: android-release
           merge-multiple: true
 
-      - name: Get latest release ID
-        id: release-id
-        run: |
-          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq -r 'max_by(.created_at).id')
-          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
-
       - name: Replace Android assets
-        env:
-          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
         run: |
           set -e
           shopt -s nullglob
@@ -1816,8 +1860,6 @@ jobs:
           done
 
       - name: Publish release
-        env:
-          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
         run: |
           curl -X PATCH -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID" -d '{"draft": false}'
 
@@ -1834,12 +1876,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs:
+      - electron-release
       - electron-publish-windows
       - publish-release
     if: ${{ !cancelled() && needs.electron-publish-windows.result == 'success' }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_ID: ${{ needs.electron-release.outputs.release-id }}
     steps:
+      # Assets uploaded into a second release with the same tag are lost to the one a human publishes,
+      # and the feed check below cannot see them: no feed lists a dmg blockmap (v26.11.5).
+      - name: Check that the tag has exactly one release
+        run: |
+          set -euo pipefail
+          TAG=$(gh api "repos/$PUBLISH_REPO/releases/$RELEASE_ID" --jq .tag_name)
+          MATCHES=$(gh api --paginate "repos/$PUBLISH_REPO/releases?per_page=100" \
+            | jq -s --arg TAG "$TAG" --arg VERSION "${TAG#v}" \
+              '[.[][] | select(.tag_name == $TAG or .tag_name == $VERSION) | {id, tag_name, draft, assets: [.assets[].name]}]')
+          COUNT=$(jq length <<< "$MATCHES")
+          if [ "$COUNT" -ne 1 ]; then
+            echo "::error::$COUNT releases carry $TAG, expected only $RELEASE_ID. Move the stray assets into it and delete the rest:"
+            jq . <<< "$MATCHES"
+            exit 1
+          fi
+          echo "OK       $TAG has one release ($RELEASE_ID)"
+
       # The feed check below compares the feed against the asset, so it passes just as happily on a
       # release whose exe was never signed at all (v26.7.0: consistent feed, unsigned installer,
       # SmartScreen for every user). Signedness is a property of the bytes alone, so it needs its
@@ -1851,10 +1912,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq osslsigncode
 
-          # The releases API lists draft releases before published ones regardless of date, so `.[0]`
-          # can land on a stale leftover draft; take the newest by created_at, which is the release
-          # this run just published.
-          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq 'max_by(.created_at)')
+          RELEASE_JSON=$(gh api "repos/$PUBLISH_REPO/releases/$RELEASE_ID")
 
           INSTALLERS=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".exe")) | "\(.id) \(.name)"')
           if [ -z "$INSTALLERS" ]; then
@@ -1881,7 +1939,7 @@ jobs:
         run: |
           set -e
 
-          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100" | jq 'max_by(.created_at)')
+          RELEASE_JSON=$(gh api "repos/$PUBLISH_REPO/releases/$RELEASE_ID")
           echo "Verifying release $(echo "$RELEASE_JSON" | jq -r '.tag_name')"
 
           # Download through the assets API rather than browser_download_url: the CDN links can

@@ -10,6 +10,10 @@ import { CHAIN_IDS, CHAIN_IDS_BY_CHAIN, EVM_CHAIN_IDS } from './types';
 
 import { fetchStoredChainAccount } from '../../../common/accounts';
 
+const EVM_CHAIN_NAMES: ReadonlySet<string> = /* @__PURE__ */ new Set(
+  /* @__PURE__ */ Object.values(EVM_CHAIN_IDS).map((entry) => entry.chain),
+);
+
 const WALLET_CONNECT_EVM_AUTH_METHODS = [
   'personal_sign',
   'eth_sign',
@@ -120,11 +124,36 @@ export async function getAccountChains(
   accountId: string,
   chains: ChainId[],
 ) {
-  return await Promise.all(chains.map(async (e) => ({
+  // A relay session keeps the network a dApp names, while the account signs and sends EVM on its own network only
+  const accountChains = message.transport === 'relay'
+    ? chains.filter((e) => !isEvmChainOnAnotherNetwork(e, network))
+    : chains;
+
+  return await Promise.all(accountChains.map(async (e) => ({
     ...e,
     network: message.transport === 'extension' ? network : e.network,
     address: (await fetchStoredChainAccount(accountId, e.chain)).byChain[e.chain].address,
   })));
+}
+
+/** A relay proposal fits an account when its required EVM chains are on `network` and the session gets a chain */
+export function isRelayProposalOnNetwork(
+  message: DappConnectionRequest<DappProtocolType.WalletConnect>,
+  sessionChains: StoredSessionChain[],
+  network: ApiNetwork,
+) {
+  const requiredChains = namespacesToSessionChains(message.protocolData.params.requiredNamespaces);
+
+  return sessionChains.length > 0 && !requiredChains.some((chain) => isEvmChainOnAnotherNetwork(chain, network));
+}
+
+/** Keeps the CAIP-2 ids a relay session can hold: an EVM chain the wallet knows on another network is left out */
+export function filterCaip2sOnNetwork(caip2s: string[], network: ApiNetwork) {
+  return caip2s.filter((caip2) => !EVM_CHAIN_IDS[caip2] || EVM_CHAIN_IDS[caip2].network === network);
+}
+
+function isEvmChainOnAnotherNetwork(chainId: ChainId, network: ApiNetwork) {
+  return EVM_CHAIN_NAMES.has(chainId.chain) && chainId.network !== network;
 }
 
 /** EIP-5792 `wallet_getCapabilities`: normalize chain id (no leading zero digits after `0x`). */

@@ -13,6 +13,7 @@ type ElectronBuilderConfig = {
   appId: string;
   artifactName: string;
   extraMetadata: { productName: string };
+  electronFuses?: Record<string, boolean>;
 };
 
 const config = load(
@@ -39,5 +40,18 @@ describe('Electron bundle identity', () => {
     // package-and-publish.yml and the get.mywallet.io download page must move together with this.
     // eslint-disable-next-line no-template-curly-in-string
     expect(config.artifactName).toBe('MyWallet-${arch}.${ext}');
+  });
+});
+
+describe('Electron fuses', () => {
+  it('keeps the packaged binary from running code handed to it from outside', () => {
+    // A build is green without them, and nothing in the app itself fails when one flips back
+    expect(config.electronFuses).toMatchObject({
+      runAsNode: false,
+      enableNodeOptionsEnvironmentVariable: false,
+      enableNodeCliInspectArguments: false,
+      enableEmbeddedAsarIntegrityValidation: true,
+      onlyLoadAppFromAsar: true,
+    });
   });
 });
