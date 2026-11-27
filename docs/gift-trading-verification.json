@@ -1,0 +1,217 @@
+{
+  "scope": "Local validation of the archived application patch stack; the draft additionally includes review documentation.",
+  "checkedAt": "2026-11-15T08:08:42.359Z",
+  "patchDigests": {
+    "mytonwallet-foundation.patch": "6109c6f4d2574ab6b0d8224189ac7209202d7af8e0ac148a838b42cdf3ee2a26",
+    "tonkeeper-web-foundation.patch": "da4189fa95b75026884416e838fb1950ffe1c4cef4210cd78eaab3f7c530463d",
+    "tonkeeper-android-foundation.patch": "54f168b1d128683ec399d4965de653bf56325f67afb5f79947e4045845765dff",
+    "tonkeeper-ios-foundation.patch": "0ef2ce8f95c449da142832c22e1b7119cc96045b155d5067fb7c2de79e86bde6",
+    "mytonwallet-lab-ui.patch": "37f65d696d48e8d336bf7427dc866a7e276e0072c4994d6b7f631eaa87f5deb2",
+    "tonkeeper-web-lab-ui.patch": "634538fd9f9c5eae318c0cf4a9a86b7ba914fa6bf8863119c2867a07bcf04c5b"
+  },
+  "checks": [
+    {
+      "id": "direct-emulator-replay-and-review-expiry",
+      "status": "passed",
+      "emulatorTests": 8
+    },
+    {
+      "id": "two-tabs-mytonwallet-web-and-tonkeeper-component",
+      "status": "passed",
+      "cases": [
+        "two-tabs-share-current-continuation-review",
+        "one-continuation-and-both-tabs-converge-after-reload"
+      ]
+    },
+    {
+      "id": "web-regression",
+      "status": "passed",
+      "myTonWalletCases": 53,
+      "tonkeeperComponentCases": 13
+    },
+    {
+      "id": "tonkeeper-trading-component-typecheck",
+      "status": "passed"
+    },
+    {
+      "id": "patch-application",
+      "status": "passed",
+      "patches": 6
+    },
+    {
+      "id": "mytonwallet-default-web-fixture",
+      "status": "passed"
+    },
+    {
+      "id": "full-tonkeeper-native-and-production-validation",
+      "status": "blocked"
+    },
+    {
+      "id": "two-tabs-lost-continuation-response",
+      "status": "passed",
+      "scope": "MyTonWallet Web lab and Tonkeeper Web component. One continuation per wallet, confirmed emulator receipt dropped in the first tab, peer reconciliation and convergence after reload."
+    },
+    {
+      "id": "full-mytonwallet-project-typecheck-clean-tree",
+      "status": "passed",
+      "compiler": "5.8.3",
+      "projectInputs": 2200,
+      "diagnostics": 0,
+      "originalProjectConfiguration": true,
+      "configSha256": "93f9d6eff38b0cbbd5815e303d2ea26052cad8209ee3321f4a93160c4de3a745",
+      "base": "6db148b39b066a06e15eba84810a481b99ea437c",
+      "tree": "2cbe75830783924aed4c86adf8203b814cf080c4",
+      "patchOrder": [
+        {
+          "path": "patches/mytonwallet-foundation.patch",
+          "sha256": "6109c6f4d2574ab6b0d8224189ac7209202d7af8e0ac148a838b42cdf3ee2a26"
+        },
+        {
+          "path": "patches/mytonwallet-windows-build-support.patch",
+          "sha256": "a7e292e4c553fc809b15096c9a6f986dbd04f3f0fbbe3c19652adebade1a65cf"
+        },
+        {
+          "path": "patches/mytonwallet-lab-ui.patch",
+          "sha256": "37f65d696d48e8d336bf7427dc866a7e276e0072c4994d6b7f631eaa87f5deb2"
+        }
+      ],
+      "verifiedPatchedTextFiles": 44,
+      "patchedTextComparison": "Only checkout LF/CRLF conversion normalized. Archive patch bytes verified independently.",
+      "generatedBuildOutputsIncluded": false
+    },
+    {
+      "id": "restart-after-confirmed-continuation",
+      "status": "passed",
+      "outcomes": {
+        "myTonWallet": {
+          "differentProcesses": true,
+          "sameLoopbackOrigin": true,
+          "restoredRevision": 4,
+          "revisionAdvances": 1,
+          "continuationRequests": 1,
+          "persistedHistorySha256": "376b2b991aa405125fc5ab7c1103f4cb65d07f6b7713d0a9f8ee88540b39180f"
+        },
+        "tonkeeperComponent": {
+          "differentProcesses": true,
+          "sameLoopbackOrigin": true,
+          "restoredRevision": 4,
+          "revisionAdvances": 1,
+          "continuationRequests": 1,
+          "persistedHistorySha256": "c8614cd10470b1ad2c6ef086abc288755841b32445f8c3e6f192a6d8a9d35115"
+        }
+      }
+    },
+    {
+      "id": "four-default-packages-on-final-ui-revision",
+      "status": "passed",
+      "packages": {
+        "extension": {
+          "filename": "MyWallet-chrome-local-unsigned.zip",
+          "sha256": "ff114691ea33f450767ff9aaa75cd3a6de5c6353fadc5bdfa2e1abc43341f3ac"
+        },
+        "firefox": {
+          "filename": "MyWallet-firefox-local-unsigned.zip",
+          "sha256": "265b9955e3ba8369c471f9ccfbd32fd28ba2e9d6b0dc2e32450a8a15cf1d830d"
+        },
+        "opera": {
+          "filename": "MyWallet-opera-local-unsigned.zip",
+          "sha256": "acebe91fae8ce1ecc52d6e47672c54d2996625187909206075569357367812f2"
+        },
+        "telegram": {
+          "filename": "index.html",
+          "sha256": "fe723ddafc6364c447289d68e32ff0dba2ae8065c0034553e93d890d71618884"
+        }
+      }
+    },
+    {
+      "id": "chromium-final-default-runtime",
+      "status": "passed",
+      "cases": 3
+    },
+    {
+      "id": "telegram-final-simulated-bridge",
+      "status": "passed",
+      "cases": 3,
+      "labRequests": 0
+    },
+    {
+      "id": "firefox-and-opera-full-ui",
+      "status": "blocked",
+      "scope": "Archive inspection passed. No full runtime check."
+    }
+  ],
+  "historicalPackages": {
+    "scope": "Earlier UI revision. Builds and runtime results belong to their own record.",
+    "recordedAt": "2026-11-15T07:09:02.277Z",
+    "uiPatchDigests": {
+      "mytonwallet-lab-ui.patch": "9a562c533d969fb4b60b9a9b3b6941aac0a76c518a96fd3866197783362c54c0",
+      "tonkeeper-web-lab-ui.patch": "a361978c029aa61e739578b9ff3fed6ccdbcde4c8cd3d0460851e81a8c618311"
+    },
+    "packages": [
+      {
+        "platform": "firefox",
+        "filename": "MyWallet-firefox-local-unsigned.zip",
+        "sha256": "44bdf19f9325921ba620709c6e50a269fce94686a4068aa0e586857571cacdd0"
+      },
+      {
+        "platform": "opera",
+        "filename": "MyWallet-opera-local-unsigned.zip",
+        "sha256": "fe8a476f6962d36d6010e644806f2d4c69458945b2d1a7d9309432c97d488ca0"
+      },
+      {
+        "platform": "extension",
+        "filename": "MyWallet-chrome-local-unsigned.zip",
+        "sha256": "87364ed618f29740d66f204730c3c02dc684e083b08e34ab80db4dd71f3b28d5"
+      },
+      {
+        "platform": "telegram",
+        "filename": "index.html",
+        "sha256": "fe723ddafc6364c447289d68e32ff0dba2ae8065c0034553e93d890d71618884"
+      }
+    ],
+    "runtime": [
+      "Chromium default isolated browser",
+      "Telegram Mini App simulated bridge"
+    ],
+    "archiveOnly": [
+      "Firefox",
+      "Opera"
+    ]
+  },
+  "availability": {
+    "MyTonWalletDesktop": "Electron launch held. Final Windows renderer build and installed workflow open.",
+    "MyTonWalletAndroid": "Synthetic APK and test code exist. Runtime/device execution and connected UI open.",
+    "TonkeeperWeb": "Synthetic component passed. Full build requires legitimate ChainKit access.",
+    "TonkeeperAndroid": "Protocol and journal component coverage. Full integration and runtime open.",
+    "iOS": "Native integration and Xcode and installed-device checks open for both wallets.",
+    "production": "Reserve and compatibility decisions, reviewed-price enforcement, and independent review remain open."
+  },
+  "realWalletOperations": false,
+  "earlierTypecheckAttempts": [
+    {
+      "id": "mytonwallet-scoped-typecheck",
+      "status": "failed",
+      "reason": "Standalone scoped configuration did not resolve the app-wide JSX declarations."
+    },
+    {
+      "id": "full-mytonwallet-project-typecheck",
+      "status": "blocked",
+      "reason": "Node exhausted its default heap during the full project check."
+    }
+  ],
+  "archivedPatchBytesChanged": false,
+  "normalizedWindowsNewlinesForContentComparison": true,
+  "currentPackages": {
+    "foundationSha256": "6109c6f4d2574ab6b0d8224189ac7209202d7af8e0ac148a838b42cdf3ee2a26",
+    "uiPatchSha256": "37f65d696d48e8d336bf7427dc866a7e276e0072c4994d6b7f631eaa87f5deb2",
+    "archiveOnly": [
+      "Firefox",
+      "Opera"
+    ],
+    "runtime": [
+      "Chromium isolation",
+      "Telegram simulated bridge"
+    ]
+  },
+  "originalArchiveSha256": "a3c364aa45ee913ac2f9371834548878ad70fe33e63270576c2eee637817f707"
+}
