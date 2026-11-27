@@ -8,6 +8,7 @@ import java.math.BigInteger
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
@@ -613,7 +614,10 @@ sealed class ApiMethod<T> {
             override val type: Type = MApiSwapEstimateResponse::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
-                .jsObject(request, MApiSwapEstimateRequest::class.java)
+                .jsObject(
+                    request.copy(langCode = WGlobalStorage.getLangCode()),
+                    MApiSwapEstimateRequest::class.java
+                )
                 .build()
         }
 
@@ -664,7 +668,10 @@ sealed class ApiMethod<T> {
             override val type: Type = MApiSwapCexEstimateResponse::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
-                .jsObject(request, MApiSwapEstimateRequest::class.java)
+                .jsObject(
+                    request.copy(langCode = WGlobalStorage.getLangCode()),
+                    MApiSwapEstimateRequest::class.java
+                )
                 .build()
         }
 

@@ -43,10 +43,13 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
         )
     }
 
+    var quoteHint: ApiSwapHint? {
+        guard let response = estimate.current?.draft.stateUpdate?.response, response.isQuote else { return nil }
+        return response.hint
+    }
+
     func getQuoteHintText(isTrade: Bool = false) -> String? {
-        guard estimate.failure == nil,
-              let response = estimate.current?.draft.stateUpdate?.response, response.isQuote,
-              let hint = response.hint else { return nil }
+        guard estimate.failure == nil, let hint = quoteHint else { return nil }
         if hint.type == "betterRate" {
             let locale = Locale(identifier: "en_US_POSIX")
             guard let rawAmount = hint.additionalAmount, let amount = Decimal(string: rawAmount, locale: locale),

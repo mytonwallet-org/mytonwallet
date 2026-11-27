@@ -899,7 +899,12 @@ class SwapViewModel :
         } else {
             null
         }
-        hint to message
+        val promo = estimate?.hint?.takeIf {
+            !isTrade && hint == null && estimate.error == null &&
+                (it.type == "oneToOneOffer" || it.type == "oneToOneUnavailable") &&
+                it.title != null && it.description != null
+        }
+        Triple(hint, message, promo)
     }.distinctUntilChanged()
 
     private fun getQuoteHintText(estimate: SwapEstimateResponse, isTrade: Boolean): String? {

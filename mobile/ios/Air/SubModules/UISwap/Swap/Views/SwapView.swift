@@ -59,6 +59,11 @@ struct SwapView: View {
                         SwapHintView(hint: hint) {
                             swapModel.performHintAction(hint)
                         }
+                    } else if let hint = swapModel.quoteHint,
+                              hint.type == "oneToOneOffer" || hint.type == "oneToOneUnavailable",
+                              let title = hint.title, let description = hint.description {
+                        SwapPromoHint(title: title, description: description, isOffer: hint.type == "oneToOneOffer")
+                            .id(hint)
                     } else if let text = swapModel.getQuoteHintText() {
                         WarningView(text: text, kind: .warning)
                     }
@@ -87,5 +92,30 @@ struct SwapView: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+}
+
+private struct SwapPromoHint: View {
+    let title: String
+    let description: String
+    let isOffer: Bool
+
+    @State private var isExpanded = false
+
+    var body: some View {
+        let color = isOffer ? Color.air.positiveAmount : Color.air.secondaryLabel
+        DisclosureGroup(isExpanded: $isExpanded) {
+            Text(verbatim: description)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Text(verbatim: title)
+                .textStyle(.footnoteStrong, scaling: .dynamic)
+        }
+        .font13()
+        .foregroundStyle(color)
+        .tint(color)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background { WarningBackground(color: color, isCompact: true) }
     }
 }

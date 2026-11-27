@@ -853,7 +853,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 5
-    if: vars.PUBLISH_REPO != ''
+    # A new listed version disables every older one still awaiting review, so submitting while
+    # one is queued at AMO throws it out of the queue; `FIREFOX_PUBLISH_PAUSED` holds submits back.
+    if: vars.PUBLISH_REPO != '' && vars.FIREFOX_PUBLISH_PAUSED != 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

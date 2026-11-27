@@ -477,6 +477,12 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     hash: 'f91c43d395d0f7d955515ab24a55098b68fed2e708f80a79c95ecaa4fcc102b8',
     isSwapAllowed: true,
   },
+  // Example: https://tonviewer.com/EQDybO88l2lrrAmALRUqpmgEE_tuxk510F4Yd4xjbQZxC9IA
+  omnistonEscrowMinterV2: {
+    name: 'omnistonEscrowMinterV2',
+    hash: '9737943fe16f53f11b32323d83ea62ab2281503e7900448cbd6e442a2defbba2',
+    isSwapAllowed: true,
+  },
   // STON.fi publishes its router fleet at https://api.ston.fi/v1/routers: one code per router type and
   // build, and the fleet below is the whole v2.2 set as of this entry, not only the routers seen in the wild.
   // STON.fi router v2.2 (release), ConstantProduct. Example: https://tonviewer.com/EQBwpBGEAb-NgjUxpmARAgVl8C4F_5GsXxZ3dpsA1qzQerNl

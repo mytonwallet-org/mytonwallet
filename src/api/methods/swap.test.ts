@@ -155,7 +155,7 @@ describe('swap estimate hints', () => {
     { type: 'external', providerName: '1inch', url: 'https://example.com/swap?from=eth&to=usdc' },
   ])('passes through error hints without requiring a TON wallet: $type', async (hint) => {
     const response = { error: 'Pair not found', hint };
-    const request = { from: 'eth', to: 'ethereum-usdc', fromAmount: '0.1' };
+    const request = { from: 'eth', to: 'ethereum-usdc', fromAmount: '0.1', langCode: 'ru' };
     callBackendPost.mockResolvedValue(response);
 
     expect(await swapEstimate('account-mainnet', request)).toBe(response);

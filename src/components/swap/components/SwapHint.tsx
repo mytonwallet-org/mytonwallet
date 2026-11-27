@@ -54,6 +54,21 @@ function SwapHint({
     }
   });
 
+  if (hint.type === 'oneToOneOffer' || hint.type === 'oneToOneUnavailable') {
+    return (
+      <details
+        key={JSON.stringify([hint.type, hint.title, hint.description])}
+        className={buildClassName(styles.promo, hint.type === 'oneToOneOffer' && styles.positive, className)}
+      >
+        <summary className={styles.summary}>
+          {hint.title}
+          <i className={buildClassName('icon-chevron-down', styles.chevron)} aria-hidden />
+        </summary>
+        <div className={styles.description}>{hint.description}</div>
+      </details>
+    );
+  }
+
   if (hint.type === 'oneToOne' || hint.type === 'betterRate' || hint.type === 'betterRateMinimum') {
     let message: TeactNode;
     if (hint.type === 'oneToOne') {

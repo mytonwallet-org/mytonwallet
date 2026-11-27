@@ -6,6 +6,7 @@
 //
 
 public struct ApiSwapEstimateRequest: Codable, Sendable {
+    public var langCode: String?
     public let from: String
     public let to: String
     public let slippage: Double?
