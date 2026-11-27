@@ -1215,7 +1215,7 @@ export type GlobalState = {
     currentCexAmlKycPolicyUrl?: string;
     maxAmountFromBackend?: string;
     swapHint?: ApiSwapHint;
-    swapQuoteHint?: Extract<ApiSwapHint, { type: 'oneToOne' | 'betterRate' | 'betterRateMinimum' }>;
+    swapQuoteHint?: Exclude<ApiSwapHint, { type: 'external' | 'intermediate' }>;
     /** Tester-only estimate fan-out summary from the backend `debug.summary` field. */
     estimateDebugSummary?: string;
     // Fees. Undefined values mean that these fields are unknown.

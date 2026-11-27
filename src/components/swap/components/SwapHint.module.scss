@@ -142,3 +142,45 @@
     background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 }
+
+.promo {
+  align-self: stretch;
+
+  padding: 0.5rem 1rem;
+  border-radius: 0.625rem;
+
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--color-activity-gray-text);
+
+  background-color: var(--color-activity-gray-background);
+}
+
+.positive {
+  color: var(--color-activity-green-text);
+  background-color: var(--color-activity-green-background);
+}
+
+.summary {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+
+  font-weight: 700;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+}
+
+.promo[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.description {
+  margin-top: 0.25rem;
+  white-space: pre-wrap;
+}

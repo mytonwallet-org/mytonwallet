@@ -104,6 +104,7 @@ export function getSwapEstimateResetParams(global: GlobalState) {
 
 /** Like the native apps, drops a suggestion to get an unknown token or one of the two tokens of the swap */
 export function getUsableSwapHint(global: GlobalState, hint?: ApiSwapHint) {
+  if (hint?.type === 'oneToOneOffer' || hint?.type === 'oneToOneUnavailable') return undefined;
   if (hint?.type !== 'intermediate') return hint;
 
   const { tokenInSlug, tokenOutSlug } = global.currentSwap;

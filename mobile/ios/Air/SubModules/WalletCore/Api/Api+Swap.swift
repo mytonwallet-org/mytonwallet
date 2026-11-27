@@ -26,7 +26,9 @@ extension Api {
     }
     
     public static func swapEstimate(accountId: String, request: ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse {
-        try await bridge.callApi("swapEstimate", accountId, request, decoding: ApiSwapEstimateResponse.self)
+        var request = request
+        request.langCode = LocalizationSupport.shared.langCode
+        return try await bridge.callApi("swapEstimate", accountId, request, decoding: ApiSwapEstimateResponse.self)
     }
     
     public static func swapGetPairs(symbolOrMinter: String) async throws -> [MPair] {

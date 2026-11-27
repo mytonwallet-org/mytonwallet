@@ -601,6 +601,8 @@ describe('estimateSwap', () => {
 
   it.each([
     { type: 'oneToOne', minimumAmount: '30' },
+    { type: 'oneToOneOffer', title: '1:1', description: 'At par' },
+    { type: 'oneToOneUnavailable', title: 'Market rate', description: 'Try again later' },
     { type: 'betterRate', additionalAmount: '0.01', symbol: 'ETH' },
     { type: 'betterRateMinimum', minimumAmount: '30', symbol: 'ETH' },
   ] as const)('keeps a $type hint on its selected quote and clears it on the next quote without one', async (hint) => {
@@ -731,6 +733,7 @@ describe('estimateSwap', () => {
       method === 'swapEstimate'
         ? {
           ...cexEstimate,
+          hint: { type: 'oneToOneUnavailable', title: 'Market rate', description: 'Try again later' },
           from: tokenIn.slug,
           to: tokenOut.tokenAddress,
           fromAmount: '10',
@@ -746,6 +749,7 @@ describe('estimateSwap', () => {
 
     const result = await estimateSwap(getGlobal(), () => false);
 
+    expect(result).toMatchObject({ swapQuoteHint: { type: 'oneToOneUnavailable', title: 'Market rate' } });
     expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
       fromAddress: address,
       toAddress: address,

@@ -88,7 +88,8 @@ data class MApiSwapEstimateRequest(
     val walletVersion: MApiTonWalletVersion?,
     val isFromAmountMax: Boolean?,
     val toncoinBalance: String?,
-    val nativeBalance: String? = null
+    val nativeBalance: String? = null,
+    val langCode: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -99,7 +100,9 @@ data class MApiSwapHint(
     val url: String? = null,
     val minimumAmount: String? = null,
     val additionalAmount: String? = null,
-    val symbol: String? = null
+    val symbol: String? = null,
+    val title: String? = null,
+    val description: String? = null
 )
 
 /** Present only for tester wallets; backend may attach more fields. */

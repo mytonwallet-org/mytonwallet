@@ -65,6 +65,7 @@ export type ApiSwapRouteType = 'dex' | 'cex';
 export type ApiSwapFeeMode = 'extra' | 'included';
 
 export type ApiSwapEstimateRequest = {
+  langCode?: string;
   from: string;
   to: string;
   slippage?: number;
@@ -173,6 +174,7 @@ export type ApiSwapCexEstimateResponse = {
 export type ApiSwapHint =
   | { type: 'intermediate'; token: string }
   | { type: 'external'; providerName: string; url: string }
+  | { type: 'oneToOneOffer' | 'oneToOneUnavailable'; title: string; description: string }
   | { type: 'oneToOne'; minimumAmount: string }
   | { type: 'betterRate'; additionalAmount: string; symbol: string }
   | { type: 'betterRateMinimum'; minimumAmount: string; symbol: string };

@@ -925,6 +925,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
     if (balance !== undefined) estimateRequest.nativeBalance = toDecimal(balance, decimals);
   }
 
+  estimateRequest.langCode = global.settings.langCode;
   const estimate = await callApi('swapEstimate', selectCurrentAccountId(global)!, estimateRequest);
 
   if (shouldStop()) return undefined;
@@ -956,7 +957,8 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
   }
 
   const { hint } = estimate;
-  const swapQuoteHint = hint?.type === 'oneToOne' || hint?.type === 'betterRate' || hint?.type === 'betterRateMinimum'
+  const swapQuoteHint = hint?.type === 'oneToOneOffer' || hint?.type === 'oneToOneUnavailable'
+    || hint?.type === 'oneToOne' || hint?.type === 'betterRate' || hint?.type === 'betterRateMinimum'
     ? hint : undefined;
 
   if (estimate.route === 'dex') {
