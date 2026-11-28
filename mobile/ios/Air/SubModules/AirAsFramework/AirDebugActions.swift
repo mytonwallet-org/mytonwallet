@@ -113,6 +113,19 @@ public enum AirDebugActions {
 
     #endif
 
+    #if DEBUG
+    /// The "Use Face ID" onboarding screen on its own, with a simulated successful Face ID.
+    public static func previewActivateBiometric() {
+        let screen = ActivateBiometricVC(biometryType: .face, authorizationToken: "preview", onCompletion: { _ in
+            topViewController()?.dismiss(animated: true)
+        })
+        screen.debugSimulatesSuccess = true
+        let navigationController = WNavigationController(rootViewController: screen)
+        navigationController.modalPresentationStyle = .fullScreen
+        topViewController()?.present(navigationController, animated: true)
+    }
+    #endif
+
     private static func presentIntro(enclaveToken: EnclaveToken?) {
         let intro = IntroVC(introModel: IntroModel(network: .mainnet, authMode: IntroAuthMode(enclaveToken: enclaveToken)), showsCloseButton: true)
         let navigationController = WNavigationController(rootViewController: intro)
